@@ -1,0 +1,35 @@
+<svg width="460" height="128" viewBox="0 0 460 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="navyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#33456E"/>
+      <stop offset="100%" stop-color="#131A2C"/>
+    </linearGradient>
+    <linearGradient id="sheenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="badgeClip">
+      <rect x="10" y="14" width="100" height="100" rx="26"/>
+    </clipPath>
+  </defs>
+
+  <!-- Badge -->
+  <rect x="10" y="14" width="100" height="100" rx="26" fill="url(#navyGrad)"/>
+  <rect x="10" y="14" width="100" height="52" fill="url(#sheenGrad)" clip-path="url(#badgeClip)"/>
+  <rect x="10.5" y="14.5" width="99" height="99" rx="25.5" fill="none" stroke="#5A6E9E" stroke-width="1" opacity="0.6"/>
+
+  <!-- Monogram "N": two solid strokes joined by a diagonal band,
+       with a single cobalt cut of light through its centre. -->
+  <rect x="32" y="34" width="10" height="60" rx="3" fill="#F5F7FA"/>
+  <rect x="78" y="34" width="10" height="60" rx="3" fill="#F5F7FA"/>
+
+  <polygon points="42,34 54,34 66,58 54,58" fill="#F5F7FA"/>
+  <polygon points="54,58 66,58 72,70 60,70" fill="#5C7CFF"/>
+  <polygon points="60,70 72,70 88,94 76,94" fill="#F5F7FA"/>
+
+  <!-- Wordmark (light, for dark backgrounds) -->
+  <text x="134" y="68" font-family="'Space Grotesk','Segoe UI',Arial,sans-serif" font-size="44" font-weight="700" letter-spacing="-1.2" fill="#F5F7FA">Nex<tspan font-weight="500" fill="#7C9CFF">byte</tspan></text>
+
+  <!-- Tagline -->
+  <text x="136" y="90" font-family="'Space Grotesk','Segoe UI',Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="4" fill="#9AA3B8">DIGITAL SOLUTIONS</text>
+</svg>
