@@ -19,7 +19,7 @@ function ComingSoon({ title }) {
 }
 
 export const router = createBrowserRouter([
-  { path: "/login", element: <LoginPage />, index: true },
+  { path: "/", element: <LoginPage /> },
   { path: "/register-company", element: <CompanySetupForm /> },
   {
     path: "/dashboard",
