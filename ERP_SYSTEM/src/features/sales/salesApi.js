@@ -11,6 +11,7 @@ function applyFilters(lines, filters) {
   if (f.movementType && f.movementType !== "all") {
     result = result.filter((r) => r.movementType === f.movementType);
   }
+
   if (f.date) {
     result = result.filter((r) => r.date === f.date);
   }
@@ -35,7 +36,7 @@ function applyFilters(lines, filters) {
   if (f.carNumber) {
     result = result.filter((r) => r.carNumber.includes(f.carNumber));
   }
-
+  console.log("applyFilters after movementType:", result);
   return result;
 }
 
@@ -109,6 +110,24 @@ export const salesApi = baseApi.injectEndpoints({
       },
       providesTags: ["Sale"],
     }),
+    createSaleInvoice: builder.mutation({
+      queryFn: async (invoiceData) => {
+        const { lines, ...header } = invoiceData;
+
+        const newLines = lines.map((line, index) => ({
+          id: `${Date.now()}-${index}`,
+          ...header,
+          ...line,
+          value: Number(line.quantity) * Number(line.price),
+        }));
+
+        await mockDelay(null, 500);
+        mockSalesLines.push(...newLines);
+
+        return { data: newLines };
+      },
+      invalidatesTags: ["Sale"],
+    }),
   }),
 });
 
@@ -117,4 +136,5 @@ export const {
   useUpdateSaleLineMutation,
   useDeleteSaleLineMutation,
   useGetInvoiceDetailsQuery,
+  useCreateSaleInvoiceMutation,
 } = salesApi;

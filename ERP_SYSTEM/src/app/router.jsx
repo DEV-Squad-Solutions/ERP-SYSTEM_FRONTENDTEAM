@@ -7,6 +7,7 @@ import DashboardHome from "../features/dashboard/pages/DashboardHome";
 import InventoryPage from "../features/inventory/pages/InventoryPage";
 import PurchasesPage from "../features/purchases/pages/PurchasesPage";
 import SalesPage from "../features/sales/pages/SalesPage";
+import Error404 from "../shared/components/Error404";
 
 // صفحة placeholder مؤقتة لأي موديول لسه ما اتبناش
 function ComingSoon({ title }) {
@@ -21,6 +22,7 @@ function ComingSoon({ title }) {
 export const router = createBrowserRouter([
   { path: "/", element: <LoginPage /> },
   { path: "/register-company", element: <CompanySetupForm /> },
+  { path: "*", element: <Error404 /> },
   {
     path: "/dashboard",
     element: (

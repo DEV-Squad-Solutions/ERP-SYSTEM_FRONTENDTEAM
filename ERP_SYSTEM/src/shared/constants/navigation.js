@@ -20,8 +20,7 @@ import {
 
 export const navigationItems = [
   { label: "الرئيسية", path: "/dashboard", icon: LayoutDashboard },
-  { label: "المبيعات", path: "/dashboard/sales", icon: TrendingUp },
-  { label: "المشتريات", path: "/dashboard/purchases", icon: ShoppingCart },
+  { label: "المبيعات/المشتريات", path: "/dashboard/sales", icon: TrendingUp },
   { label: "العملاء", path: "/dashboard/customers", icon: Users },
   { label: "الموردين", path: "/dashboard/suppliers", icon: Truck },
   { label: "الخزينة", path: "/dashboard/treasury", icon: Wallet },

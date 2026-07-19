@@ -1,34 +1,51 @@
+import { toast } from "sonner";
+import { ShoppingCart, TrendingUp, LayoutGrid } from "lucide-react";
 import Input from "../../../shared/components/ui/Input";
 
 const movementTabs = [
-  { value: "all", label: "الكل" },
-  { value: "purchase", label: "مشتريات" },
-  { value: "sale", label: "مبيعات" },
+  { value: "all", label: "الكل", icon: LayoutGrid },
+  { value: "purchase", label: "مشتريات", icon: ShoppingCart },
+  { value: "sale", label: "مبيعات", icon: TrendingUp },
 ];
 
+/**
+ * @param {{ filters: Object, onChange: (filters: Object) => void }} props
+ */
 export default function SalesFilters({ filters, onChange }) {
   const set = (key, value) => onChange({ ...filters, [key]: value });
+
+  const handleTabChange = (tab) => {
+    set("movementType", tab.value);
+    toast.info(`عرض: ${tab.label}`);
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
       <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+        {/* تبويب شراء/بيع/الكل */}
         <div className="inline-flex bg-ink-400/5 rounded-xl p-1 shrink-0">
-          {movementTabs.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => set("movementType", tab.value)}
-              className={`px-4 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
-                filters.movementType === tab.value
-                  ? "bg-white text-primary-500 font-medium shadow-sm"
-                  : "text-ink-400 hover:text-ink-900"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {movementTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = filters.movementType === tab.value;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => handleTabChange(tab)}
+                className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "bg-white text-primary-500 font-medium shadow-sm"
+                    : "text-ink-400 hover:text-ink-900"
+                }`}
+              >
+                <Icon size={14} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
+        {/* حقول البحث */}
         <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <Input
             type="date"
