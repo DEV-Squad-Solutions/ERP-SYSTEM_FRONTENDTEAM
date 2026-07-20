@@ -73,7 +73,7 @@ function money(n, currency) {
 }
 
 export default function InvoiceForm() {
-  const [invType, setInvType] = useState("sale");
+  const [invType, setInvType] = useState("purchase");
   const [invNumber, setInvNumber] = useState("SL-2026-0148");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 

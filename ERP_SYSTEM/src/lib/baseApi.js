@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 export const baseApi = createApi({
-  reducerPath: "api", // اسم الـ slice في الـ store
+  reducerPath: "api",
 
   baseQuery: fetchBaseQuery({
     baseUrl: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
@@ -26,12 +26,10 @@ export const baseApi = createApi({
     "Inventory",
     "JournalEntry",
     "Treasury",
-    "Purchase",
-
     "Expense",
     "Asset",
-    "Purchase",
     "Sale",
+    "Purchase",
   ],
   // فاضي هنا عن قصد - كل feature هيعمل injectEndpoints عليه بدل ما نكتب كل حاجة هنا
   endpoints: () => ({}),

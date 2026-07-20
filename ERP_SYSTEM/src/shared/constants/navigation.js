@@ -16,11 +16,14 @@ import {
   Repeat,
   PieChart,
   PersonStandingIcon,
+  WalletCardsIcon,
+  DollarSignIcon,
 } from "lucide-react";
 
 export const navigationItems = [
   { label: "الرئيسية", path: "/dashboard", icon: LayoutDashboard },
-  { label: "المبيعات/المشتريات", path: "/dashboard/sales", icon: TrendingUp },
+  { label: "المبيعات", path: "/dashboard/sales", icon: TrendingUp },
+  { label: "المشتريات", path: "/dashboard/purchases", icon: DollarSignIcon },
   { label: "العملاء", path: "/dashboard/customers", icon: Users },
   { label: "الموردين", path: "/dashboard/suppliers", icon: Truck },
   { label: "الخزينة", path: "/dashboard/treasury", icon: Wallet },

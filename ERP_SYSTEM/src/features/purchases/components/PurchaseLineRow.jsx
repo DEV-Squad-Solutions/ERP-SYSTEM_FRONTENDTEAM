@@ -18,9 +18,9 @@ import {
 import { useGetItemsQuery } from "../../inventory/inventoryApi";
 import { mockPackagingUnits } from "../../../mocks/data/packagingUnits";
 import {
-  useUpdateSaleLineMutation,
-  useDeleteSaleLineMutation,
-} from "../salesApi";
+  useUpdatePurchaseLineMutation,
+  useDeletePurchasesLineMutation,
+} from "../purchaseApi";
 import { useGetPackagingUnitsQuery } from "../../PackagingUnits/packagingApi";
 const emptyItem = () => ({
   itemId: "",
@@ -43,9 +43,10 @@ export default function InvoiceCard({ invoice }) {
   const { data: stockItems } = useGetItemsQuery();
   const { data: packagingUnits } = useGetPackagingUnitsQuery();
   const navigate = useNavigate();
-  const [updateInvoice, { isLoading: isSaving }] = useUpdateSaleLineMutation();
+  const [updateInvoice, { isLoading: isSaving }] =
+    useUpdatePurchaseLineMutation();
   const [deleteInvoice, { isLoading: isDeleting }] =
-    useDeleteSaleLineMutation();
+    useDeletePurchasesLineMutation();
   const [isEditing, setIsEditing] = useState(false);
   const [draftItems, setDraftItems] = useState(invoice?.items || []);
   const [draftTotals, setDraftTotals] = useState({

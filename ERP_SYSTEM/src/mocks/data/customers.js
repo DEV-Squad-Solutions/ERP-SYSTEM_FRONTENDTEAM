@@ -6,6 +6,7 @@ export const mockCustomers = [
     email: "ahmed@test.com",
     balance: 15000,
     creditLimit: 50000,
+    currency: "EGP",
     createdAt: "2026-01-10",
   },
   {
@@ -15,6 +16,7 @@ export const mockCustomers = [
     email: "mahmoud@test.com",
     balance: -3200,
     creditLimit: 20000,
+    currency: "EGP",
     createdAt: "2026-02-15",
   },
   {
@@ -24,6 +26,7 @@ export const mockCustomers = [
     email: "fajr@test.com",
     balance: 42000,
     creditLimit: 100000,
+    currency: "USD",
     createdAt: "2026-03-01",
   },
 ];

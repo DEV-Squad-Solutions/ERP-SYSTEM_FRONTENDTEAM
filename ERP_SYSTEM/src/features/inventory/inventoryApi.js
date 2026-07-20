@@ -7,9 +7,10 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 export const inventoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getItems: builder.query({
-      ...(USE_MOCK
-        ? { queryFn: async () => ({ data: await mockDelay(mockItems) }) }
-        : { query: () => "/inventory/items" }),
+      query: () => ({
+        url: "/items",
+        method: "GET",
+      }),
       providesTags: ["Inventory"],
     }),
 

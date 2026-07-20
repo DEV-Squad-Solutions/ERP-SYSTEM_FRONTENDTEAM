@@ -4,7 +4,7 @@ import Input from "../../../shared/components/ui/Input";
 /**
  * @param {{ filters: Object, onChange: (filters: Object) => void }} props
  */
-export default function SalesFilters({ filters, onChange }) {
+export default function PurchasesFilters({ filters, onChange }) {
   const set = (key, value) => onChange({ ...filters, [key]: value });
 
   return (

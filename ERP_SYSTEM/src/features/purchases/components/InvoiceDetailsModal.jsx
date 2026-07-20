@@ -1,5 +1,5 @@
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
-import { useGetSaleLinesQuery } from "../salesApi";
+import { useGetPurchasesLinesQuery } from "../purchaseApi";
 import Modal from "../../../shared/components/ui/Modal";
 import LedgerPanel from "../../../shared/components/ui/LedgerPanel";
 
@@ -11,7 +11,7 @@ export default function InvoiceDetailsModal({ invoiceId, isOpen, onClose }) {
     data: invoice,
     isLoading,
     isError,
-  } = useGetSaleLinesQuery(invoiceId, {
+  } = useGetPurchasesLinesQuery(invoiceId, {
     skip: !isOpen || !invoiceId,
   });
 

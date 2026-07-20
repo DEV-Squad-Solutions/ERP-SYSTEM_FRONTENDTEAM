@@ -1,5 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
-import { mockSalesLines } from "../../mocks/data/sales";
+import { mockPurchasesLines } from "../../mocks/data/purchases";
 import { mockDelay } from "../../mocks/mockDelay";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
@@ -35,35 +35,38 @@ function applyFilters(lines, filters) {
   return result;
 }
 
-export const salesApi = baseApi.injectEndpoints({
+export const purchasesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getSaleLines: builder.query({
+    getPurchasesLines: builder.query({
       queryFn: async (filters) => {
         if (!USE_MOCK) {
           throw new Error("Real API not connected yet");
         }
-        const result = applyFilters(mockSalesLines, filters);
+        const result = applyFilters(mockPurchasesLines, filters);
         return { data: await mockDelay(result) };
       },
-      providesTags: ["Sale"],
+      providesTags: ["Purchase"],
     }),
 
-    updateSaleLine: builder.mutation({
+    updatePurchaseLine: builder.mutation({
       queryFn: async ({ id, changes }) => {
-        const index = mockSalesLines.findIndex((r) => r.id === id);
+        const index = mockPurchasesLines.findIndex((r) => r.id === id);
         if (index !== -1) {
-          mockSalesLines[index] = { ...mockSalesLines[index], ...changes };
+          mockPurchasesLines[index] = {
+            ...mockPurchasesLines[index],
+            ...changes,
+          };
         }
         await mockDelay(null, 300);
-        return { data: mockSalesLines[index] };
+        return { data: mockPurchasesLines[index] };
       },
-      invalidatesTags: ["Sale"],
+      invalidatesTags: ["Purchase"],
     }),
 
-    deleteSaleLine: builder.mutation({
+    deletePurchasesLine: builder.mutation({
       queryFn: async (id) => {
-        const index = mockSalesLines.findIndex((r) => r.id === id);
-        if (index !== -1) mockSalesLines.splice(index, 1);
+        const index = mockPurchasesLines.findIndex((r) => r.id === id);
+        if (index !== -1) mockPurchasesLines.splice(index, 1);
         await mockDelay(null, 300);
         return { data: { id } };
       },
@@ -71,7 +74,7 @@ export const salesApi = baseApi.injectEndpoints({
     }),
     getInvoiceDetails: builder.query({
       queryFn: async (invoiceNumber) => {
-        const lines = mockSalesLines.filter(
+        const lines = mockPurchasesLines.filter(
           (r) => r.invoiceNumber === invoiceNumber,
         );
         if (lines.length === 0) {
@@ -103,9 +106,9 @@ export const salesApi = baseApi.injectEndpoints({
 
         return { data: await mockDelay(data) };
       },
-      providesTags: ["Sale"],
+      providesTags: ["Purchase"],
     }),
-    createSaleInvoice: builder.mutation({
+    createPurchasesInvoice: builder.mutation({
       queryFn: async (invoiceData) => {
         const { lines, ...header } = invoiceData;
 
@@ -117,24 +120,24 @@ export const salesApi = baseApi.injectEndpoints({
         }));
 
         await mockDelay(null, 500);
-        mockSalesLines.push(...newLines);
+        mockPurchasesLines.push(...newLines);
 
         return { data: newLines };
       },
-      invalidatesTags: ["Sale"],
+      invalidatesTags: ["Purchase"],
     }),
-    getSaleSummary: builder.query({
-      query: (id) => `Sales/${id}/summary`,
-      providesTags: (result, error, id) => [{ type: "SaleSummary", id }],
+    getPurchasesSummary: builder.query({
+      query: (id) => `Purchase/${id}/summary`,
+      providesTags: (result, error, id) => [{ type: "PurchaseSummary", id }],
     }),
   }),
 });
 
 export const {
-  useGetSaleLinesQuery,
-  useUpdateSaleLineMutation,
-  useDeleteSaleLineMutation,
+  useGetPurchasesLinesQuery,
+  useUpdatePurchaseLineMutation,
+  useDeletePurchasesLineMutation,
   useGetInvoiceDetailsQuery,
-  useCreateSaleInvoiceMutation,
-  useGetSaleSummaryQuery,
-} = salesApi;
+  useCreatePurchasesInvoiceMutation,
+  useGetPurchasesSummaryQuery,
+} = purchasesApi;

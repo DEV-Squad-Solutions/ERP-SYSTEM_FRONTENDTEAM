@@ -1,11 +1,22 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
-import InvoiceForm from "../../invoices/components/InvoiceForm";
-import InvoicesList from "../../invoices/components/InvoicesList";
+import { Plus } from "lucide-react";
+import PurchasesFilters from "../components/PurchasesFilters";
+import NewInvoiceModal from "../components/NewInvoiceModal";
+import InvoiceDetailsModal from "../components/InvoiceDetailsModal";
 import Button from "../../../shared/components/ui/Button";
+import PurchasesTotals from "../components/PurchasesTotals";
+import PurchasesTable from "../components/PurchasesTable";
 
-export default function PurchasesPage() {
-  const [showForm, setShowForm] = useState(false);
+export default function SalesPage() {
+  const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [filters, setFilters] = useState({
+    date: "",
+    invoiceNumber: "",
+    partyName: "",
+    country: "",
+    driverName: "",
+    carNumber: "",
+  });
 
   return (
     <div className="animate-fadeUp">
@@ -15,22 +26,23 @@ export default function PurchasesPage() {
             المشتريات
           </h2>
           <p className="text-sm text-ink-400 mt-1">
-            فواتير الشراء وربطها بالمخزون
+            فلترة وعرض وتعديل حركة المشتريات
           </p>
         </div>
-        <Button onClick={() => setShowForm((s) => !s)}>
-          {showForm ? <X size={18} /> : <Plus size={18} />}
-          {showForm ? "إلغاء" : "فاتورة شراء جديدة"}
+        <Button onClick={() => setShowNewInvoice(true)}>
+          <Plus size={18} />
+          فاتورة جديدة
         </Button>
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-6 mb-6 animate-fadeUp">
-          <InvoiceForm type="purchase" onSuccess={() => setShowForm(false)} />
-        </div>
-      )}
-
-      <InvoicesList type="purchase" />
+      <PurchasesFilters filters={filters} onChange={setFilters} />
+      <PurchasesTable filters={filters} />
+      <PurchasesTotals filters={filters} />
+      <NewInvoiceModal
+        invoiceId={null}
+        isOpen={showNewInvoice}
+        onClose={() => setShowNewInvoice(false)}
+      />
     </div>
   );
 }

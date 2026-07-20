@@ -1,8 +1,8 @@
-import { useGetSaleSummaryQuery } from "../salesApi";
+import { useGetPurchasesSummaryQuery } from "../purchaseApi";
 import LedgerPanel from "../../../shared/components/ui/LedgerPanel";
 
-export default function SalesTotals({ invoiceId }) {
-  const { data, isLoading } = useGetSaleSummaryQuery(invoiceId);
+export default function PurchasesTotals({ invoiceId }) {
+  const { data, isLoading } = useGetPurchasesSummaryQuery(invoiceId);
 
   if (isLoading) return <div>Loading...</div>;
 

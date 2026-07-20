@@ -1,9 +1,9 @@
-export const mockSalesLines = [
+export const mockPurchasesLines = [
   {
     id: "1",
     date: "2026-06-01",
     invoiceNumber: "SAL-2001",
-    movementType: "sale",
+    movementType: "purchase",
     partyName: "أحمد محمد علي",
     country: "مصر",
     driverName: "سيد فاروق",
@@ -40,7 +40,7 @@ export const mockSalesLines = [
     id: "2",
     date: "2026-06-10",
     invoiceNumber: "PUR-1001",
-    movementType: "sale",
+    movementType: "purchase",
     partyName: "مؤسسة الفجر للتوريدات",
     country: "مصر",
     driverName: "كريم عادل",
@@ -91,7 +91,7 @@ export const mockSalesLines = [
     id: "3",
     date: "2026-06-15",
     invoiceNumber: "SAL-2002",
-    movementType: "sale",
+    movementType: "purchase",
     partyName: "محمود إبراهيم",
     country: "مصر",
     driverName: "سيد فاروق",
@@ -127,7 +127,7 @@ export const mockSalesLines = [
     id: "4",
     date: "2026-06-20",
     invoiceNumber: "PUR-1002",
-    movementType: "sale",
+    movementType: "purchase",
     partyName: "شركة النور للتجارة",
     country: "مصر",
     driverName: "ياسر حسن",

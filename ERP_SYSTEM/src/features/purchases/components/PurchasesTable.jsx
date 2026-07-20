@@ -1,20 +1,20 @@
 import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
-import { useGetSaleLinesQuery } from "../salesApi";
-import InvoiceCard from "./SaleLineRow";
+import { useGetPurchasesLinesQuery } from "../purchaseApi";
+import InvoiceCard from "./PurchaseLineRow";
 import InvoiceDetailsModal from "./InvoiceDetailsModal";
 import { useState } from "react";
 
 /**
  * @param {{ filters: Object }} props
  */
-export default function SalesTable({ filters }) {
+export default function PurchasesTable({ filters }) {
   const {
     data: invoices,
     isLoading,
     isFetching,
     isError,
     refetch,
-  } = useGetSaleLinesQuery(filters);
+  } = useGetPurchasesLinesQuery(filters);
 
   if (isLoading) {
     return (
