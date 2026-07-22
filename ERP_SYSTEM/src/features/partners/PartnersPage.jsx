@@ -1,8 +1,8 @@
 import { useState } from "react";
-import PartySelect from "../components/PartySelect";
-import AccountStatementTable from "../components/AccountStatementTable";
+import PartySelect from "./components/PartySelect";
+import AccountStatementTable from "./components/AccountStatementTable";
 
-export default function AccountStatementPage() {
+export default function PartnersPage() {
   const [partyName, setPartyName] = useState("");
 
   return (
@@ -16,7 +16,7 @@ export default function AccountStatementPage() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4 max-w-md">
+      <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4  ">
         <PartySelect value={partyName} onChange={setPartyName} />
       </div>
 

@@ -15,7 +15,7 @@ export default function LedgerSelect({
           {label}
         </div>
         <select
-          className="flex-1 px-3 py-2.5 text-sm bg-white focus:outline-none focus:bg-primary-50/30 transition-colors"
+          className="flex-1 px-3 py-2.5 text-sm bg-white focus:outline-none focus:bg-primary-50/30  transition-colors"
           {...selectProps}
         >
           <option value="">— اختر —</option>

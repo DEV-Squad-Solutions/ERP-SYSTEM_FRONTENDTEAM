@@ -69,39 +69,14 @@ export const salesApi = baseApi.injectEndpoints({
       },
       invalidatesTags: ["Sale"],
     }),
-    getInvoiceDetails: builder.query({
-      queryFn: async (invoiceNumber) => {
-        const lines = mockSalesLines.filter(
-          (r) => r.invoiceNumber === invoiceNumber,
-        );
-        if (lines.length === 0) {
+    getInvoiceById: builder.query({
+      queryFn: async (id) => {
+        if (!USE_MOCK) throw new Error("Real API not connected yet");
+        const invoice = mockSalesLines.find((inv) => inv.id === id);
+        if (!invoice) {
           return { error: { status: 404, data: "الفاتورة غير موجودة" } };
         }
-
-        const first = lines[0];
-        const total = lines.reduce((sum, l) => sum + l.value, 0);
-        const discount = first.invoiceDiscount || 0;
-        const tax = first.invoiceTax || 0;
-        const paid = first.invoicePaid || 0;
-        const remaining = total - discount + tax - paid;
-
-        const data = {
-          invoiceNumber,
-          date: first.date,
-          movementType: first.movementType,
-          partyName: first.partyName,
-          country: first.country,
-          driverName: first.driverName,
-          carNumber: first.carNumber,
-          lines,
-          total,
-          discount,
-          tax,
-          paid,
-          remaining,
-        };
-
-        return { data: await mockDelay(data) };
+        return { data: await mockDelay(invoice) };
       },
       providesTags: ["Sale"],
     }),
@@ -134,7 +109,7 @@ export const {
   useGetSaleLinesQuery,
   useUpdateSaleLineMutation,
   useDeleteSaleLineMutation,
-  useGetInvoiceDetailsQuery,
+  useGetInvoiceByIdQuery,
   useCreateSaleInvoiceMutation,
   useGetSaleSummaryQuery,
 } = salesApi;

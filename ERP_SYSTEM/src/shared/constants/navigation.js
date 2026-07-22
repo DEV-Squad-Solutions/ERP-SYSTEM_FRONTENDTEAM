@@ -24,7 +24,7 @@ export const navigationItems = [
   { label: "الرئيسية", path: "/dashboard", icon: LayoutDashboard },
   { label: "المبيعات", path: "/dashboard/sales", icon: TrendingUp },
   { label: "المشتريات", path: "/dashboard/purchases", icon: DollarSignIcon },
-  { label: "العملاء", path: "/dashboard/customers", icon: Users },
+  { label: "العملاء", path: "/dashboard/partners", icon: Users },
   { label: "الموردين", path: "/dashboard/suppliers", icon: Truck },
   { label: "الخزينة", path: "/dashboard/treasury", icon: Wallet },
   { label: "البنك", path: "/dashboard/bank", icon: Landmark },

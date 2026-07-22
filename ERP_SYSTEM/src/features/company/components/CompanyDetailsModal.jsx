@@ -1,7 +1,7 @@
 import { useGetCompanyByIdQuery } from "../companyApi";
 import Modal from "../../../shared/components/ui/Modal";
 import LedgerPanel from "../../../shared/components/ui/LedgerPanel";
-
+import { useSelector } from "react-redux";
 const detailRows = [
   { key: "address", label: "العنوان" },
   { key: "commercialRegister", label: "السجل التجاري" },
@@ -22,7 +22,7 @@ export default function CompanyDetailsModal({ companyId, isOpen, onClose }) {
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title= "بيانات الشركة الحالية" >
+    <Modal isOpen={isOpen} onClose={onClose} title="بيانات الشركة الحالية">
       {isLoading && (
         <div className="space-y-2">
           {[1, 2, 3, 4].map((i) => (

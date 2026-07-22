@@ -1,6 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
 import LoginPage from "../features/auth/pages/LoginPage";
-import CompanySetupForm from "../features/auth/components/CompanySetupForm";
 import ProtectedRoute from "../shared/components/ProtectedRoute";
 import DashboardLayout from "../shared/components/layout/DashboardLayout";
 import DashboardHome from "../features/dashboard/pages/DashboardHome";
@@ -8,7 +7,10 @@ import InventoryPage from "../features/inventory/pages/InventoryPage";
 import PurchasesPage from "../features/purchases/pages/PurchasesPage";
 import SalesPage from "../features/sales/pages/SalesPage";
 import Error404 from "../shared/components/Error404";
-import AccountStatementPage from "../features/accounts/pages/AccountStatementPage";
+import PartnersPage from "../features/partners/PartnersPage";
+import InvoiceCreatePage from "../features/sales/pages/InvoiceCreatePage";
+import InvoiceDetailsPage from "../features/sales/pages/InvoiceDetailsPage";
+import InvoiceEditPage from "../features/sales/pages/InvoiceEditPage";
 
 // صفحة placeholder مؤقتة لأي موديول لسه ما اتبناش
 function ComingSoon({ title }) {
@@ -22,7 +24,6 @@ function ComingSoon({ title }) {
 
 export const router = createBrowserRouter([
   { path: "/", element: <LoginPage /> },
-  { path: "/register-company", element: <CompanySetupForm /> },
   { path: "*", element: <Error404 /> },
   {
     path: "/dashboard",
@@ -34,8 +35,12 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardHome /> },
       { path: "sales", element: <SalesPage /> },
+      { path: "sales", element: <SalesPage /> },
+      { path: "sales/new", element: <InvoiceCreatePage /> },
+      { path: "sales/:id", element: <InvoiceDetailsPage /> },
+      { path: "sales/:id/edit", element: <InvoiceEditPage /> },
       { path: "purchases", element: <PurchasesPage /> },
-      { path: "customers", element: <AccountStatementPage /> },
+      { path: "partners", element: <PartnersPage /> },
       { path: "treasury", element: <ComingSoon title="الخزينة" /> },
       { path: "bank", element: <ComingSoon title="البنك" /> },
       { path: "inventory", element: <InventoryPage /> },

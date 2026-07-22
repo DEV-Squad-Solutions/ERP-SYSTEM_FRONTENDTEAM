@@ -1,40 +1,117 @@
 import { createSlice } from "@reduxjs/toolkit";
 
-const savedAuth = JSON.parse(localStorage.getItem("auth")) || null;
+const STORAGE_KEY = "auth";
+
+const loadPersistedAuth = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const persisted = loadPersistedAuth();
 
 const initialState = {
-  selectedCompany: savedAuth?.selectedCompany || null, // { id, name } - الشركة المختارة قبل اللوجن
-  user: savedAuth?.user || null,
-  token: savedAuth?.token || null,
-  isAuthenticated: !!savedAuth?.token,
+  fullName: persisted?.fullName || null,
+  email: persisted?.email || null,
+  roles: persisted?.roles || [],
+  accessToken: persisted?.accessToken || null,
+  refreshToken: persisted?.refreshToken || null,
+  selectionToken: persisted?.selectionToken || null,
+  companies: persisted?.companies || [],
+  selectedCompany: persisted?.selectedCompany || null,
+  requiresCompanySelection: persisted?.requiresCompanySelection || false,
+  isAuthenticated: !!persisted?.accessToken,
+};
+
+const persistState = (state) => {
+  const toStore = {
+    fullName: state.fullName,
+    email: state.email,
+    roles: state.roles,
+    accessToken: state.accessToken,
+    refreshToken: state.refreshToken,
+    selectionToken: state.selectionToken,
+    companies: state.companies,
+    selectedCompany: state.selectedCompany,
+    requiresCompanySelection: state.requiresCompanySelection,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
 };
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setSelectedCompany: (state, action) => {
-      state.selectedCompany = action.payload; // { id, name }
-    },
     setCredentials: (state, action) => {
-      const { user, token } = action.payload;
-      state.user = user;
-      state.token = token;
-      state.isAuthenticated = true;
-      localStorage.setItem(
-        "auth",
-        JSON.stringify({ user, token, selectedCompany: state.selectedCompany }),
-      );
+      const data = action.payload;
+      state.fullName = data.fullName;
+      state.email = data.email;
+      state.roles = data.roles || [];
+      state.selectionToken = data.selectionToken;
+      state.companies = data.companies || [];
+      state.requiresCompanySelection = data.requiresCompanySelection;
+
+      if (!data.requiresCompanySelection) {
+        state.accessToken = data.accessToken;
+        state.refreshToken = data.refreshToken;
+        state.isAuthenticated = true;
+        const company = data.companies?.[0] || null;
+        state.selectedCompany = company;
+      }
+
+      persistState(state);
     },
+
+    setCompanySelection: (state, action) => {
+      const data = action.payload;
+
+      state.accessToken = data.accessToken;
+      state.refreshToken = data.refreshToken;
+      state.requiresCompanySelection = false;
+      state.isAuthenticated = true;
+
+      // نحدد الشركة المختارة من الـ companies اللي كانت متخزنة قبل الاختيار
+      const company =
+        state.companies.find((c) => c.id === data.selectedCompanyId) ||
+        data.companies?.[0] ||
+        null;
+      state.selectedCompany = company;
+
+      persistState(state);
+    },
+
+    updateTokens: (state, action) => {
+      state.accessToken = action.payload.accessToken;
+
+      if (action.payload.refreshToken) {
+        state.refreshToken = action.payload.refreshToken;
+      }
+
+      state.isAuthenticated = true;
+
+      persistState(state);
+    },
+
     logout: (state) => {
-      state.user = null;
-      state.token = null;
-      state.isAuthenticated = false;
+      localStorage.removeItem(STORAGE_KEY);
+
+      state.fullName = null;
+      state.email = null;
+      state.roles = [];
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.selectionToken = null;
+      state.companies = [];
       state.selectedCompany = null;
-      localStorage.removeItem("auth");
+      state.requiresCompanySelection = false;
+      state.isAuthenticated = false;
     },
   },
 });
 
-export const { setSelectedCompany, setCredentials, logout } = authSlice.actions;
+export const { setCredentials, setCompanySelection, updateTokens, logout } =
+  authSlice.actions;
 export default authSlice.reducer;

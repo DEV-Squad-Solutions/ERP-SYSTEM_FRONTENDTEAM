@@ -19,9 +19,9 @@ export default function SalesTotals({ invoiceId }) {
   ];
 
   return (
-    <LedgerPanel title="الإجماليات">
+    <LedgerPanel title="الإجماليات" className="mt-12">
       {summaryRows?.map((row) => (
-        <div key={row.label} className="flex items-stretch">
+        <div key={row.label} className="flex items-stretch ">
           <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 border-l">
             {row.label}
           </div>

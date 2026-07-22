@@ -1,78 +1,44 @@
+// src/features/auth/authApi.js
 import { baseApi } from "../../lib/baseApi";
-import { mockCompanies } from "../../mocks/data/companies";
-import { mockUsers } from "../../mocks/data/users";
-import { mockDelay } from "../../mocks/mockDelay";
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
+import { setCredentials, setCompanySelection } from "./authSlice";
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getCompanies: builder.query({
-      ...(USE_MOCK
-        ? { queryFn: async () => ({ data: await mockDelay(mockCompanies) }) }
-        : { query: () => "/companies/list" }),
-    }),
-
     login: builder.mutation({
-      ...(USE_MOCK
-        ? {
-            queryFn: async ({ companyId, username, password }) => {
-              await mockDelay(null, 600);
-              const user = mockUsers.find(
-                (u) =>
-                  u.username === username &&
-                  u.password === password &&
-                  u.companyId === companyId,
-              );
-              if (!user) {
-                return {
-                  error: { status: 401, data: "بيانات الدخول غير صحيحة" },
-                };
-              }
-              return {
-                data: {
-                  user: {
-                    id: user.id,
-                    name: user.name,
-                    username: user.username,
-                  },
-                  token: "mock-token-" + user.id,
-                },
-              };
-            },
-          }
-        : {
-            query: (body) => ({ url: "/auth/login", method: "POST", body }),
-          }),
+      query: (body) => ({
+        url: "/auth/login",
+        method: "POST",
+        body,
+      }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(setCredentials(data));
+        } catch {
+          // الخطأ بيتلقط من useLoginMutation في الـ component
+        }
+      },
     }),
 
-    // ⬇️ ده اللي كان ناقص
-    registerCompany: builder.mutation({
-      ...(USE_MOCK
-        ? {
-            queryFn: async (newCompany) => {
-              const data = {
-                id: String(Date.now()),
-                ...newCompany,
-              };
-              await mockDelay(null, 600);
-              mockCompanies.push({ id: data.id, name: data.name });
-              return { data };
-            },
-          }
-        : {
-            query: (data) => ({
-              url: "/companies/register",
-              method: "POST",
-              body: data,
-            }),
-          }),
+    selectCompany: builder.mutation({
+      query: (body) => ({
+        url: "/auth/select-company",
+        method: "POST",
+        body,
+      }),
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          // arg.companyId هو الـ id اللي بعتناه وقت الاستدعاء
+          dispatch(
+            setCompanySelection({ ...data, selectedCompanyId: arg.companyId }),
+          );
+        } catch {
+          // الخطأ بيتلقط من useSelectCompanyMutation في الـ component
+        }
+      },
     }),
   }),
 });
 
-export const {
-  useGetCompaniesQuery,
-  useLoginMutation,
-  useRegisterCompanyMutation, // ⬅️ لازم يتصدّر برضه
-} = authApi;
+export const { useLoginMutation, useSelectCompanyMutation } = authApi;

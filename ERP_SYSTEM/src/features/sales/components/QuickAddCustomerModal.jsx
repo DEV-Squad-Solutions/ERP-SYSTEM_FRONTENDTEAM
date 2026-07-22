@@ -2,14 +2,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useCreateCustomerMutation } from "../customersApi";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+import { useCreatePartyMutation } from "../../partners/partnersApi";
 
 const schema = z.object({
+  code: z.string().min(1, "كود العميل مطلوب"),
   name: z.string().min(2, "اسم العميل مطلوب"),
-  phone: z.string().min(6, "رقم الهاتف مطلوب"),
   currency: z.enum(["EGP", "USD"]),
 });
 
@@ -17,7 +17,8 @@ const schema = z.object({
  * @param {{ isOpen: boolean, onClose: () => void, onCreated: (customer: Object) => void }} props
  */
 export default function QuickAddCustomerModal({ isOpen, onClose, onCreated }) {
-  const [createCustomer, { isLoading }] = useCreateCustomerMutation();
+  const [createParty, { isLoading }] = useCreatePartyMutation();
+
   const {
     register,
     handleSubmit,
@@ -25,17 +26,20 @@ export default function QuickAddCustomerModal({ isOpen, onClose, onCreated }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", phone: "", currency: "EGP" },
+    defaultValues: { code: "", name: "", phone: "", currency: "EGP" },
   });
 
   const onSubmit = async (data) => {
     try {
-      const newCustomer = await createCustomer(data).unwrap();
+      const newParty = await createParty({
+        ...data,
+        partyType: "customer",
+      }).unwrap();
       toast.success("تم إضافة العميل بنجاح");
       reset();
-      onCreated(newCustomer);
+      onCreated(newParty);
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("فشل إضافة العميل");
     }
   };
@@ -43,6 +47,11 @@ export default function QuickAddCustomerModal({ isOpen, onClose, onCreated }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="إضافة عميل / مورد جديد">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Input
+          label="الكود"
+          {...register("code")}
+          error={errors.code?.message}
+        />
         <Input
           label="الاسم"
           {...register("name")}
