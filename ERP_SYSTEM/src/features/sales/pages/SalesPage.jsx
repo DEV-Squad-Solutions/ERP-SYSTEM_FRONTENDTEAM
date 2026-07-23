@@ -40,6 +40,7 @@ export default function SalesPage() {
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetInvoicesQuery(queryParams);
+  console.log("invoice", data);
   const handleSearch = () => {
     setAppliedFilters(draft);
     console.log(draft);

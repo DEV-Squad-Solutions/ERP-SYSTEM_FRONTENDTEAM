@@ -1,50 +1,62 @@
-import React from "react";
-import { Loader2 } from "lucide-react";
-import Drawer from "./Drawer";
-import { useGetInvoiceAuditLogQuery } from "../../salesApi";
+import { X, History } from "lucide-react";
 
+/**
+ * @param {{ open: boolean, onClose: () => void, invoiceId: string }} props
+ */
 export default function AuditLogDrawer({ open, onClose, invoiceId }) {
-  const {
-    data: log,
-    isLoading,
-    isError,
-  } = useGetInvoiceAuditLogQuery(invoiceId, {
-    skip: !open,
-  });
+  if (!open) return null;
+
+  // بيانات وهمية مؤقتًا لحد ما endpoint سجل العمليات يتحدد
+  const logs = [
+    {
+      id: 1,
+      action: "تم إنشاء الفاتورة",
+      user: "أحمد المدير",
+      date: "2026-06-01 10:24",
+    },
+    {
+      id: 2,
+      action: "تم تعديل بيانات الدفع",
+      user: "محمد المحاسب",
+      date: "2026-06-02 14:10",
+    },
+  ];
 
   return (
-    <Drawer open={open} onClose={onClose} title="سجل العمليات">
-      {isLoading && (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-400">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          جارٍ تحميل السجل...
+    <>
+      <div
+        onClick={onClose}
+        className="fixed inset-0 bg-ink-900/50 z-40 animate-fadeUp"
+      />
+      <div className="fixed top-0 left-0 h-screen w-full sm:w-96 bg-paper z-50 shadow-card overflow-y-auto custom-scroll animate-slideInRight">
+        <div className="sticky top-0 bg-ink-900 text-white px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History size={18} />
+            <h3 className="font-display font-bold">سجل العمليات</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <X size={18} />
+          </button>
         </div>
-      )}
 
-      {isError && (
-        <p className="rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-600">
-          تعذر تحميل سجل العمليات، حاول مرة أخرى.
-        </p>
-      )}
-
-      {!isLoading && !isError && (
-        <ol className="relative ms-2 space-y-6 border-s-2 border-slate-100 ps-5">
-          {(log ?? []).map((entry) => (
-            <li key={entry.id} className="relative">
-              <span className="absolute -start-[26px] top-1 h-2.5 w-2.5 rounded-full bg-[#0F6E5E] ring-4 ring-white" />
-              <p className="text-sm font-medium text-slate-800">
-                {entry.action}
-              </p>
-              <p className="mt-0.5 text-xs text-slate-400">
-                {entry.date} · {entry.user}
-              </p>
-            </li>
+        <div className="p-5 space-y-3">
+          {logs.map((log) => (
+            <div
+              key={log.id}
+              className="rounded-xl border border-ink-400/10 bg-white p-3"
+            >
+              <p className="text-sm text-ink-900 font-medium">{log.action}</p>
+              <div className="flex justify-between text-xs text-ink-400 mt-1">
+                <span>{log.user}</span>
+                <span className="num">{log.date}</span>
+              </div>
+            </div>
           ))}
-          {(log ?? []).length === 0 && (
-            <p className="text-sm text-slate-400">لا توجد عمليات مسجّلة بعد.</p>
-          )}
-        </ol>
-      )}
-    </Drawer>
+        </div>
+      </div>
+    </>
   );
 }

@@ -1,19 +1,33 @@
 import { useState, useEffect } from "react";
-import { Plus, Save, Loader2, History } from "lucide-react";
+import { Plus, Save, Loader2, History, Boxes } from "lucide-react";
 import { toast } from "sonner";
 import { useGetPartiesSelectQuery } from "../../../partners/partnersApi";
+import {
+  useGetDriversSelectQuery,
+  useGetDriverByIdQuery,
+} from "../../../drivers/driversApi";
+import { useGetStoresSelectQuery } from "../../../stores/storesApi";
 import {
   useGetInvoiceByIdQuery,
   useUpdateSaleLineMutation,
 } from "../../../sales/salesApi";
+import PackagingDrawer from "../PackagingDrawer";
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
+import LedgerReactSelect from "../../../../shared/components/ui/LedgerSelect";
 import Button from "../../../../shared/components/ui/Button";
 import NewInvoiceLineRow from "../createComponents/NewInvoiceLineRow";
+
 const movementOptions = [
   { value: "sale", label: "مبيعات" },
   { value: "purchase", label: "مشتريات" },
+];
+
+const paymentOptions = [
+  { value: "cash", label: "نقدي" },
+  { value: "bank", label: "بنك" },
+  { value: "credit", label: "آجل" },
 ];
 
 const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
@@ -27,10 +41,16 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
     isLoading,
     isFetching,
   } = useGetInvoiceByIdQuery(invoiceId);
-  const { data: customers } = useGetPartiesSelectQuery();
+  const { data: customers, isLoading: isLoadingParties } =
+    useGetPartiesSelectQuery();
+  const { data: drivers, isLoading: isLoadingDrivers } =
+    useGetDriversSelectQuery();
+  const { data: stores, isLoading: isLoadingStores } =
+    useGetStoresSelectQuery();
   const [updateInvoice, { isLoading: isSaving }] = useUpdateSaleLineMutation();
   const [header, setHeader] = useState(null);
   const [lines, setLines] = useState([]);
+  const [showPackaging, setShowPackaging] = useState(false);
 
   useEffect(() => {
     if (invoice) {
@@ -42,6 +62,31 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
 
   const setHeaderField = (key, value) =>
     setHeader((h) => ({ ...h, [key]: value }));
+
+  // لما يتختار سائق جديد، نجيب بياناته كاملة عشان رقم الرخصة
+  const { data: driverDetails } = useGetDriverByIdQuery(header?.driverId, {
+    skip: !header?.driverId,
+  });
+
+  useEffect(() => {
+    if (driverDetails?.licenseNumber) {
+      setHeaderField("licenseNumber", driverDetails.licenseNumber);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverDetails]);
+
+  const handlePartyChange = (name) => {
+    const party = customers?.find((c) => c.name === name);
+    setHeaderField("partyName", name);
+    if (party?.currency) setHeaderField("currency", party.currency);
+  };
+
+  const handleDriverChange = (driverId) => {
+    const driver = drivers?.find((d) => d.id === driverId);
+    setHeaderField("driverId", driverId);
+    setHeaderField("driverName", driver?.name || "");
+  };
+
   const updateLine = (index, newLine) =>
     setLines((prev) => prev.map((l, i) => (i === index ? newLine : l)));
   const removeLine = (index) =>
@@ -55,7 +100,7 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
         packagingUnitId: "",
         packagingUnitName: "",
         packagingCount: 0,
-        weight: 0,
+        unitWeight: 0,
         quantity: 0,
         price: 0,
         notes: "",
@@ -149,12 +194,37 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
           onChange={(e) => setHeaderField("date", e.target.value)}
         />
 
-        <LedgerSelect
-          label="عميل / مورد"
-          options={customerOptions}
-          value={header.partyName}
-          onChange={(e) => setHeaderField("partyName", e.target.value)}
+        {/* المخزن */}
+        <LedgerReactSelect
+          label="المخزن"
+          options={stores?.map((s) => ({ value: s.id, label: s.name })) || []}
+          value={header.storeId}
+          onChange={(val) => setHeaderField("storeId", val)}
+          isLoading={isLoadingStores}
+          placeholder="اختر المخزن"
         />
+
+        {/* العميل/المورد + مخزن العبوات */}
+        <div className="flex items-stretch">
+          <div className="flex-1">
+            <LedgerReactSelect
+              label="عميل / مورد"
+              options={customerOptions}
+              value={header.partyName}
+              onChange={handlePartyChange}
+              isLoading={isLoadingParties}
+              placeholder="اختر العميل أو المورد"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPackaging(true)}
+            className="px-3 text-primary-500 hover:bg-primary-50 border-t border-b border-l border-ink-400/10 transition-colors shrink-0"
+            title="مخزن العبوات"
+          >
+            <Boxes size={17} />
+          </button>
+        </div>
 
         <div className="flex items-stretch">
           <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
@@ -165,6 +235,26 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
           </div>
         </div>
 
+        {/* السائق + رقم الرخصة التلقائي */}
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <LedgerReactSelect
+            label="السائق"
+            options={
+              drivers?.map((d) => ({ value: d.id, label: d.name })) || []
+            }
+            value={header.driverId}
+            onChange={handleDriverChange}
+            isLoading={isLoadingDrivers}
+            placeholder="اختر السائق"
+          />
+          <LedgerField
+            label="رقم الرخصة"
+            value={header.licenseNumber}
+            readOnly
+            className="bg-ink-400/5"
+          />
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerField
             label="البلد"
@@ -172,16 +262,30 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
             onChange={(e) => setHeaderField("country", e.target.value)}
           />
           <LedgerField
-            label="اسم السائق"
-            value={header.driverName}
-            onChange={(e) => setHeaderField("driverName", e.target.value)}
+            label="رقم السيارة"
+            value={header.carNumber}
+            onChange={(e) => setHeaderField("carNumber", e.target.value)}
           />
         </div>
-        <LedgerField
-          label="رقم السيارة"
-          value={header.carNumber}
-          onChange={(e) => setHeaderField("carNumber", e.target.value)}
-        />
+
+        {/* طريقة الدفع + الخزنة/البنك */}
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <LedgerSelect
+            label="طريقة الدفع"
+            options={paymentOptions}
+            value={header.paymentMethod}
+            onChange={(e) => setHeaderField("paymentMethod", e.target.value)}
+          />
+          {header.paymentMethod === "cash" && (
+            <LedgerField
+              label="الخزنة / البنك"
+              value={header.treasuryAccount}
+              onChange={(e) =>
+                setHeaderField("treasuryAccount", e.target.value)
+              }
+            />
+          )}
+        </div>
       </LedgerPanel>
 
       <div>
@@ -291,6 +395,13 @@ export default function EditInvoiceForm({ invoiceId, onSuccess }) {
           </>
         )}
       </Button>
+
+      <PackagingDrawer
+        partyName={header.partyName}
+        invoiceNumber={header.invoiceNumber}
+        isOpen={showPackaging}
+        onClose={() => setShowPackaging(false)}
+      />
     </form>
   );
 }

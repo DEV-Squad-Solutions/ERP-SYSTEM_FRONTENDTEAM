@@ -1,68 +1,41 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
+import { FileText, Copy, FileDown } from "lucide-react";
+import Modal from "../../../../shared/components/ui/Modal";
+import Button from "../../../../shared/components/ui/Button";
 
-const OPTIONS = [
-  { key: "original", label: "طباعة أصل" },
-  { key: "copy", label: "نسخة" },
-  { key: "pdf", label: "PDF" },
-];
-
-export default function PrintPreviewModal({ open, onClose, invoiceId, onConfirm }) {
-  const [mode, setMode] = useState("original");
-
-  if (!open) return null;
+/**
+ * @param {{ open: boolean, onClose: () => void, invoiceId: string, onConfirm: (mode: string) => void }} props
+ */
+export default function PrintPreviewModal({ open, onClose, onConfirm }) {
+  const options = [
+    { mode: "original", label: "طباعة أصل الفاتورة", icon: FileText },
+    { mode: "copy", label: "طباعة نسخة", icon: Copy },
+    { mode: "pdf", label: "تصدير PDF", icon: FileDown },
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-semibold text-slate-800">معاينة الطباعة</h3>
-          <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-slate-100">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="mb-4 text-sm text-slate-500">
-          فاتورة #{invoiceId} — اختر طريقة الإخراج
-        </p>
-        <div className="space-y-2">
-          {OPTIONS.map((opt) => (
-            <label
-              key={opt.key}
-              className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2.5 text-sm ${
-                mode === opt.key
-                  ? "border-[#0F6E5E] bg-[#0F6E5E]/5 text-[#0F6E5E] font-medium"
-                  : "border-slate-200 text-slate-600"
-              }`}
-            >
-              {opt.label}
-              <input
-                type="radio"
-                name="print-mode"
-                checked={mode === opt.key}
-                onChange={() => setMode(opt.key)}
-                className="accent-[#0F6E5E]"
-              />
-            </label>
-          ))}
-        </div>
-        <div className="mt-5 flex gap-2">
+    <Modal isOpen={open} onClose={onClose} title="خيارات الطباعة">
+      <div className="space-y-2">
+        {options.map((opt) => (
           <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            إلغاء
-          </button>
-          <button
+            key={opt.mode}
             onClick={() => {
-              onConfirm(mode);
+              onConfirm(opt.mode);
               onClose();
             }}
-            className="flex-1 rounded-lg bg-[#0F6E5E] px-3 py-2.5 text-sm font-medium text-white hover:bg-[#0C5A4D]"
+            className="w-full flex items-center gap-3 rounded-xl border border-ink-400/10 px-4 py-3 hover:border-primary-400 hover:bg-primary-50/50 transition-colors text-right"
           >
-            تأكيد
+            <span className="w-9 h-9 rounded-full bg-primary-50 text-primary-500 flex items-center justify-center shrink-0">
+              <opt.icon size={16} />
+            </span>
+            <span className="text-sm font-medium text-ink-900">
+              {opt.label}
+            </span>
           </button>
-        </div>
+        ))}
       </div>
-    </div>
+      <Button variant="outline" onClick={onClose} className="w-full mt-4">
+        إلغاء
+      </Button>
+    </Modal>
   );
 }

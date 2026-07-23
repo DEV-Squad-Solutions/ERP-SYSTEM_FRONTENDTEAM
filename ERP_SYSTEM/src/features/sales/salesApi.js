@@ -23,7 +23,6 @@ function applyFilters(invoices, f) {
   if (f.toDate) result = result.filter((r) => r.date <= f.toDate);
   return result;
 }
-
 function applySort(invoices, sortBy, sortDir) {
   if (!sortBy) return invoices;
   const sorted = [...invoices].sort((a, b) => {

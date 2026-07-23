@@ -1,83 +1,151 @@
-import React from "react";
+import { useState } from "react";
 import {
+  ArrowRight,
   Pencil,
   Printer,
   Copy,
   FileDown,
-  PackageOpen,
-  Trash2,
-  ArrowRight,
+  Boxes,
   History,
+  Trash2,
+  MoreVertical,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from "lucide-react";
-import ActionButton from "./ActionButton";
-import { paymentBadgeStyles } from "../../utils/formatters";
+import InvoiceStatusBadge from "../InvoiceStatusBadge";
 
-export default function InvoiceHeader({ invoice, onAction }) {
+const typeLabels = {
+  sale: "بيع",
+  purchase: "شراء",
+  sale_return: "مرتجع بيع",
+  purchase_return: "مرتجع شراء",
+};
+
+/**
+ * @param {{ invoice: Object, onAction: (action: string) => void, isFetching?: boolean }} props
+ */
+export default function InvoiceHeader({ invoice, onAction, isFetching }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isPurchase =
+    invoice.movementType === "purchase" ||
+    invoice.movementType === "purchase_return";
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1
-            className="text-xl font-bold text-slate-900"
-            style={{ fontFamily: "'Cairo', sans-serif" }}
-          >
-            فاتورة {invoice.type} رقم #{invoice.id}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            تم الإنشاء بتاريخ {invoice.createdAt}
-          </p>
-        </div>
-        <span
-          className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${paymentBadgeStyles[invoice.paymentMethod]}`}
-        >
-          {invoice.paymentMethod}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 px-5 py-3">
-        <ActionButton
-          icon={Pencil}
-          label="تعديل"
-          onClick={() => onAction("edit")}
-        />
-        <ActionButton
-          icon={Printer}
-          label="طباعة"
-          onClick={() => onAction("print")}
-        />
-        <ActionButton
-          icon={Copy}
-          label="نسخ"
-          onClick={() => onAction("copy")}
-        />
-        <ActionButton
-          icon={FileDown}
-          label="PDF"
-          onClick={() => onAction("pdf")}
-        />
-        <ActionButton
-          icon={PackageOpen}
-          label="مخزن العبوات"
-          onClick={() => onAction("packaging")}
-        />
-        <ActionButton
-          icon={History}
-          label="سجل العمليات"
-          onClick={() => onAction("audit")}
-        />
-        <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
-        <ActionButton
-          icon={Trash2}
-          label="حذف"
-          variant="danger"
-          onClick={() => onAction("delete")}
-        />
-        <div className="ms-auto">
-          <ActionButton
-            icon={ArrowRight}
-            label="رجوع"
+    <div
+      className={`bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 sm:p-5 transition-opacity ${isFetching ? "opacity-60" : ""}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
             onClick={() => onAction("back")}
-          />
+            className="text-ink-400 hover:text-ink-900 transition-colors"
+            title="رجوع"
+          >
+            <ArrowRight size={18} />
+          </button>
+
+          {isPurchase ? (
+            <span className="inline-flex items-center gap-1.5 bg-positive/10 text-positive text-xs font-medium px-2.5 py-1 rounded-full">
+              <ArrowDownCircle size={13} />
+              {typeLabels[invoice.movementType]}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 bg-negative/10 text-negative text-xs font-medium px-2.5 py-1 rounded-full">
+              <ArrowUpCircle size={13} />
+              {typeLabels[invoice.movementType] || invoice.movementType}
+            </span>
+          )}
+
+          <h2 className="font-display text-lg sm:text-xl font-bold text-ink-900">
+            {invoice.invoiceNumber}
+          </h2>
+          <InvoiceStatusBadge status={invoice.status} />
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onAction("edit")}
+            className="p-2 rounded-lg text-primary-500 hover:bg-primary-50 transition-colors"
+            title="تعديل"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            onClick={() => onAction("print")}
+            className="p-2 rounded-lg text-ink-400 hover:bg-ink-400/5 transition-colors"
+            title="طباعة"
+          >
+            <Printer size={16} />
+          </button>
+          <button
+            onClick={() => onAction("packaging")}
+            className="p-2 rounded-lg text-gold-600 hover:bg-gold-50 transition-colors"
+            title="مخزن العبوات"
+          >
+            <Boxes size={16} />
+          </button>
+
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((s) => !s)}
+              className="p-2 rounded-lg text-ink-400 hover:bg-ink-400/5 transition-colors"
+              title="المزيد"
+            >
+              <MoreVertical size={16} />
+            </button>
+
+            {menuOpen && (
+              <>
+                <div
+                  onClick={() => setMenuOpen(false)}
+                  className="fixed inset-0 z-10"
+                />
+                <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-xl shadow-card border border-ink-400/10 py-1 z-20 animate-fadeUp">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAction("copy");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-400/5 text-right"
+                  >
+                    <Copy size={14} />
+                    نسخ الفاتورة
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAction("pdf");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-400/5 text-right"
+                  >
+                    <FileDown size={14} />
+                    تصدير PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAction("audit");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-400/5 text-right"
+                  >
+                    <History size={14} />
+                    سجل العمليات
+                  </button>
+                  <div className="border-t border-ink-400/10 my-1" />
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAction("delete");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-negative hover:bg-negative/5 text-right"
+                  >
+                    <Trash2 size={14} />
+                    حذف الفاتورة
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

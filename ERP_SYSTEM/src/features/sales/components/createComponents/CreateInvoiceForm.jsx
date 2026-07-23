@@ -1,5 +1,16 @@
 import { useState, useEffect } from "react";
-import { Plus, Save, Printer, Loader2, UserPlus, Boxes, X } from "lucide-react";
+import {
+  Plus,
+  Save,
+  Printer,
+  Loader2,
+  UserPlus,
+  Boxes,
+  X,
+  TimelineIcon,
+  Truck,
+  UserRound,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useGetPartiesSelectQuery } from "../../../partners/partnersApi";
 import {
@@ -55,8 +66,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showPackaging, setShowPackaging] = useState(false);
-  const [itemsLocked, setItemsLocked] = useState(true); // مقفول لحد ما يتختار مخزن
-
+  const [itemsLocked, setItemsLocked] = useState(true); // مقفول لحد ما يتختارن مخز
+  const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
   const [header, setHeader] = useState({
     invoiceNumber: generateInvoiceNumber("sale"),
     movementType: "sale",
@@ -80,8 +91,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   const setHeaderField = (key, value) =>
     setHeader((h) => ({ ...h, [key]: value }));
-
-  // المخزن إلزامي قبل الأصناف
   useEffect(() => {
     setItemsLocked(!header.storeId);
   }, [header.storeId]);
@@ -313,15 +322,28 @@ export default function CreateInvoiceForm({ onSuccess }) {
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               السائق
             </div>
-            <CompactSelect
-              label="السائق"
-              options={
-                drivers?.map((d) => ({ value: d.id, label: d.name })) || []
-              }
-              value={header.driverId}
-              onChange={handleDriverChange}
-              placeholder="اختر السائق"
-            />
+            {isTemporaryDriver ? (
+              <input
+                type="text"
+                value={header.driverName}
+                onChange={(e) => setHeaderField("driverName", e.target.value)}
+                placeholder="اكتب اسم السائق"
+                className="flex-1 px-3 py-2 outline-none"
+              />
+            ) : (
+              <CompactSelect
+                label="السائق"
+                options={
+                  drivers?.map((d) => ({
+                    value: d.id,
+                    label: d.name,
+                  })) || []
+                }
+                value={header.driverId}
+                onChange={handleDriverChange}
+                placeholder="اختر السائق"
+              />
+            )}
             <button
               type="button"
               onClick={() => setShowAddDriver(true)}
@@ -329,6 +351,27 @@ export default function CreateInvoiceForm({ onSuccess }) {
               title="إضافة سائق جديد"
             >
               <UserPlus size={17} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsTemporaryDriver((prev) => !prev);
+
+                setHeader((h) => ({
+                  ...h,
+                  driverId: "",
+                  driverName: "",
+                  licenseNumber: "",
+                }));
+              }}
+              className={`px-3 border-r border-ink-400/10 transition-colors ${
+                isTemporaryDriver
+                  ? "bg-primary-100 text-primary-600"
+                  : "text-primary-500 hover:bg-primary-50"
+              }`}
+              title="سائق وقتي"
+            >
+              <Truck size={17} />
             </button>
           </div>
 

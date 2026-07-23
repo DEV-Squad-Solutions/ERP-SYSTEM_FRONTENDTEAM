@@ -1,35 +1,59 @@
-import React from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import Modal from "../../../../shared/components/ui/Modal";
+import Button from "../../../../shared/components/ui/Button";
 
-export default function ConfirmDeleteModal({ open, onClose, invoiceId, onConfirm, isDeleting }) {
-  if (!open) return null;
+/**
+ * @param {{ open: boolean, onClose: () => void, invoiceNumber: string, isDeleting: boolean, onConfirm: () => void }} props
+ */
+export default function ConfirmDeleteModal({
+  open,
+  onClose,
+  invoiceNumber,
+  isDeleting,
+  onConfirm,
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
-        <div className="mb-1 flex items-center gap-2 text-red-600">
-          <AlertTriangle className="h-5 w-5" />
-          <h3 className="font-semibold">حذف الفاتورة</h3>
+    <Modal isOpen={open} onClose={onClose} title="تأكيد الحذف">
+      <div className="text-center py-2">
+        <div className="w-14 h-14 rounded-full bg-negative/10 flex items-center justify-center mx-auto mb-3">
+          <AlertTriangle
+            size={26}
+            className="text-negative"
+            strokeWidth={1.6}
+          />
         </div>
-        <p className="mt-2 text-sm text-slate-500">
-          سيتم حذف الفاتورة #{invoiceId} نهائيًا. لا يمكن التراجع عن هذا الإجراء.
+        <p className="text-ink-900 font-medium mb-1">
+          متأكد إنك عايز تحذف الفاتورة{" "}
+          <span className="num">{invoiceNumber}</span>؟
         </p>
-        <div className="mt-5 flex gap-2">
-          <button
+        <p className="text-sm text-ink-400 mb-5">
+          هذا الإجراء لا يمكن التراجع عنه
+        </p>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
             onClick={onClose}
+            className="flex-1"
             disabled={isDeleting}
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
             إلغاء
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="danger"
             onClick={onConfirm}
+            className="flex-1"
             disabled={isDeleting}
-            className="flex-1 rounded-lg bg-red-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
-            {isDeleting ? "جارٍ الحذف..." : "حذف نهائي"}
-          </button>
+            {isDeleting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Trash2 size={16} />
+            )}
+            حذف نهائيًا
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

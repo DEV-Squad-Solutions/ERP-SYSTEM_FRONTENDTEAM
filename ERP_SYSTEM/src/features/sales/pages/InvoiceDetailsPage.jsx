@@ -16,7 +16,7 @@ import {
 } from "../components/Detailscomponents/InvoiceDetailsStates";
 
 import {
-  useGetInvoicesQuery,
+  useGetInvoiceByIdQuery,
   useDuplicateInvoiceMutation,
   useDeleteSaleLineMutation,
 } from "../salesApi";
@@ -31,7 +31,7 @@ export default function InvoiceDetailsPage() {
     isFetching,
     isError,
     refetch,
-  } = useGetInvoicesQuery(id);
+  } = useGetInvoiceByIdQuery(id);
 
   const [duplicateInvoice] = useDuplicateInvoiceMutation();
   const [deleteInvoice, { isLoading: isDeleting }] =
@@ -54,7 +54,7 @@ export default function InvoiceDetailsPage() {
         case "copy":
           try {
             const created = await duplicateInvoice(id).unwrap();
-            toast.success(`تم إنشاء نسخة جديدة برقم #${created.id}`);
+            toast.success(`تم إنشاء نسخة جديدة برقم ${created.invoiceNumber}`);
             navigate(`/dashboard/sales/${created.id}`);
           } catch {
             toast.error("تعذر نسخ الفاتورة، حاول مرة أخرى");
@@ -93,7 +93,7 @@ export default function InvoiceDetailsPage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 px-4 py-6 sm:px-8">
+    <div dir="rtl" className="min-h-screen bg-paper px-4 py-6 sm:px-8">
       {isLoading && <InvoiceDetailsSkeleton />}
 
       {!isLoading && isError && (
@@ -105,22 +105,29 @@ export default function InvoiceDetailsPage() {
 
       {!isLoading && !isError && invoice && (
         <>
-          <div className="mx-auto max-w-6xl space-y-5">
-            <InvoiceHeader invoice={invoice} onAction={handleAction} />
+          <div className="mx-auto max-w-6xl space-y-5 animate-fadeUp">
+            <InvoiceHeader
+              invoice={invoice}
+              onAction={handleAction}
+              isFetching={isFetching}
+            />
             <InvoiceInfoCard invoice={invoice} />
-            <InvoiceItemsTable items={invoice.items} />
+            <InvoiceItemsTable
+              items={invoice.items}
+              currency={invoice.currency}
+            />
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
               <div className="lg:col-span-2" />
-              <InvoiceSummaryCard items={invoice.items} />
+              <InvoiceSummaryCard invoice={invoice} />
             </div>
           </div>
 
           <PackagingDrawer
-            open={packagingOpen}
+            partyName={invoice.partyName}
+            invoiceNumber={invoice.invoiceNumber}
+            isOpen={packagingOpen}
             onClose={() => setPackagingOpen(false)}
-            invoiceId={id}
-            client={invoice.client}
           />
           <AuditLogDrawer
             open={auditOpen}
@@ -140,7 +147,7 @@ export default function InvoiceDetailsPage() {
           <ConfirmDeleteModal
             open={deleteOpen}
             onClose={() => setDeleteOpen(false)}
-            invoiceId={id}
+            invoiceNumber={invoice.invoiceNumber}
             isDeleting={isDeleting}
             onConfirm={handleConfirmDelete}
           />

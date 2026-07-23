@@ -1,38 +1,52 @@
-import React, { useMemo } from "react";
-import { calculateInvoiceTotals, formatNumber } from "../../utils/formatters";
+import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 
-export default function InvoiceSummaryCard({ items }) {
-  const totals = useMemo(() => calculateInvoiceTotals(items), [items]);
+/**
+ * @param {{ invoice: Object }} props
+ */
+export default function InvoiceSummaryCard({ invoice }) {
+  const items = invoice.items || [];
+  const total = items.reduce((s, it) => s + (it.value || 0), 0);
+  const discount = invoice.discount || 0;
+  const tax = invoice.tax || 0;
+  const paid = invoice.paid || 0;
+  const net = total - discount + tax;
+  const remaining = net - paid;
+  const symbol = invoice.currency === "USD" ? "$" : "ج.م";
 
   const rows = [
-    { label: "عدد الأصناف", value: totals.itemsCount },
-    { label: "إجمالي العدد", value: totals.totalCount },
-    { label: "إجمالي الكمية", value: totals.totalQuantity },
+    {
+      label: "عدد الأصناف",
+      value: items.length,
+      tone: "text-ink-900",
+      isCount: true,
+    },
+    { label: "الإجمالي", value: total, tone: "text-ink-900" },
+    { label: "الخصم", value: discount, tone: "text-negative" },
+    { label: "الضريبة", value: tax, tone: "text-ink-600" },
+    { label: "الصافي", value: net, tone: "text-primary-500" },
+    { label: "المدفوع", value: paid, tone: "text-positive" },
+    {
+      label: "المتبقي",
+      value: remaining,
+      tone: remaining > 0 ? "text-negative" : "text-positive",
+    },
   ];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-semibold text-slate-500">
-        ملخص الفاتورة
-      </h2>
-      <div className="space-y-3">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between">
-            <span className="text-sm text-slate-500">{row.label}</span>
-            <span className="tabular-nums text-sm font-medium text-slate-800">
-              {formatNumber(row.value)}
-            </span>
+    <LedgerPanel title="ملخص الفاتورة">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-stretch">
+          <div className="w-28 shrink-0 bg-ink-900/[0.03] px-3 py-2 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+            {row.label}
           </div>
-        ))}
-        <div className="mt-3 flex items-center justify-between rounded-lg bg-[#0F6E5E]/5 px-3 py-2.5">
-          <span className="text-sm font-semibold text-[#0F6E5E]">
-            إجمالي القيمة
-          </span>
-          <span className="tabular-nums text-base font-bold text-[#0F6E5E]">
-            {formatNumber(totals.totalValue)}
-          </span>
+          <div
+            className={`flex-1 px-3 py-2 text-sm num font-medium flex items-center ${row.tone}`}
+          >
+            {row.value.toLocaleString("ar-EG")}
+            {!row.isCount && ` ${symbol}`}
+          </div>
         </div>
-      </div>
-    </div>
+      ))}
+    </LedgerPanel>
   );
 }
