@@ -1,5 +1,5 @@
 import { FileSearch, Users } from "lucide-react";
-import { useGetSaleLinesQuery } from "../../sales/salesApi";
+import { useGetInvoicesQuery } from "../../sales/salesApi";
 
 /**
  * @param {{ partyName: string }} props
@@ -10,7 +10,7 @@ export default function AccountStatementTable({ partyName }) {
     isLoading,
     isFetching,
     isError,
-  } = useGetSaleLinesQuery({ partyName }, { skip: !partyName });
+  } = useGetInvoicesQuery({ partyName }, { skip: !partyName });
 
   if (!partyName) {
     return (
