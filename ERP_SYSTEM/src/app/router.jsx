@@ -12,6 +12,7 @@ import InvoiceDetailsPage from "../features/sales/pages/InvoiceDetailsPage";
 import InvoiceEditPage from "../features/sales/pages/InvoiceEditPage";
 import PartyStatementPage from "../features/partners/pages/PartyStatementPage";
 import StoreContainersPage from "../features/storeContainers/pages/StoreContainersPage";
+import TreasuryPage from "../features/treasury/Pages/TreasuryPage";
 
 // صفحة placeholder مؤقتة لأي موديول لسه ما اتبناش
 function ComingSoon({ title }) {
@@ -45,7 +46,7 @@ export const router = createBrowserRouter([
       { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
       { path: "purchases", element: <PurchasesPage /> },
       { path: "partners", element: <PartyStatementPage /> },
-      { path: "treasury", element: <ComingSoon title="الخزينة" /> },
+      { path: "treasury", element: <TreasuryPage /> },
       { path: "bank", element: <ComingSoon title="البنك" /> },
       { path: "inventory", element: <InventoryPage /> },
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
