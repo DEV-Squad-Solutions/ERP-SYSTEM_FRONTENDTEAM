@@ -7,10 +7,11 @@ import InventoryPage from "../features/inventory/pages/InventoryPage";
 import PurchasesPage from "../features/purchases/pages/PurchasesPage";
 import SalesPage from "../features/sales/pages/SalesPage";
 import Error404 from "../shared/components/Error404";
-import PartnersPage from "../features/partners/PartnersPage";
 import InvoiceCreatePage from "../features/sales/pages/InvoiceCreatePage";
 import InvoiceDetailsPage from "../features/sales/pages/InvoiceDetailsPage";
 import InvoiceEditPage from "../features/sales/pages/InvoiceEditPage";
+import PartyStatementPage from "../features/partners/pages/PartyStatementPage";
+import StoreContainersPage from "../features/storeContainers/pages/StoreContainersPage";
 
 // صفحة placeholder مؤقتة لأي موديول لسه ما اتبناش
 function ComingSoon({ title }) {
@@ -35,12 +36,15 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardHome /> },
       { path: "sales", element: <SalesPage /> },
-      { path: "sales", element: <SalesPage /> },
       { path: "sales/new", element: <InvoiceCreatePage /> },
       { path: "sales/:id", element: <InvoiceDetailsPage /> },
       { path: "sales/:id/edit", element: <InvoiceEditPage /> },
+      { path: "purchases/new", element: <InvoiceCreatePage /> },
+      { path: "purchases/:id", element: <InvoiceDetailsPage /> },
+      { path: "purchases/:id/edit", element: <InvoiceEditPage /> },
+      { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
       { path: "purchases", element: <PurchasesPage /> },
-      { path: "partners", element: <PartnersPage /> },
+      { path: "partners", element: <PartyStatementPage /> },
       { path: "treasury", element: <ComingSoon title="الخزينة" /> },
       { path: "bank", element: <ComingSoon title="البنك" /> },
       { path: "inventory", element: <InventoryPage /> },

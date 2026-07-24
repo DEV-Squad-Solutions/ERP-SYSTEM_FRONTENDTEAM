@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Save, Loader2, History, Boxes } from "lucide-react";
 import { toast } from "sonner";
-import { useGetPartiesSelectQuery } from "../../../partners/partnersApi";
+import { useGetPartiesSelectQuery } from "../../../partners/partiesApi";
 import {
   useGetDriversSelectQuery,
   useGetDriverByIdQuery,

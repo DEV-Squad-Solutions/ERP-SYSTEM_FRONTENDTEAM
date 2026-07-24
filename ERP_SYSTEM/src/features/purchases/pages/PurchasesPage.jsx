@@ -42,7 +42,6 @@ export default function SalesPage() {
     useGetInvoicesQuery(queryParams);
   const handleSearch = () => {
     setAppliedFilters(draft);
-    console.log(draft);
     setPage(1);
   };
 
@@ -72,7 +71,7 @@ export default function SalesPage() {
           فواتير المشتريات
         </h2>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => navigate("/dashboard/sales/new")}>
+          <Button onClick={() => navigate("/dashboard/purchases/new")}>
             <Plus size={16} />
             فاتورة جديدة
           </Button>

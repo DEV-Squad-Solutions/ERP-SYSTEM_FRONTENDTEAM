@@ -30,6 +30,7 @@ export const baseApi = createApi({
     "Invoice",
     "InvoiceAuditLog",
     "InvoicePackaging",
+    "PartyStatement",
   ],
   // فاضي هنا عن قصد - كل feature هيعمل injectEndpoints عليه بدل ما نكتب كل حاجة هنا
   endpoints: () => ({}),

@@ -1,0 +1,41 @@
+export const mockPartyStatementEntries = [
+  {
+    id: "stm-1",
+    partyId: "party-1",
+    date: "2026-07-01",
+    description: "فاتورة بيع رقم 1001",
+    quantity: 20,
+    direction: "out", // out = صادر (بيع/فاتورة على العميل)
+    price: 150,
+    debit: 3000,
+    credit: 0,
+    balance: 3000,
+    notes: "",
+  },
+  {
+    id: "stm-2",
+    partyId: "party-1",
+    date: "2026-07-05",
+    description: "سند قبض نقدي",
+    quantity: 0,
+    direction: "in", // in = وارد (تحصيل/دفعة من العميل)
+    price: 0,
+    debit: 0,
+    credit: 1000,
+    balance: 2000,
+    notes: "دفعة أولى",
+  },
+  {
+    id: "stm-3",
+    partyId: "party-1",
+    date: "2026-07-10",
+    description: "فاتورة بيع رقم 1004",
+    quantity: 10,
+    direction: "out",
+    price: 200,
+    debit: 2000,
+    credit: 0,
+    balance: 4000,
+    notes: "",
+  },
+];

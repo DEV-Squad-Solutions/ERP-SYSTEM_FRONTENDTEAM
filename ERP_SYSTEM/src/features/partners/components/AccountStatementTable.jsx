@@ -51,7 +51,6 @@ export default function AccountStatementTable({ partyName }) {
     );
   }
 
-  // ترتيب الفواتير بالتاريخ، وتحويل كل فاتورة لصف بمدين/دائن
   const sorted = [...invoices].sort((a, b) => a.date.localeCompare(b.date));
 
   let runningBalance = 0;

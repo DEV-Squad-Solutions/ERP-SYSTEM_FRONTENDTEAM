@@ -108,7 +108,7 @@ export default function SalesInvoicesTable({
     try {
       const newInvoice = await duplicateInvoice(id).unwrap();
       toast.success("تم نسخ الفاتورة بنجاح");
-      navigate(`/dashboard/sales/${newInvoice.id}/edit`);
+      navigate(`/dashboard/purchases/${newInvoice.id}/edit`);
     } catch {
       toast.error("فشل نسخ الفاتورة");
     }
@@ -218,7 +218,7 @@ export default function SalesInvoicesTable({
                 <td className="p-3">
                   <div className="flex items-center gap-0.5 relative">
                     <button
-                      onClick={() => navigate(`/dashboard/sales/${inv.id}`)}
+                      onClick={() => navigate(`/dashboard/purchases/${inv.id}`)}
                       className="p-1.5 rounded-lg text-primary-500 hover:bg-primary-50"
                       title="عرض"
                     >
@@ -226,7 +226,7 @@ export default function SalesInvoicesTable({
                     </button>
                     <button
                       onClick={() =>
-                        navigate(`/dashboard/sales/${inv.id}/edit`)
+                        navigate(`/dashboard/purchases/${inv.id}/edit`)
                       }
                       className="p-1.5 rounded-lg text-primary-500 hover:bg-primary-50"
                       title="تعديل"

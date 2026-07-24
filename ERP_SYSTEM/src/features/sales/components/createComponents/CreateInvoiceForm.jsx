@@ -12,7 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useGetPartiesSelectQuery } from "../../../partners/partnersApi";
+import { useGetPartiesSelectQuery } from "../../../partners/partiesApi";
 import {
   useGetDriversSelectQuery,
   useGetDriverByIdQuery,

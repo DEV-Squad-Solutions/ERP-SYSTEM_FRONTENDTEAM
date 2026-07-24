@@ -1,6 +1,6 @@
-import { useGetItemsQuery } from "../inventoryApi";
+import { useGetItemsSelectQuery } from "../inventoryApi";
 import Input from "../../../shared/components/ui/Input";
-
+import CompactSelect from "../../../shared/components/ui/CompactSelect";
 const movementTabs = [
   { value: "all", label: "الكل" },
   { value: "purchase", label: "شراء" },
@@ -11,12 +11,11 @@ const movementTabs = [
  * @param {{ filters: Object, onChange: (filters: Object) => void }} props
  */
 export default function StockLedgerFilters({ filters, onChange }) {
-  const { data: items } = useGetItemsQuery();
+  const { data: items, isLoading } = useGetItemsSelectQuery();
 
   return (
     <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
-      <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-        {/* تبويب شراء/بيع/الكل */}
+      <div className="flex flex-col justify-center items-center lg:flex-row lg:items-end gap-3">
         <div className="inline-flex bg-ink-400/5 rounded-xl p-1 shrink-0">
           {movementTabs.map((tab) => (
             <button
@@ -33,7 +32,7 @@ export default function StockLedgerFilters({ filters, onChange }) {
           ))}
         </div>
 
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="flex-1 grid grid-cols-1 justify-center sm:grid-cols-3 gap-3">
           <Input
             label="التاريخ من"
             type="date"
@@ -46,22 +45,27 @@ export default function StockLedgerFilters({ filters, onChange }) {
             value={filters.to}
             onChange={(e) => onChange({ ...filters, to: e.target.value })}
           />
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-ink-900">
-              الصنف
-            </label>
-            <select
+          <div className="p-2">
+            الصنف
+            <CompactSelect
+              label="الصنف"
+              options={
+                items?.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                })) || []
+              }
               value={filters.itemId}
-              onChange={(e) => onChange({ ...filters, itemId: e.target.value })}
-              className="w-full rounded-xl border border-ink-400/15 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/15"
-            >
-              <option value="">كل الأصناف</option>
-              {items?.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
+              onChange={(value) =>
+                onChange({
+                  ...filters,
+                  itemId: value,
+                })
+              }
+              isLoading={isLoading}
+              placeholder="كل الأصناف"
+              isClearable
+            />
           </div>
         </div>
       </div>

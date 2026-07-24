@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
-import { useCreatePartyMutation } from "../../partners/partnersApi";
+import { useCreatePartyMutation } from "../../partners/partiesApi";
 import { useCreateStoreMutation } from "../../stores/storesApi";
 import {
   useGetContainersSelectQuery,

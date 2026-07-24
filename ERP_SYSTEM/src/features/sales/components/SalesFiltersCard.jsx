@@ -1,5 +1,5 @@
 import { Search, RotateCcw } from "lucide-react";
-import { useGetPartiesSelectQuery } from "../../partners/partnersApi";
+import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
 import { useGetDriversSelectQuery } from "../../drivers/driversApi";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
