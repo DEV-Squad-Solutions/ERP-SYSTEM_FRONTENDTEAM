@@ -13,7 +13,14 @@ export const inventoryApi = baseApi.injectEndpoints({
       }),
       providesTags: ["Inventory"],
     }),
-
+    getItemsSelect: builder.query({
+      query: (params) => ({ url: "Items/select", params }),
+      providesTags: ["Item"],
+    }),
+    createItem: builder.mutation({
+      query: (data) => ({ url: "Items", method: "POST", body: data }),
+      invalidatesTags: ["Item"],
+    }),
     getStockLedger: builder.query({
       ...(USE_MOCK
         ? {
@@ -55,6 +62,8 @@ export const inventoryApi = baseApi.injectEndpoints({
 
 export const {
   useGetItemsQuery,
+  useCreateItemMutation,
   useGetStockLedgerQuery,
   useDeleteStockEntryMutation,
+  useGetItemsSelectQuery,
 } = inventoryApi;

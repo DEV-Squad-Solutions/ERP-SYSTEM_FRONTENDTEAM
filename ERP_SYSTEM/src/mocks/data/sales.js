@@ -1,169 +1,75 @@
-export const mockSalesLines = [
-  {
-    id: "1",
-    date: "2026-06-01",
-    invoiceNumber: "SAL-2001",
-    movementType: "sale",
-    partyName: "أحمد محمد علي",
-    country: "مصر",
-    driverName: "سيد فاروق",
-    carNumber: "أ ب ج 1234",
-    discount: 100,
-    tax: 50,
-    paid: 6000,
-    count: 30,
-    items: [
-      {
-        itemId: "1",
-        itemName: "أرز أبو كاس",
-        packagingUnitId: "3",
-        packagingUnitName: "كرتونة",
-        packagingIn: 0,
-        packagingOut: 30,
-        weight: 1500,
-        quantity: 30,
-        count: 50,
-        price: 220,
-        value: 6600,
-        notes: "",
-      },
-    ],
-    summary: {
-      total: 6600,
-      discount: 100,
-      tax: 50,
-      paid: 6000,
-      remaining: 550,
-    },
-  },
-  {
-    id: "2",
-    date: "2026-06-10",
-    invoiceNumber: "PUR-1001",
-    movementType: "sale",
-    partyName: "مؤسسة الفجر للتوريدات",
-    country: "مصر",
-    driverName: "كريم عادل",
-    carNumber: "س ص ع 5678",
-    discount: 0,
-    tax: 200,
-    paid: 18200,
-    count: 100,
-    items: [
-      {
-        itemId: "1",
-        itemName: "أرز أبو كاس",
-        packagingUnitId: "3",
-        packagingUnitName: "كرتونة",
-        packagingIn: 100,
-        packagingOut: 0,
-        weight: 5000,
-        quantity: 100,
-        count: 50,
-        price: 180,
-        value: 18000,
-        notes: "توريد أولي",
-      },
-      {
-        itemId: "3",
-        itemName: "سكر خام",
-        packagingUnitId: "2",
-        packagingUnitName: "جردل",
-        packagingIn: 60,
-        packagingOut: 0,
-        count: 50,
-        weight: 300,
-        quantity: 300,
-        price: 22,
-        value: 6600,
-        notes: "",
-      },
-    ],
-    summary: {
-      total: 6600,
-      discount: 100,
-      tax: 50,
-      paid: 6000,
-      remaining: 550,
-    },
-  },
-  {
-    id: "3",
-    date: "2026-06-15",
-    invoiceNumber: "SAL-2002",
-    movementType: "sale",
-    partyName: "محمود إبراهيم",
-    country: "مصر",
-    driverName: "سيد فاروق",
-    carNumber: "أ ب ج 1234",
-    discount: 0,
-    tax: 0,
-    paid: 5400,
-    items: [
-      {
-        itemId: "3",
-        itemName: "سكر خام",
-        packagingUnitId: "2",
-        packagingUnitName: "جردل",
-        packagingIn: 0,
-        packagingOut: 40,
-        weight: 200,
-        count: 50,
-        quantity: 200,
-        price: 27,
-        value: 5400,
-        notes: "",
-      },
-    ],
-    summary: {
-      total: 6600,
-      discount: 100,
-      tax: 50,
-      paid: 6000,
-      remaining: 550,
-    },
-  },
-  {
-    id: "4",
-    date: "2026-06-20",
-    invoiceNumber: "PUR-1002",
-    movementType: "sale",
-    partyName: "شركة النور للتجارة",
-    country: "مصر",
-    driverName: "ياسر حسن",
-    carNumber: "ط ل م 9012",
-    discount: 200,
-    tax: 150,
-    paid: 16000,
-    items: [
-      {
-        itemId: "2",
-        itemName: "زيت عافية 1.5 لتر",
-        packagingUnitId: "1",
-        packagingUnitName: "برميل",
-        packagingIn: 10,
-        packagingOut: 0,
-        count: 50,
-        weight: 750,
-        quantity: 50,
-        price: 340,
-        value: 17000,
-        notes: "",
-      },
-    ],
-    summary: {
-      total: 6600,
-      discount: 100,
-      tax: 50,
-      paid: 6000,
-      remaining: 550,
-    },
-  },
+const partyNames = [
+  "شركة النور للتجارة",
+  "مؤسسة الفجر للتوريدات",
+  "أحمد محمد علي",
+  "محمود إبراهيم",
+  "شركة السلام",
 ];
+const storeNames = ["المخزن الرئيسي", "فرع 2", "فرع 3"];
+const driverNames = ["سيد فاروق", "كريم عادل", "ياسر حسن"];
+const statuses = ["completed", "pending", "cancelled", "returned"];
+const paymentMethods = ["cash", "bank", "credit"];
+const movementTypes = ["sale", "purchase", "sale_return", "purchase_return"];
+const itemNames = ["أرز أبو كاس", "سكر خام", "زيت عافية 1.5 لتر"];
+const unitNames = ["كرتونة", "جردل", "برميل"];
+
+function generateInvoices(count) {
+  const invoices = [];
+  for (let i = 1; i <= count; i++) {
+    const movementType = movementTypes[i % movementTypes.length];
+    const itemsCount = 1 + (i % 3);
+    const items = Array.from({ length: itemsCount }, (_, idx) => {
+      const quantity = 10 + ((i + idx) % 50);
+      const price = 20 + ((i + idx) % 300);
+      return {
+        itemId: String((idx % 3) + 1),
+        itemName: itemNames[idx % itemNames.length],
+        packagingUnitId: String((idx % 3) + 1),
+        packagingUnitName: unitNames[idx % unitNames.length],
+        packagingCount: 5 + (idx % 10),
+        unitWeight: 10 + (idx % 5) * 5,
+        quantity,
+        price,
+        value: quantity * price,
+        notes: "",
+      };
+    });
+
+    const total = items.reduce((s, it) => s + it.value, 0);
+    const discount = i % 5 === 0 ? 100 : 0;
+    const tax = Math.round(total * 0.05);
+    const paid = i % 3 === 0 ? total : Math.round(total * 0.4);
+    const remaining = total - discount + tax - paid;
+
+    invoices.push({
+      id: String(1000 + i),
+      invoiceNumber: `${movementType === "purchase" ? "PUR" : "SAL"}-${2000 + i}`,
+      date: new Date(2026, 5, 1 + (i % 28)).toISOString().slice(0, 10),
+      movementType,
+      partyName: partyNames[i % partyNames.length],
+      storeName: storeNames[i % storeNames.length],
+      driverName: driverNames[i % driverNames.length],
+      carNumber: `أ ب ج ${1000 + i}`,
+      country: "مصر",
+      currency: i % 4 === 0 ? "USD" : "EGP",
+      paymentMethod: paymentMethods[i % paymentMethods.length],
+      status: statuses[i % statuses.length],
+      discount,
+      tax,
+      paid,
+      items,
+      total,
+      remaining,
+    });
+  }
+  return invoices;
+}
+
+export const mockSalesInvoices = generateInvoices(83); // رقم كبير شوية عشان نجرب الـ pagination فعليًا
 
 export const generateInvoiceNumber = (movementType) => {
   const prefix = movementType === "purchase" ? "PUR" : "SAL";
-  const count = mockSalesLines.filter(
+  const count = mockSalesInvoices.filter(
     (inv) => inv.movementType === movementType,
   ).length;
   const nextNum = (movementType === "purchase" ? 1000 : 2000) + count + 1;

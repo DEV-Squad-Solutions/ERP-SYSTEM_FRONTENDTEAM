@@ -4,7 +4,7 @@ export const packagingUnitsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getPackagingUnits: builder.query({
       query: () => ({
-        url: "/ItemUnits",
+        url: "/ItemUnits/select",
         method: "GET",
       }),
       providesTags: ["PackagingUnit"],

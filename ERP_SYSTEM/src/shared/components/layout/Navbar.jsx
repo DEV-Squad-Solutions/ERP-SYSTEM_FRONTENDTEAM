@@ -6,7 +6,7 @@ import { logout } from "../../../features/auth/authSlice";
 export default function Navbar({ onMenuClick }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const user = useSelector((state) => state.auth.user);
+  const fullName = useSelector((state) => state.auth.fullName);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -29,7 +29,7 @@ export default function Navbar({ onMenuClick }) {
           <span className="w-8 h-8 rounded-full bg-primary-50 text-primary-500 flex items-center justify-center">
             <User size={16} />
           </span>
-          {user?.name || "مستخدم"}
+          {fullName}
         </div>
         <button
           onClick={handleLogout}

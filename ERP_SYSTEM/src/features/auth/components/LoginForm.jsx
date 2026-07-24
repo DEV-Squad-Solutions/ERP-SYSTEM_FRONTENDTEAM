@@ -1,96 +1,89 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, Building2 } from "lucide-react";
+// src/components/LoginForm.jsx
+import { useState } from "react";
+import { Mail, Lock, Loader2 } from "lucide-react";
 import { useLoginMutation } from "../authApi";
-import { setCredentials } from "../authSlice";
-import Button from "../../../shared/components/ui/Button";
-import Input from "../../../shared/components/ui/Input";
+import { getErrorMessage } from "../../../lib/getErrorMessage";
 
-const loginSchema = z.object({
-  username: z.string().min(3, "اسم المستخدم قصير جداً"),
-  password: z.string().min(6, "كلمة المرور لازم تكون 6 حروف على الأقل"),
-});
-
-/**
- * @param {{ onBack: () => void }} props
- */
-export default function LoginForm({ onBack }) {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const selectedCompany = useSelector((state) => state.auth.selectedCompany);
+export default function LoginForm() {
+  const [userName, setUserName] = useState("");
+  const [password, setPassword] = useState("");
   const [login, { isLoading, error }] = useLoginMutation();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({ resolver: zodResolver(loginSchema) });
-
-  const onSubmit = async (data) => {
-    try {
-      const result = await login({
-        companyId: selectedCompany.id,
-        ...data,
-      }).unwrap();
-      dispatch(setCredentials(result));
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("فشل تسجيل الدخول:", err);
-    }
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    login({ userName, password });
   };
-
   return (
-    <div className="w-full max-w-md mx-auto animate-fadeUp">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1 text-sm text-ink-400 mb-5 hover:text-ink-900 transition-colors"
-      >
-        <ArrowRight size={16} />
-        رجوع لاختيار الشركة
-      </button>
-
-      <div className="flex items-center gap-3 bg-primary-50 border border-primary-100 rounded-xl px-4 py-3 mb-5">
-        <span className="w-9 h-9 rounded-full bg-primary-500 text-white flex items-center justify-center shrink-0">
-          <Building2 size={16} />
-        </span>
-        <p className="text-sm text-primary-500">
-          جاري تسجيل الدخول إلى{" "}
-          <span className="font-semibold">{selectedCompany?.name}</span>
+    <div>
+      <div className="text-center mb-8">
+        <h2 className="font-display text-xl font-bold text-ink-500">
+          تسجيل الدخول
+        </h2>
+        <p className="text-sm text-ink-400 mt-2 font-body">
+          ادخل بياناتك للوصول لحسابك
         </p>
       </div>
 
-      <h2 className="font-display text-xl font-bold text-ink-900 mb-5">
-        تسجيل الدخول
-      </h2>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="block text-sm font-medium text-ink-500 mb-1.5">
+            اسم المستخدم
+          </label>
+          <div className="relative">
+            <Mail
+              size={18}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-400/50"
+            />
+            <input
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <Input
-          label="اسم المستخدم"
-          {...register("username")}
-          error={errors.username?.message}
-        />
+              placeholder="mohamedAlaa"
+              className="w-full pr-11 pl-4 py-2.5 rounded-xl border border-ink-400/20 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 outline-none transition text-sm"
+            />
+          </div>
+        </div>
 
-        <Input
-          label="كلمة المرور"
-          type="password"
-          {...register("password")}
-          error={errors.password?.message}
-        />
+        <div>
+          <label className="block text-sm font-medium text-ink-500 mb-1.5">
+            كلمة المرور
+          </label>
+          <div className="relative">
+            <Lock
+              size={18}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-400/50"
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full pr-11 pl-4 py-2.5 rounded-xl border border-ink-400/20 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 outline-none transition text-sm"
+            />
+          </div>
+        </div>
 
         {error && (
-          <div className="bg-negative/5 border border-negative/20 rounded-xl px-4 py-2.5 animate-fadeUp">
-            <p className="text-negative text-sm text-center">
-              بيانات الدخول غير صحيحة، حاول مرة أخرى
-            </p>
-          </div>
+          <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
+            {getErrorMessage(error)}{" "}
+          </p>
         )}
 
-        <Button type="submit" disabled={isLoading} className="w-full">
-          {isLoading ? "جاري الدخول..." : "دخول"}
-        </Button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-primary-500 hover:bg-primary-600 disabled:opacity-60 text-white font-medium py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              جاري الدخول...
+            </>
+          ) : (
+            "دخول"
+          )}
+        </button>
       </form>
     </div>
   );

@@ -7,6 +7,9 @@ import CompanyDetailsModal from "../../../features/company/components/CompanyDet
 
 export default function Sidebar({ isOpen, onClose }) {
   const company = useSelector((state) => state.auth.selectedCompany);
+  const roles = useSelector((state) => state.auth.roles);
+  const canViewCompany =
+    roles.includes("Admin") || roles.includes("CompanyOwner");
   const [showDetails, setShowDetails] = useState(false);
 
   return (
@@ -82,7 +85,7 @@ export default function Sidebar({ isOpen, onClose }) {
         </nav>
       </aside>
 
-      {company && (
+      {company && canViewCompany && (
         <CompanyDetailsModal
           companyId={company.id}
           isOpen={showDetails}

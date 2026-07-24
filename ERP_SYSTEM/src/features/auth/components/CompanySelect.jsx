@@ -1,117 +1,67 @@
-import { useState } from "react";
+// src/components/CompanySelect.jsx
+import { useSelector } from "react-redux";
+import { Building2, ChevronLeft, Loader2 } from "lucide-react";
+import { useSelectCompanyMutation } from "../authApi";
+import { logout } from "../authSlice";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
-import { Building2, ChevronLeft, PlusCircle } from "lucide-react";
-import { useGetCompaniesQuery } from "../authApi";
-import { setSelectedCompany } from "../authSlice";
-import Input from "../../../shared/components/ui/Input";
-import Button from "../../../shared/components/ui/Button";
 
-/**
- * @param {{ onNext: () => void }} props
- */
-export default function CompanySelect({ onNext }) {
+export default function CompanySelect() {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { data: companies, isLoading, isError } = useGetCompaniesQuery();
-  const [search, setSearch] = useState("");
-
-  const filtered = companies?.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()),
+  const { companies, fullName, selectionToken } = useSelector(
+    (state) => state.auth,
   );
+  const [selectCompany, { isLoading, error }] = useSelectCompanyMutation();
 
-  const handleSelect = (company) => {
-    dispatch(setSelectedCompany({ id: company.id, name: company.name }));
-    onNext();
+  const handleSelect = (companyId) => {
+    selectCompany({ selectionToken, companyId });
   };
 
-  const noCompaniesAtAll = !isLoading && !isError && companies?.length === 0;
-  const noSearchResults =
-    !isLoading && companies?.length > 0 && filtered?.length === 0;
-
   return (
-    <div className="w-full max-w-md mx-auto animate-fadeUp">
-      <h2 className="font-display text-xl font-bold text-ink-900 mb-1">
-        اختر الشركة
-      </h2>
-      <p className="text-sm text-ink-400 mb-5">
-        حدد الشركة اللي عايز تسجل دخول عليها
-      </p>
+    <div>
+      <div className="text-center mb-8">
+        <h2 className="font-display text-xl font-bold text-ink-500">
+          مرحباً {fullName}
+        </h2>
+        <p className="text-sm text-ink-400 mt-2 font-body">
+          اختار الشركة اللي عايز تدخل عليها
+        </p>
+      </div>
 
-      {!noCompaniesAtAll && (
-        <Input
-          type="text"
-          placeholder="ابحث عن شركة..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="mb-4"
-        />
-      )}
-
-      {isLoading && (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-14 rounded-xl bg-ink-400/5 animate-pulse"
-            />
-          ))}
-        </div>
-      )}
-
-      {isError && (
-        <p className="text-center text-negative text-sm py-4">
-          حدث خطأ في تحميل الشركات
+      {error && (
+        <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-4">
+          {error.data || "حصل خطأ، حاول تاني"}
         </p>
       )}
 
-      {noCompaniesAtAll && (
-        <div className="text-center border border-dashed border-ink-400/20 rounded-2xl py-8 px-4">
-          <div className="w-14 h-14 rounded-full bg-primary-50 text-primary-500 flex items-center justify-center mx-auto mb-3">
-            <Building2 size={26} strokeWidth={1.6} />
-          </div>
-          <p className="text-ink-900 font-medium mb-1">
-            مفيش أي شركة مسجلة في النظام حالياً
-          </p>
-          <p className="text-sm text-ink-400 mb-5">
-            سجّل أول شركة عشان تقدر تبدأ تستخدم النظام
-          </p>
-          <Button
-            onClick={() => navigate("/register-company")}
-            className="mx-auto"
+      <div className="space-y-2.5">
+        {companies.map((company) => (
+          <button
+            key={company.id}
+            onClick={() => handleSelect(company.id)}
+            disabled={isLoading}
+            className="w-full flex items-center gap-3 border border-ink-400/15 hover:border-primary-500 hover:bg-primary-500/5 rounded-xl px-4 py-3 transition disabled:opacity-60 text-right"
           >
-            <PlusCircle size={18} />
-            تسجيل شركة جديدة
-          </Button>
-        </div>
-      )}
+            <span className="w-9 h-9 shrink-0 rounded-lg bg-primary-500/10 flex items-center justify-center">
+              <Building2 size={16} className="text-primary-500" />
+            </span>
+            <span className="flex-1 text-sm font-medium text-ink-500">
+              {company.name}
+            </span>
+            {isLoading ? (
+              <Loader2 size={16} className="animate-spin text-ink-400" />
+            ) : (
+              <ChevronLeft size={16} className="text-ink-400/50" />
+            )}
+          </button>
+        ))}
+      </div>
 
-      {!noCompaniesAtAll && !isLoading && (
-        <div className="space-y-2 max-h-72 overflow-y-scroll custom-scroll">
-          {filtered?.map((company, i) => (
-            <button
-              key={company.id}
-              onClick={() => handleSelect(company)}
-              style={{ animationDelay: `${i * 40}ms` }}
-              className="w-full flex items-center justify-between border border-ink-400/10 rounded-xl px-4 py-3 hover:border-primary-400 hover:bg-primary-50/50 transition-colors animate-fadeUp "
-            >
-              <div className="flex items-center gap-3">
-                <span className="w-9 h-9 rounded-full bg-primary-50 text-primary-500 flex items-center justify-center">
-                  <Building2 size={17} />
-                </span>
-                <span className="font-medium text-ink-900">{company.name}</span>
-              </div>
-              <ChevronLeft size={18} className="text-ink-400" />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {noSearchResults && (
-        <p className="text-center text-ink-400 text-sm mt-4">
-          لا توجد شركة بهذا الاسم
-        </p>
-      )}
+      <button
+        onClick={() => dispatch(logout())}
+        className="w-full text-center text-sm text-ink-400 hover:text-ink-500 mt-6 transition"
+      >
+        رجوع لتسجيل الدخول
+      </button>
     </div>
   );
 }

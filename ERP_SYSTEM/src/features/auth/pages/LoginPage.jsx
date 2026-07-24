@@ -1,4 +1,7 @@
-import { useState } from "react";
+// src/pages/LoginPage.jsx
+import { useEffect } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Building2, Shield, TrendingUp } from "lucide-react";
 import CompanySelect from "../components/CompanySelect";
 import LoginForm from "../components/LoginForm";
@@ -10,7 +13,16 @@ const features = [
 ];
 
 export default function LoginPage() {
-  const [step, setStep] = useState("select-company");
+  const navigate = useNavigate();
+  const { requiresCompanySelection, isAuthenticated } = useSelector(
+    (state) => state.auth,
+  );
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   return (
     <div dir="rtl" className="min-h-screen flex">
@@ -87,12 +99,7 @@ export default function LoginPage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-card border border-ink-400/10 p-8">
-            {step === "select-company" && (
-              <CompanySelect onNext={() => setStep("login")} />
-            )}
-            {step === "login" && (
-              <LoginForm onBack={() => setStep("select-company")} />
-            )}
+            {requiresCompanySelection ? <CompanySelect /> : <LoginForm />}
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 export const mockPackagingUnits = [
-  { id: "1", name: "برميل" },
-  { id: "2", name: "جردل" },
-  { id: "3", name: "كرتونة" },
-  { id: "4", name: "كيس" },
-  { id: "5", name: "أخرى" },
+  { id: "1", name: "برميل", weightPerUnit: 50 },
+  { id: "2", name: "جردل", weightPerUnit: 5 },
+  { id: "3", name: "كرتونة", weightPerUnit: 12 },
+  { id: "4", name: "كيس", weightPerUnit: 25 },
+  { id: "5", name: "برنيك", weightPerUnit: 20 },
 ];
