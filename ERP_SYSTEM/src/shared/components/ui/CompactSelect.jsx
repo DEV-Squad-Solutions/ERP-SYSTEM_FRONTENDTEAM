@@ -3,7 +3,8 @@ import Select from "react-select";
 const compactStyles = {
   control: (base, state) => ({
     ...base,
-    minHeight: "36px",
+    minHeight: "38px",
+    height: "38px",
     borderRadius: "8px",
     borderColor: state.isFocused ? "#2563EB" : "rgba(148,163,184,0.25)",
     boxShadow: state.isFocused ? "0 0 0 3px rgba(37,99,235,0.1)" : "none",
@@ -15,12 +16,18 @@ const compactStyles = {
   dropdownIndicator: (base) => ({ ...base, padding: "6px" }),
   placeholder: (base) => ({ ...base, color: "#9CA3AF", fontSize: "13px" }),
   singleValue: (base) => ({ ...base, fontSize: "13px" }),
+  
+  // ⚡ رفع الـ zIndex لإظهار القائمة فوق الـ Modal ⚡
   menu: (base) => ({
     ...base,
-    zIndex: 30,
+    zIndex: 9999,
     borderRadius: "10px",
     overflow: "hidden",
     fontSize: "13px",
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 9999,
   }),
   menuList: (base) => ({ ...base, padding: "4px" }),
   option: (base, state) => ({
@@ -36,9 +43,6 @@ const compactStyles = {
   }),
 };
 
-/**
- * @param {{ options: {value: string, label: string}[], value: string, onChange: (value: string) => void, isLoading?: boolean, isDisabled?: boolean, placeholder?: string }} props
- */
 export default function CompactSelect({
   options = [],
   value,
@@ -51,7 +55,7 @@ export default function CompactSelect({
 
   return (
     <Select
-      className="w-full "
+      className="w-full"
       value={selectedOption}
       onChange={(opt) => onChange(opt ? opt.value : "")}
       options={options}
@@ -63,7 +67,9 @@ export default function CompactSelect({
       noOptionsMessage={() => "لا توجد نتائج"}
       loadingMessage={() => "جاري التحميل..."}
       styles={compactStyles}
-      menuPortalTarget={document.body}
+      // ⚡ إخراج القائمة من حدود الـ Modal لترسم أعلى كل العناصر ⚡
+      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+      menuPosition="fixed"
     />
   );
 }
