@@ -8,7 +8,7 @@ import { useAddBankTransactionMutation } from "../bankApi";
 export default function NewBankTransactionModal({ isOpen, onClose }) {
   const [addBankTransaction, { isLoading }] = useAddBankTransactionMutation();
   const [form, setForm] = useState({
-    type: "in",
+    type: "",
     amount: "",
     bankName: "",
     accountNumber: "",
