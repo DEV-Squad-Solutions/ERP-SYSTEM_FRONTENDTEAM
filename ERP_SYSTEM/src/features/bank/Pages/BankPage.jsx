@@ -1,119 +1,209 @@
 import { useState } from "react";
-import { Plus, ArrowDownRight, ArrowUpLeft, RefreshCw, AlertCircle, FileSearch, Building2 } from "lucide-react";
+import { Plus, Printer, Landmark } from "lucide-react";
 import BankFilters from "../components/BankFilters";
-import BankTotals from "../components/BankTotals";
+import BankTable from "../components/BankTable";
 import NewBankTransactionModal from "../components/NewBankTransactionModal";
 import Button from "../../../shared/components/ui/Button";
-import { useGetBankTransactionsQuery } from "../bankApi";
+
+import {
+  useGetBankTransactionsQuery,
+  useDeleteBankTransactionMutation,
+} from "../bankApi";
 
 export default function BankPage() {
-  const [showModal, setShowModal] = useState(false);
-  const [filters, setFilters] = useState({ date: "", search: "", type: "all" });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [transactionToEdit, setTransactionToEdit] = useState(null);
 
-  const { data: transactions, isLoading, isError, refetch } = useGetBankTransactionsQuery(filters);
+  const [filters, setFilters] = useState({
+    type: "all",
+    partnerId: "",
+  });
+
+  const { data: transactions = [], isLoading } = useGetBankTransactionsQuery(filters);
+  const [deleteTransaction] = useDeleteBankTransactionMutation();
+
+  const handleDelete = async (id) => {
+    if (window.confirm("هل أنت متأكد من حذف هذه الحركة البنكية؟")) {
+      try {
+        await deleteTransaction(id).unwrap();
+      } catch (err) {
+        console.error("فشل الحذف:", err);
+        alert("حدث خطأ أثناء تنفيذ عملية الحذف");
+      }
+    }
+  };
+
+  const handleEdit = (row) => {
+    setTransactionToEdit(row);
+    setIsModalOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setTransactionToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  // 1️⃣ طباعة إيصال تحويل / حركة واحدة
+  const handlePrintRow = (row) => {
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html dir="rtl">
+        <head>
+          <title>إشعار حركة بنكية</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 20px; line-height: 1.6; }
+            .box { border: 1px solid #ccc; padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; }
+            h2 { text-align: center; color: #1e293b; margin-bottom: 20px; }
+            .row { display: flex; justify-content: space-between; border-bottom: 1px border-dashed #eee; padding: 8px 0; }
+            .label { font-weight: bold; color: #475569; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>إشعار حركة بنكية</h2>
+            <div class="row"><span class="label">التاريخ:</span> <span>${row.date || "-"}</span></div>
+            <div class="row"><span class="label">اسم الحساب:</span> <span>${row.displayName || row.partyName || "-"}</span></div>
+            <div class="row"><span class="label">نوع الحركة:</span> <span>${row.debit > 0 ? "إيداع (مدين)" : "سحب/تحويل (دائن)"}</span></div>
+            <div class="row"><span class="label">المبلغ:</span> <span>${(row.debit || row.credit || 0).toLocaleString("ar-EG")} ج.م</span></div>
+            <div class="row"><span class="label">التفاصيل / الملاحظات:</span> <span>${row.notes || "-"}</span></div>
+          </div>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // 2️⃣ طباعة كشف حساب/تقرير الحركات البنكية بالكامل
+  const handlePrintAll = () => {
+    if (!transactions || transactions.length === 0) {
+      alert("لا توجد بيانات للطباعة");
+      return;
+    }
+
+    let runningBalance = 0;
+    const rowsHtml = transactions.map((row) => {
+      const debit = Number(row.amountIn ?? row.debit ?? (row.type === "in" ? row.amount : 0) ?? 0);
+      const credit = Number(row.amountOut ?? row.credit ?? (row.type === "out" ? row.amount : 0) ?? 0);
+      runningBalance += debit - credit;
+      const party = row.displayName || row.partyName || row.partnerName || row.accountName || "-";
+
+      return `
+        <tr>
+          <td>${row.date || "-"}</td>
+          <td>${party}</td>
+          <td style="color: #16a34a;">${debit > 0 ? debit.toLocaleString("ar-EG") : "—"}</td>
+          <td style="color: #dc2626;">${credit > 0 ? credit.toLocaleString("ar-EG") : "—"}</td>
+          <td><b>${runningBalance.toLocaleString("ar-EG")}</b></td>
+          <td>${row.notes || row.category || "-"}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const totalDebit = transactions.reduce((acc, curr) => acc + Number(curr.debit || curr.amountIn || 0), 0);
+    const totalCredit = transactions.reduce((acc, curr) => acc + Number(curr.credit || curr.amountOut || 0), 0);
+    const netBalance = totalDebit - totalCredit;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html dir="rtl">
+        <head>
+          <title>كشف الحركات البنكية</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 20px; direction: rtl; }
+            h1 { text-align: center; color: #0f172a; margin-bottom: 5px; font-size: 20px; }
+            p.sub { text-align: center; color: #64748b; font-size: 12px; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: center; }
+            th { background-color: #f8fafc; color: #334155; }
+            tfoot tr { background-color: #f1f5f9; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <h1>تقرير كشف الحركات البنكية</h1>
+          <p class="sub">تاريخ التقرير: ${new Date().toLocaleDateString("ar-EG")}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>اسم الحساب</th>
+                <th>إيداع (مدين)</th>
+                <th>سحب (دائن)</th>
+                <th>الرصيد</th>
+                <th>الملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2">الإجمالي</td>
+                <td style="color: #16a34a;">${totalDebit.toLocaleString("ar-EG")}</td>
+                <td style="color: #dc2626;">${totalCredit.toLocaleString("ar-EG")}</td>
+                <td colspan="2">${netBalance.toLocaleString("ar-EG")} ج.م</td>
+              </tr>
+            </tfoot>
+          </table>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   return (
-    <div className="animate-fadeUp space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-ink-900">الحسابات البنكية</h2>
-          <p className="text-sm text-ink-400 mt-1">متابعة الأرصدة البنكية والتحويلات الواردة والصادرة</p>
+    <div className="p-4 sm:p-6 space-y-5">
+      {/* هيدر الصفحة */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-primary-50 text-primary-600 rounded-xl">
+            <Landmark size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">الحركات البنكية</h1>
+            <p className="text-xs text-slate-500">متابعة وعرض التحويلات والإيداعات والمسحوبات البنكية</p>
+          </div>
         </div>
-        <Button onClick={() => setShowModal(true)}>
-          <Plus size={18} />
-          معاملة بنكية جديدة
-        </Button>
+
+        {/* أزرار الإجراءات */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handlePrintAll}
+            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-medium text-sm transition-colors shadow-sm"
+          >
+            <Printer size={18} />
+            <span>طباعة التقرير</span>
+          </button>
+
+          <Button onClick={handleAddNew}>
+            <Plus size={18} />
+            <span>حركة بنكية جديدة</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Filters */}
+      {/* الفلاتر */}
       <BankFilters filters={filters} onChange={setFilters} />
 
-      {/* Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Table List */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-ink-400/10 shadow-card overflow-hidden">
-          {isLoading ? (
-            <div className="p-4 space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-12 bg-ink-400/5 animate-pulse rounded-lg" />
-              ))}
-            </div>
-          ) : isError ? (
-            <div className="text-center py-12">
-              <AlertCircle size={32} className="mx-auto text-negative mb-2" />
-              <p className="text-sm text-ink-900 font-medium">خطأ في تحميل المعاملات البنكية</p>
-              <button onClick={refetch} className="text-xs text-primary-500 mt-2 flex items-center gap-1 mx-auto">
-                <RefreshCw size={12} /> إعادة المحاولة
-              </button>
-            </div>
-          ) : !transactions || transactions.length === 0 ? (
-            <div className="text-center py-12">
-              <FileSearch size={32} className="mx-auto text-ink-400/50 mb-2" />
-              <p className="text-sm text-ink-400">لا توجد معاملات بنكية مطابقة</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto custom-scroll">
-              <table className="w-full text-right border-collapse text-sm">
-                <thead>
-                  <tr className="bg-ink-900/[0.02] text-ink-400 border-b border-ink-400/10 text-xs">
-                    <th className="p-3">التاريخ</th>
-                    <th className="p-3">النوع</th>
-                    <th className="p-3">البنك / الحساب</th>
-                    <th className="p-3">البيان</th>
-                    <th className="p-3">الجهة</th>
-                    <th className="p-3">المرجع</th>
-                    <th className="p-3 text-center">المبلغ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.map((tx) => (
-                    <tr key={tx.id} className="border-b border-ink-400/5 last:border-0 hover:bg-ink-900/[0.01]">
-                      <td className="p-3 num text-ink-500">{tx.date}</td>
-                      <td className="p-3">
-                        {tx.type === "in" ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-positive bg-positive/10 px-2 py-0.5 rounded-full font-medium">
-                            <ArrowDownRight size={12} /> وارد
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-negative bg-negative/10 px-2 py-0.5 rounded-full font-medium">
-                            <ArrowUpLeft size={12} /> صادر
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1.5 font-medium text-ink-900">
-                          <Building2 size={14} className="text-ink-400 shrink-0" />
-                          <span>{tx.bankName}</span>
-                        </div>
-                        {tx.accountNumber && (
-                          <span className="block text-[11px] num text-ink-400 dir-ltr text-right">
-                            {tx.accountNumber}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-3 text-ink-800">{tx.category}</td>
-                      <td className="p-3 text-ink-600">{tx.partyName || "—"}</td>
-                      <td className="p-3 num text-ink-400 text-xs">{tx.referenceNumber || "—"}</td>
-                      <td className={`p-3 num text-center font-bold ${tx.type === "in" ? "text-positive" : "text-negative"}`}>
-                        {tx.type === "in" ? "+" : "-"}{Number(tx.amount).toLocaleString("ar-EG")} ج.م
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+      {/* الجدول */}
+      <BankTable
+        transactions={transactions}
+        isLoading={isLoading}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onPrintRow={handlePrintRow}
+      />
 
-        {/* Totals Sidebar */}
-        <div className="lg:col-span-1 sticky top-6">
-          <BankTotals />
-        </div>
-      </div>
-
-      {/* Modal */}
-      <NewBankTransactionModal isOpen={showModal} onClose={() => setShowModal(false)} />
+      {/* مودال حركة جديدة / تعديل */}
+      <NewBankTransactionModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setTransactionToEdit(null);
+        }}
+        editData={transactionToEdit}
+      />
     </div>
   );
 }

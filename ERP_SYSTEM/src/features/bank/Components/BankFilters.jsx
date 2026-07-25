@@ -1,54 +1,51 @@
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
 
 export default function BankFilters({ filters, onChange }) {
   const set = (key, value) => onChange({ ...filters, [key]: value });
 
-  const typeOptions = [
-    { value: "all", label: "الكل" },
-    { value: "in", label: "إيداع / تحويل وارد" },
-    { value: "out", label: "تحويل صادر / سداد" },
+  const { data: partiesData = [], isLoading: isPartiesLoading } = useGetPartiesSelectQuery();
+
+  const partnerOptions = [
+    { value: "", label: "جميع الحسابات" },
+    ...(partiesData?.map((p) => ({
+      value: String(p.id || p.value),
+      label: p.name || p.label || p.text,
+    })) || []),
   ];
 
-  const fieldInputCls =
-    "w-full h-[38px] rounded-lg border border-ink-400/15 px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 transition-shadow placeholder:text-ink-400/50";
+  const typeOptions = [
+    { value: "all", label: "الكل" },
+    { value: "in", label: "إيداع (مدين)" },
+    { value: "out", label: "سحب / تحويل (دائن)" },
+  ];
 
-  const fieldLabelCls = "text-xs font-medium text-ink-600 mb-1.5 block";
+  const fieldLabelCls = "text-xs font-semibold text-slate-700 mb-1 block";
 
   return (
-    <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
-        
-        <div className="w-full">
-          <label className={fieldLabelCls}>التاريخ</label>
-          <input
-            type="date"
-            value={filters?.date || ""}
-            onChange={(e) => set("date", e.target.value)}
-            className={fieldInputCls}
-          />
-        </div>
-
-        <div className="w-full">
-          <label className={fieldLabelCls}>بحث (البنك / الجهة / المرجع)</label>
-          <input
-            type="text"
-            placeholder="ابحث هنا..."
-            value={filters?.search || ""}
-            onChange={(e) => set("search", e.target.value)}
-            className={fieldInputCls}
-          />
-        </div>
-
-        <div className="w-full">
-          <label className={fieldLabelCls}>نوع المعاملة</label>
+    <div className="bg-slate-200/50 backdrop-blur-sm rounded-xl border border-slate-300/40 p-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+        {/* نوع الحركة */}
+        <div className="relative z-30">
+          <label className={fieldLabelCls}>نوع الحركة البنكية</label>
           <CompactSelect
             options={typeOptions}
             value={filters?.type || "all"}
             onChange={(val) => set("type", val || "all")}
-            placeholder="اختر النوع"
+            placeholder="الكل"
           />
         </div>
 
+        {/* اسم الحساب */}
+        <div className="relative z-20">
+          <label className={fieldLabelCls}>اسم الحساب (العميل / المورد)</label>
+          <CompactSelect
+            options={partnerOptions}
+            value={filters?.partnerId || ""}
+            onChange={(val) => set("partnerId", val || "")}
+            placeholder={isPartiesLoading ? "جاري التحميل..." : "اختر اسم الحساب"}
+          />
+        </div>
       </div>
     </div>
   );
