@@ -53,6 +53,16 @@ export const treasuryApi = baseApi.injectEndpoints({
           );
         }
 
+        // الفلترة بتاريخ البداية (من)
+        if (filters.fromDate) {
+          result = result.filter((t) => new Date(t.date) >= new Date(filters.fromDate));
+        }
+
+        // الفلترة بتاريخ النهاية (إلى)
+        if (filters.toDate) {
+          result = result.filter((t) => new Date(t.date) <= new Date(filters.toDate));
+        }
+
         return { data: await mockDelay(result) };
       },
       providesTags: ["Treasury"],

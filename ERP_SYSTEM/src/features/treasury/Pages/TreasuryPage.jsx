@@ -15,10 +15,12 @@ export default function TreasuryPage() {
   const [transactionToEdit, setTransactionToEdit] = useState(null);
 
   // الفلاتر بدون تواريخ
-  const [filters, setFilters] = useState({
-    type: "all",
-    partnerId: "",
-  });
+ const [filters, setFilters] = useState({
+  type: "all",
+  partnerId: "",
+  fromDate: "",
+  toDate: "",
+});
 
   const { data: transactions = [], isLoading } = useGetTreasuryTransactionsQuery(filters);
   const [deleteTransaction] = useDeleteTransactionMutation();

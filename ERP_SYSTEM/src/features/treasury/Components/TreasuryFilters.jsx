@@ -22,11 +22,35 @@ export default function TreasuryFilters({ filters, onChange }) {
     { value: "out", label: "دائن (صرف)" },
   ];
 
+  const fieldInputCls =
+    "w-full h-[38px] rounded-lg border border-slate-300 px-3 py-1.5 text-xs bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 transition-shadow";
   const fieldLabelCls = "text-xs font-semibold text-slate-700 mb-1 block";
 
   return (
     <div className="bg-slate-200/50 backdrop-blur-sm rounded-xl border border-slate-300/40 p-3 mb-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+        {/* من تاريخ */}
+        <div>
+          <label className={fieldLabelCls}>من تاريخ</label>
+          <input
+            type="date"
+            value={filters?.fromDate || ""}
+            onChange={(e) => set("fromDate", e.target.value)}
+            className={fieldInputCls}
+          />
+        </div>
+
+        {/* إلى تاريخ */}
+        <div>
+          <label className={fieldLabelCls}>إلى تاريخ</label>
+          <input
+            type="date"
+            value={filters?.toDate || ""}
+            onChange={(e) => set("toDate", e.target.value)}
+            className={fieldInputCls}
+          />
+        </div>
+
         {/* نوع الحركة */}
         <div className="relative z-30">
           <label className={fieldLabelCls}>نوع الحركة</label>
