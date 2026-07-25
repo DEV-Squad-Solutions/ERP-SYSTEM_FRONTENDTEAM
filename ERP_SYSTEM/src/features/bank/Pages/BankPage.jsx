@@ -14,10 +14,12 @@ export default function BankPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
 
-  const [filters, setFilters] = useState({
-    type: "all",
-    partnerId: "",
-  });
+ const [filters, setFilters] = useState({
+  type: "all",
+  partnerId: "",
+  fromDate: "",
+  toDate: "",
+});
 
   const { data: transactions = [], isLoading } = useGetBankTransactionsQuery(filters);
   const [deleteTransaction] = useDeleteBankTransactionMutation();

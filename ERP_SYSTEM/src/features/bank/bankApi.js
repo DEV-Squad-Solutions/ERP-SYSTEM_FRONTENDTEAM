@@ -40,15 +40,27 @@ export const bankApi = baseApi.injectEndpoints({
 
         let result = [...mockBankTransactions];
 
+        // فلترة بالنوع
         if (filters.type && filters.type !== "all") {
           result = result.filter((t) => t.type === filters.type);
         }
 
+        // فلترة باسم الحساب
         if (filters.partnerId || filters.partyId) {
           const selectedId = String(filters.partnerId || filters.partyId);
           result = result.filter(
             (t) => String(t.partyId || t.partnerId) === selectedId
           );
+        }
+
+        // فلترة بالتاريخ (من)
+        if (filters.fromDate) {
+          result = result.filter((t) => new Date(t.date) >= new Date(filters.fromDate));
+        }
+
+        // فلترة بالتاريخ (إلى)
+        if (filters.toDate) {
+          result = result.filter((t) => new Date(t.date) <= new Date(filters.toDate));
         }
 
         return { data: await mockDelay(result) };
