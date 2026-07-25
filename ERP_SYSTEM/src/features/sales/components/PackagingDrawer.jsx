@@ -1,146 +1,149 @@
-import { useState } from "react";
-import { toast } from "sonner";
-import { X, Boxes, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
-import { useGetInvoicesQuery } from "../salesApi";
-import { useGetItemUnitsSelectQuery } from "../../units/itemUnitsApi";
+import { useState, useEffect } from "react";
+import { X, Save, Loader2, Package } from "lucide-react";
+import { useGetPartyContainerStoreQuery } from "../../partners/partiesApi";
 import Button from "../../../shared/components/ui/Button";
+import Modal from "../../../shared/components/ui/Modal";
 
-/**
- * @param {{ partyName: string, invoiceNumber: string, isOpen: boolean, onClose: () => void }} props
- */
 export default function PackagingDrawer({
+  partyId,
   partyName,
-  invoiceNumber,
   isOpen,
   onClose,
+  initialItems = [], // [{ containerId, issuedQuantity, receivedQuantity }]
+  onSave, // (payload) => void
 }) {
-  const { data } = useGetInvoicesQuery(
-    { partyId: partyName },
-    { skip: !isOpen || !partyName },
-  );
-  const invoices = data?.items || [];
-
-  const { data: itemUnits } = useGetItemUnitsSelectQuery();
-
-  const [actionMode, setActionMode] = useState(null);
-  const [actionUnit, setActionUnit] = useState("");
-  const [actionCount, setActionCount] = useState(0);
-  const [actionNotes, setActionNotes] = useState("");
-
-  if (!isOpen) return null;
-
-  const balanceByUnit = {};
-  invoices.forEach((inv) => {
-    (inv.items || []).forEach((item) => {
-      if (!item.packagingUnitName || !item.packagingCount) return;
-      const key = item.packagingUnitName;
-      if (!balanceByUnit[key]) balanceByUnit[key] = { taken: 0, returned: 0 };
-      if (inv.movementType === "sale") {
-        balanceByUnit[key].taken += item.packagingCount;
-      } else {
-        balanceByUnit[key].returned += item.packagingCount;
-      }
-    });
+  const { data, isLoading, isError } = useGetPartyContainerStoreQuery(partyId, {
+    skip: !partyId || !isOpen,
   });
 
-  const rows = Object.entries(balanceByUnit).map(([unit, data]) => ({
-    unit,
-    taken: data.taken,
-    returned: data.returned,
-    balance: data.taken - data.returned,
-  }));
+  const containerStore = data?.containerStore;
+  const containers = data?.containers || [];
 
-  const handleSaveAction = () => {
-    if (!actionUnit || actionCount <= 0) {
-      toast.error("اختر الوحدة وأدخل عدد صحيح");
-      return;
+  const [rows, setRows] = useState({});
+
+  useEffect(() => {
+    if (containers.length > 0) {
+      const initial = {};
+      containers.forEach((c) => {
+        const existing = initialItems.find((i) => i.containerId === c.id);
+        initial[c.id] = {
+          issued: existing?.issuedQuantity ?? 0,
+          received: existing?.receivedQuantity ?? 0,
+        };
+      });
+      setRows(initial);
     }
-    toast.success(
-      actionMode === "receive"
-        ? "تم تسجيل استلام العبوات"
-        : "تم تسجيل تسليم العبوات",
-      {
-        description: `${actionUnit} × ${actionCount} — مرتبط بفاتورة ${invoiceNumber || "الحالية"}`,
-      },
-    );
-    setActionMode(null);
-    setActionUnit("");
-    setActionCount(0);
-    setActionNotes("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, isOpen]);
+
+  const setRowValue = (containerId, field, value) =>
+    setRows((prev) => ({
+      ...prev,
+      [containerId]: { ...prev[containerId], [field]: Number(value) || 0 },
+    }));
+
+  const handleSave = () => {
+    const items = Object.entries(rows)
+      .filter(([, v]) => v.issued > 0 || v.received > 0)
+      .map(([containerId, v]) => ({
+        containerId: Number(containerId),
+        issuedQuantity: v.issued,
+        receivedQuantity: v.received,
+      }));
+
+    onSave?.({
+      containerStoreId: containerStore?.id || null,
+      items,
+    });
+
+    onClose?.();
   };
 
   return (
-    <>
-      <div
-        onClick={onClose}
-        className="fixed inset-0 bg-ink-900/50 z-40 animate-fadeUp"
-      />
-      <div className="fixed top-0 left-0 h-screen w-full sm:w-96 bg-paper z-50 shadow-card overflow-y-auto custom-scroll animate-slideInRight">
-        <div className="sticky top-0 bg-primary-500 text-white px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Boxes size={18} />
-            <h3 className="font-display font-bold">مخزن العبوات</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <X size={18} />
-          </button>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`عبوات ${partyName || ""}`}
+      size="lg"
+    >
+      {isLoading && (
+        <div className="flex items-center justify-center py-10 text-ink-400">
+          <Loader2 size={20} className="animate-spin ml-2" />
+          جاري تحميل بيانات العبوات...
         </div>
+      )}
 
-        <div className="p-5 space-y-4">
-          <div className="text-sm space-y-1">
-            <p className="text-ink-600">
-              العميل / المورد:{" "}
-              <span className="text-ink-900 font-medium">
-                {partyName || "—"}
-              </span>
-            </p>
-            {invoiceNumber && (
-              <p className="text-ink-600">
-                رقم الفاتورة:{" "}
-                <span className="num text-ink-900 font-medium">
-                  {invoiceNumber}
-                </span>
-              </p>
-            )}
+      {isError && !isLoading && (
+        <div className="text-center py-6 text-sm text-negative border border-dashed border-negative/30 rounded-xl">
+          تعذر تحميل بيانات العبوات لهذا العميل
+        </div>
+      )}
+
+      {!isLoading && !isError && data && (
+        <div className="space-y-4">
+          <div className="flex items-stretch rounded-xl overflow-hidden border border-ink-400/10">
+            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+              مخزن الحاويات
+            </div>
+            <div className="flex-1 px-3 py-2.5 text-sm flex items-center gap-2">
+              <Package size={15} className="text-primary-500" />
+              {containerStore?.name || "لا يوجد مخزن عبوات مرتبط"}
+            </div>
           </div>
 
-          {rows.length === 0 ? (
-            <div className="text-center py-10">
-              <Boxes
-                size={28}
-                className="mx-auto text-ink-400/40 mb-2"
-                strokeWidth={1.6}
-              />
-              <p className="text-sm text-ink-400">
-                لا توجد حركة عبوات مسجلة لهذا الحساب
-              </p>
+          {containers.length === 0 ? (
+            <div className="text-center py-6 text-sm text-ink-400 border border-dashed border-ink-400/20 rounded-xl">
+              لا توجد عبوات مرتبطة بهذا العميل
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-ink-400/10">
-              <table className="w-full text-sm text-right border-collapse">
+            <div className="overflow-x-auto rounded-2xl border border-ink-400/10">
+              <table className="w-full text-right border-collapse min-w-[560px]">
                 <thead>
                   <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
-                    <th className="p-2.5 font-medium">الوحدة</th>
-                    <th className="p-2.5 font-medium text-positive">له</th>
-                    <th className="p-2.5 font-medium text-negative">عليه</th>
-                    <th className="p-2.5 font-medium">الرصيد</th>
+                    <th className="p-2.5 font-medium">الكود</th>
+                    <th className="p-2.5 font-medium">اسم العبوة</th>
+                    <th className="p-2.5 font-medium">الحالة</th>
+                    <th className="p-2.5 font-medium">وارد</th>
+                    <th className="p-2.5 font-medium">صادر</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.unit} className="border-t border-ink-400/5">
-                      <td className="p-2.5 font-medium text-ink-900">
-                        {row.unit}
+                  {containers.map((c) => (
+                    <tr key={c.id} className="border-t border-ink-400/10">
+                      <td className="p-2 text-xs num text-ink-400">{c.code}</td>
+                      <td className="p-2 text-sm">{c.name}</td>
+                      <td className="p-2">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${
+                            c.isAssigned
+                              ? "bg-primary-50 text-primary-600"
+                              : "bg-ink-400/10 text-ink-400"
+                          }`}
+                        >
+                          {c.isAssigned ? "مخصصة" : "غير مخصصة"}
+                        </span>
                       </td>
-                      <td className="p-2.5 num text-positive">{row.taken}</td>
-                      <td className="p-2.5 num text-negative">
-                        {row.returned}
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={rows[c.id]?.received ?? 0}
+                          onChange={(e) =>
+                            setRowValue(c.id, "received", e.target.value)
+                          }
+                          className="w-20 px-2 py-1 text-sm num border border-ink-400/15 rounded-lg outline-none focus:border-primary-400"
+                        />
                       </td>
-                      <td className="p-2.5 num font-bold text-gold-600">
-                        {row.balance}
+                      <td className="p-2">
+                        <input
+                          type="number"
+                          min="0"
+                          value={rows[c.id]?.issued ?? 0}
+                          onChange={(e) =>
+                            setRowValue(c.id, "issued", e.target.value)
+                          }
+                          className="w-20 px-2 py-1 text-sm num border border-ink-400/15 rounded-lg outline-none focus:border-primary-400"
+                        />
                       </td>
                     </tr>
                   ))}
@@ -149,81 +152,18 @@ export default function PackagingDrawer({
             </div>
           )}
 
-          {actionMode ? (
-            <div className="rounded-xl border border-ink-400/10 p-4 space-y-3 bg-white">
-              <p className="text-sm font-medium text-ink-900">
-                {actionMode === "receive" ? "استلام عبوات" : "تسليم عبوات"}
-              </p>
-              <div>
-                <label className="block mb-1 text-xs text-ink-400">
-                  الوحدة
-                </label>
-                <select
-                  value={actionUnit}
-                  onChange={(e) => setActionUnit(e.target.value)}
-                  className="w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm"
-                >
-                  <option value="">— اختر —</option>
-                  {itemUnits?.map((u) => (
-                    <option key={u.id} value={u.name}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block mb-1 text-xs text-ink-400">العدد</label>
-                <input
-                  type="number"
-                  value={actionCount}
-                  onChange={(e) => setActionCount(Number(e.target.value))}
-                  className="w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm num"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-xs text-ink-400">
-                  ملاحظات
-                </label>
-                <input
-                  value={actionNotes}
-                  onChange={(e) => setActionNotes(e.target.value)}
-                  className="w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSaveAction} className="flex-1">
-                  حفظ
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setActionMode(null)}
-                  className="flex-1"
-                >
-                  إلغاء
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <Button
-                onClick={() => setActionMode("receive")}
-                className="w-full"
-              >
-                <ArrowDownCircle size={16} />
-                استلام عبوات
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setActionMode("deliver")}
-                className="w-full"
-              >
-                <ArrowUpCircle size={16} />
-                تسليم عبوات
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2 pt-2">
+            <Button onClick={handleSave} className="flex-1">
+              <Save size={16} />
+              تأكيد بيانات العبوات
+            </Button>
+            <Button variant="ghost" onClick={onClose} type="button">
+              <X size={16} />
+              إغلاق
+            </Button>
+          </div>
         </div>
-      </div>
-    </>
+      )}
+    </Modal>
   );
 }

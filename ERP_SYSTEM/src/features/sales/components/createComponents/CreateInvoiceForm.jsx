@@ -10,9 +10,14 @@ import {
   TimelineIcon,
   Truck,
   UserRound,
+  Move,
+  Repeat2Icon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useGetPartiesSelectQuery } from "../../../partners/partiesApi";
+import {
+  useGetPartiesSelectQuery,
+  useGetPartyByIdQuery,
+} from "../../../partners/partiesApi";
 import {
   useGetDriversSelectQuery,
   useGetDriverByIdQuery,
@@ -62,16 +67,22 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const { data: parties } = useGetPartiesSelectQuery();
   const { data: drivers } = useGetDriversSelectQuery();
   const { data: stores } = useGetStoresSelectQuery();
+
   const [createInvoice, { isLoading }] = useCreateInvoiceMutation();
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
   const [showPackaging, setShowPackaging] = useState(false);
-  const [itemsLocked, setItemsLocked] = useState(true); // مقفول لحد ما يتختارن مخز
+  const [containersMovement, setContainersMovement] = useState({
+    containerStoreId: null,
+    items: [],
+  });
+  const [itemsLocked, setItemsLocked] = useState(true);
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
   const [header, setHeader] = useState({
     invoiceNumber: generateInvoiceNumber("sale"),
     movementType: "sale",
     date: new Date().toISOString().slice(0, 10),
+    partyId: "",
     partyName: "",
     currency: "EGP",
     driverId: "",
@@ -98,11 +109,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const handlePartyChange = (name) => {
     const party = parties?.find((c) => c.name === name);
     setHeaderField("partyName", name);
+    setHeaderField("partyId", party?.id || "");
     if (party?.currency) setHeaderField("currency", party.currency);
   };
-
   const handleCustomerCreated = (newParty) => {
     setHeaderField("partyName", newParty.name);
+    setHeaderField("partyId", newParty.id || "");
     if (newParty.currency) setHeaderField("currency", newParty.currency);
   };
 
@@ -173,28 +185,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
     parties?.map((p) => ({ value: p.name, label: p.name })) || [];
 
   const submitInvoice = async (shouldPrint = false) => {
-    if (!header.storeId) {
-      toast.error("اختر المخزن أولاً");
-      return;
-    }
-
     const validLines = lines.filter(
       (line) => line.itemId && Number(line.quantity) > 0,
     );
 
-    if (validLines.length === 0) {
-      toast.error("لازم تضيف صنف واحد على الأقل");
-      return;
-    }
-
-    if (!header.partyName) {
-      toast.error("اختر العميل أو المورد أولاً");
-      return;
-    }
-
     const payload = {
       ...header,
-
       items: validLines.map((line) => ({
         itemId: line.itemId,
         packagingUnitId: line.packagingUnitId,
@@ -204,6 +200,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
         price: Number(line.price),
         notes: line.notes,
       })),
+      containers:
+        containersMovement.items.length > 0
+          ? {
+              containerStoreId: containersMovement.containerStoreId,
+              items: containersMovement.items,
+            }
+          : null,
     };
 
     console.log("========== Invoice ==========");
@@ -278,10 +281,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
             type="button"
             onClick={() => header.partyName && setShowPackaging(true)}
             disabled={!header.partyName}
-            className="px-3 text-primary-500 hover:bg-primary-50 border-r border-ink-400/10 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            className="relative px-3 text-primary-500 hover:bg-primary-50 border-r border-ink-400/10 transition-colors disabled:opacity-30 disabled:pointer-events-none"
             title="مخزن العبوات"
           >
             <Boxes size={17} />
+            {containersMovement.items.length > 0 && (
+              <Repeat2Icon className="absolute top-1 left-1 " size={12} />
+            )}
           </button>
         </div>
 
@@ -571,10 +577,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
         onCreated={handleDriverCreated}
       />
       <PackagingDrawer
+        partyId={header.partyId}
         partyName={header.partyName}
-        invoiceNumber={header.invoiceNumber}
         isOpen={showPackaging}
         onClose={() => setShowPackaging(false)}
+        initialItems={containersMovement.items}
+        onSave={(data) => setContainersMovement(data)}
       />
     </div>
   );
