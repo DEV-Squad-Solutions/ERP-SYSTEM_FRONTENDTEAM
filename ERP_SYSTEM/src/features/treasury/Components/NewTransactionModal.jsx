@@ -1,51 +1,75 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import Modal from "../../../shared/components/ui/Modal";
-import Button from "../../../shared/components/ui/Button";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import { useAddTransactionMutation } from "../treasuryApi";
+import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
 
 export default function NewTransactionModal({ isOpen, onClose }) {
   const [addTransaction, { isLoading }] = useAddTransactionMutation();
-  
+  const { data: partiesData = [], isLoading: isPartiesLoading } = useGetPartiesSelectQuery();
+
+  // تجهيز الخيارات لقائمة الأطراف/الحسابات
+  const partyOptions = partiesData?.map((p) => ({
+    value: p.id || p.value,
+    label: p.name || p.label || p.text,
+  })) || [];
+
   const [form, setForm] = useState({
-    type: "",
-    amount: "",
-    category: "",
-    partyName: "",
-    referenceNumber: "",
+    date: new Date().toISOString().split("T")[0],
+    partyId: "",
+    debit: "",
+    credit: "",
     notes: "",
   });
 
-  const typeOptions = [
-    { value: "out", label: "صرف (مصروف)" },
-    { value: "in", label: "إيداع (تحصيل)" },
-  ];
-
   const fieldInputCls =
-    "w-full h-[38px] rounded-lg border border-ink-400/15 px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 transition-shadow placeholder:text-ink-400/50";
-
-  const fieldLabelCls = "text-xs font-medium text-ink-600 mb-1.5 block";
+    "w-full h-[38px] rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 transition-shadow placeholder:text-slate-400";
+  const fieldLabelCls = "text-xs font-semibold text-slate-700 mb-1 block";
 
   const setField = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.amount || !form.type) return; 
+
+    if (!form.partyId) {
+      alert("يرجى اختيار اسم الحساب");
+      return;
+    }
+
+    const debitVal = Number(form.debit) || 0;
+    const creditVal = Number(form.credit) || 0;
+
+    if (debitVal === 0 && creditVal === 0) {
+      alert("يرجى إدخال مبلغ في المدين أو الدائن");
+      return;
+    }
 
     try {
-      await addTransaction({
-        ...form,
-        amount: Number(form.amount),
-      }).unwrap();
+      // إرسال Payload شامله لكل المسميات المتوقعة من الباك إند
+      const selectedParty = partyOptions.find((p) => String(p.value) === String(form.partyId));
+
+      const payload = {
+        date: form.date,
+        partyId: form.partyId,
+        partnerId: form.partyId,
+        partyName: selectedParty?.label || "",
+        type: debitVal > 0 ? "in" : "out",
+        debit: debitVal,
+        credit: creditVal,
+        amountIn: debitVal,
+        amountOut: creditVal,
+        notes: form.notes,
+      };
+
+      await addTransaction(payload).unwrap();
+
       onClose();
-      
       setForm({
-        type: "",
-        amount: "",
-        category: "",
-        partyName: "",
-        referenceNumber: "",
+        date: new Date().toISOString().split("T")[0],
+        partyId: "",
+        debit: "",
+        credit: "",
         notes: "",
       });
     } catch (err) {
@@ -56,71 +80,90 @@ export default function NewTransactionModal({ isOpen, onClose }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="حركة خزنة جديدة">
       <form onSubmit={handleSubmit} className="space-y-3.5">
-        
-        <div className="grid grid-cols-2 gap-3 items-start">
-          <div className="w-full relative z-50">
-            <label className={fieldLabelCls}>نوع الحركة</label>
-            <CompactSelect
-              options={typeOptions}
-              value={form.type || ""}
-              onChange={(val) => setField("type", val)}
-              placeholder="اختر النوع"
-            />
-          </div>
+        {/* التاريخ */}
+        <div>
+          <label className={fieldLabelCls}>التاريخ</label>
+          <input
+            type="date"
+            value={form.date}
+            onChange={(e) => setField("date", e.target.value)}
+            className={fieldInputCls}
+            required
+          />
+        </div>
 
-          <div className="w-full relative z-10">
-            <label className={fieldLabelCls}>المبلغ</label>
+        {/* اسم الحساب */}
+        <div>
+          <label className={fieldLabelCls}>اسم الحساب (العميل / المورد)</label>
+          <CompactSelect
+            options={partyOptions}
+            value={form.partyId}
+            onChange={(val) => setField("partyId", val)}
+            placeholder={isPartiesLoading ? "جاري التحميل..." : "اختر الحساب..."}
+          />
+        </div>
+
+        {/* مدين / دائن */}
+        <div className="grid grid-cols-2 gap-3 items-start">
+          <div>
+            <label className={`${fieldLabelCls} text-positive`}>مدين (إيداع)</label>
             <input
               type="number"
-              value={form.amount}
-              onChange={(e) => setField("amount", e.target.value)}
-              className={fieldInputCls}
+              step="any"
+              value={form.debit}
+              onChange={(e) => {
+                setField("debit", e.target.value);
+                if (e.target.value) setField("credit", "");
+              }}
+              className={`${fieldInputCls} focus:border-positive`}
               placeholder="0.00"
-              required
+            />
+          </div>
+
+          <div>
+            <label className={`${fieldLabelCls} text-negative`}>دائن (صرف)</label>
+            <input
+              type="number"
+              step="any"
+              value={form.credit}
+              onChange={(e) => {
+                setField("credit", e.target.value);
+                if (e.target.value) setField("debit", "");
+              }}
+              className={`${fieldInputCls} focus:border-negative`}
+              placeholder="0.00"
             />
           </div>
         </div>
 
+        {/* الملاحظات */}
         <div>
-          <label className={fieldLabelCls}>البيان / التصنيف</label>
-          <input
-            type="text"
-            value={form.category}
-            onChange={(e) => setField("category", e.target.value)}
-            className={fieldInputCls}
-            placeholder="مثال: تحصيل فاتورة / مصاريف صيانة"
+          <label className={fieldLabelCls}>الملاحظات</label>
+          <textarea
+            rows={2}
+            value={form.notes}
+            onChange={(e) => setField("notes", e.target.value)}
+            className="w-full rounded-lg border border-slate-300 p-2 text-sm bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 transition-shadow placeholder:text-slate-400"
+            placeholder="اكتب تفاصيل الحركة..."
           />
         </div>
 
-        <div>
-          <label className={fieldLabelCls}>الجهة / الاسم</label>
-          <input
-            type="text"
-            value={form.partyName}
-            onChange={(e) => setField("partyName", e.target.value)}
-            className={fieldInputCls}
-            placeholder="اسم العميل، المورد، أو الجهة"
-          />
-        </div>
-
-        <div>
-          <label className={fieldLabelCls}>رقم المرجع / الفاتورة</label>
-          <input
-            type="text"
-            value={form.referenceNumber}
-            onChange={(e) => setField("referenceNumber", e.target.value)}
-            className={fieldInputCls}
-            placeholder="رقم الإيصال أو المستند"
-          />
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>
+        {/* الأزرار */}
+        <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 text-sm hover:bg-slate-50 transition-colors"
+          >
             إلغاء
-          </Button>
-          <Button type="submit" disabled={isLoading || !form.type}>
+          </button>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
             {isLoading ? <Loader2 size={16} className="animate-spin" /> : "حفظ الحركة"}
-          </Button>
+          </button>
         </div>
       </form>
     </Modal>
