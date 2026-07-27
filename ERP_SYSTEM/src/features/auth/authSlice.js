@@ -53,7 +53,6 @@ const authSlice = createSlice({
       state.selectionToken = data.selectionToken;
       state.companies = data.companies || [];
       state.requiresCompanySelection = data.requiresCompanySelection;
-
       if (!data.requiresCompanySelection) {
         state.accessToken = data.accessToken;
         state.refreshToken = data.refreshToken;

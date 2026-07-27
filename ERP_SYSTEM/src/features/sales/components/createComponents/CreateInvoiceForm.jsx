@@ -23,10 +23,12 @@ import {
   useGetDriverByIdQuery,
 } from "../../../drivers/driversApi";
 import { useGetStoresSelectQuery } from "../../../stores/storesApi";
+import { useGetCountriesSelectQuery } from "../../../countries/countriesApi";
 import QuickAddCustomerModal from "../QuickAddCustomerModal";
 import QuickAddDriverModal from "../QuickAddDriverModal";
 import PackagingDrawer from "../PackagingDrawer";
-import { useCreateInvoiceMutation } from "../../salesApi";
+import { useCreateInvoiceMutation } from "../../../invoices/invoicesApi";
+import { buildInvoicePayload } from "../../../invoices/components/buildInvoicePayload";
 import { generateInvoiceNumber } from "../../../../mocks/data/sales";
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
@@ -60,6 +62,18 @@ const paymentOptions = [
 
 const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
 
+// enum values زي ما هي في الـ API بالظبط
+const invoiceTypeMap = {
+  sale: "Sales",
+  purchase: "Purchase",
+  return: "SalesReturn", // TODO: لو المرتجع بتاع مشتريات لازم يبقى "PurchaseReturn" - محتاج تفرقة في الـ UI لاحقًا
+};
+
+const paymentTermMap = {
+  cash: "Cash",
+  credit: "Credit",
+};
+
 /**
  * @param {{ onSuccess?: () => void }} props
  */
@@ -67,7 +81,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const { data: parties } = useGetPartiesSelectQuery();
   const { data: drivers } = useGetDriversSelectQuery();
   const { data: stores } = useGetStoresSelectQuery();
-
+  const { data: countries } = useGetCountriesSelectQuery();
   const [createInvoice, { isLoading }] = useCreateInvoiceMutation();
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
@@ -78,27 +92,33 @@ export default function CreateInvoiceForm({ onSuccess }) {
   });
   const [itemsLocked, setItemsLocked] = useState(true);
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
+
   const [header, setHeader] = useState({
     invoiceNumber: generateInvoiceNumber("sale"),
     movementType: "sale",
     date: new Date().toISOString().slice(0, 10),
+    dueDate: new Date().toISOString().slice(0, 10),
     partyId: "",
     partyName: "",
     currency: "EGP",
     driverId: "",
+    actualDriverId: "", // جديد - السائق الفعلي
     driverName: "",
     licenseNumber: "",
     storeId: "",
-    country: "",
+    countryId: "",
     carNumber: "",
+    exportInvoiceCode: "",
     paymentMethod: "cash",
     treasuryAccount: "",
     discount: 0,
-    tax: 0,
     paid: 0,
+    notes: "",
   });
 
   const [lines, setLines] = useState([emptyLine()]);
+
+  const isSalesInvoice = header.movementType === "sale";
 
   const setHeaderField = (key, value) =>
     setHeader((h) => ({ ...h, [key]: value }));
@@ -118,7 +138,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
     if (newParty.currency) setHeaderField("currency", newParty.currency);
   };
 
-  // لما يتختار سائق، نجيب بياناته كاملة عشان رقم الرخصة
   const { data: driverDetails } = useGetDriverByIdQuery(header.driverId, {
     skip: !header.driverId,
   });
@@ -127,7 +146,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
     if (driverDetails?.licenseNumber) {
       setHeaderField("licenseNumber", driverDetails.licenseNumber);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverDetails]);
 
   const handleDriverChange = (driverId) => {
@@ -147,20 +165,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const removeLine = (index) =>
     setLines((prev) => prev.filter((_, i) => i !== index));
   const addLine = () => {
-    if (itemsLocked) {
-      toast.error("اختر المخزن أولاً قبل إضافة الأصناف");
-      return;
-    }
+    if (itemsLocked) return;
     setLines((prev) => [...prev, emptyLine()]);
-    toast.info("تم إضافة صف جديد");
   };
 
   // ==== الملخص المالي الكامل ====
   const itemsCount = lines.filter((l) => l.itemId).length;
-  const totalCount = lines.reduce(
-    (s, l) => s + (Number(l.packagingCount) || 0),
-    0,
-  );
   const totalQuantity = lines.reduce(
     (s, l) => s + (Number(l.quantity) || 0),
     0,
@@ -176,58 +186,42 @@ export default function CreateInvoiceForm({ onSuccess }) {
   ).length;
 
   const discount = header.discount || 0;
-  const tax = header.tax || 0;
-  const paid = header.paid || 0;
+  const netTotal = Math.max(invoiceTotal - discount, 0);
+  const remaining = netTotal - (header.paid || 0);
 
-  const remaining = invoiceTotal - paid;
+  // الكاش لازم يتساوى بالصافي بالظبط - نحدثه تلقائيًا
+  useEffect(() => {
+    if (header.paymentMethod === "cash") {
+      setHeaderField("paid", netTotal);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [header.paymentMethod, netTotal]);
 
-  const partyOptions =
-    parties?.map((p) => ({ value: p.name, label: p.name })) || [];
+  useEffect(() => {
+    if (containersMovement.items.length > 0) {
+      setContainersMovement({ containerStoreId: null, items: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSalesInvoice]);
 
   const submitInvoice = async (shouldPrint = false) => {
-    const validLines = lines.filter(
-      (line) => line.itemId && Number(line.quantity) > 0,
-    );
+    const payload = buildInvoicePayload({
+      movementType: header.movementType, // "sale" | "purchase" | "salesReturn" | "purchaseReturn"
+      header,
+      lines,
+      containersMovement,
+      isTemporaryDriver,
+    });
 
-    const payload = {
-      ...header,
-      items: validLines.map((line) => ({
-        itemId: line.itemId,
-        packagingUnitId: line.packagingUnitId,
-        packagingCount: Number(line.packagingCount),
-        unitWeight: Number(line.unitWeight),
-        quantity: Number(line.quantity),
-        price: Number(line.price),
-        notes: line.notes,
-      })),
-      containers:
-        containersMovement.items.length > 0
-          ? {
-              containerStoreId: containersMovement.containerStoreId,
-              items: containersMovement.items,
-            }
-          : null,
-    };
+    await createInvoice(payload).unwrap();
 
-    console.log("========== Invoice ==========");
-    console.log(payload);
-    console.log(JSON.stringify(payload, null, 2));
+    toast.success("تم حفظ الفاتورة بنجاح", {
+      description: `رقم الفاتورة: ${header.invoiceNumber}`,
+    });
 
-    try {
-      await createInvoice(payload).unwrap();
+    onSuccess?.();
 
-      toast.success("تم حفظ الفاتورة بنجاح", {
-        description: `رقم الفاتورة: ${header.invoiceNumber}`,
-      });
-
-      onSuccess?.();
-
-      if (shouldPrint) {
-        // افتح صفحة الطباعة هنا
-      }
-    } catch (err) {
-      console.error("فشل حفظ الفاتورة:", err);
-      toast.error("حدث خطأ أثناء حفظ الفاتورة");
+    if (shouldPrint) {
     }
   };
 
@@ -282,7 +276,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
             onClick={() => header.partyName && setShowPackaging(true)}
             disabled={!header.partyName}
             className="relative px-3 text-primary-500 hover:bg-primary-50 border-r border-ink-400/10 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-            title="مخزن العبوات"
+            title={"مخزن العبوات"}
           >
             <Boxes size={17} />
             {containersMovement.items.length > 0 && (
@@ -340,10 +334,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <CompactSelect
                 label="السائق"
                 options={
-                  drivers?.map((d) => ({
-                    value: d.id,
-                    label: d.name,
-                  })) || []
+                  drivers?.map((d) => ({ value: d.id, label: d.name })) || []
                 }
                 value={header.driverId}
                 onChange={handleDriverChange}
@@ -362,7 +353,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               type="button"
               onClick={() => {
                 setIsTemporaryDriver((prev) => !prev);
-
                 setHeader((h) => ({
                   ...h,
                   driverId: "",
@@ -389,12 +379,39 @@ export default function CreateInvoiceForm({ onSuccess }) {
           />
         </div>
 
+        {/* السائق الفعلي (سائق فرعي) - الحساب بيتسجل على السائق الأساسي فوق */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
-          <LedgerField
-            label="البلد"
-            value={header.country}
-            onChange={(e) => setHeaderField("country", e.target.value)}
-          />
+          <div className="flex items-stretch">
+            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+              السائق الفعلي
+            </div>
+            <CompactSelect
+              label="السائق الفعلي"
+              options={
+                drivers?.map((d) => ({ value: d.id, label: d.name })) || []
+              }
+              value={header.actualDriverId}
+              onChange={(val) => setHeaderField("actualDriverId", val)}
+              placeholder="اختر السائق الفعلي (اختياري)"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <div className="flex items-stretch">
+            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+              البلد
+            </div>
+            <CompactSelect
+              label="البلد"
+              options={
+                countries?.map((c) => ({ value: c.id, label: c.name })) || []
+              }
+              value={header.countryId}
+              onChange={(val) => setHeaderField("countryId", val)}
+              placeholder="اختر البلد"
+            />
+          </div>
           <LedgerField
             label="رقم السيارة"
             value={header.carNumber}
@@ -419,6 +436,21 @@ export default function CreateInvoiceForm({ onSuccess }) {
               placeholder="اسم الخزنة أو البنك"
             />
           )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <LedgerField
+            label="ملاحظات"
+            value={header.notes}
+            onChange={(e) => setHeaderField("notes", e.target.value)}
+          />
+          <LedgerField
+            label="كود فاتورة التصدير"
+            value={header.exportInvoiceCode}
+            onChange={(e) =>
+              setHeaderField("exportInvoiceCode", e.target.value)
+            }
+          />
         </div>
       </LedgerPanel>
 
@@ -514,9 +546,29 @@ export default function CreateInvoiceForm({ onSuccess }) {
             </div>
 
             <LedgerField
+              label="الخصم"
+              type="number"
+              value={header.discount}
+              onChange={(e) =>
+                setHeaderField("discount", Number(e.target.value))
+              }
+            />
+
+            <div className="flex items-stretch">
+              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-semibold text-ink-900 flex items-center border-l border-ink-400/10">
+                الصافي
+              </div>
+              <div className="flex-1 px-3 py-2.5 text-sm num font-semibold flex items-center">
+                {fmt(netTotal)} {currencySymbol}
+              </div>
+            </div>
+
+            <LedgerField
               label="المدفوع"
               type="number"
               value={header.paid}
+              readOnly={header.paymentMethod === "cash"}
+              className={header.paymentMethod === "cash" ? "bg-ink-400/5" : ""}
               onChange={(e) => setHeaderField("paid", Number(e.target.value))}
             />
             <div className="flex items-stretch">

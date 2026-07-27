@@ -1,12 +1,9 @@
 import { FileText, TrendingUp, Wallet, AlertCircle } from "lucide-react";
-import { useGetSalesSummaryQuery } from "../salesApi";
 
 /**
- * @param {{ filters: Object }} props
+ * @param {{ summary: { invoicesCount: number, totalAmount: number, totalPaid: number, totalRemaining: number }, isLoading?: boolean }} props
  */
-export default function SalesStatsCards({ filters }) {
-  const { data: summary, isLoading } = useGetSalesSummaryQuery(filters);
-
+export default function SalesStatsCards({ summary, isLoading }) {
   const cards = [
     {
       label: "عدد الفواتير",

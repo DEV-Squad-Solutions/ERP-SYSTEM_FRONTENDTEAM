@@ -6,7 +6,7 @@ import InvoiceHeader from "../components/Detailscomponents/InvoiceHeader";
 import InvoiceInfoCard from "../components/Detailscomponents/InvoiceInfoCard";
 import InvoiceItemsTable from "../components/Detailscomponents/InvoiceItemsTable";
 import InvoiceSummaryCard from "../components/Detailscomponents/InvoiceSummaryCard";
-import PackagingDrawer from "../components/PackagingDrawer";
+import PackagingDrawer from "../components/Detailscomponents/PackagingDrawer";
 import AuditLogDrawer from "../components/Detailscomponents/AuditLogDrawer";
 import PrintPreviewModal from "../components/Detailscomponents/PrintPreviewModal";
 import ConfirmDeleteModal from "../components/Detailscomponents/ConfirmDeleteModal";
@@ -18,8 +18,8 @@ import {
 import {
   useGetInvoiceByIdQuery,
   useDuplicateInvoiceMutation,
-  useDeleteSaleLineMutation,
-} from "../salesApi";
+  useDeleteInvoiceMutation,
+} from "../../invoices/invoicesApi";
 
 export default function InvoiceDetailsPage() {
   const { id } = useParams();
@@ -34,8 +34,7 @@ export default function InvoiceDetailsPage() {
   } = useGetInvoiceByIdQuery(id);
 
   const [duplicateInvoice] = useDuplicateInvoiceMutation();
-  const [deleteInvoice, { isLoading: isDeleting }] =
-    useDeleteSaleLineMutation();
+  const [deleteInvoice, { isLoading: isDeleting }] = useDeleteInvoiceMutation();
 
   const [packagingOpen, setPackagingOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
@@ -113,7 +112,7 @@ export default function InvoiceDetailsPage() {
             />
             <InvoiceInfoCard invoice={invoice} />
             <InvoiceItemsTable
-              items={invoice.items}
+              items={invoice.lines}
               currency={invoice.currency}
             />
 
@@ -124,7 +123,8 @@ export default function InvoiceDetailsPage() {
           </div>
 
           <PackagingDrawer
-            partyName={invoice.partyName}
+            containerLines={invoice.containerLines}
+            storeName={invoice.containerStoreName}
             invoiceNumber={invoice.invoiceNumber}
             isOpen={packagingOpen}
             onClose={() => setPackagingOpen(false)}

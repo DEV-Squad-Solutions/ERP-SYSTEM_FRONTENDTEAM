@@ -12,13 +12,15 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
 } from "lucide-react";
-import InvoiceStatusBadge from "../InvoiceStatusBadge";
+import { PaymentStatusBadge } from "./InvoiceStatusBadge";
+import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
+import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
 
 const typeLabels = {
-  sale: "بيع",
-  purchase: "شراء",
-  sale_return: "مرتجع بيع",
-  purchase_return: "مرتجع شراء",
+  Sale: "بيع",
+  Purchase: "شراء",
+  SalesReturn: "مرتجع بيع",
+  PurchaseReturn: "مرتجع شراء",
 };
 
 /**
@@ -27,8 +29,9 @@ const typeLabels = {
 export default function InvoiceHeader({ invoice, onAction, isFetching }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const isPurchase =
-    invoice.movementType === "purchase" ||
-    invoice.movementType === "purchase_return";
+    invoice.invoiceType === "Purchase" ||
+    invoice.invoiceType === "PurchaseReturn";
+  const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
   return (
     <div
@@ -47,19 +50,19 @@ export default function InvoiceHeader({ invoice, onAction, isFetching }) {
           {isPurchase ? (
             <span className="inline-flex items-center gap-1.5 bg-positive/10 text-positive text-xs font-medium px-2.5 py-1 rounded-full">
               <ArrowDownCircle size={13} />
-              {typeLabels[invoice.movementType]}
+              {typeLabels[invoice.invoiceType]}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 bg-negative/10 text-negative text-xs font-medium px-2.5 py-1 rounded-full">
               <ArrowUpCircle size={13} />
-              {typeLabels[invoice.movementType] || invoice.movementType}
+              {typeLabels[invoice.invoiceType] || invoice.invoiceType}
             </span>
           )}
 
           <h2 className="font-display text-lg sm:text-xl font-bold text-ink-900">
             {invoice.invoiceNumber}
           </h2>
-          <InvoiceStatusBadge status={invoice.status} />
+          <PaymentStatusBadge status={invoice.paymentStatus} />
         </div>
 
         <div className="flex items-center gap-1">
@@ -70,11 +73,7 @@ export default function InvoiceHeader({ invoice, onAction, isFetching }) {
           >
             <Pencil size={16} />
           </button>
-          <button
-            onClick={() => onAction("print")}
-            className="p-2 rounded-lg text-ink-400 hover:bg-ink-400/5 transition-colors"
-            title="طباعة"
-          >
+          <button variant="outline" onClick={() => printInvoice(invoice)}>
             <Printer size={16} />
           </button>
           <button
@@ -104,26 +103,6 @@ export default function InvoiceHeader({ invoice, onAction, isFetching }) {
                   <button
                     onClick={() => {
                       setMenuOpen(false);
-                      onAction("copy");
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-400/5 text-right"
-                  >
-                    <Copy size={14} />
-                    نسخ الفاتورة
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onAction("pdf");
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-400/5 text-right"
-                  >
-                    <FileDown size={14} />
-                    تصدير PDF
-                  </button>
-                  <button
-                    onClick={() => {
-                      setMenuOpen(false);
                       onAction("audit");
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-400/5 text-right"
@@ -146,6 +125,11 @@ export default function InvoiceHeader({ invoice, onAction, isFetching }) {
               </>
             )}
           </div>
+        </div>
+      </div>
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <InvoicePrintTemplate invoice={invoiceToPrint} />
         </div>
       </div>
     </div>

@@ -1,39 +1,36 @@
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
+import { PaymentStatusBadge } from "./InvoiceStatusBadge";
 
 /**
  * @param {{ invoice: Object }} props
  */
 export default function InvoiceSummaryCard({ invoice }) {
-  const items = invoice.items || [];
-  const total = items.reduce((s, it) => s + (it.value || 0), 0);
-  const discount = invoice.discount || 0;
-  const tax = invoice.tax || 0;
-  const paid = invoice.paid || 0;
-  const net = total - discount + tax;
-  const remaining = net - paid;
   const symbol = invoice.currency === "USD" ? "$" : "ج.م";
 
   const rows = [
     {
       label: "عدد الأصناف",
-      value: items.length,
+      value: invoice.lines?.length || 0,
       tone: "text-ink-900",
       isCount: true,
     },
-    { label: "الإجمالي", value: total, tone: "text-ink-900" },
-    { label: "الخصم", value: discount, tone: "text-negative" },
-    { label: "الضريبة", value: tax, tone: "text-ink-600" },
-    { label: "الصافي", value: net, tone: "text-primary-500" },
-    { label: "المدفوع", value: paid, tone: "text-positive" },
+    { label: "الإجمالي الفرعي", value: invoice.subtotal, tone: "text-ink-900" },
+    { label: "الخصم", value: invoice.discountAmount, tone: "text-negative" },
+    { label: "الصافي", value: invoice.total, tone: "text-primary-500" },
+    { label: "المدفوع", value: invoice.paidAmount, tone: "text-positive" },
     {
       label: "المتبقي",
-      value: remaining,
-      tone: remaining > 0 ? "text-negative" : "text-positive",
+      value: invoice.remainingAmount,
+      tone: invoice.remainingAmount > 0 ? "text-negative" : "text-positive",
     },
   ];
 
   return (
     <LedgerPanel title="ملخص الفاتورة">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-sm text-ink-600">حالة السداد</span>
+        <PaymentStatusBadge status={invoice.paymentStatus} />
+      </div>
       {rows.map((row) => (
         <div key={row.label} className="flex items-stretch">
           <div className="w-28 shrink-0 bg-ink-900/[0.03] px-3 py-2 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
@@ -42,7 +39,7 @@ export default function InvoiceSummaryCard({ invoice }) {
           <div
             className={`flex-1 px-3 py-2 text-sm num font-medium flex items-center ${row.tone}`}
           >
-            {row.value.toLocaleString("ar-EG")}
+            {(row.value || 0).toLocaleString("ar-EG")}
             {!row.isCount && ` ${symbol}`}
           </div>
         </div>

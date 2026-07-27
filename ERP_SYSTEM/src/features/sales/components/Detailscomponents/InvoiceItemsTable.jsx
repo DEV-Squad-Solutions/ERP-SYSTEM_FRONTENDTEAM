@@ -24,31 +24,31 @@ export default function InvoiceItemsTable({ items, currency }) {
       <table className="w-full text-right border-collapse text-sm min-w-[750px]">
         <thead>
           <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
+            <th className="p-3 font-medium">الكود</th>
             <th className="p-3 font-medium">الصنف</th>
             <th className="p-3 font-medium">الوحدة</th>
             <th className="p-3 font-medium">العدد</th>
             <th className="p-3 font-medium">وزن الوحدة</th>
             <th className="p-3 font-medium">الكمية</th>
-            <th className="p-3 font-medium">سعر الكيلو</th>
-            <th className="p-3 font-medium">القيمة</th>
+            <th className="p-3 font-medium">السعر</th>
+            <th className="p-3 font-medium">الإجمالي</th>
             <th className="p-3 font-medium">ملاحظات</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((item, i) => (
+          {items.map((item) => (
             <tr
-              key={i}
+              key={item.id}
               className="border-t border-ink-400/5 hover:bg-ink-900/[0.01] transition-colors"
             >
+              <td className="p-3 num text-ink-400 text-xs">{item.itemCode}</td>
               <td className="p-3 font-medium text-ink-900">{item.itemName}</td>
-              <td className="p-3 text-ink-600">
-                {item.packagingUnitName || "—"}
-              </td>
+              <td className="p-3 text-ink-600">{item.itemUnitName || "—"}</td>
               <td className="p-3 num text-center">
-                {item.packagingCount || "—"}
+                {item.count?.toLocaleString("ar-EG") || "—"}
               </td>
               <td className="p-3 num text-ink-600">
-                {(item.unitWeight || 0).toLocaleString("ar-EG")}
+                {(item.weight || 0).toLocaleString("ar-EG")}
               </td>
               <td className="p-3 num text-ink-900 font-medium">
                 {(item.quantity || 0).toLocaleString("ar-EG")}
@@ -57,7 +57,7 @@ export default function InvoiceItemsTable({ items, currency }) {
                 {(item.price || 0).toLocaleString("ar-EG")}
               </td>
               <td className="p-3 num font-medium">
-                {(item.value || 0).toLocaleString("ar-EG")} {symbol}
+                {(item.total || 0).toLocaleString("ar-EG")} {symbol}
               </td>
               <td className="p-3 text-ink-400 text-xs">{item.notes || "—"}</td>
             </tr>

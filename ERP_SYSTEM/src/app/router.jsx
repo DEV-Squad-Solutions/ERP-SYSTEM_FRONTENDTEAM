@@ -4,7 +4,6 @@ import ProtectedRoute from "../shared/components/ProtectedRoute";
 import DashboardLayout from "../shared/components/layout/DashboardLayout";
 import DashboardHome from "../features/dashboard/pages/DashboardHome";
 import InventoryPage from "../features/inventory/pages/InventoryPage";
-import PurchasesPage from "../features/purchases/pages/PurchasesPage";
 import SalesPage from "../features/sales/pages/SalesPage";
 import Error404 from "../shared/components/Error404";
 import InvoiceCreatePage from "../features/sales/pages/InvoiceCreatePage";
@@ -45,7 +44,7 @@ export const router = createBrowserRouter([
       { path: "purchases/:id", element: <InvoiceDetailsPage /> },
       { path: "purchases/:id/edit", element: <InvoiceEditPage /> },
       { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
-      { path: "purchases", element: <PurchasesPage /> },
+      { path: "purchases", element: <SalesPage /> },
       { path: "partners", element: <PartyStatementPage /> },
       { path: "treasury", element: <TreasuryPage /> },
       { path: "bank", element: <BankPage /> },

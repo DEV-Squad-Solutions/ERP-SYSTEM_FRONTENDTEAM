@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Search, RotateCcw } from "lucide-react";
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
@@ -5,6 +6,7 @@ import { useGetDriversSelectQuery } from "../../drivers/driversApi";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+import { useGetCountriesSelectQuery } from "../../countries/countriesApi";
 
 const typeOptions = [
   { value: "sale", label: "بيع" },
@@ -14,16 +16,13 @@ const typeOptions = [
 ];
 
 const paymentOptions = [
-  { value: "cash", label: "نقدي" },
-  { value: "bank", label: "بنك" },
-  { value: "credit", label: "آجل" },
+  { value: "1", label: "نقدي" },
+  { value: "2", label: "آجل" },
 ];
 
 const statusOptions = [
-  { value: "completed", label: "مكتملة" },
-  { value: "pending", label: "قيد المراجعة" },
-  { value: "cancelled", label: "ملغية" },
-  { value: "returned", label: "مرتجعة" },
+  { value: "1", label: "غير مسعرة" },
+  { value: "2", label: "متسعرة" },
 ];
 
 /**
@@ -41,6 +40,8 @@ export default function SalesFiltersCard({
     useGetStoresSelectQuery();
   const { data: drivers, isLoading: isLoadingDrivers } =
     useGetDriversSelectQuery();
+  const { data: countries, isLoading: isLoadingCountries } =
+    useGetCountriesSelectQuery();
 
   const set = (key, value) => onChange({ ...draft, [key]: value });
 
@@ -76,6 +77,21 @@ export default function SalesFiltersCard({
             value={draft.partyId}
             onChange={(v) => set("partyId", v)}
             isLoading={isLoadingParties}
+            placeholder="الكل"
+          />
+        </div>
+
+        <div>
+          <label className="block mb-1.5 text-sm font-medium text-ink-900">
+            البلد
+          </label>
+          <CompactSelect
+            options={
+              countries?.map((p) => ({ value: p.id, label: p.name })) || []
+            }
+            value={draft.country}
+            onChange={(v) => set("country", v)}
+            isLoading={isLoadingCountries}
             placeholder="الكل"
           />
         </div>

@@ -1,18 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, RefreshCw, FileSpreadsheet, Printer } from "lucide-react";
-import { useGetInvoicesQuery } from "../salesApi";
+import {
+  useGetInvoicesForSummaryQuery,
+  useGetInvoicesQuery,
+} from "../../invoices/invoicesApi";
 import SalesStatsCards from "../components/SalesStatsCards";
 import SalesFiltersCard from "../components/SalesFiltersCard";
 import SalesInvoicesTable from "../components/SalesInvoicesTable";
-import Pagination from "../../../shared/components/ui/Pagination";
 import Button from "../../../shared/components/ui/Button";
-
+import { computeSalesSummary } from "../utils/salesFiltering";
+import { useInvoiceListPrint } from "../../../shared/hooks/useInvoiceListPrint";
+import InvoiceListPrintTemplate from "../../../shared/components/print/InvoiceListPrintTemplate";
+import { exportInvoicesToExcel } from "../../../shared/hooks/exportInvoicesToExcel";
 const emptyFilters = {
   invoiceNumber: "",
   movementType: "sale",
   partyId: "",
+  country: "",
   storeId: "",
   driverId: "",
   paymentMethod: "",
@@ -27,23 +33,44 @@ export default function SalesPage() {
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [sortBy, setSortBy] = useState("date");
-  const [sortDir, setSortDir] = useState("desc");
+  const [triggerExport, setTriggerExport] = useState(false);
+  const { data: exportData, isFetching: isExporting } =
+    useGetInvoicesForSummaryQuery(appliedFilters, { skip: !triggerExport });
+
+  useEffect(() => {
+    if (triggerExport && exportData) {
+      const fileName =
+        appliedFilters.movementType === "purchase"
+          ? "فواتير-المشتريات"
+          : "فواتير-المبيعات";
+
+      exportInvoicesToExcel(exportData.items, fileName);
+      setTriggerExport(false);
+
+      if (exportData.items?.length) {
+        toast.success(`تم تصدير ${exportData.items.length} فاتورة`);
+      } else {
+        toast.info("لا توجد فواتير مطابقة للتصدير");
+      }
+    }
+  }, [triggerExport, exportData, appliedFilters.movementType]);
+
+  const handleExport = () => {
+    toast.info("جاري تجهيز ملف Excel...");
+    setTriggerExport(true);
+  };
 
   const queryParams = {
     ...appliedFilters,
     page,
     pageSize,
-    sortBy,
-    sortDir,
   };
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetInvoicesQuery(queryParams);
-  console.log("invoice", data);
+
   const handleSearch = () => {
     setAppliedFilters(draft);
-    console.log(draft);
     setPage(1);
   };
 
@@ -52,20 +79,13 @@ export default function SalesPage() {
     setAppliedFilters(emptyFilters);
     setPage(1);
   };
+  const { printList, printRef } = useInvoiceListPrint({
+    title: `فواتير-${appliedFilters.movementType === "purchase" ? "المشتريات" : "المبيعات"}`,
+  });
 
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(field);
-      setSortDir("asc");
-    }
-  };
-
-  const handleExport = () => {
-    toast.info("جاري تجهيز ملف Excel...");
-  };
-
+  console.log(data);
+  const Summary = computeSalesSummary(data?.items);
+  console.log(Summary);
   return (
     <div className="animate-fadeUp">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -81,18 +101,22 @@ export default function SalesPage() {
             <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
             تحديث
           </Button>
-          <Button variant="outline" onClick={handleExport}>
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
             <FileSpreadsheet size={16} />
-            تصدير Excel
+            {isExporting ? "جاري التصدير..." : "تصدير Excel"}
           </Button>
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button variant="outline" onClick={printList}>
             <Printer size={16} />
             طباعة
           </Button>
         </div>
       </div>
 
-      <SalesStatsCards filters={appliedFilters} />
+      <SalesStatsCards summary={Summary} />
 
       <SalesFiltersCard
         draft={draft}
@@ -107,23 +131,23 @@ export default function SalesPage() {
         isFetching={isFetching}
         isError={isError}
         refetch={refetch}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        onSort={handleSort}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
       />
-
-      {data?.totalCount > 0 && (
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          totalCount={data.totalCount}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setPage(1);
-          }}
-        />
-      )}
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <InvoiceListPrintTemplate
+            invoices={data?.items || []}
+            filters={appliedFilters}
+            summary={Summary}
+          />
+        </div>
+      </div>
     </div>
   );
 }

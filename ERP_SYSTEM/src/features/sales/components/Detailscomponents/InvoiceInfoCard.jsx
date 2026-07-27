@@ -1,26 +1,29 @@
-const paymentLabels = { cash: "نقدي", bank: "بنك", credit: "آجل" };
-const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
+const paymentTermLabels = { Cash: "نقدي", Credit: "آجل" };
 
 /**
  * @param {{ invoice: Object }} props
  */
 export default function InvoiceInfoCard({ invoice }) {
+  const driverLine = invoice.usesExternalDriver
+    ? `${invoice.externalDriverName} (سائق خارجي)`
+    : invoice.driverName || "—";
+
   const rows = [
-    { label: "التاريخ", value: invoice.date, num: true },
-    { label: "عميل / مورد", value: invoice.partyName },
+    { label: "تاريخ الفاتورة", value: invoice.invoiceDate, num: true },
+    { label: "تاريخ الاستحقاق", value: invoice.dueDate, num: true },
+    { label: "العميل / المورد", value: invoice.businessPartnerName },
     { label: "المخزن", value: invoice.storeName },
-    {
-      label: "العملة",
-      value: currencyLabels[invoice.currency] || invoice.currency,
-    },
-    { label: "السائق", value: invoice.driverName },
-    { label: "رقم الرخصة", value: invoice.licenseNumber, num: true },
-    { label: "البلد", value: invoice.country },
-    { label: "رقم السيارة", value: invoice.carNumber, num: true },
-    { label: "طريقة الدفع", value: paymentLabels[invoice.paymentMethod] },
-    ...(invoice.paymentMethod === "cash"
-      ? [{ label: "الخزنة / البنك", value: invoice.treasuryAccount }]
+    { label: "مخزن العبوات", value: invoice.containerStoreName },
+    { label: "الدولة", value: invoice.countryName },
+    { label: "السائق", value: driverLine },
+    ...(invoice.actualDriverName && invoice.actualDriverId !== invoice.driverId
+      ? [{ label: "السائق الفعلي", value: invoice.actualDriverName }]
       : []),
+    { label: "رقم السيارة", value: invoice.vehicleNumber, num: true },
+    {
+      label: "طريقة الدفع",
+      value: paymentTermLabels[invoice.paymentTerm] || invoice.paymentTerm,
+    },
   ];
 
   return (
@@ -40,6 +43,12 @@ export default function InvoiceInfoCard({ invoice }) {
           </div>
         ))}
       </div>
+      {invoice.notes && (
+        <div className="mt-4 pt-4 border-t border-ink-400/10">
+          <p className="text-xs text-ink-400 mb-1">ملاحظات</p>
+          <p className="text-sm text-ink-700">{invoice.notes}</p>
+        </div>
+      )}
     </div>
   );
 }
