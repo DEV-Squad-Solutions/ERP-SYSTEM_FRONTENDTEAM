@@ -13,6 +13,7 @@ import StoreContainersPage from "../features/storeContainers/pages/StoreContaine
 import BankPage from "../features/bank/Pages/BankPage";
 import TreasuryPage from "../features/treasury/pages/TreasuryPage";
 import PartnerAccountPage from "../features/statements/pages/PartnerAccountPage";
+import PayrollPage from "../features/payroll/pages/PayrollPage";
 
 function ComingSoon({ title }) {
   return (
@@ -48,7 +49,7 @@ export const router = createBrowserRouter([
       { path: "bank", element: <BankPage /> },
       { path: "inventory", element: <InventoryPage /> },
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
-      { path: "assets", element: <ComingSoon title="الأصول - إهلاك" /> },
+      { path: "assets", element: <PayrollPage /> },
       {
         path: "reconciliation",
         element: <ComingSoon title="مذكرة المراجعة" />,
