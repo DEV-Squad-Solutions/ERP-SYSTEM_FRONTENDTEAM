@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Plus,
   Save,
@@ -7,16 +7,19 @@ import {
   UserPlus,
   Boxes,
   X,
-  TimelineIcon,
   Truck,
-  UserRound,
-  Move,
   Repeat2Icon,
+  FileText,
+  MapPin,
+  Wallet,
+  Lock,
+  StoreIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useGetPartiesSelectQuery,
   useGetPartyByIdQuery,
+  useGetPartyContainerStoreQuery,
 } from "../../../partners/partiesApi";
 import {
   useGetDriversSelectQuery,
@@ -34,8 +37,11 @@ import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
 import Button from "../../../../shared/components/ui/Button";
-import NewInvoiceLineRow from "./NewInvoiceLineRow";
+import InvoiceLineRow from "./NewInvoiceLineRow";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
+import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
+import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
+import NumericInput from "../../../../shared/components/ui/NumericInput";
 
 const emptyLine = () => ({
   itemId: "",
@@ -52,7 +58,8 @@ const emptyLine = () => ({
 const movementOptions = [
   { value: "sale", label: "بيع" },
   { value: "purchase", label: "شراء" },
-  { value: "return", label: "مرتجع" },
+  { value: "salesReturn", label: "مرتجع بيع" },
+  { value: "purchaseReturn", label: "مرتجع شراء" },
 ];
 
 const paymentOptions = [
@@ -61,18 +68,6 @@ const paymentOptions = [
 ];
 
 const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
-
-// enum values زي ما هي في الـ API بالظبط
-const invoiceTypeMap = {
-  sale: "Sales",
-  purchase: "Purchase",
-  return: "SalesReturn", // TODO: لو المرتجع بتاع مشتريات لازم يبقى "PurchaseReturn" - محتاج تفرقة في الـ UI لاحقًا
-};
-
-const paymentTermMap = {
-  cash: "Cash",
-  credit: "Credit",
-};
 
 /**
  * @param {{ onSuccess?: () => void }} props
@@ -102,7 +97,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     partyName: "",
     currency: "EGP",
     driverId: "",
-    actualDriverId: "", // جديد - السائق الفعلي
+    actualDriverId: "",
     driverName: "",
     licenseNumber: "",
     storeId: "",
@@ -118,13 +113,40 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   const [lines, setLines] = useState([emptyLine()]);
 
+  // نوع الفاتورة "بيع" هو الوحيد اللي بيسمح بحركة عبوات
+  // (نفس المنطق المستخدم في buildInvoicePayload)
   const isSalesInvoice = header.movementType === "sale";
 
   const setHeaderField = (key, value) =>
     setHeader((h) => ({ ...h, [key]: value }));
+
   useEffect(() => {
     setItemsLocked(!header.storeId);
   }, [header.storeId]);
+
+  // ==== مخزن العبوات بتاع العميل - بيتحدث تلقائيًا مع تغيير العميل ====
+  const { data: partyContainerStoreData } = useGetPartyContainerStoreQuery(
+    header.partyId,
+    { skip: !header.partyId || !isSalesInvoice },
+  );
+
+  useEffect(() => {
+    if (!isSalesInvoice) return;
+    const store = partyContainerStoreData?.containerStore;
+    setContainersMovement((prev) => ({
+      ...prev,
+      containerStoreId: store?.id || null,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partyContainerStoreData, isSalesInvoice]);
+
+  // لو نوع الفاتورة مش بيع، نصفّر حركة العبوات بالكامل (منتبعتش للباك خالص)
+  useEffect(() => {
+    if (!isSalesInvoice && containersMovement.items.length > 0) {
+      setContainersMovement({ containerStoreId: null, items: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSalesInvoice]);
 
   const handlePartyChange = (name) => {
     const party = parties?.find((c) => c.name === name);
@@ -132,6 +154,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     setHeaderField("partyId", party?.id || "");
     if (party?.currency) setHeaderField("currency", party.currency);
   };
+
   const handleCustomerCreated = (newParty) => {
     setHeaderField("partyName", newParty.name);
     setHeaderField("partyId", newParty.id || "");
@@ -169,27 +192,40 @@ export default function CreateInvoiceForm({ onSuccess }) {
     setLines((prev) => [...prev, emptyLine()]);
   };
 
-  // ==== الملخص المالي الكامل ====
+  // ==== الملخص المالي الكامل - بيتحدث تلقائيًا مع أي تغيير في الأصناف/الخصم/الدفع ====
   const itemsCount = lines.filter((l) => l.itemId).length;
-  const totalQuantity = lines.reduce(
-    (s, l) => s + (Number(l.quantity) || 0),
-    0,
+
+  const totalQuantity = useMemo(
+    () => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0),
+    [lines],
   );
 
-  const pricedLines = lines.filter((l) => Number(l.price) > 0);
-  const invoiceTotal = pricedLines.reduce(
-    (sum, l) => sum + (Number(l.quantity) || 0) * Number(l.price),
-    0,
+  const pricedLines = useMemo(
+    () => lines.filter((l) => Number(l.price) > 0),
+    [lines],
   );
+
+  const invoiceTotal = useMemo(
+    () =>
+      pricedLines.reduce(
+        (sum, l) => sum + (Number(l.quantity) || 0) * Number(l.price),
+        0,
+      ),
+    [pricedLines],
+  );
+
   const unpricedCount = lines.filter(
     (l) => l.itemId && !(Number(l.price) > 0),
   ).length;
 
-  const discount = header.discount || 0;
-  const netTotal = Math.max(invoiceTotal - discount, 0);
-  const remaining = netTotal - (header.paid || 0);
+  const discount = parseFloat(header.discount) || 0;
+  const paid = parseFloat(header.paid) || 0;
 
-  // الكاش لازم يتساوى بالصافي بالظبط - نحدثه تلقائيًا
+  const netTotal = Math.max(invoiceTotal - discount, 0);
+  const remaining = netTotal - paid;
+
+  // الكاش لازم يتساوى بالصافي بالظبط - بيتحدث تلقائيًا مع أي تغيير مؤثر
+  // (تغيير الأصناف، الخصم، أو طريقة الدفع نفسها)
   useEffect(() => {
     if (header.paymentMethod === "cash") {
       setHeaderField("paid", netTotal);
@@ -197,23 +233,28 @@ export default function CreateInvoiceForm({ onSuccess }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [header.paymentMethod, netTotal]);
 
-  useEffect(() => {
-    if (containersMovement.items.length > 0) {
-      setContainersMovement({ containerStoreId: null, items: [] });
+  const handlePaymentMethodChange = (method) => {
+    setHeaderField("paymentMethod", method);
+    if (method === "cash") {
+      setHeaderField("paid", netTotal);
+    } else {
+      // الرجوع لآجل - نسيب المدفوع 0 كنقطة بداية، المستخدم يعدله يدويًا
+      setHeaderField("paid", 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSalesInvoice]);
+  };
+
+  const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
   const submitInvoice = async (shouldPrint = false) => {
     const payload = buildInvoicePayload({
-      movementType: header.movementType, // "sale" | "purchase" | "salesReturn" | "purchaseReturn"
+      movementType: header.movementType,
       header,
       lines,
       containersMovement,
       isTemporaryDriver,
     });
 
-    await createInvoice(payload).unwrap();
+    const invoice = await createInvoice(payload).unwrap();
 
     toast.success("تم حفظ الفاتورة بنجاح", {
       description: `رقم الفاتورة: ${header.invoiceNumber}`,
@@ -222,6 +263,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     onSuccess?.();
 
     if (shouldPrint) {
+      printInvoice(invoice);
     }
   };
 
@@ -230,7 +272,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   return (
     <div className="space-y-5">
-      <LedgerPanel title="بيانات الفاتورة">
+      {/* ============ القسم 1: بيانات الفاتورة الأساسية ============ */}
+      <LedgerPanel
+        title={
+          <span className="flex items-center gap-2 pr-3">
+            <FileText size={15} />
+            بيانات الفاتورة
+          </span>
+        }
+      >
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <LedgerField
             label="رقم الفاتورة"
@@ -250,9 +300,35 @@ export default function CreateInvoiceForm({ onSuccess }) {
             onChange={(e) => setHeaderField("date", e.target.value)}
           />
         </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3">
+          <LedgerField
+            label="تاريخ الاستحقاق"
+            type="date"
+            value={header.dueDate}
+            onChange={(e) => setHeaderField("dueDate", e.target.value)}
+          />
+          <LedgerField
+            label="كود فاتورة التصدير"
+            value={header.exportInvoiceCode}
+            onChange={(e) =>
+              setHeaderField("exportInvoiceCode", e.target.value)
+            }
+          />
+        </div>
+      </LedgerPanel>
+
+      {/* ============ القسم 2: العميل والمخزن والنقل ============ */}
+      <LedgerPanel
+        title={
+          <span className="flex items-center gap-2 pr-3">
+            <MapPin size={15} />
+            العميل والنقل
+          </span>
+        }
+      >
         <div className="flex items-stretch">
           <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-            عميل / مورد
+            عميل / مورد <span className="text-negative">*</span>
           </div>
           <CompactSelect
             label="عميل / مورد"
@@ -273,24 +349,40 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </button>
           <button
             type="button"
-            onClick={() => header.partyName && setShowPackaging(true)}
-            disabled={!header.partyName}
-            className="relative px-3 text-primary-500 hover:bg-primary-50 border-r border-ink-400/10 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-            title={"مخزن العبوات"}
+            onClick={() =>
+              isSalesInvoice && header.partyName && setShowPackaging(true)
+            }
+            disabled={!isSalesInvoice || !header.partyName}
+            className={`relative px-3 border-r border-ink-400/10 transition-colors ${
+              !isSalesInvoice || !header.partyName
+                ? "text-ink-400/40 pointer-events-none"
+                : "text-primary-500 hover:bg-primary-50"
+            }`}
+            title={
+              !isSalesInvoice
+                ? "مخزن العبوات متاح لفواتير البيع فقط"
+                : "مخزن العبوات"
+            }
           >
-            <Boxes size={17} />
-            {containersMovement.items.length > 0 && (
-              <Repeat2Icon className="absolute top-1 left-1 " size={12} />
+            {!isSalesInvoice ? <Lock size={17} /> : <Boxes size={17} />}
+            {isSalesInvoice && containersMovement.items.length > 0 && (
+              <Repeat2Icon className="absolute top-1 left-1" size={12} />
             )}
           </button>
         </div>
 
-        <div className="flex  ">
-          <div className="flex-1 flex items-stretch">
+        {!isSalesInvoice && (
+          <div className="px-3 py-2 text-xs text-ink-400 bg-ink-900/[0.02] border-t border-ink-400/5">
+            حركة العبوات متاحة بس مع فواتير البيع، ومش هتتبعت مع النوع الحالي.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               العملة
             </div>
-            <div className="  px-3 py-2.5 text-sm    flex items-center">
+            <div className="px-3 py-2.5 text-sm flex items-center">
               {currencyLabels[header.currency]}
               {header.partyName && (
                 <span className="text-xs text-ink-400 mr-2">
@@ -300,12 +392,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             </div>
           </div>
 
-          <div className="flex-1 flex items-stretch">
+          <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               المخزن <span className="text-negative">*</span>
             </div>
             <CompactSelect
-              label={"المخزن"}
+              label="المخزن"
               options={
                 stores?.map((s) => ({ value: s.id, label: s.name })) || []
               }
@@ -316,7 +408,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
 
-        {/* السائق + رقم الرخصة التلقائي */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
@@ -328,7 +419,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 value={header.driverName}
                 onChange={(e) => setHeaderField("driverName", e.target.value)}
                 placeholder="اكتب اسم السائق"
-                className="flex-1 px-3 py-2 outline-none"
+                className="flex-1 px-3 py-2 outline-none text-sm"
               />
             ) : (
               <CompactSelect
@@ -379,7 +470,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
           />
         </div>
 
-        {/* السائق الفعلي (سائق فرعي) - الحساب بيتسجل على السائق الأساسي فوق */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
@@ -395,6 +485,11 @@ export default function CreateInvoiceForm({ onSuccess }) {
               placeholder="اختر السائق الفعلي (اختياري)"
             />
           </div>
+          <LedgerField
+            label="رقم السيارة"
+            value={header.carNumber}
+            onChange={(e) => setHeaderField("carNumber", e.target.value)}
+          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2">
@@ -412,19 +507,24 @@ export default function CreateInvoiceForm({ onSuccess }) {
               placeholder="اختر البلد"
             />
           </div>
-          <LedgerField
-            label="رقم السيارة"
-            value={header.carNumber}
-            onChange={(e) => setHeaderField("carNumber", e.target.value)}
-          />
         </div>
+      </LedgerPanel>
 
+      {/* ============ القسم 3: الدفع والملاحظات ============ */}
+      <LedgerPanel
+        title={
+          <span className="flex items-center gap-2 pr-3">
+            <Wallet size={15} />
+            الدفع والملاحظات
+          </span>
+        }
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerSelect
             label="طريقة الدفع"
             options={paymentOptions}
             value={header.paymentMethod}
-            onChange={(e) => setHeaderField("paymentMethod", e.target.value)}
+            onChange={(e) => handlePaymentMethodChange(e.target.value)}
           />
           {header.paymentMethod === "cash" && (
             <LedgerField
@@ -437,187 +537,242 @@ export default function CreateInvoiceForm({ onSuccess }) {
             />
           )}
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2">
+        <div className="grid grid-cols-1">
           <LedgerField
             label="ملاحظات"
             value={header.notes}
             onChange={(e) => setHeaderField("notes", e.target.value)}
           />
-          <LedgerField
-            label="كود فاتورة التصدير"
-            value={header.exportInvoiceCode}
-            onChange={(e) =>
-              setHeaderField("exportInvoiceCode", e.target.value)
-            }
-          />
         </div>
       </LedgerPanel>
-
-      <div className="grid grid-cols-1   gap-4 items-start">
-        {/* جدول الأصناف */}
-        <div>
+      <LedgerPanel
+        title={
           <div className="flex items-center justify-between mb-2 px-1">
-            <h4 className="text-sm font-medium text-ink-600">الأصناف</h4>
+            <span className="flex items-center gap-2 pr-3">
+              <StoreIcon size={15} />
+              الأصناف{" "}
+            </span>{" "}
             {unpricedCount > 0 && (
               <span className="text-xs text-gold-600 bg-gold-50 px-2 py-0.5 rounded-full">
                 {unpricedCount} بدون سعر
               </span>
-            )}
+            )}{" "}
           </div>
+        }
+      >
+        <div className="grid grid-cols-1 gap-4 items-start">
+          {/* جدول الأصناف */}
+          <div>
+            {itemsLocked && (
+              <div className="text-center py-6 border border-dashed border-gold-200 bg-gold-50/40 rounded-2xl mb-3">
+                <p className="text-sm text-gold-700">
+                  اختر المخزن أولاً قبل إضافة الأصناف
+                </p>
+              </div>
+            )}
 
-          {itemsLocked && (
-            <div className="text-center py-6 border border-dashed border-gold-200 bg-gold-50/40 rounded-2xl mb-3">
-              <p className="text-sm text-gold-700">
-                اختر المخزن أولاً قبل إضافة الأصناف
-              </p>
-            </div>
-          )}
-
-          <div
-            className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card ${itemsLocked ? "opacity-50 pointer-events-none" : ""}`}
-          >
-            <table className="w-full text-right border-collapse min-w-[900px]">
-              <thead>
-                <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
-                  <th className="p-2.5 font-medium">#</th>
-                  <th className="p-2.5 font-medium">الصنف</th>
-                  <th className="p-2.5 font-medium">الوحدة</th>
-                  <th className="p-2.5 font-medium">العدد</th>
-                  <th className="p-2.5 font-medium">وزن الوحدة</th>
-                  <th className="p-2.5 font-medium">الكمية</th>
-                  <th className="p-2.5 font-medium">سعر الكيلو</th>
-                  <th className="p-2.5 font-medium">القيمة</th>
-                  <th className="p-2.5 font-medium">ملاحظات</th>
-                  <th className="p-2.5"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {lines.map((line, index) => (
-                  <NewInvoiceLineRow
-                    key={index}
-                    index={index}
-                    line={line}
-                    onChange={(newLine) => updateLine(index, newLine)}
-                    onRemove={() => removeLine(index)}
-                  />
-                ))}
-              </tbody>
-            </table>
-            <button
-              type="button"
-              onClick={addLine}
-              className="w-full flex items-center justify-center gap-2 text-sm font-medium text-primary-500 hover:bg-primary-50/60 py-3 border-t border-ink-400/10 transition-colors"
+            <div
+              className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card ${itemsLocked ? "opacity-50 pointer-events-none" : ""}`}
             >
-              <Plus size={16} />
-              إضافة صنف آخر
-            </button>
+              <table className="w-full text-right border-collapse min-w-[950px]">
+                <thead>
+                  <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
+                    <th className="p-2.5 font-medium">#</th>
+                    <th className="p-2.5 font-medium">الصنف</th>
+                    <th className="p-2.5 font-medium">الرصيد بالمخزن</th>
+                    <th className="p-2.5 font-medium">الوحدة</th>
+                    <th className="p-2.5 font-medium">العدد</th>
+                    <th className="p-2.5 font-medium">وزن الوحدة</th>
+                    <th className="p-2.5 font-medium">الكمية</th>
+                    <th className="p-2.5 font-medium">سعر الكيلو</th>
+                    <th className="p-2.5 font-medium">القيمة</th>
+                    <th className="p-2.5 font-medium">ملاحظات</th>
+                    <th className="p-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line, index) => (
+                    <InvoiceLineRow
+                      key={line.id ?? index}
+                      index={index}
+                      line={line}
+                      storeId={header.storeId}
+                      invoiceDate={header.date}
+                      onChange={(newLine) => updateLine(index, newLine)}
+                      onRemove={() => removeLine(index)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+              <button
+                type="button"
+                onClick={addLine}
+                className="w-full flex items-center justify-center gap-2 text-sm font-medium text-primary-500 hover:bg-primary-50/60 py-3 border-t border-ink-400/10 transition-colors"
+              >
+                <Plus size={16} />
+                إضافة صنف آخر
+              </button>
+            </div>
           </div>
         </div>
+      </LedgerPanel>
+      <LedgerPanel
+        title={
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="flex items-center gap-2 pr-3 font-semibold text-sm">
+              <StoreIcon size={15} />
+              ملخص الفاتورة
+            </span>
+          </div>
+        }
+      >
+        <div className="lg:sticky lg:top-4 space-y-3">
+          <div className="rounded-xl border border-ink-400/10 overflow-hidden bg-white">
+            {/* عدد الأصناف */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-ink-400/10">
+              <span className="text-sm text-ink-600">عدد الأصناف</span>
 
-        {/* ملخص الفاتورة الكامل */}
-        <div className="lg:sticky lg:top-4">
-          <LedgerPanel title="ملخص الفاتورة">
-            <div className="flex items-stretch">
-              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                عدد الأصناف
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-sm num flex items-center">
+              <span className="text-sm font-semibold num text-ink-900">
                 {itemsCount}
-              </div>
+              </span>
             </div>
 
-            <div className="flex items-stretch">
-              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                إجمالي الكمية
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-sm num flex items-center">
+            {/* إجمالي الكمية */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-ink-400/10">
+              <span className="text-sm text-ink-600">إجمالي الكمية</span>
+
+              <span className="text-sm font-semibold num text-ink-900">
                 {fmt(totalQuantity)}
-              </div>
+              </span>
             </div>
 
-            <div className="flex items-stretch">
-              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-semibold text-ink-900 flex items-center border-l border-ink-400/10">
+            {/* إجمالي الفاتورة */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-ink-400/10 bg-primary-500/[0.03]">
+              <span className="text-sm font-semibold text-ink-900">
                 إجمالي الفاتورة
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-sm num font-semibold flex items-center">
+              </span>
+
+              <span className="text-sm font-bold num text-ink-900">
                 {fmt(invoiceTotal)} {currencySymbol}
+              </span>
+            </div>
+
+            {/* الخصم */}
+            <div className="flex items-stretch border-b border-ink-400/10">
+              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                الخصم
+              </div>
+
+              <div className="flex-1 p-2">
+                <NumericInput
+                  value={header.discount ?? ""}
+                  decimals
+                  onChange={(value) =>
+                    setHeaderField("discount", value === "" ? "" : value)
+                  }
+                />
               </div>
             </div>
 
-            <LedgerField
-              label="الخصم"
-              type="number"
-              value={header.discount}
-              onChange={(e) =>
-                setHeaderField("discount", Number(e.target.value))
-              }
-            />
+            {/* الصافي */}
+            <div className="flex items-center justify-between px-3 py-2.5 border-y border-ink-400/10 bg-ink-900/[0.02]">
+              <span className="text-sm font-semibold text-ink-900">الصافي</span>
 
-            <div className="flex items-stretch">
-              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-semibold text-ink-900 flex items-center border-l border-ink-400/10">
-                الصافي
-              </div>
-              <div className="flex-1 px-3 py-2.5 text-sm num font-semibold flex items-center">
+              <span className="text-sm font-bold num text-ink-900">
                 {fmt(netTotal)} {currencySymbol}
+              </span>
+            </div>
+
+            {/* المدفوع */}
+            <div className="flex items-stretch border-b border-ink-400/10">
+              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                المدفوع
+              </div>
+
+              <div className="flex-1 p-2">
+                <NumericInput
+                  value={header.paid ?? ""}
+                  decimals
+                  readOnly={header.paymentMethod === "cash"}
+                  onChange={(value) =>
+                    setHeaderField("paid", value === "" ? "" : value)
+                  }
+                />
               </div>
             </div>
 
-            <LedgerField
-              label="المدفوع"
-              type="number"
-              value={header.paid}
-              readOnly={header.paymentMethod === "cash"}
-              className={header.paymentMethod === "cash" ? "bg-ink-400/5" : ""}
-              onChange={(e) => setHeaderField("paid", Number(e.target.value))}
-            />
-            <div className="flex items-stretch">
-              <div className="w-32 shrink-0 bg-gold-50 px-3 py-2.5 text-sm font-semibold text-gold-600 flex items-center border-l border-ink-400/10">
-                المتبقي
-              </div>
-              <div
-                className={`flex-1 px-3 py-2.5 text-sm num font-semibold flex items-center ${remaining > 0 ? "text-negative" : "text-positive"}`}
+            {/* المتبقي */}
+            <div
+              className={`
+          flex
+          items-center
+          justify-between
+          px-3
+          py-3
+          ${remaining > 0 ? "bg-negative/5" : "bg-positive/5"}
+        `}
+            >
+              <span className="text-sm font-semibold">المتبقي</span>
+
+              <span
+                className={`
+            text-sm
+            font-bold
+            num
+            ${remaining > 0 ? "text-negative" : "text-positive"}
+          `}
               >
                 {fmt(remaining)} {currencySymbol}
-              </div>
+              </span>
             </div>
-          </LedgerPanel>
-
-          <div className="space-y-2 mt-4">
-            <Button
-              onClick={() => submitInvoice(false)}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Save size={16} />
-              )}
-              حفظ
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => submitInvoice(true)}
-              disabled={isLoading}
-              className="w-full"
-            >
-              <Printer size={16} />
-              حفظ وطباعة
-            </Button>
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={onSuccess}
-              className="w-full"
-            >
-              <X size={16} />
-              إلغاء
-            </Button>
           </div>
         </div>
-      </div>
+      </LedgerPanel>
+      {/* Buttons */}
+      <div className="space-y-2">
+        <Button
+          onClick={() => submitInvoice(false)}
+          disabled={isLoading}
+          className="
+          w-full
+          h-10
+          shadow-sm
+        "
+        >
+          {isLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Save size={16} />
+          )}
+          حفظ
+        </Button>
 
+        <Button
+          variant="outline"
+          onClick={() => submitInvoice(true)}
+          disabled={isLoading}
+          className="
+          w-full
+          h-10
+        "
+        >
+          <Printer size={16} />
+          حفظ وطباعة
+        </Button>
+
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={onSuccess}
+          className="
+          w-full
+          h-10
+        "
+        >
+          <X size={16} />
+          إلغاء
+        </Button>
+      </div>
       <QuickAddCustomerModal
         isOpen={showAddCustomer}
         onClose={() => setShowAddCustomer(false)}
@@ -636,6 +791,11 @@ export default function CreateInvoiceForm({ onSuccess }) {
         initialItems={containersMovement.items}
         onSave={(data) => setContainersMovement(data)}
       />
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <InvoicePrintTemplate invoice={invoiceToPrint} />
+        </div>
+      </div>
     </div>
   );
 }

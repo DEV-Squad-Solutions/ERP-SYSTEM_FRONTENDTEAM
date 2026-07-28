@@ -83,14 +83,12 @@ export default function SalesPage() {
     title: `فواتير-${appliedFilters.movementType === "purchase" ? "المشتريات" : "المبيعات"}`,
   });
 
-  console.log(data);
   const Summary = computeSalesSummary(data?.items);
-  console.log(Summary);
   return (
     <div className="animate-fadeUp">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h2 className="font-display text-2xl font-bold text-ink-900">
-          فواتير المبيعات
+          فواتير المبيعات و المشتريات
         </h2>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => navigate("/dashboard/sales/new")}>

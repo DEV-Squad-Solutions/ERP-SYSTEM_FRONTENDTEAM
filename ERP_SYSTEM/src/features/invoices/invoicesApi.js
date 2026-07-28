@@ -129,6 +129,17 @@ export const invoicesApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `Invoices/${id}`, method: "DELETE" }),
       invalidatesTags: ["Sale", "Purchase", "Inventory"],
     }),
+    getItemBalance: builder.query({
+      query: ({ storeId, itemId, asOfDate, invoiceId }) => ({
+        url: "/Invoices/item-balance",
+        params: {
+          storeId,
+          itemId,
+          asOfDate,
+          invoiceId,
+        },
+      }),
+    }),
   }),
 });
 
@@ -140,4 +151,5 @@ export const {
   useUpdateInvoiceMutation,
   useDuplicateInvoiceMutation,
   useDeleteInvoiceMutation,
+  useGetItemBalanceQuery,
 } = invoicesApi;

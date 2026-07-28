@@ -431,23 +431,26 @@ export default function InvoiceEditPage() {
               <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
                 <th className="p-2.5 font-medium">#</th>
                 <th className="p-2.5 font-medium">الصنف</th>
+                <th className="p-2.5 font-medium">الرصيد بالمخزن</th>
                 <th className="p-2.5 font-medium">الوحدة</th>
                 <th className="p-2.5 font-medium">العدد</th>
-                <th className="p-2.5 font-medium">الوزن</th>
+                <th className="p-2.5 font-medium">وزن الوحدة</th>
                 <th className="p-2.5 font-medium">الكمية</th>
-                <th className="p-2.5 font-medium">السعر</th>
-                <th className="p-2.5 font-medium">الإجمالي</th>
+                <th className="p-2.5 font-medium">سعر الكيلو</th>
+                <th className="p-2.5 font-medium">القيمة</th>
                 <th className="p-2.5 font-medium">ملاحظات</th>
-                <th className="p-2.5 font-medium"></th>
+                <th className="p-2.5"></th>
               </tr>
             </thead>
             <tbody>
               {lines.map((line, index) => (
                 <InvoiceLineRow
-                  key={index}
+                  key={line.id ?? index}
                   index={index}
                   line={line}
-                  onChange={(updated) => updateLine(index, updated)}
+                  storeId={form.storeId}
+                  invoiceDate={form.invoiceDate}
+                  onChange={(newLine) => updateLine(index, newLine)}
                   onRemove={() => removeLine(index)}
                 />
               ))}

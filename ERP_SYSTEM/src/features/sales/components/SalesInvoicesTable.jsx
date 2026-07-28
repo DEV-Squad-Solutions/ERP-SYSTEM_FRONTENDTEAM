@@ -44,7 +44,6 @@ const paymentLabels = {
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 
-// نص قابل للقص مع إظهار الكامل عند المرور بالماوس (title)
 function TruncatedText({
   text,
   className = "",
@@ -61,20 +60,17 @@ function TruncatedText({
   );
 }
 
-// حالة التسعير: مسعّرة / غير مسعّرة
-// الباك مش بيرجع حقل priceStatus، فبنستنتجها من total
-// (الفاتورة بتتعمل الأول بالكمية بس total=0، وبعدين التسعير بيحدّث total)
 function PricingStatusBadge({ invoice }) {
   const isPriced = Number(invoice.total ?? 0) > 0;
   return isPriced ? (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-positive bg-positive/10 rounded-full px-2 py-0.5">
+    <span className="inline-flex    items-center gap-1 text-[11px] font-medium text-positive bg-positive/10 rounded-full px-2 py-0.5">
       <CircleCheck size={11} />
       مسعّرة
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-400 bg-ink-400/10 rounded-full px-2 py-0.5">
+    <span className="inline-flex    items-center gap-1 text-[11px] font-medium text-ink-400 bg-ink-400/10 rounded-full px-2 py-0  ">
       <CircleDashed size={11} />
-      غير مسعّرة
+      مؤجلة
     </span>
   );
 }
@@ -237,15 +233,7 @@ export default function SalesInvoicesTable({
               >
                 <Printer size={14} />
               </button>
-              {inv.invoiceType === "Sales" && inv.containerLineCount > 0 && (
-                <button
-                  onClick={() => setPackagingFor(inv)}
-                  className="p-1.5 rounded-lg text-gold-600 hover:bg-gold-50"
-                  title="مخزن العبوات"
-                >
-                  <Boxes size={14} />
-                </button>
-              )}
+
               <button
                 onClick={() =>
                   setOpenMenuId(openMenuId === inv.id ? null : inv.id)
@@ -432,20 +420,6 @@ export default function SalesInvoicesTable({
         />
       )}
 
-      <PackagingDrawer
-        partyId={packagingFor?.businessPartnerId}
-        partyName={packagingFor?.businessPartnerName}
-        isOpen={!!packagingFor}
-        onClose={() => setPackagingFor(null)}
-        initialItems={
-          packagingFor?.containerLines?.map((c) => ({
-            containerId: c.containerId,
-            issuedQuantity: c.outgoingUnits,
-            receivedQuantity: c.incomingUnits,
-          })) || []
-        }
-        onSave={() => {}}
-      />
       <div style={{ display: "none" }}>
         <div ref={printRef}>
           <InvoicePrintTemplate invoice={invoiceToPrint} />
