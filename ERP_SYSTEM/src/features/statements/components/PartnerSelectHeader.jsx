@@ -48,15 +48,6 @@ export default function PartnerSelectHeader({
         >
           <Boxes size={18} />
         </button>
-        <Button
-          variant="outline"
-          onClick={() => window.print()}
-          disabled={!partnerId}
-          className="shrink-0"
-        >
-          <Printer size={16} />
-          طباعة
-        </Button>
       </div>
 
       <QuickAddCustomerModal

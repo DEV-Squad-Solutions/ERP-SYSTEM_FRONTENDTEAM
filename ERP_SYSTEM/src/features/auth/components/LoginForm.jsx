@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { Mail, Lock, Loader2 } from "lucide-react";
 import { useLoginMutation } from "../authApi";
-import { getErrorMessage } from "../../../lib/getErrorMessage";
 
 export default function LoginForm() {
   const [userName, setUserName] = useState("");
@@ -63,12 +62,6 @@ export default function LoginForm() {
             />
           </div>
         </div>
-
-        {error && (
-          <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">
-            {getErrorMessage(error)}{" "}
-          </p>
-        )}
 
         <button
           type="submit"

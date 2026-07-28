@@ -28,7 +28,7 @@ export const navigationItems = [
     icon: TrendingUp,
   },
   { label: "العملاء/الموردين", path: "/dashboard/partners", icon: Users },
-  { label: "الخزينة", path: "/dashboard/treasury", icon: Wallet },
+  { label: "الخزائن", path: "/dashboard/treasury", icon: Wallet },
   { label: "البنك", path: "/dashboard/bank", icon: Landmark },
   { label: "المخازن", path: "/dashboard/inventory", icon: Boxes },
   { label: "المصاريف", path: "/dashboard/expenses", icon: Receipt },

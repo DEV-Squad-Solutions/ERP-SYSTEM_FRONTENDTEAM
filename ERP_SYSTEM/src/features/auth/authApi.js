@@ -14,9 +14,7 @@ export const authApi = baseApi.injectEndpoints({
         try {
           const { data } = await queryFulfilled;
           dispatch(setCredentials(data));
-        } catch {
-          // الخطأ بيتلقط من useLoginMutation في الـ component
-        }
+        } catch {}
       },
     }),
 
@@ -29,13 +27,10 @@ export const authApi = baseApi.injectEndpoints({
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
-          // arg.companyId هو الـ id اللي بعتناه وقت الاستدعاء
           dispatch(
             setCompanySelection({ ...data, selectedCompanyId: arg.companyId }),
           );
-        } catch {
-          // الخطأ بيتلقط من useSelectCompanyMutation في الـ component
-        }
+        } catch {}
       },
     }),
   }),

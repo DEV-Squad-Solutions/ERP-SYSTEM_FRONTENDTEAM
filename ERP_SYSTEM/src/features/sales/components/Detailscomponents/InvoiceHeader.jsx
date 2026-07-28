@@ -15,6 +15,7 @@ import {
 import { PaymentStatusBadge } from "./InvoiceStatusBadge";
 import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
+import { useNavigate } from "react-router-dom";
 
 const typeLabels = {
   Sale: "بيع",
@@ -28,6 +29,7 @@ const typeLabels = {
  */
 export default function InvoiceHeader({ invoice, onAction, isFetching }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
   const isPurchase =
     invoice.invoiceType === "Purchase" ||
     invoice.invoiceType === "PurchaseReturn";
@@ -40,7 +42,7 @@ export default function InvoiceHeader({ invoice, onAction, isFetching }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => onAction("back")}
+            onClick={() => navigate(-1)}
             className="text-ink-400 hover:text-ink-900 transition-colors"
             title="رجوع"
           >
