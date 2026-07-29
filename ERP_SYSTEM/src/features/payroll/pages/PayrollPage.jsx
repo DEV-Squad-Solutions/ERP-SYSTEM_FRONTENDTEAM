@@ -26,10 +26,10 @@ export default function PayrollPage() {
   };
 
   return (
-    <div className="p-6 space-y-4 print:p-0 print:space-y-2">
+    <div className=" space-y-4 print:p-0 print:space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">سجل الأجور والمرتبات الشامل</h1>
+          <h1 className="text-2xl font-bold text-slate-800">سجل الأجور والمرتبات الشامل</h1>
           <p className="text-xs text-slate-500 mt-1 print:hidden">
             متابعة استحقاقات الموظفين والاستقطاعات وصافي المرتبات
           </p>

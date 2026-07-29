@@ -231,20 +231,20 @@ export default function PayrollTable({ filters }) {
                 الإجمالــــي
               </td>
 
-              <td className="p-4 num font-bold text-sm text-ink-900 whitespace-nowrap">{totals.basicSalary.toLocaleString("ar-EG")} ج.م</td>
-              <td className="p-4 num font-bold text-sm text-ink-900 whitespace-nowrap">{totals.overtime.toLocaleString("ar-EG")} ج.م</td>
-              <td className="p-4 num font-bold text-sm text-ink-900 whitespace-nowrap">{totals.bonuses.toLocaleString("ar-EG")} ج.م</td>
-              <td className="p-4 num font-black text-base text-emerald-600 bg-emerald-500/10 whitespace-nowrap">
+              <td className="p-3.5 num text-ink-600 whitespace-nowrap font-bold">{totals.basicSalary.toLocaleString("ar-EG")} ج.م</td>
+              <td className="p-3.5 num text-ink-600 whitespace-nowrap font-bold">{totals.overtime.toLocaleString("ar-EG")} ج.م</td>
+              <td className="p-3.5 num text-ink-600 whitespace-nowrap font-bold">{totals.bonuses.toLocaleString("ar-EG")} ج.م</td>
+              <td className="p-4 num font-bold text-base text-emerald-600 bg-emerald-500/10 whitespace-nowrap">
                 {totals.totalEarned.toLocaleString("ar-EG")} ج.م
               </td>
 
               <td className="p-4 num font-bold text-sm text-ink-900 whitespace-nowrap">{totals.advances.toLocaleString("ar-EG")} ج.م</td>
               <td className="p-4 num font-bold text-sm text-ink-900 whitespace-nowrap">{totals.penalties.toLocaleString("ar-EG")} ج.م</td>
-              <td className="p-4 num font-black text-base text-negative bg-rose-500/10 whitespace-nowrap">
+              <td className="p-4 num font-bold text-base text-negative bg-rose-500/10 whitespace-nowrap">
                 {totals.totalDeductions.toLocaleString("ar-EG")} ج.م
               </td>
 
-              <td className="p-4 num font-black text-lg text-ink-900 bg-ink-900/10 whitespace-nowrap">
+              <td className="p-4 num font-bold text-lg text-ink-900 bg-ink-900/10 whitespace-nowrap">
                 {totals.netSalary.toLocaleString("ar-EG")} ج.م
               </td>
 
