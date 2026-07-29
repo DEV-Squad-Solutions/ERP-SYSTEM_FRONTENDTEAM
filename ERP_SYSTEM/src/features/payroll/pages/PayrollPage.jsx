@@ -8,18 +8,15 @@ export default function PayrollPage() {
     search: "",
     fromDate: "",
     toDate: "",
-    status: "all",
   };
 
   const [filters, setFilters] = useState(initialFilters);
   const [isSaving, setIsSaving] = useState(false);
 
-  // تنفيذ الطباعة الفعلية
   const handlePrint = () => {
     window.print();
   };
 
-  // محاكاة عملية الحفظ
   const handleSave = () => {
     setIsSaving(true);
     setTimeout(() => {
@@ -32,9 +29,9 @@ export default function PayrollPage() {
     <div className="p-6 space-y-4 print:p-0 print:space-y-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-800">سجل الأجور والمرتبات</h1>
+          <h1 className="text-xl font-bold text-slate-800">سجل الأجور والمرتبات الشامل</h1>
           <p className="text-xs text-slate-500 mt-1 print:hidden">
-            متابعة الأجور ومستحقات الموظفين والخصومات
+            متابعة استحقاقات الموظفين والاستقطاعات وصافي المرتبات
           </p>
         </div>
 
@@ -42,7 +39,7 @@ export default function PayrollPage() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-sm transition-colors"
           >
             <Save size={15} />
             <span>{isSaving ? "جاري الحفظ..." : "حفظ التغييرات"}</span>
@@ -50,7 +47,7 @@ export default function PayrollPage() {
 
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-xs font-medium shadow-sm transition-colors"
           >
             <Printer size={15} />
             <span>طباعة سجل المرتبات</span>
@@ -58,10 +55,7 @@ export default function PayrollPage() {
         </div>
       </div>
 
-      <div className="print:hidden">
-        <PayrollFilters filters={filters} onChange={setFilters} />
-      </div>
-
+      <PayrollFilters filters={filters} onChange={setFilters} />
       <PayrollTable filters={filters} />
     </div>
   );

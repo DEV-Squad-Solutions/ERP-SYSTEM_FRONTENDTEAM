@@ -9,22 +9,26 @@ let mockPayroll = [
     code: "EMP-101",
     employeeName: "أحمد محمد علي",
     workStartDate: "2026-07-01",
-    workEndDate: "2026-07-28",
-    debit: 12000,
-    credit: 1500,
-    balance: 10500,
-    notes: "راتب شهر يوليو + مكافأة",
+    workEndDate: "2026-07-31",
+    basicSalary: 8000,
+    overtime: 1500, // إضافي
+    bonuses: 500,   // مكافآت
+    advances: 1000, // سلف
+    penalties: 200, // جزاءات/غياب
+    notes: "تم صرف راتب يوليو",
   },
   {
     id: "2",
     code: "EMP-102",
     employeeName: "محمود إبراهيم",
     workStartDate: "2026-07-01",
-    workEndDate: "2026-07-28",
-    debit: 9500,
-    credit: 2000,
-    balance: 7500,
-    notes: "خصم سلفة سابقة",
+    workEndDate: "2026-07-31",
+    basicSalary: 7500,
+    overtime: 800,
+    bonuses: 0,
+    advances: 1500,
+    penalties: 300,
+    notes: "خصم قسط سلفة",
   },
 ];
 
@@ -36,9 +40,19 @@ export const payrollApi = baseApi.injectEndpoints({
           return fetchWithBaseQuery({ url: "Payroll", params: filters });
         }
 
-        let result = [...mockPayroll];
+        let result = mockPayroll.map((item) => {
+          const totalEarned = (item.basicSalary || 0) + (item.overtime || 0) + (item.bonuses || 0);
+          const totalDeductions = (item.advances || 0) + (item.penalties || 0);
+          const netSalary = totalEarned - totalDeductions;
 
-        // فلترة بالاسم أو الكود
+          return {
+            ...item,
+            totalEarned,
+            totalDeductions,
+            netSalary,
+          };
+        });
+
         if (filters.search) {
           const q = filters.search.toLowerCase();
           result = result.filter(
@@ -48,25 +62,12 @@ export const payrollApi = baseApi.injectEndpoints({
           );
         }
 
-        // فلترة بالتاريخ من
         if (filters.fromDate) {
-          result = result.filter(
-            (p) => new Date(p.workStartDate) >= new Date(filters.fromDate)
-          );
+          result = result.filter((p) => new Date(p.workStartDate) >= new Date(filters.fromDate));
         }
 
-        // فلترة بالتاريخ إلى
         if (filters.toDate) {
-          result = result.filter(
-            (p) => new Date(p.workEndDate) <= new Date(filters.toDate)
-          );
-        }
-
-        // فلترة بالحالة (مدين / دائن)
-        if (filters.status === "debit") {
-          result = result.filter((p) => p.debit > 0);
-        } else if (filters.status === "credit") {
-          result = result.filter((p) => p.credit > 0);
+          result = result.filter((p) => new Date(p.workEndDate) <= new Date(filters.toDate));
         }
 
         return { data: await mockDelay(result) };
