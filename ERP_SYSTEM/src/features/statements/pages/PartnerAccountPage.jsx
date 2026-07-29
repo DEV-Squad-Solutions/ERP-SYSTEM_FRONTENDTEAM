@@ -1,29 +1,48 @@
 import { useState } from "react";
-import { FileText, Receipt } from "lucide-react";
+import { FileText, Receipt, StoreIcon } from "lucide-react";
 import { useGetPartnerStatementQuery } from "../statementsApi";
 import PartnerSelectHeader from "../components/PartnerSelectHeader";
 import StatementFilters from "../components/StatementFilters";
 import StatementTable from "../components/StatementTable";
 import PartnerInvoicesTab from "../components/PartnerInvoicesTab";
+import PartnerItemsTab from "../components/PartnerItemsTab";
 import PackagingDrawer from "../../sales/components/PackagingDrawer";
 import { useGetInvoicesQuery } from "../../invoices/invoicesApi";
+import { useGetPartyByIdQuery } from "../../partners/partiesApi";
+import SalesFiltersCard from "../../sales/components/SalesFiltersCard";
 
 const emptyFilters = {
-  Search: "",
-  FromDate: "",
-  ToDate: "",
-  SourceType: "",
-  MovementType: "",
+  invoiceNumber: "",
+  movementType: "",
+  fromDate: "",
+  toDate: "",
+  paymentMethod: "",
+  status: "",
+  storeId: "",
+  driverId: "",
+  country: "",
 };
 
 export default function PartnerAccountPage() {
   const [partnerId, setPartnerId] = useState("");
   const [activeTab, setActiveTab] = useState("statement");
-  const [draft, setDraft] = useState(emptyFilters);
-  const [applied, setApplied] = useState(emptyFilters);
+  const [filters, setFilters] = useState({
+    statement: {
+      draft: emptyFilters,
+      applied: emptyFilters,
+    },
+    invoices: {
+      draft: emptyFilters,
+      applied: emptyFilters,
+    },
+  });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [showPackaging, setShowPackaging] = useState(false);
+  const [containersMovement, setContainersMovement] = useState({
+    containerStoreId: null,
+    items: [],
+  });
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetPartnerStatementQuery(
@@ -31,15 +50,21 @@ export default function PartnerAccountPage() {
         BusinessPartnerId: partnerId,
         PageNumber: page,
         PageSize: pageSize,
-        ...applied,
+        ...filters.statement.applied,
       },
       { skip: !partnerId },
     );
-
+  const { data: partner, isLoading: partnerLoading } = useGetPartyByIdQuery(
+    partnerId,
+    {
+      skip: !partnerId,
+    },
+  );
   const { data: invoicesForPackaging } = useGetInvoicesQuery(
     { businessPartnerId: partnerId, pageSize: 100 },
     { skip: !partnerId || !showPackaging },
   );
+
   const aggregatedContainerLines = (() => {
     const map = {};
     (invoicesForPackaging?.items || []).forEach((inv) => {
@@ -63,19 +88,60 @@ export default function PartnerAccountPage() {
   const handlePartnerChange = (id) => {
     setPartnerId(id);
     setPage(1);
-    setDraft(emptyFilters);
-    setApplied(emptyFilters);
+    setFilters({
+      statement: {
+        draft: emptyFilters,
+        applied: emptyFilters,
+      },
+      invoices: {
+        draft: emptyFilters,
+        applied: emptyFilters,
+      },
+    });
   };
 
-  const handleSearch = () => {
-    setApplied(draft);
-    setPage(1);
+  const handleFilterChange = (tab, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [tab]: {
+        ...prev[tab],
+        draft: value,
+      },
+    }));
   };
 
-  const handleReset = () => {
-    setDraft(emptyFilters);
-    setApplied(emptyFilters);
-    setPage(1);
+  const handleSearch = (tab) => {
+    setFilters((prev) => ({
+      ...prev,
+      [tab]: {
+        ...prev[tab],
+        applied: prev[tab].draft,
+      },
+    }));
+
+    if (tab === "statement") {
+      setPage(1);
+    }
+  };
+
+  const handleReset = (tab) => {
+    setFilters((prev) => ({
+      ...prev,
+      [tab]: {
+        draft: emptyFilters,
+        applied: emptyFilters,
+      },
+    }));
+
+    if (tab === "statement") {
+      setPage(1);
+    }
+  };
+
+  const handleInvoiceSearch = () => setInvoiceApplied(invoiceDraft);
+  const handleInvoiceReset = () => {
+    setInvoiceDraft(emptyFilters);
+    setInvoiceApplied(emptyFilters);
   };
 
   return (
@@ -103,7 +169,6 @@ export default function PartnerAccountPage() {
         </div>
       ) : (
         <>
-          {/* التابات */}
           <div className="inline-flex bg-ink-400/5 rounded-xl p-1 mb-4">
             <button
               onClick={() => setActiveTab("statement")}
@@ -127,15 +192,26 @@ export default function PartnerAccountPage() {
               <FileText size={14} />
               الفواتير
             </button>
+            <button
+              onClick={() => setActiveTab("items")}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg transition-colors ${
+                activeTab === "items"
+                  ? "bg-white text-primary-500 font-medium shadow-sm"
+                  : "text-ink-400 hover:text-ink-900"
+              }`}
+            >
+              <StoreIcon size={14} />
+              الاصناف
+            </button>
           </div>
 
-          {activeTab === "statement" ? (
+          {activeTab === "statement" && (
             <>
               <StatementFilters
-                draft={draft}
-                onChange={setDraft}
-                onSearch={handleSearch}
-                onReset={handleReset}
+                draft={filters.statement.draft}
+                onChange={(value) => handleFilterChange("statement", value)}
+                onSearch={() => handleSearch("statement")}
+                onReset={() => handleReset("statement")}
               />
               <StatementTable
                 data={data}
@@ -145,9 +221,25 @@ export default function PartnerAccountPage() {
                 refetch={refetch}
               />
             </>
-          ) : (
-            <PartnerInvoicesTab partnerId={partnerId} />
           )}
+
+          {activeTab === "invoices" && (
+            <>
+              <SalesFiltersCard
+                draft={filters.invoices.draft}
+                onChange={(value) => handleFilterChange("invoices", value)}
+                onSearch={() => handleSearch("invoices")}
+                onReset={() => handleReset("invoices")}
+              />
+              <PartnerInvoicesTab
+                partner={partner}
+                partnerId={partnerId}
+                filters={filters.invoices.applied}
+              />
+            </>
+          )}
+
+          {activeTab === "items" && <PartnerItemsTab partnerId={partnerId} />}
         </>
       )}
 
@@ -155,6 +247,7 @@ export default function PartnerAccountPage() {
         partyId={partnerId}
         isOpen={showPackaging}
         onClose={() => setShowPackaging(false)}
+        initialItems={containersMovement.items}
         onSave={(data) => setContainersMovement(data)}
       />
     </div>

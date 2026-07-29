@@ -1,5 +1,5 @@
-import { useEffect, useRef, memo } from "react";
-import { Trash2, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState, memo } from "react";
+import { Trash2, AlertCircle, PenLine, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
@@ -9,6 +9,7 @@ import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 import NumericInput from "../../../../shared/components/ui/NumericInput";
 import Input from "../../../../shared/components/ui/Input";
+import QuickAddItemModal from "../QuickAddItemModal";
 
 function InvoiceLineRow({
   line,
@@ -18,6 +19,8 @@ function InvoiceLineRow({
   onChange,
   onRemove,
 }) {
+  const [showAddItem, setShowAddItem] = useState(false);
+
   const {
     data: items,
     isLoading: isLoadingItems,
@@ -32,13 +35,13 @@ function InvoiceLineRow({
         asOfDate: invoiceDate,
       },
       {
-        skip: !storeId || !line.itemId || !invoiceDate,
+        skip: !storeId || !line.itemId || !invoiceDate || line.isTemporaryItem,
       },
     );
 
   const { data: itemUnits, isLoading: isLoadingUnits } =
     useGetItemUnitsSelectQuery(line.itemId, {
-      skip: !line.itemId,
+      skip: !line.itemId || line.isTemporaryItem,
     });
 
   const set = (key, value) => {
@@ -52,7 +55,7 @@ function InvoiceLineRow({
   const prevItemIdRef = useRef(line.itemId);
 
   useEffect(() => {
-    if (!items || !line.itemId) return;
+    if (!items || !line.itemId || line.isTemporaryItem) return;
 
     const selected = items.find((item) => item.id === line.itemId);
 
@@ -107,28 +110,81 @@ function InvoiceLineRow({
       itemUnitId: unit.id,
       itemUnitName: unit.name,
     });
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemUnitId, itemUnits]);
 
+  // العدد × الوزن = الكمية
   const handleCountChange = (count) => {
     const weight = Number(line.weight) || 0;
 
     onChange({
       ...line,
       count,
-      quantity: count === "" ? null : Number(count) * weight,
+      quantity:
+        count === "" || !weight ? line.quantity : Number(count) * weight,
     });
   };
 
+  // الوزن × العدد = الكمية
   const handleWeightChange = (weight) => {
     const count = Number(line.count) || 0;
 
     onChange({
       ...line,
       weight,
-      quantity: weight === "" ? null : count * Number(weight),
+      quantity:
+        weight === "" || !count ? line.quantity : count * Number(weight),
     });
+  };
+
+  // الكمية ÷ العدد = الوزن (لو العدد متوفر)
+  const handleQuantityChange = (quantity) => {
+    if (quantity === "") {
+      onChange({ ...line, quantity: null });
+      return;
+    }
+
+    const count = Number(line.count) || 0;
+
+    if (count > 0) {
+      onChange({
+        ...line,
+        quantity: Number(quantity),
+        weight: Number(quantity) / count,
+      });
+    } else {
+      onChange({ ...line, quantity: Number(quantity) });
+    }
+  };
+
+  const handleToggleTemporaryItem = () => {
+    onChange({
+      ...line,
+      isTemporaryItem: !line.isTemporaryItem,
+      itemId: null,
+      itemName: "",
+      itemCode: "",
+      itemUnitId: null,
+      itemUnitName: "",
+      weight: null,
+      count: null,
+      quantity: null,
+    });
+  };
+
+  const handleItemCreated = (newItem) => {
+    onChange({
+      ...line,
+      isTemporaryItem: false,
+      itemId: newItem.id,
+      itemName: newItem.name,
+      itemCode: newItem.code,
+      itemUnitId: null,
+      itemUnitName: "",
+      weight: null,
+      count: null,
+      quantity: null,
+    });
+    setShowAddItem(false);
   };
 
   const handleRemove = () => {
@@ -155,6 +211,7 @@ function InvoiceLineRow({
 
   const readonlyCls =
     "w-full rounded-lg border border-ink-400/10 px-2.5 py-2 text-sm num text-center bg-ink-400/5 text-ink-600";
+
   return (
     <tr className="border-b border-ink-400/5 last:border-0 hover:bg-ink-900/[0.012] transition-colors group">
       {/* رقم السطر */}
@@ -164,26 +221,58 @@ function InvoiceLineRow({
 
       {/* الصنف */}
       <td className="p-2 min-w-[180px]">
-        {isItemsError ? (
-          <div className="flex items-center gap-1.5 text-xs text-negative px-2 py-2 bg-negative/5 rounded-lg">
-            <AlertCircle size={13} />
-            تعذر التحميل
-          </div>
-        ) : (
-          <CompactSelect
-            options={itemOptions}
-            value={line.itemId}
-            onChange={(value) => set("itemId", value)}
-            isLoading={isLoadingItems}
-            placeholder="اختر الصنف"
-          />
-        )}
+        <div className="flex items-stretch gap-1">
+          {line.isTemporaryItem ? (
+            <input
+              type="text"
+              value={line.itemName}
+              onChange={(e) => set("itemName", e.target.value)}
+              placeholder="اكتب اسم الصنف"
+              className="flex-1 min-w-0 rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm outline-none focus:border-primary-500"
+            />
+          ) : isItemsError ? (
+            <div className="flex-1 flex items-center gap-1.5 text-xs text-negative px-2 py-2 bg-negative/5 rounded-lg">
+              <AlertCircle size={13} />
+              تعذر التحميل
+            </div>
+          ) : (
+            <div className="flex-1 min-w-[180px]">
+              <CompactSelect
+                options={itemOptions}
+                value={line.itemId}
+                onChange={(value) => set("itemId", value)}
+                isLoading={isLoadingItems}
+                placeholder="اختر الصنف"
+              />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleToggleTemporaryItem}
+            className={`shrink-0 px-2 rounded-lg transition-colors ${
+              line.isTemporaryItem
+                ? "bg-primary-100 text-primary-600"
+                : "text-ink-400 hover:text-primary-500 hover:bg-primary-50"
+            }`}
+            title="صنف مش موجود بالمخزن - اكتب اسمه يدويًا"
+          >
+            <PenLine size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddItem(true)}
+            className="shrink-0 px-2 rounded-lg text-ink-400 hover:text-primary-500 hover:bg-primary-50 transition-colors"
+            title="إضافة صنف جديد للمخزون"
+          >
+            <Plus size={15} />
+          </button>
+        </div>
       </td>
 
       {/* الرصيد */}
       <td className="p-2 w-[110px]">
         <div className={`${readonlyCls} font-medium`}>
-          {!line.itemId
+          {line.isTemporaryItem || !line.itemId
             ? "-"
             : isLoadingBalance
               ? "..."
@@ -198,8 +287,14 @@ function InvoiceLineRow({
           value={line.itemUnitId}
           onChange={(value) => set("itemUnitId", value)}
           isLoading={isLoadingUnits}
-          isDisabled={!line.itemId}
-          placeholder={line.itemId ? "الوحدة" : "اختر الصنف أولاً"}
+          isDisabled={!line.itemId || line.isTemporaryItem}
+          placeholder={
+            line.isTemporaryItem
+              ? "غير متاح للصنف اليدوي"
+              : line.itemId
+                ? "الوحدة"
+                : "اختر الصنف أولاً"
+          }
         />
       </td>
 
@@ -225,11 +320,12 @@ function InvoiceLineRow({
 
       {/* الكمية */}
       <td className="p-2 w-[110px]">
-        <div className={`${readonlyCls} font-semibold text-ink-900`}>
-          {line.quantity === null || line.quantity === undefined
-            ? "-"
-            : Number(line.quantity).toLocaleString("ar-EG")}
-        </div>
+        <NumericInput
+          value={line.quantity}
+          decimals={true}
+          placeholder="الكمية"
+          onChange={handleQuantityChange}
+        />
       </td>
 
       {/* السعر */}
@@ -270,7 +366,6 @@ function InvoiceLineRow({
         />
       </td>
 
-      {/* حذف */}
       <td className="p-2 w-[50px] text-center">
         <button
           type="button"
@@ -287,6 +382,12 @@ function InvoiceLineRow({
           <Trash2 size={15} />
         </button>
       </td>
+
+      <QuickAddItemModal
+        isOpen={showAddItem}
+        onClose={() => setShowAddItem(false)}
+        onCreated={handleItemCreated}
+      />
     </tr>
   );
 }

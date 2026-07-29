@@ -4,17 +4,24 @@ const invoiceTypeMap = {
   salesReturn: "SalesReturn",
   purchaseReturn: "PurchaseReturn",
 };
-
 const paymentTermMap = {
   cash: "Cash",
   credit: "Credit",
 };
+const invoiceContentTypeMap = {
+  items: "Items",
+  containers: "Containers",
+};
 
-// يضيف الحقل للـ object بس لو القيمة موجودة فعليًا (مش undefined/null/0/فاضية)
-// لو مفيش قيمة، الحقل بيتشال خالص من الـ body
 function withOptionalNumber(obj, key, value) {
   if (value !== undefined && value !== null && value !== "") {
     obj[key] = Number(value);
+  }
+  return obj;
+}
+function withOptionalString(obj, key, value) {
+  if (value !== undefined && value !== null && value !== "") {
+    obj[key] = value;
   }
   return obj;
 }
@@ -27,14 +34,16 @@ export function buildInvoicePayload({
   isTemporaryDriver,
 }) {
   const isSalesInvoice = movementType === "sale";
-
   const validLines = lines.filter(
-    (line) => line.itemId && Number(line.quantity) > 0,
+    (line) =>
+      (line.itemId || (line.isTemporaryItem && line.itemName)) &&
+      Number(line.quantity) > 0,
   );
 
   const payload = {
     invoiceType: invoiceTypeMap[movementType],
     paymentTerm: paymentTermMap[header.paymentMethod],
+    invoiceContentType: invoiceContentTypeMap[header.invoiceContentType],
     invoiceDate: header.date,
     dueDate: header.dueDate || header.date,
     businessPartnerId: Number(header.partyId),
@@ -45,14 +54,22 @@ export function buildInvoicePayload({
     exportInvoiceCode: header.exportInvoiceCode || "",
     discountAmount: Number(header.discount) || 0,
     paidAmount: Number(header.paid) || 0,
-    notes: header.notes || "",
-    lines: validLines.map((line) => ({
-      itemId: Number(line.itemId),
-      count: Number(line.count) || 0,
-      weight: Number(line.weight) || 0,
-      price: Number(line.price) || 0,
-      notes: line.notes || "",
-    })),
+    generalNotes: header.generalNotes || "",
+    lines: validLines.map((line) => {
+      const lineObj = {
+        ...(line.isTemporaryItem
+          ? { isTemporaryItem: true, itemName: line.itemName }
+          : { itemId: Number(line.itemId) }),
+        count: Number(line.count) || 0,
+        weight: Number(line.weight) || 0,
+        price: Number(line.price) || 0,
+        notes: line.notes || "",
+      };
+      if (!line.isTemporaryItem) {
+        withOptionalNumber(lineObj, "itemUnitId", line.itemUnitId);
+      }
+      return lineObj;
+    }),
     containerLines: isSalesInvoice
       ? (containersMovement?.items || []).map((item) => ({
           containerId: Number(item.containerId),
@@ -62,13 +79,10 @@ export function buildInvoicePayload({
       : [],
   };
 
-  // ⚠️ للإنشاء بس (حسب وجود invoiceNumber في الـ schema اللي بعتها)
-  // لو الفنكشن ده مستخدم في التعديل كمان، قولّي عشان أفصل المنطق
   if (header.invoiceNumber) {
     payload.invoiceNumber = header.invoiceNumber;
   }
 
-  // الحقول الاختيارية - بتتشال خالص لو مفيش قيمة، مش بتترجع 0 ولا null
   withOptionalNumber(
     payload,
     "containerStoreId",
@@ -81,6 +95,15 @@ export function buildInvoicePayload({
     isTemporaryDriver ? null : header.driverId,
   );
   withOptionalNumber(payload, "actualDriverId", header.actualDriverId);
+  withOptionalNumber(payload, "exchangeRate", header.exchangeRate);
+  if (header.paymentMethod === "cash") {
+    withOptionalNumber(payload, "cashboxId", header.cashboxId);
+  }
+
+  withOptionalString(payload, "WBWeight", header.WBWeight);
+  withOptionalString(payload, "WBScaleDifference", header.WBScaleDifference);
+  withOptionalString(payload, "WBDiscount", header.WBDiscount);
+  withOptionalString(payload, "WBTotal", header.WBTotal);
 
   return payload;
 }

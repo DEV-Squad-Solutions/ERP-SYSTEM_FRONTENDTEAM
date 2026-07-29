@@ -27,7 +27,7 @@ function buildInvoiceParams({
     driverId: driverId || undefined,
     paymentTerm: paymentMethod || undefined,
     PriceStatus: status || undefined,
-    countryId: country || undefined,
+    CountryId: country || undefined,
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
   };
@@ -49,8 +49,6 @@ export const invoicesApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // نفس الفلاتر بالظبط، بس PageSize كبيرة عشان نجيب كل النتائج المطابقة
-    // (مستخدمة لحساب الملخص/الكروت بس، مش للجدول)
     getInvoicesForSummary: builder.query({
       query: (filters = {}) => ({
         url: "Invoices",

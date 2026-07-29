@@ -149,16 +149,58 @@ export default function InvoiceListPrintTemplate({
           ))}
         </tbody>
         {summary && (
-          <tfoot>
-            <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-              <td colSpan={7} style={{ ...cellCenter, textAlign: "left" }}>
-                الإجمالي
-              </td>
-              <td style={cellCenter}>{fmt(summary.totalAmount)}</td>
-              <td style={cellCenter}>{fmt(summary.totalPaid)}</td>
-              <td style={cellCenter}>{fmt(summary.totalRemaining)}</td>
-            </tr>
-          </tfoot>
+          <div className="mt-6 flex justify-end">
+            <div className="w-80 overflow-hidden rounded-lg border border-gray-200">
+              <table className="w-full border-collapse text-sm">
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
+                      إجمالي قبل الخصم
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center font-medium">
+                      {fmt(summary.subtotal)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
+                      إجمالي الخصم
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center font-medium">
+                      {fmt(summary.discountAmount)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
+                      الإجمالي النهائي
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center font-bold">
+                      {fmt(summary.total)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
+                      المدفوع
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center text-green-600 font-semibold">
+                      {fmt(summary.paidAmount)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
+                      المتبقي
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center text-red-600 font-semibold">
+                      {fmt(summary.remainingAmount)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </table>
 

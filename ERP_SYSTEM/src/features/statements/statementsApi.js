@@ -8,7 +8,14 @@ export const statementsApi = baseApi.injectEndpoints({
         { type: "Statement", id: params.BusinessPartnerId },
       ],
     }),
+    getPartnerItemInvoices: builder.query({
+      query: (params) => ({
+        url: "/Statements/partner-item-invoices", // عدّل المسار الصح عندك
+        params,
+      }),
+    }),
   }),
 });
 
-export const { useGetPartnerStatementQuery } = statementsApi;
+export const { useGetPartnerStatementQuery, useGetPartnerItemInvoicesQuery } =
+  statementsApi;

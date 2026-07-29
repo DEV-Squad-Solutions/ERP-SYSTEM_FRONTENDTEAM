@@ -2,7 +2,13 @@ import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
 import BalanceBadge from "./BalanceBadge";
 
 /**
- * @param {{ data: Object, isLoading: boolean, isFetching: boolean, isError: boolean, refetch: () => void }} props
+ * @param {{
+ * data: Object,
+ * isLoading: boolean,
+ * isFetching: boolean,
+ * isError: boolean,
+ * refetch: () => void
+ * }} props
  */
 export default function StatementTable({
   data,
@@ -15,7 +21,7 @@ export default function StatementTable({
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-12 rounded-xl bg-ink-400/5 animate-pulse" />
+          <div key={i} className="h-12 animate-pulse rounded-xl bg-ink-400/5" />
         ))}
       </div>
     );
@@ -23,18 +29,20 @@ export default function StatementTable({
 
   if (isError) {
     return (
-      <div className="text-center py-14 border border-dashed border-negative/25 bg-negative/[0.02] rounded-2xl">
+      <div className="rounded-2xl border border-negative/25 bg-negative/[0.02] py-14 text-center">
         <AlertCircle
           size={34}
-          className="mx-auto text-negative/70 mb-3"
+          className="mx-auto mb-3 text-negative/70"
           strokeWidth={1.6}
         />
-        <p className="text-ink-900 font-medium mb-1">
+
+        <p className="mb-1 font-medium text-ink-900">
           حدث خطأ في تحميل كشف الحساب
         </p>
+
         <button
           onClick={refetch}
-          className="inline-flex items-center gap-2 text-sm font-medium text-primary-500 hover:text-primary-600 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-lg transition-colors mt-2"
+          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-4 py-2 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-600"
         >
           <RefreshCw size={15} />
           إعادة المحاولة
@@ -44,81 +52,121 @@ export default function StatementTable({
   }
 
   const items = data?.items || [];
-  const symbol = data?.currency === "USD" ? "$" : "ج.م";
 
   if (!isFetching && items.length === 0) {
     return (
-      <div className="text-center py-16 border border-dashed border-ink-400/20 rounded-2xl">
-        <div className="w-14 h-14 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
+      <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center">
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-ink-400/5">
           <FileSearch size={26} className="text-ink-400/50" strokeWidth={1.6} />
         </div>
-        <p className="text-ink-900 font-medium mb-1">لا توجد حركات مطابقة</p>
+
+        <p className="font-medium text-ink-900">لا توجد حركات مطابقة</p>
       </div>
     );
   }
 
   return (
     <div
-      className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${isFetching ? "opacity-60" : ""}`}
+      className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
+        isFetching ? "opacity-60" : ""
+      }`}
     >
-      <table className="w-full text-right border-collapse min-w-[800px]">
-        <thead>
-          <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
-            <th className="p-3 font-medium">التاريخ</th>
-            <th className="p-3 font-medium">رقم المستند</th>
-            <th className="p-3 font-medium">مصدر الحركة</th>
-            <th className="p-3 font-medium text-negative">عليه</th>
-            <th className="p-3 font-medium text-positive">له</th>
-            <th className="p-3 font-medium">الرصيد</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, i) => (
-            <tr
-              key={i}
-              className="border-b border-ink-400/5 last:border-0 hover:bg-ink-900/[0.01] transition-colors"
-            >
-              <td className="p-3 num text-ink-600">{item.date}</td>
-              <td className="p-3 num font-medium text-ink-900">
-                {item.documentNumber || "—"}
-              </td>
-              <td className="p-3 text-ink-700">{item.movementName}</td>
-              <td className="p-3 num text-negative">
-                {item.debitAmount > 0
-                  ? item.debitAmount.toLocaleString("ar-EG")
-                  : "—"}
-              </td>
-              <td className="p-3 num text-positive">
-                {item.creditAmount > 0
-                  ? item.creditAmount.toLocaleString("ar-EG")
-                  : "—"}
-              </td>
-              <td className="p-3">
-                <BalanceBadge
-                  amount={item.balanceAmount}
-                  description={item.balanceDescription}
-                />
-              </td>
+      <div className="overflow-x-auto custom-scroll">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="bg-slate-50">
+            <tr className="border-b border-ink-400/10 text-xs font-semibold text-ink-600">
+              <th className="w-36 px-4 py-3 text-center">التاريخ</th>
+
+              <th className="w-32 px-4 py-3 text-center text-negative">مدين</th>
+
+              <th className="w-32 px-4 py-3 text-center text-positive">دائن</th>
+
+              <th className="w-44 px-4 py-3 text-center">الرصيد</th>
+
+              <th className="min-w-[320px] px-4 py-3 text-right">البيان</th>
+
+              <th className="min-w-[220px] px-4 py-3 text-right">الملاحظات</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {items.map((item, index) => (
+              <tr
+                key={index}
+                className="border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0"
+              >
+                {/* التاريخ */}
+                <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
+                  {item.date}
+                </td>
+
+                {/* مدين */}
+                <td className="num px-4 py-3 text-center font-medium text-negative">
+                  {item.debitAmount > 0
+                    ? item.debitAmount.toLocaleString("ar-EG")
+                    : "—"}
+                </td>
+
+                {/* دائن */}
+                <td className="num px-4 py-3 text-center font-medium text-positive">
+                  {item.creditAmount > 0
+                    ? item.creditAmount.toLocaleString("ar-EG")
+                    : "—"}
+                </td>
+
+                {/* الرصيد */}
+                <td className="px-4 py-3 text-center">
+                  <BalanceBadge
+                    amount={item.balanceAmount}
+                    description={item.balanceDescription}
+                  />
+                </td>
+
+                {/* البيان */}
+                <td className="px-4 py-3 text-right">
+                  <div className="font-medium text-ink-900">
+                    {item.movementName || "—"}
+                  </div>
+
+                  {item.documentNumber && (
+                    <div className="mt-1 text-xs text-ink-500">
+                      رقم المستند: {item.documentNumber}
+                    </div>
+                  )}
+                </td>
+
+                {/* الملاحظات */}
+                <td className="px-4 py-3 text-right text-ink-500">
+                  {item.notes || item.description || "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {data?.summary && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-primary-100 bg-primary-50/50 px-4 py-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-ink-500">رصيد أول المدة</span>
-            <BalanceBadge
-              amount={data.summary.openingBalanceAmount}
-              description={data.summary.openingBalanceDescription}
-            />
-          </div>
-          <div className="flex items-center gap-2 font-semibold">
-            <span className="text-ink-900">رصيد آخر المدة</span>
-            <BalanceBadge
-              amount={data.summary.closingBalanceAmount}
-              description={data.summary.closingBalanceDescription}
-            />
+        <div className="border-t border-ink-400/10 bg-slate-50 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-ink-500">رصيد أول المدة</span>
+
+              <BalanceBadge
+                amount={data.summary.openingBalanceAmount}
+                description={data.summary.openingBalanceDescription}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-ink-900">
+                رصيد آخر المدة
+              </span>
+
+              <BalanceBadge
+                amount={data.summary.closingBalanceAmount}
+                description={data.summary.closingBalanceDescription}
+              />
+            </div>
           </div>
         </div>
       )}

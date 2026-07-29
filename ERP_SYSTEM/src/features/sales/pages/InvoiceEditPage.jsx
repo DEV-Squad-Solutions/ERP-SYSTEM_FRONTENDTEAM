@@ -32,9 +32,20 @@ const invoiceTypeOptions = [
   { value: "PurchaseReturn", label: "مرتجع شراء" },
 ];
 
+const itemsCategoryOptions = [
+  { value: "pickled", label: "مخلل" },
+  { value: "fresh", label: "فريش" },
+];
+
+const invoiceContentTypeOptions = [
+  { value: "items", label: "أصناف" },
+  { value: "containers", label: "عبوات" },
+];
+
 const emptyLine = () => ({
   itemId: null,
   itemName: "",
+  isTemporaryItem: false,
   itemCode: "",
   itemUnitId: null,
   itemUnitName: "",
@@ -109,9 +120,20 @@ export default function InvoiceEditPage() {
       exportInvoiceCode: invoice.exportInvoiceCode || "",
       discountAmount: invoice.discountAmount || 0,
       paidAmount: invoice.paidAmount || 0,
-      notes: invoice.notes || "",
+      itemsCategory: invoice.itemsCategory || "fresh",
+      invoiceContentType: invoice.invoiceContentType || "items",
+      generalNotes: invoice.generalNotes || invoice.notes || "",
+      // ==== ملاحظات مقسمة لأربع حقول ====
+      weighbridgeWeight: invoice.weighbridgeWeight || "",
+      scaleDifference: invoice.scaleDifference || "",
+      notesDiscount: invoice.notesDiscount || "",
+      notesTotal: invoice.notesTotal || "",
     });
-    setLines(invoice.lines?.length ? invoice.lines : [emptyLine()]);
+    setLines(
+      invoice.lines?.length
+        ? invoice.lines
+        : Array.from({ length: 10 }, () => emptyLine()),
+    );
     setContainerLines(invoice.containerLines || []);
     setContainerStoreName(invoice.containerStoreName || "");
     setRowVersion(invoice.rowVersion);
@@ -172,13 +194,12 @@ export default function InvoiceEditPage() {
     [lines],
   );
   const displayTotal = displaySubtotal - (Number(form?.discountAmount) || 0);
-  const displayRemaining = displayTotal - (Number(form?.paidAmount) || 0);
 
   const handleSubmit = async () => {
     if (!form) return;
 
-    if (lines.some((l) => !l.itemId)) {
-      toast.error("لازم تختار صنف لكل سطر قبل الحفظ");
+    if (lines.some((l) => !l.itemId && !(l.isTemporaryItem && l.itemName))) {
+      toast.error("لازم تختار صنف أو تكتب اسمه لكل سطر قبل الحفظ");
       return;
     }
 
@@ -401,17 +422,60 @@ export default function InvoiceEditPage() {
               onChange={(e) => setField("externalDriverName", e.target.value)}
             />
           )}
+
+          <div>
+            <label className="block mb-1.5 text-sm font-medium text-ink-900">
+              نوع الأصناف
+            </label>
+            <CompactSelect
+              options={itemsCategoryOptions}
+              value={form.itemsCategory}
+              onChange={(v) => setField("itemsCategory", v)}
+            />
+          </div>
+
+          <div>
+            <label className="block mb-1.5 text-sm font-medium text-ink-900">
+              محتوى الفاتورة
+            </label>
+            <CompactSelect
+              options={invoiceContentTypeOptions}
+              value={form.invoiceContentType}
+              onChange={(v) => setField("invoiceContentType", v)}
+            />
+          </div>
         </div>
 
+        {/* ==== ملاحظات عامة ==== */}
         <div className="mt-3">
-          <label className="block mb-1.5 text-sm font-medium text-ink-900">
-            ملاحظات
-          </label>
-          <textarea
-            value={form.notes}
-            onChange={(e) => setField("notes", e.target.value)}
-            rows={2}
-            className="w-full rounded-lg border border-ink-400/15 px-3 py-2 text-sm bg-white focus:outline-none focus:border-primary-500"
+          <Input
+            label="ملاحظات عامة"
+            value={form.generalNotes}
+            onChange={(e) => setField("generalNotes", e.target.value)}
+          />
+        </div>
+
+        {/* ==== ملاحظات: مقسمة لأربع حقول ==== */}
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Input
+            label="وزن البسكال"
+            value={form.weighbridgeWeight}
+            onChange={(e) => setField("weighbridgeWeight", e.target.value)}
+          />
+          <Input
+            label="فرق الميزان"
+            value={form.scaleDifference}
+            onChange={(e) => setField("scaleDifference", e.target.value)}
+          />
+          <Input
+            label="الخصم"
+            value={form.notesDiscount}
+            onChange={(e) => setField("notesDiscount", e.target.value)}
+          />
+          <Input
+            label="الاجمالي"
+            value={form.notesTotal}
+            onChange={(e) => setField("notesTotal", e.target.value)}
           />
         </div>
       </div>
@@ -431,8 +495,6 @@ export default function InvoiceEditPage() {
               <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
                 <th className="p-2.5 font-medium">#</th>
                 <th className="p-2.5 font-medium">الصنف</th>
-                <th className="p-2.5 font-medium">الرصيد بالمخزن</th>
-                <th className="p-2.5 font-medium">الوحدة</th>
                 <th className="p-2.5 font-medium">العدد</th>
                 <th className="p-2.5 font-medium">وزن الوحدة</th>
                 <th className="p-2.5 font-medium">الكمية</th>
@@ -510,33 +572,24 @@ export default function InvoiceEditPage() {
               setField("discountAmount", Number(e.target.value) || 0)
             }
           />
-          <Input
-            type="number"
-            label="المدفوع"
-            value={form.paidAmount}
-            onChange={(e) =>
-              setField("paidAmount", Number(e.target.value) || 0)
-            }
-          />
+          <div>
+            <Input
+              type="number"
+              label="المدفوع"
+              value={form.paidAmount}
+              onChange={(e) =>
+                setField("paidAmount", Number(e.target.value) || 0)
+              }
+            />
+            <p className="text-[11px] text-ink-400 mt-1">إرشادي فقط</p>
+          </div>
           <div>
             <p className="text-xs text-ink-400 mb-1">الإجمالي (تقديري)</p>
             <p className="num font-bold text-ink-900">
               {displayTotal.toLocaleString("ar-EG")} {invoice.currency}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-ink-400 mb-1">المتبقي (تقديري)</p>
-            <p
-              className={`num font-bold ${displayRemaining > 0 ? "text-negative" : "text-positive"}`}
-            >
-              {displayRemaining.toLocaleString("ar-EG")} {invoice.currency}
-            </p>
-          </div>
         </div>
-        <p className="text-xs text-ink-400 mt-2">
-          ⚠️ القيم دي تقديرية للعرض بس، السيرفر هو اللي بيحسب القيم النهائية
-          الفعلية بعد الحفظ.
-        </p>
       </div>
     </div>
   );

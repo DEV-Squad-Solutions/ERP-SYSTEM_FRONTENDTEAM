@@ -83,7 +83,7 @@ export default function SalesPage() {
     title: `فواتير-${appliedFilters.movementType === "purchase" ? "المشتريات" : "المبيعات"}`,
   });
 
-  const Summary = computeSalesSummary(data?.items);
+  const Summary = data?.summary;
   return (
     <div className="animate-fadeUp">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">

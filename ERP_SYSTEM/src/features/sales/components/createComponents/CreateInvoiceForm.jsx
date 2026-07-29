@@ -21,10 +21,7 @@ import {
   useGetPartyByIdQuery,
   useGetPartyContainerStoreQuery,
 } from "../../../partners/partiesApi";
-import {
-  useGetDriversSelectQuery,
-  useGetDriverByIdQuery,
-} from "../../../drivers/driversApi";
+import { useGetDriversSelectQuery } from "../../../drivers/driversApi";
 import { useGetStoresSelectQuery } from "../../../stores/storesApi";
 import { useGetCountriesSelectQuery } from "../../../countries/countriesApi";
 import QuickAddCustomerModal from "../QuickAddCustomerModal";
@@ -42,16 +39,19 @@ import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
 import NumericInput from "../../../../shared/components/ui/NumericInput";
+import { useGetCashboxOptionsQuery } from "../../../cashboxes/cashboxesApi";
 
 const emptyLine = () => ({
-  itemId: "",
+  itemId: null,
   itemName: "",
-  packagingUnitId: "",
-  packagingUnitName: "",
-  packagingCount: 0,
-  unitWeight: 0,
-  quantity: 0,
-  price: 0,
+  itemCode: "",
+  isTemporaryItem: false,
+  itemUnitId: null,
+  itemUnitName: "",
+  count: null,
+  weight: null,
+  quantity: null,
+  price: null,
   notes: "",
 });
 
@@ -67,11 +67,13 @@ const paymentOptions = [
   { value: "credit", label: "آجل" },
 ];
 
+const invoiceContentTypeOptions = [
+  { value: "items", label: "أصناف" },
+  { value: "containers", label: "عبوات" },
+];
+
 const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
 
-/**
- * @param {{ onSuccess?: () => void }} props
- */
 export default function CreateInvoiceForm({ onSuccess }) {
   const { data: parties } = useGetPartiesSelectQuery();
   const { data: drivers } = useGetDriversSelectQuery();
@@ -99,19 +101,39 @@ export default function CreateInvoiceForm({ onSuccess }) {
     driverId: "",
     actualDriverId: "",
     driverName: "",
-    licenseNumber: "",
     storeId: "",
     countryId: "",
     carNumber: "",
     exportInvoiceCode: "",
-    paymentMethod: "cash",
-    treasuryAccount: "",
-    discount: 0,
-    paid: 0,
-    notes: "",
+    paymentMethod: "credit",
+    cashboxId: "",
+    cashboxName: "",
+    discount: "",
+    paid: "",
+    exchangeRate: "",
+    invoiceContentType: "items",
+    generalNotes: "",
+    WBWeight: "",
+    WBScaleDifference: "",
+    WBDiscount: "",
+    WBTotal: "",
   });
 
-  const [lines, setLines] = useState([emptyLine()]);
+  const [lines, setLines] = useState(() =>
+    Array.from({ length: 10 }, () => emptyLine()),
+  );
+  const packagingBreakdown = useMemo(() => {
+    const totals = {};
+    lines.forEach((l) => {
+      const count = Number(l.count) || 0;
+      if (!l.itemUnitName || !count) return;
+      totals[l.itemUnitName] = (totals[l.itemUnitName] || 0) + count;
+    });
+    return Object.entries(totals).map(([unitName, count]) => ({
+      unitName,
+      count,
+    }));
+  }, [lines]);
 
   // نوع الفاتورة "بيع" هو الوحيد اللي بيسمح بحركة عبوات
   // (نفس المنطق المستخدم في buildInvoicePayload)
@@ -129,7 +151,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
     header.partyId,
     { skip: !header.partyId || !isSalesInvoice },
   );
+  const { data: cashboxes } = useGetCashboxOptionsQuery(undefined, {
+    skip: header.paymentMethod !== "cash",
+  });
 
+  const handleCashboxChange = (cashboxId) => {
+    const cashbox = cashboxes?.find((c) => String(c.id) === String(cashboxId));
+    setHeaderField("cashboxId", cashboxId);
+    setHeaderField("cashboxName", cashbox?.name || "");
+  };
   useEffect(() => {
     if (!isSalesInvoice) return;
     const store = partyContainerStoreData?.containerStore;
@@ -161,16 +191,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
     if (newParty.currency) setHeaderField("currency", newParty.currency);
   };
 
-  const { data: driverDetails } = useGetDriverByIdQuery(header.driverId, {
-    skip: !header.driverId,
-  });
-
-  useEffect(() => {
-    if (driverDetails?.licenseNumber) {
-      setHeaderField("licenseNumber", driverDetails.licenseNumber);
-    }
-  }, [driverDetails]);
-
   const handleDriverChange = (driverId) => {
     const driver = drivers?.find((d) => d.id === driverId);
     setHeaderField("driverId", driverId);
@@ -180,7 +200,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const handleDriverCreated = (newDriver) => {
     setHeaderField("driverId", newDriver.id);
     setHeaderField("driverName", newDriver.name);
-    setHeaderField("licenseNumber", newDriver.licenseNumber || "");
   };
 
   const updateLine = (index, newLine) =>
@@ -192,7 +211,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     setLines((prev) => [...prev, emptyLine()]);
   };
 
-  // ==== الملخص المالي الكامل - بيتحدث تلقائيًا مع أي تغيير في الأصناف/الخصم/الدفع ====
+  // ==== الملخص المالي الكامل - بيتحدث تلقائيًا مع أي تغيير في الأصناف/الخصم ====
   const itemsCount = lines.filter((l) => l.itemId).length;
 
   const totalQuantity = useMemo(
@@ -222,25 +241,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const paid = parseFloat(header.paid) || 0;
 
   const netTotal = Math.max(invoiceTotal - discount, 0);
-  const remaining = netTotal - paid;
 
-  // الكاش لازم يتساوى بالصافي بالظبط - بيتحدث تلقائيًا مع أي تغيير مؤثر
-  // (تغيير الأصناف، الخصم، أو طريقة الدفع نفسها)
-  useEffect(() => {
-    if (header.paymentMethod === "cash") {
-      setHeaderField("paid", netTotal);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [header.paymentMethod, netTotal]);
-
+  const remaining = Math.max(netTotal - paid, 0);
   const handlePaymentMethodChange = (method) => {
     setHeaderField("paymentMethod", method);
-    if (method === "cash") {
-      setHeaderField("paid", netTotal);
-    } else {
-      // الرجوع لآجل - نسيب المدفوع 0 كنقطة بداية، المستخدم يعدله يدويًا
-      setHeaderField("paid", 0);
-    }
   };
 
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
@@ -253,6 +257,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       containersMovement,
       isTemporaryDriver,
     });
+    console.log(payload);
 
     const invoice = await createInvoice(payload).unwrap();
 
@@ -312,6 +317,23 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.exportInvoiceCode}
             onChange={(e) =>
               setHeaderField("exportInvoiceCode", e.target.value)
+            }
+          />
+        </div>
+        {/* في قسم "بيانات الفاتورة" - استبدل السطر بتاع نوع الأصناف */}
+        <div className="grid grid-cols-1 sm:grid-cols-3">
+          <LedgerField
+            label="سعر الصرف"
+            type="number"
+            value={header.exchangeRate}
+            onChange={(e) => setHeaderField("exchangeRate", e.target.value)}
+          />
+          <LedgerSelect
+            label="محتوى الفاتورة"
+            options={invoiceContentTypeOptions}
+            value={header.invoiceContentType}
+            onChange={(e) =>
+              setHeaderField("invoiceContentType", e.target.value)
             }
           />
         </div>
@@ -408,7 +430,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2">
+        <div className="grid grid-cols-1">
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               السائق
@@ -448,7 +470,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   ...h,
                   driverId: "",
                   driverName: "",
-                  licenseNumber: "",
                 }));
               }}
               className={`px-3 border-r border-ink-400/10 transition-colors ${
@@ -461,13 +482,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <Truck size={17} />
             </button>
           </div>
-
-          <LedgerField
-            label="رقم الرخصة"
-            value={header.licenseNumber}
-            readOnly
-            className="bg-ink-400/5"
-          />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2">
@@ -519,6 +533,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </span>
         }
       >
+        {/* قسم الدفع والملاحظات */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerSelect
             label="طريقة الدفع"
@@ -527,21 +542,60 @@ export default function CreateInvoiceForm({ onSuccess }) {
             onChange={(e) => handlePaymentMethodChange(e.target.value)}
           />
           {header.paymentMethod === "cash" && (
-            <LedgerField
-              label="الخزنة / البنك"
-              value={header.treasuryAccount}
-              onChange={(e) =>
-                setHeaderField("treasuryAccount", e.target.value)
-              }
-              placeholder="اسم الخزنة أو البنك"
-            />
+            <div className="flex items-stretch">
+              <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                الخزنة <span className="text-negative">*</span>
+              </div>
+              <CompactSelect
+                label="الخزنة"
+                options={
+                  cashboxes?.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
+                  })) || []
+                }
+                value={header.cashboxId}
+                onChange={handleCashboxChange}
+                placeholder="اختر الخزنة"
+              />
+            </div>
           )}
         </div>
+
+        {/* ==== ملاحظات عامة ==== */}
         <div className="grid grid-cols-1">
           <LedgerField
-            label="ملاحظات"
-            value={header.notes}
-            onChange={(e) => setHeaderField("notes", e.target.value)}
+            label="ملاحظات عامة"
+            value={header.generalNotes}
+            onChange={(e) => setHeaderField("generalNotes", e.target.value)}
+          />
+        </div>
+
+        {/* ==== ملاحظات: مقسمة لأربع حقول ==== */}
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <LedgerField
+            label="وزن البسكال"
+            value={header.WBWeight}
+            onChange={(e) => setHeaderField("WBWeight", e.target.value)}
+          />
+          <LedgerField
+            label="فرق الميزان"
+            value={header.WBScaleDifference}
+            onChange={(e) =>
+              setHeaderField("WBScaleDifference", e.target.value)
+            }
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <LedgerField
+            label="الخصم"
+            value={header.WBDiscount}
+            onChange={(e) => setHeaderField("WBDiscount", e.target.value)}
+          />
+          <LedgerField
+            label="الاجمالي"
+            value={header.WBTotal}
+            onChange={(e) => setHeaderField("WBTotal", e.target.value)}
           />
         </div>
       </LedgerPanel>
@@ -579,7 +633,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
                     <th className="p-2.5 font-medium">#</th>
                     <th className="p-2.5 font-medium">الصنف</th>
-                    <th className="p-2.5 font-medium">الرصيد بالمخزن</th>
+
+                    <th className="p-2.5 font-medium"> العدد بالمخزن</th>
                     <th className="p-2.5 font-medium">الوحدة</th>
                     <th className="p-2.5 font-medium">العدد</th>
                     <th className="p-2.5 font-medium">وزن الوحدة</th>
@@ -629,11 +684,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
         <div className="lg:sticky lg:top-4 space-y-3">
           <div className="rounded-xl border border-ink-400/10 overflow-hidden bg-white">
             {/* عدد الأصناف */}
+            {/* بدل "عدد الأصناف" */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-ink-400/10">
-              <span className="text-sm text-ink-600">عدد الأصناف</span>
-
+              <span className="text-sm text-ink-600">عدد العبوات</span>
               <span className="text-sm font-semibold num text-ink-900">
-                {itemsCount}
+                {packagingBreakdown.length > 0
+                  ? packagingBreakdown
+                      .map((p) => `${fmt(p.count)} ${p.unitName}`)
+                      .join("، ")
+                  : "—"}
               </span>
             </div>
 
@@ -682,18 +741,14 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 {fmt(netTotal)} {currencySymbol}
               </span>
             </div>
-
-            {/* المدفوع */}
             <div className="flex items-stretch border-b border-ink-400/10">
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 المدفوع
               </div>
-
               <div className="flex-1 p-2">
                 <NumericInput
                   value={header.paid ?? ""}
                   decimals
-                  readOnly={header.paymentMethod === "cash"}
                   onChange={(value) =>
                     setHeaderField("paid", value === "" ? "" : value)
                   }
@@ -701,27 +756,11 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </div>
             </div>
 
-            {/* المتبقي */}
-            <div
-              className={`
-          flex
-          items-center
-          justify-between
-          px-3
-          py-3
-          ${remaining > 0 ? "bg-negative/5" : "bg-positive/5"}
-        `}
-            >
-              <span className="text-sm font-semibold">المتبقي</span>
-
-              <span
-                className={`
-            text-sm
-            font-bold
-            num
-            ${remaining > 0 ? "text-negative" : "text-positive"}
-          `}
-              >
+            <div className="flex items-center justify-between px-3 py-2.5 bg-ink-900/[0.02]">
+              <span className="text-sm font-semibold text-ink-900">
+                المتبقي
+              </span>
+              <span className="text-sm font-bold num text-ink-900">
                 {fmt(remaining)} {currencySymbol}
               </span>
             </div>
