@@ -18,6 +18,7 @@ import {
   PersonStandingIcon,
   WalletCardsIcon,
   DollarSignIcon,
+  Van,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -28,6 +29,7 @@ export const navigationItems = [
     icon: TrendingUp,
   },
   { label: "العملاء/الموردين", path: "/dashboard/partners", icon: Users },
+  { label: "السائقين ", path: "/dashboard/drivers/statement", icon: Van },
   { label: "الخزائن", path: "/dashboard/treasury", icon: Wallet },
   { label: "البنك", path: "/dashboard/bank", icon: Landmark },
   { label: "المخازن", path: "/dashboard/inventory", icon: Boxes },

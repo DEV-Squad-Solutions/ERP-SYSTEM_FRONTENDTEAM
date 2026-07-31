@@ -10,28 +10,24 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import DescriptionPickerModal, {
-  categories as descriptionCategories,
-} from "./DescriptionPickerModal";
+import DescriptionPickerModal from "./DescriptionPickerModal";
 import Pagination from "../../../shared/components/ui/Pagination";
 
-/**
- * @param {{
- *   data: Object,
- *   isLoading: boolean,
- *   isFetching: boolean,
- *   isError: boolean,
- *   refetch: () => void,
- *   partyOptions: Array<{ id: number, name: string }>,
- *   onAddVoucher: (payload: Object) => Promise<void>,
- *   onUpdateVoucherDescription: (voucherId: number|string, payload: Object) => Promise<void>,
- *   page: number,
- *   pageSize: number,
- *   totalCount: number,
- *   onPageChange: (page: number) => void,
- *   onPageSizeChange: (size: number) => void,
- * }} props
- */
+function buildDescriptionDisplay(v) {
+  if (!v.cashMovementTypeId) return null;
+  const partyLabel =
+    v.partyType === "Partner"
+      ? v.businessPartnerName
+      : v.partyType === "Driver"
+        ? v.driverName
+        : v.partyType === "Other"
+          ? v.externalPartyName
+          : null;
+  return partyLabel
+    ? `${v.cashMovementTypeName} - ${partyLabel}`
+    : v.cashMovementTypeName;
+}
+
 export default function CashboxLedgerTable({
   data,
   isLoading,
@@ -39,8 +35,9 @@ export default function CashboxLedgerTable({
   isError,
   refetch,
   partyOptions = [],
+  driverOptions = [],
   onAddVoucher,
-  onUpdateVoucherDescription,
+  onUpdateVoucher,
   page = 1,
   pageSize = 20,
   totalCount = 0,
@@ -50,9 +47,8 @@ export default function CashboxLedgerTable({
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(emptyDraft());
-  const [showPicker, setShowPicker] = useState(false);
-  const [editingRowId, setEditingRowId] = useState(null); // id السطر اللي بيتعدل توصيفه
-  const [updatingRowId, setUpdatingRowId] = useState(null); // id السطر اللي بيتحفظ حاليًا
+  const [editingRow, setEditingRow] = useState(null);
+  const [updatingRowId, setUpdatingRowId] = useState(null);
   const dateInputRef = useRef(null);
 
   function emptyDraft() {
@@ -60,8 +56,6 @@ export default function CashboxLedgerTable({
       voucherDate: new Date().toISOString().slice(0, 10),
       voucherNumber: "",
       description: "",
-      category: null,
-      partnerId: null,
       receiptAmount: "",
       paymentAmount: "",
       notes: "",
@@ -79,9 +73,21 @@ export default function CashboxLedgerTable({
     setDraft(emptyDraft());
   }
 
+  // إضافة سريعة: مسؤول الخزنة بس بيكتب المبلغ (وارد أو صادر) والبيان والملاحظات
+  // من غير توصيف - المحاسب بيوصفها بعدين من زرار "بدون توصيف" على السطر
   async function handleSave() {
     const receipt = Number(draft.receiptAmount) || 0;
     const payment = Number(draft.paymentAmount) || 0;
+
+    if (receipt <= 0 && payment <= 0) {
+      toast.error("ادخل مبلغ وارد أو صادر");
+      return;
+    }
+    if (receipt > 0 && payment > 0) {
+      toast.error("اكتب المبلغ في وارد أو صادر بس مش الاتنين مع بعض");
+      return;
+    }
+
     setSaving(true);
     try {
       await onAddVoucher({
@@ -89,38 +95,39 @@ export default function CashboxLedgerTable({
         voucherNumber: draft.voucherNumber || undefined,
         direction: receipt > 0 ? "Receipt" : "Payment",
         amount: receipt > 0 ? receipt : payment,
-        descriptionCategory: draft.category.value,
-        businessPartnerId:
-          draft.category.value === "customers_suppliers"
-            ? draft.partnerId?.value
-            : undefined,
         description: draft.description,
         notes: draft.notes,
       });
       setDraft(emptyDraft());
       setTimeout(() => dateInputRef.current?.focus(), 0);
     } catch (err) {
+      toast.error("تعذر حفظ الحركة");
     } finally {
       setSaving(false);
     }
   }
 
-  // ==== تعديل توصيف سطر موجود بالفعل، سواء كان له توصيف قبل كده أو لأ ====
-  async function handleUpdateRowDescription(voucherId, { category, party }) {
-    if (!onUpdateVoucherDescription) return;
-
-    setUpdatingRowId(voucherId);
+  async function handleUpdateRowDescription(row, c) {
+    if (!onUpdateVoucher) return;
+    setUpdatingRowId(row.id);
     try {
-      await onUpdateVoucherDescription(voucherId, {
-        descriptionCategory: category.value,
-        businessPartnerId:
-          category.value === "customers_suppliers" ? party?.value : null,
+      await onUpdateVoucher({
+        ...row,
+        id: row.id,
+        direction: c.direction,
+        cashMovementTypeId: c.cashMovementType.value,
+        partyType: c.partyType,
+        businessPartnerId: c.businessPartner?.value ?? null,
+        driverId: c.driver?.value ?? null,
+        externalPartyName: c.externalPartyName || null,
+        rowVersion: row.rowVersion,
       });
       toast.success("تم تحديث التوصيف");
     } catch (err) {
+      toast.error("تعذر تحديث التوصيف");
     } finally {
       setUpdatingRowId(null);
-      setEditingRowId(null);
+      setEditingRow(null);
     }
   }
 
@@ -157,7 +164,6 @@ export default function CashboxLedgerTable({
   }
 
   const vouchers = data?.items || [];
-
   const sorted = [...vouchers].sort((a, b) =>
     a.voucherDate.localeCompare(b.voucherDate),
   );
@@ -166,16 +172,14 @@ export default function CashboxLedgerTable({
     const debit = v.direction === "Receipt" ? v.amount : 0;
     const credit = v.direction === "Payment" ? v.amount : 0;
     running += debit - credit;
-
-    const categoryLabel =
-      descriptionCategories.find((c) => c.value === v.descriptionCategory)
-        ?.label || null;
-    const descriptionDisplay =
-      v.descriptionCategory === "customers_suppliers" && v.businessPartnerName
-        ? `${categoryLabel} - ${v.businessPartnerName}`
-        : categoryLabel;
-
-    return { ...v, debit, credit, balance: running, descriptionDisplay };
+    return {
+      ...v,
+      debit,
+      credit,
+      balance: running,
+      isDescribed: Boolean(v.cashMovementTypeId),
+      descriptionDisplay: buildDescriptionDisplay(v),
+    };
   });
 
   const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
@@ -249,14 +253,13 @@ export default function CashboxLedgerTable({
                 {row.voucherDate}
               </td>
 
-              {/* التوصيف - قابل للتعديل في أي وقت، اتوصف قبل كده أو لأ */}
               <td className="p-2.5 border-l border-ink-400/5">
                 <button
                   type="button"
-                  onClick={() => setEditingRowId(row.id)}
+                  onClick={() => setEditingRow(row)}
                   disabled={updatingRowId === row.id}
                   className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs transition-colors ${
-                    row.descriptionDisplay
+                    row.isDescribed
                       ? "bg-ink-900/[0.04] text-ink-700 hover:bg-ink-900/[0.08]"
                       : "bg-gold-50 text-gold-700 hover:bg-gold-100"
                   } disabled:opacity-50`}
@@ -319,21 +322,12 @@ export default function CashboxLedgerTable({
                   className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
                 />
               </td>
-              <td className="p-1.5 border-l border-ink-400/5 min-w-[170px]">
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(true)}
-                  className="w-full text-right text-xs border border-ink-400/15 rounded-lg px-2.5 py-1.5 bg-white text-ink-900 hover:border-primary-300 transition-colors"
-                >
-                  {draft.category
-                    ? draft.category.value === "customers_suppliers"
-                      ? draft.partnerId
-                        ? `${draft.category.label} - ${draft.partnerId.label}`
-                        : draft.category.label
-                      : draft.category.label
-                    : "اختر التوصيف"}
-                </button>
+
+              {/* التوصيف مش متاح وقت الإضافة - هيبان "بدون توصيف" وياخده المحاسب بعدين */}
+              <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
+                يتحدد بعدين
               </td>
+
               <td className="p-1.5 border-l border-ink-400/5">
                 <input
                   type="number"
@@ -364,9 +358,11 @@ export default function CashboxLedgerTable({
                   className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
                 />
               </td>
+
               <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
                 —
               </td>
+
               <td className="p-1.5 border-l border-ink-400/5">
                 <input
                   type="text"
@@ -450,24 +446,14 @@ export default function CashboxLedgerTable({
         )}
       </table>
 
-      {/* الماودال بتاع اختيار توصيف السطر الجديد (isAdding) */}
+      {/* التوصيف بقى بس لتعديل سطر موجود بالفعل (سواء متوصف أو لأ) */}
       <DescriptionPickerModal
-        isOpen={showPicker}
-        onClose={() => setShowPicker(false)}
-        onConfirm={({ category, party }) =>
-          setDraft((d) => ({ ...d, category, partnerId: party }))
-        }
+        isOpen={editingRow !== null}
+        onClose={() => setEditingRow(null)}
+        onConfirm={(c) => handleUpdateRowDescription(editingRow, c)}
         partyOptions={partyOptions}
-      />
-
-      {/* الماودال بتاع تعديل توصيف سطر موجود - أي سطر، في أي وقت */}
-      <DescriptionPickerModal
-        isOpen={editingRowId !== null}
-        onClose={() => setEditingRowId(null)}
-        onConfirm={({ category, party }) =>
-          handleUpdateRowDescription(editingRowId, { category, party })
-        }
-        partyOptions={partyOptions}
+        driverOptions={driverOptions}
+        initialValue={editingRow || undefined}
       />
 
       {totalCount > 0 && (

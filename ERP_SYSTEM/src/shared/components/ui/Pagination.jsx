@@ -39,7 +39,7 @@ export default function Pagination({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm p-1">
       <div className="flex items-center gap-3 text-ink-500">
         <span>
           عرض {from} - {to} من أصل {totalCount.toLocaleString("ar-EG")} فاتورة

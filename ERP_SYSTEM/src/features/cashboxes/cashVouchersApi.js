@@ -1,5 +1,5 @@
 // features/cashboxes/cashVouchersApi.js
-import { baseApi } from "../../lib/baseApi";
+import { baseApi } from "../../lib/baseApi"; // عدّل المسار لو مختلف
 
 export const cashVouchersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -9,16 +9,15 @@ export const cashVouchersApi = baseApi.injectEndpoints({
         fromDate,
         toDate,
         pageNumber = 1,
-        pageSize = 100,
+        pageSize = 20,
       }) => ({
         url: "/CashVouchers",
-        method: "GET",
         params: {
-          cashboxId,
-          fromDate: fromDate || undefined,
-          toDate: toDate || undefined,
-          pageNumber,
-          pageSize,
+          CashboxId: cashboxId,
+          FromDate: fromDate || undefined,
+          ToDate: toDate || undefined,
+          PageNumber: pageNumber,
+          PageSize: pageSize,
         },
       }),
       providesTags: (result, error, arg) => [
@@ -27,27 +26,35 @@ export const cashVouchersApi = baseApi.injectEndpoints({
     }),
 
     getCashVoucherById: builder.query({
-      query: (id) => ({ url: `/CashVouchers/${id}`, method: "GET" }),
+      query: (id) => `/CashVouchers/${id}`,
       providesTags: (result, error, id) => [{ type: "CashVoucher", id }],
     }),
 
     createCashVoucher: builder.mutation({
-      query: (body) => ({
-        url: "/CashVouchers",
-        method: "POST",
+      query: (body) => ({ url: "/CashVouchers", method: "POST", body }),
+      invalidatesTags: (result, error, arg) => [
+        { type: "CashVoucher", id: `LIST-${arg.cashboxId}` },
+      ],
+    }),
+
+    // ⚠️ لسه محتاج تأكيد إن الـ endpoint ده موجود فعلاً عندك (مكنش في اللستة اللي بعتها الأول)
+    updateCashVoucher: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/CashVouchers/${id}`,
+        method: "PUT",
         body,
       }),
       invalidatesTags: (result, error, arg) => [
         { type: "CashVoucher", id: `LIST-${arg.cashboxId}` },
-        { type: "Cashbox", id: arg.cashboxId },
+        { type: "CashVoucher", id: arg.id },
       ],
     }),
   }),
-  overrideExisting: false,
 });
 
 export const {
   useGetCashVouchersQuery,
   useGetCashVoucherByIdQuery,
   useCreateCashVoucherMutation,
+  useUpdateCashVoucherMutation,
 } = cashVouchersApi;

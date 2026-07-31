@@ -14,6 +14,8 @@ import BankPage from "../features/bank/Pages/BankPage";
 import PartnerAccountPage from "../features/statements/pages/PartnerAccountPage";
 import CashboxesListPage from "../features/cashboxes/pages/CashboxesListPage";
 import CashboxDetailPage from "../features/cashboxes/pages/CashboxDetailPage";
+import DriverTripCostEntryPage from "../features/drivers/pages/DriverTripCostEntryPage";
+import DriverStatementPage from "../features/drivers/pages/DriverStatementPage";
 function ComingSoon({ title }) {
   return (
     <div className="text-center py-20 text-gray-400">
@@ -44,6 +46,8 @@ export const router = createBrowserRouter([
       { path: "purchases/:id/edit", element: <InvoiceEditPage /> },
       { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
       { path: "partners", element: <PartnerAccountPage /> },
+      { path: "drivers/trip-costs", element: <DriverTripCostEntryPage /> },
+      { path: "drivers/statement", element: <DriverStatementPage /> },
       { path: "treasury", element: <CashboxesListPage /> },
       { path: "treasury/:cashboxId", element: <CashboxDetailPage /> },
       { path: "bank", element: <BankPage /> },

@@ -40,6 +40,7 @@ import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
 import NumericInput from "../../../../shared/components/ui/NumericInput";
 import { useGetCashboxOptionsQuery } from "../../../cashboxes/cashboxesApi";
+import { useGetCashMovementTypeOptionsQuery } from "../../../cashboxes/cashMovementTypesApi";
 
 const emptyLine = () => ({
   itemId: null,
@@ -105,23 +106,27 @@ export default function CreateInvoiceForm({ onSuccess }) {
     countryId: "",
     carNumber: "",
     exportInvoiceCode: "",
+    partnerInvoiceNo: "",
     paymentMethod: "credit",
     cashboxId: "",
     cashboxName: "",
+    cashboxExchangeRate: "",
+    cashMovementTypeId: "",
+    cashMovementTypeName: "",
     discount: "",
     paid: "",
-    exchangeRate: "",
+    exchangeRate: 1,
     invoiceContentType: "items",
     generalNotes: "",
     WBWeight: "",
     WBScaleDifference: "",
     WBDiscount: "",
-    WBTotal: "",
   });
 
   const [lines, setLines] = useState(() =>
     Array.from({ length: 10 }, () => emptyLine()),
   );
+
   const packagingBreakdown = useMemo(() => {
     const totals = {};
     lines.forEach((l) => {
@@ -136,8 +141,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
   }, [lines]);
 
   // نوع الفاتورة "بيع" هو الوحيد اللي بيسمح بحركة عبوات
-  // (نفس المنطق المستخدم في buildInvoicePayload)
   const isSalesInvoice = header.movementType === "sale";
+  const isReturnInvoice =
+    header.movementType === "salesReturn" ||
+    header.movementType === "purchaseReturn";
 
   const setHeaderField = (key, value) =>
     setHeader((h) => ({ ...h, [key]: value }));
@@ -151,15 +158,47 @@ export default function CreateInvoiceForm({ onSuccess }) {
     header.partyId,
     { skip: !header.partyId || !isSalesInvoice },
   );
+
+  // الخزنة ونوع الحركة لازمين مع أي مبلغ مدفوع أكبر من صفر (نقدي أو آجل بدفعة جزئية)
+  const hasPayment = Number(header.paid) > 0;
+
   const { data: cashboxes } = useGetCashboxOptionsQuery(undefined, {
-    skip: header.paymentMethod !== "cash",
+    skip: !hasPayment,
   });
+  const { data: cashMovementTypeOptions } = useGetCashMovementTypeOptionsQuery(
+    undefined,
+    { skip: !hasPayment },
+  );
 
   const handleCashboxChange = (cashboxId) => {
     const cashbox = cashboxes?.find((c) => String(c.id) === String(cashboxId));
     setHeaderField("cashboxId", cashboxId);
     setHeaderField("cashboxName", cashbox?.name || "");
   };
+
+  const handleCashMovementTypeChange = (typeId) => {
+    const type = cashMovementTypeOptions?.find(
+      (t) => String(t.id) === String(typeId),
+    );
+    setHeaderField("cashMovementTypeId", typeId);
+    setHeaderField("cashMovementTypeName", type?.name || "");
+  };
+
+  // لما المدفوع يترجع صفر، صفّر الخزنة ونوع الحركة عشان مايتبعتوش من غير داعي
+  useEffect(() => {
+    if (!hasPayment && (header.cashboxId || header.cashMovementTypeId)) {
+      setHeader((h) => ({
+        ...h,
+        cashboxId: "",
+        cashboxName: "",
+        cashMovementTypeId: "",
+        cashMovementTypeName: "",
+        cashboxExchangeRate: "",
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPayment]);
+
   useEffect(() => {
     if (!isSalesInvoice) return;
     const store = partyContainerStoreData?.containerStore;
@@ -212,8 +251,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
   };
 
   // ==== الملخص المالي الكامل - بيتحدث تلقائيًا مع أي تغيير في الأصناف/الخصم ====
-  const itemsCount = lines.filter((l) => l.itemId).length;
-
   const totalQuantity = useMemo(
     () => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0),
     [lines],
@@ -241,8 +278,14 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const paid = parseFloat(header.paid) || 0;
 
   const netTotal = Math.max(invoiceTotal - discount, 0);
-
   const remaining = Math.max(netTotal - paid, 0);
+
+  // wbTotal بيتحسب في الباك تلقائيًا - هنا للعرض بس
+  const wbTotal =
+    (parseFloat(header.WBWeight) || 0) -
+    (parseFloat(header.WBScaleDifference) || 0) -
+    (parseFloat(header.WBDiscount) || 0);
+
   const handlePaymentMethodChange = (method) => {
     setHeaderField("paymentMethod", method);
   };
@@ -250,6 +293,29 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
   const submitInvoice = async (shouldPrint = false) => {
+    const hasTemporaryLine = lines.some(
+      (l) => l.isTemporaryItem && Number(l.quantity) > 0,
+    );
+    if (hasTemporaryLine) {
+      toast.error("مفيش دعم لصنف يدوي حاليًا", {
+        description: "شيل الأصناف اليدوية واختار صنف موجود بالفعل قبل الحفظ",
+      });
+      return;
+    }
+
+    if (header.paymentMethod === "cash" && Number(header.paid) !== netTotal) {
+      toast.error("الفاتورة النقدية لازم يكون المدفوع = صافي الفاتورة بالظبط");
+      return;
+    }
+
+    if (
+      Number(header.paid) > 0 &&
+      (!header.cashboxId || !header.cashMovementTypeId)
+    ) {
+      toast.error("اختر الخزنة ونوع الحركة أولاً لإن فيه مبلغ مدفوع");
+      return;
+    }
+
     const payload = buildInvoicePayload({
       movementType: header.movementType,
       header,
@@ -319,8 +385,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
               setHeaderField("exportInvoiceCode", e.target.value)
             }
           />
+          <LedgerField
+            label="رقم فاتورة الشريك"
+            value={header.partnerInvoiceNo}
+            onChange={(e) => setHeaderField("partnerInvoiceNo", e.target.value)}
+          />
         </div>
-        {/* في قسم "بيانات الفاتورة" - استبدل السطر بتاع نوع الأصناف */}
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <LedgerField
             label="سعر الصرف"
@@ -533,7 +603,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </span>
         }
       >
-        {/* قسم الدفع والملاحظات */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerSelect
             label="طريقة الدفع"
@@ -541,26 +610,58 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.paymentMethod}
             onChange={(e) => handlePaymentMethodChange(e.target.value)}
           />
-          {header.paymentMethod === "cash" && (
-            <div className="flex items-stretch">
-              <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                الخزنة <span className="text-negative">*</span>
+        </div>
+
+        {hasPayment && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  الخزنة <span className="text-negative">*</span>
+                </div>
+                <CompactSelect
+                  label="الخزنة"
+                  options={
+                    cashboxes?.map((c) => ({
+                      value: c.id,
+                      label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
+                    })) || []
+                  }
+                  value={header.cashboxId}
+                  onChange={handleCashboxChange}
+                  placeholder="اختر الخزنة"
+                />
               </div>
-              <CompactSelect
-                label="الخزنة"
-                options={
-                  cashboxes?.map((c) => ({
-                    value: c.id,
-                    label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
-                  })) || []
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  نوع الحركة <span className="text-negative">*</span>
+                </div>
+                <CompactSelect
+                  label="نوع الحركة"
+                  options={
+                    cashMovementTypeOptions?.map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                    })) || []
+                  }
+                  value={header.cashMovementTypeId}
+                  onChange={handleCashMovementTypeChange}
+                  placeholder="اختر نوع الحركة"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <LedgerField
+                label="سعر صرف الخزنة"
+                type="number"
+                value={header.cashboxExchangeRate}
+                onChange={(e) =>
+                  setHeaderField("cashboxExchangeRate", e.target.value)
                 }
-                value={header.cashboxId}
-                onChange={handleCashboxChange}
-                placeholder="اختر الخزنة"
               />
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* ==== ملاحظات عامة ==== */}
         <div className="grid grid-cols-1">
@@ -571,7 +672,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           />
         </div>
 
-        {/* ==== ملاحظات: مقسمة لأربع حقول ==== */}
+        {/* ==== ملاحظات: وزن البسكال ==== */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerField
             label="وزن البسكال"
@@ -592,13 +693,21 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.WBDiscount}
             onChange={(e) => setHeaderField("WBDiscount", e.target.value)}
           />
-          <LedgerField
-            label="الاجمالي"
-            value={header.WBTotal}
-            onChange={(e) => setHeaderField("WBTotal", e.target.value)}
-          />
+          <div className="flex items-stretch">
+            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+              الاجمالي
+            </div>
+            <div className="flex-1 px-3 py-2.5 text-sm num text-ink-600 bg-ink-400/5">
+              {wbTotal.toLocaleString("ar-EG")}
+              <span className="text-[11px] text-ink-400 mr-1.5">
+                (يتحسب تلقائيًا)
+              </span>
+            </div>
+          </div>
         </div>
       </LedgerPanel>
+
+      {/* ============ القسم 4: الأصناف ============ */}
       <LedgerPanel
         title={
           <div className="flex items-center justify-between mb-2 px-1">
@@ -615,7 +724,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
         }
       >
         <div className="grid grid-cols-1 gap-4 items-start">
-          {/* جدول الأصناف */}
           <div>
             {itemsLocked && (
               <div className="text-center py-6 border border-dashed border-gold-200 bg-gold-50/40 rounded-2xl mb-3">
@@ -633,7 +741,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
                     <th className="p-2.5 font-medium">#</th>
                     <th className="p-2.5 font-medium">الصنف</th>
-
                     <th className="p-2.5 font-medium"> العدد بالمخزن</th>
                     <th className="p-2.5 font-medium">الوحدة</th>
                     <th className="p-2.5 font-medium">العدد</th>
@@ -671,6 +778,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
       </LedgerPanel>
+
+      {/* ============ القسم 5: ملخص الفاتورة ============ */}
       <LedgerPanel
         title={
           <div className="flex items-center justify-between mb-2 px-1">
@@ -683,8 +792,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       >
         <div className="lg:sticky lg:top-4 space-y-3">
           <div className="rounded-xl border border-ink-400/10 overflow-hidden bg-white">
-            {/* عدد الأصناف */}
-            {/* بدل "عدد الأصناف" */}
+            {/* عدد العبوات */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-ink-400/10">
               <span className="text-sm text-ink-600">عدد العبوات</span>
               <span className="text-sm font-semibold num text-ink-900">
@@ -699,7 +807,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             {/* إجمالي الكمية */}
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-ink-400/10">
               <span className="text-sm text-ink-600">إجمالي الكمية</span>
-
               <span className="text-sm font-semibold num text-ink-900">
                 {fmt(totalQuantity)}
               </span>
@@ -710,7 +817,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <span className="text-sm font-semibold text-ink-900">
                 إجمالي الفاتورة
               </span>
-
               <span className="text-sm font-bold num text-ink-900">
                 {fmt(invoiceTotal)} {currencySymbol}
               </span>
@@ -721,7 +827,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 الخصم
               </div>
-
               <div className="flex-1 p-2">
                 <NumericInput
                   value={header.discount ?? ""}
@@ -736,11 +841,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             {/* الصافي */}
             <div className="flex items-center justify-between px-3 py-2.5 border-y border-ink-400/10 bg-ink-900/[0.02]">
               <span className="text-sm font-semibold text-ink-900">الصافي</span>
-
               <span className="text-sm font-bold num text-ink-900">
                 {fmt(netTotal)} {currencySymbol}
               </span>
             </div>
+
+            {/* المدفوع */}
             <div className="flex items-stretch border-b border-ink-400/10">
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 المدفوع
@@ -756,6 +862,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </div>
             </div>
 
+            {/* المتبقي */}
             <div className="flex items-center justify-between px-3 py-2.5 bg-ink-900/[0.02]">
               <span className="text-sm font-semibold text-ink-900">
                 المتبقي
@@ -767,6 +874,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
       </LedgerPanel>
+
       {/* Buttons */}
       <div className="space-y-2">
         <Button
@@ -812,6 +920,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           إلغاء
         </Button>
       </div>
+
       <QuickAddCustomerModal
         isOpen={showAddCustomer}
         onClose={() => setShowAddCustomer(false)}
