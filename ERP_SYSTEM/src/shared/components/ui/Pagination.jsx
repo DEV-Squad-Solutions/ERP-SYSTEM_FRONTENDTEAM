@@ -5,10 +5,17 @@ import {
   ChevronsLeft,
 } from "lucide-react";
 
-const pageSizeOptions = [1, 25, 50, 100];
+const pageSizeOptions = [10, 25, 50, 100];
 
 /**
- * @param {{ page: number, pageSize: number, totalCount: number, onPageChange: (page: number) => void, onPageSizeChange: (size: number) => void }} props
+ * @param {{
+ * page: number,
+ * pageSize: number,
+ * totalCount: number,
+ * onPageChange: (page: number) => void,
+ * onPageSizeChange: (size: number) => void,
+ * label?: string
+ * }} props
  */
 export default function Pagination({
   page,
@@ -16,6 +23,7 @@ export default function Pagination({
   totalCount,
   onPageChange,
   onPageSizeChange,
+  label = "عنصر",
 }) {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const from = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -24,6 +32,7 @@ export default function Pagination({
   const getPageNumbers = () => {
     const pages = [];
     const delta = 1;
+
     for (let i = 1; i <= totalPages; i++) {
       if (
         i === 1 ||
@@ -35,19 +44,24 @@ export default function Pagination({
         pages.push("...");
       }
     }
+
     return pages;
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm p-1">
+    <div className="mt-4 flex flex-col items-center justify-between gap-3 p-1 text-sm sm:flex-row">
       <div className="flex items-center gap-3 text-ink-500">
         <span>
-          عرض {from} - {to} من أصل {totalCount.toLocaleString("ar-EG")} فاتورة
+          عرض {from} - {to} من أصل {totalCount.toLocaleString("ar-EG")} {label}
         </span>
+
         <select
           value={pageSize}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="rounded-lg border border-ink-400/15 px-2 py-1 text-sm bg-white focus:outline-none focus:border-primary-500"
+          onChange={(e) => {
+            onPageSizeChange(Number(e.target.value));
+            onPageChange(1);
+          }}
+          className="rounded-lg border border-ink-400/15 bg-white px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
         >
           {pageSizeOptions.map((size) => (
             <option key={size} value={size}>
@@ -61,14 +75,15 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(1)}
           disabled={page === 1}
-          className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-400/5 disabled:opacity-30 disabled:pointer-events-none"
+          className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink-400/5 disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronsRight size={16} />
         </button>
+
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-400/5 disabled:opacity-30 disabled:pointer-events-none"
+          className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink-400/5 disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronRight size={16} />
         </button>
@@ -82,9 +97,9 @@ export default function Pagination({
             <button
               key={p}
               onClick={() => onPageChange(p)}
-              className={`w-8 h-8 rounded-lg text-sm num transition-colors ${
+              className={`num h-8 w-8 rounded-lg text-sm transition-colors ${
                 p === page
-                  ? "bg-primary-500 text-white font-medium"
+                  ? "bg-primary-500 font-medium text-white"
                   : "text-ink-600 hover:bg-ink-400/5"
               }`}
             >
@@ -96,14 +111,15 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page === totalPages}
-          className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-400/5 disabled:opacity-30 disabled:pointer-events-none"
+          className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink-400/5 disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronLeft size={16} />
         </button>
+
         <button
           onClick={() => onPageChange(totalPages)}
           disabled={page === totalPages}
-          className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-400/5 disabled:opacity-30 disabled:pointer-events-none"
+          className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-ink-400/5 disabled:pointer-events-none disabled:opacity-30"
         >
           <ChevronsLeft size={16} />
         </button>

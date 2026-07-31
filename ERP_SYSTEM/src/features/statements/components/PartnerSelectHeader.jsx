@@ -1,22 +1,24 @@
 import { useState } from "react";
-import { Boxes, UserPlus, Printer } from "lucide-react";
+import { Boxes, UserPlus } from "lucide-react";
+import { Link } from "react-router-dom";
+
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
 import QuickAddCustomerModal from "../../partners/components/QuickaddPartyModal";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
-import Button from "../../../shared/components/ui/Button";
 
 /**
- * @param {{ partnerId: string, onChange: (id: string) => void, onOpenPackaging: () => void }} props
+ * @param {{
+ *   partnerId: string,
+ *   onChange: (id: string) => void
+ * }} props
  */
-export default function PartnerSelectHeader({
-  partnerId,
-  onChange,
-  onOpenPackaging,
-}) {
+export default function PartnerSelectHeader({ partnerId, onChange }) {
   const { data: parties, isLoading } = useGetPartiesSelectQuery();
   const [showAdd, setShowAdd] = useState(false);
 
-  const handleCreated = (newParty) => onChange(newParty.id);
+  const handleCreated = (newParty) => {
+    onChange(newParty.id);
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
@@ -25,7 +27,10 @@ export default function PartnerSelectHeader({
           <CompactSelect
             label="العميل / المورد"
             options={
-              parties?.map((p) => ({ value: p.id, label: p.name })) || []
+              parties?.map((p) => ({
+                value: p.id,
+                label: p.name,
+              })) || []
             }
             value={partnerId}
             onChange={onChange}
@@ -33,21 +38,30 @@ export default function PartnerSelectHeader({
             placeholder="اختر عميل أو مورد لعرض كشف حسابه"
           />
         </div>
+
         <button
+          type="button"
           onClick={() => setShowAdd(true)}
           className="px-3 rounded-xl border border-ink-400/15 text-primary-500 hover:bg-primary-50 transition-colors shrink-0"
-          title="إضافة عميل/مورد جديد"
+          title="إضافة عميل أو مورد"
         >
           <UserPlus size={18} />
         </button>
-        <button
-          onClick={onOpenPackaging}
-          disabled={!partnerId}
-          className="px-3 rounded-xl border border-ink-400/15 text-gold-600 hover:bg-gold-50 transition-colors shrink-0 disabled:opacity-30 disabled:pointer-events-none"
+
+        <Link
+          to={partnerId ? `/dashboard/stores/containers/${partnerId}` : "#"}
+          onClick={(e) => {
+            if (!partnerId) e.preventDefault();
+          }}
+          className={`flex items-center justify-center px-3 rounded-xl border border-ink-400/15 transition-colors shrink-0 ${
+            partnerId
+              ? "text-gold-600 hover:bg-gold-50"
+              : "pointer-events-none opacity-40 text-ink-400"
+          }`}
           title="مخزن العبوات"
         >
           <Boxes size={18} />
-        </button>
+        </Link>
       </div>
 
       <QuickAddCustomerModal

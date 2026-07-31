@@ -16,6 +16,8 @@ function buildInvoiceParams({
   paymentMethod,
   status,
   country,
+  itemsCategoryId,
+  currency,
   fromDate,
   toDate,
 }) {
@@ -28,6 +30,8 @@ function buildInvoiceParams({
     paymentTerm: paymentMethod || undefined,
     PriceStatus: status || undefined,
     CountryId: country || undefined,
+    itemsCategoryId: itemsCategoryId || undefined,
+    currency: currency || undefined,
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
   };
@@ -77,38 +81,7 @@ export const invoicesApi = baseApi.injectEndpoints({
       query: ({ id, ...body }) => ({
         url: `Invoices/${id}`,
         method: "PUT",
-        body: {
-          invoiceType: body.invoiceType,
-          paymentTerm: body.paymentTerm,
-          invoiceDate: body.invoiceDate,
-          dueDate: body.dueDate,
-          businessPartnerId: body.businessPartnerId,
-          storeId: body.storeId,
-          containerStoreId: body.containerStoreId,
-          countryId: body.countryId,
-          driverId: body.driverId,
-          actualDriverId: body.actualDriverId,
-          usesExternalDriver: body.usesExternalDriver,
-          externalDriverName: body.externalDriverName,
-          vehicleNumber: body.vehicleNumber,
-          exportInvoiceCode: body.exportInvoiceCode,
-          discountAmount: body.discountAmount,
-          paidAmount: body.paidAmount,
-          notes: body.notes,
-          lines: body.lines.map((l) => ({
-            itemId: l.itemId,
-            count: l.count,
-            weight: l.weight,
-            price: l.price,
-            notes: l.notes,
-          })),
-          containerLines: body.containerLines.map((c) => ({
-            containerId: c.containerId,
-            outgoingUnits: c.outgoingUnits,
-            incomingUnits: c.incomingUnits,
-          })),
-          rowVersion: body.rowVersion,
-        },
+        body,
       }),
       invalidatesTags: (result, error, { id }) => [
         { type: "Invoice", id },
@@ -116,11 +89,6 @@ export const invoicesApi = baseApi.injectEndpoints({
         "Purchase",
         "Inventory",
       ],
-    }),
-
-    duplicateInvoice: builder.mutation({
-      query: (id) => ({ url: `Invoices/${id}/duplicate`, method: "POST" }),
-      invalidatesTags: ["Sale", "Purchase"],
     }),
 
     deleteInvoice: builder.mutation({

@@ -28,7 +28,7 @@ import QuickAddCustomerModal from "../QuickAddCustomerModal";
 import QuickAddDriverModal from "../QuickAddDriverModal";
 import PackagingDrawer from "../PackagingDrawer";
 import { useCreateInvoiceMutation } from "../../../invoices/invoicesApi";
-import { buildInvoicePayload } from "../../../invoices/components/buildInvoicePayload";
+import { buildCreateInvoiceRequest } from "../../../invoices/components/buildInvoicePayload";
 import { generateInvoiceNumber } from "../../../../mocks/data/sales";
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
@@ -217,17 +217,24 @@ export default function CreateInvoiceForm({ onSuccess }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSalesInvoice]);
 
-  const handlePartyChange = (name) => {
-    const party = parties?.find((c) => c.name === name);
-    setHeaderField("partyName", name);
-    setHeaderField("partyId", party?.id || "");
-    if (party?.currency) setHeaderField("currency", party.currency);
+  const handlePartyChange = (id) => {
+    const party = parties?.find((p) => p.id === id);
+
+    setHeaderField("partyId", id);
+    setHeaderField("partyName", party?.name || "");
+
+    if (party?.currency) {
+      setHeaderField("currency", party.currency);
+    }
   };
 
   const handleCustomerCreated = (newParty) => {
+    setHeaderField("partyId", newParty.id);
     setHeaderField("partyName", newParty.name);
-    setHeaderField("partyId", newParty.id || "");
-    if (newParty.currency) setHeaderField("currency", newParty.currency);
+
+    if (newParty.currency) {
+      setHeaderField("currency", newParty.currency);
+    }
   };
 
   const handleDriverChange = (driverId) => {
@@ -316,7 +323,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       return;
     }
 
-    const payload = buildInvoicePayload({
+    const payload = buildCreateInvoiceRequest({
       movementType: header.movementType,
       header,
       lines,
@@ -425,9 +432,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
           <CompactSelect
             label="عميل / مورد"
             options={
-              parties?.map((p) => ({ value: p.name, label: p.name })) || []
+              parties?.map((p) => ({
+                value: p.id,
+                label: p.name,
+              })) || []
             }
-            value={header.partyName}
+            value={header.partyId}
             onChange={handlePartyChange}
             placeholder="اختر العميل أو المورد"
           />

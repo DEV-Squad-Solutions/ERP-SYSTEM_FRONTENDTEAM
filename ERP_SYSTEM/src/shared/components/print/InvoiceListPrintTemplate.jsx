@@ -16,7 +16,7 @@ const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 
 /**
  * @param {{ invoices: Array, filters: Object, summary: Object }} props
- * تصميم A4 لطباعة قائمة فواتير كتقرير (مش فاتورة واحدة تفصيلية)
+ * تصميم A4 لطباعة قائمة فواتير كتقرير
  */
 export default function InvoiceListPrintTemplate({
   invoices,
@@ -24,6 +24,7 @@ export default function InvoiceListPrintTemplate({
   summary,
 }) {
   const company = useSelector((state) => state.auth.selectedCompany);
+
   if (!invoices) return null;
 
   const today = new Date().toLocaleDateString("ar-EG");
@@ -32,7 +33,7 @@ export default function InvoiceListPrintTemplate({
     <div
       dir="rtl"
       style={{
-        width: "297mm", // A4 landscape - أنسب لجدول بعدد أعمدة كبير
+        width: "297mm",
         minHeight: "210mm",
         padding: "12mm",
         fontFamily: "'Cairo', 'Tajawal', sans-serif",
@@ -41,7 +42,7 @@ export default function InvoiceListPrintTemplate({
         boxSizing: "border-box",
       }}
     >
-      {/* الهيدر */}
+      {/* Header */}
       <div
         style={{
           display: "flex",
@@ -53,21 +54,40 @@ export default function InvoiceListPrintTemplate({
         }}
       >
         <div>
-          {/* ⚠️ اسم الشركة placeholder، اربطه ببيانات الشركة لو متوفرة */}
-          <h1 style={{ fontSize: "18px", fontWeight: 700, margin: 0 }}>
-            {company?.name || "—"}{" "}
+          <h1
+            style={{
+              fontSize: "18px",
+              fontWeight: 700,
+              margin: 0,
+            }}
+          >
+            {company?.name || "—"}
           </h1>
-          <p style={{ fontSize: "10px", color: "#6b7280", margin: "4px 0 0" }}>
+
+          <p
+            style={{
+              fontSize: "10px",
+              color: "#6b7280",
+              margin: "4px 0 0",
+            }}
+          >
             تقرير الفواتير
           </p>
         </div>
-        <div style={{ textAlign: "left", fontSize: "10px" }}>
+
+        <div
+          style={{
+            textAlign: "left",
+            fontSize: "10px",
+          }}
+        >
           <p style={{ margin: "2px 0" }}>تاريخ الطباعة: {today}</p>
+
           <p style={{ margin: "2px 0" }}>عدد الفواتير: {invoices.length}</p>
         </div>
       </div>
 
-      {/* ملخص الفلاتر المطبقة */}
+      {/* الفلاتر */}
       {filters && (
         <div
           style={{
@@ -80,12 +100,19 @@ export default function InvoiceListPrintTemplate({
           }}
         >
           {filters.fromDate && <span>من: {filters.fromDate}</span>}
+
           {filters.toDate && <span>إلى: {filters.toDate}</span>}
+
           {filters.movementType && (
             <span>
-              النوع:{" "}
+              النوع:
               {typeLabels[
-                { sale: "Sales", purchase: "Purchase" }[filters.movementType]
+                {
+                  sale: "Sales",
+                  purchase: "Purchase",
+                  sale_return: "SalesReturn",
+                  purchase_return: "PurchaseReturn",
+                }[filters.movementType]
               ] || filters.movementType}
             </span>
           )}
@@ -128,81 +155,106 @@ export default function InvoiceListPrintTemplate({
             ))}
           </tr>
         </thead>
+
         <tbody>
           {invoices.map((inv, i) => (
-            <tr key={inv.id} style={{ breakInside: "avoid" }}>
+            <tr key={inv.id ?? i} style={{ breakInside: "avoid" }}>
               <td style={cellCenter}>{i + 1}</td>
-              <td style={cellCenter}>{inv.invoiceNumber}</td>
-              <td style={cellCenter}>{inv.invoiceDate}</td>
+
+              <td style={cellCenter}>{inv.invoiceNumber || "—"}</td>
+
+              <td style={cellCenter}>{inv.invoiceDate || "—"}</td>
+
               <td style={cellCenter}>
-                {typeLabels[inv.invoiceType] || inv.invoiceType}
+                {typeLabels[inv.invoiceType] || inv.invoiceType || "—"}
               </td>
+
               <td style={cellRight}>{inv.businessPartnerName || "—"}</td>
+
               <td style={cellRight}>{inv.storeName || "—"}</td>
+
               <td style={cellCenter}>
                 {paymentLabels[inv.paymentTerm] || "—"}
               </td>
+
               <td style={cellCenter}>{fmt(inv.total)}</td>
+
               <td style={cellCenter}>{fmt(inv.paidAmount)}</td>
+
               <td style={cellCenter}>{fmt(inv.remainingAmount)}</td>
             </tr>
           ))}
         </tbody>
-        {summary && (
-          <div className="mt-6 flex justify-end">
-            <div className="w-80 overflow-hidden rounded-lg border border-gray-200">
-              <table className="w-full border-collapse text-sm">
-                <tbody>
-                  <tr>
-                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
-                      إجمالي قبل الخصم
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center font-medium">
-                      {fmt(summary.subtotal)}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
-                      إجمالي الخصم
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center font-medium">
-                      {fmt(summary.discountAmount)}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
-                      الإجمالي النهائي
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center font-bold">
-                      {fmt(summary.total)}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
-                      المدفوع
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center text-green-600 font-semibold">
-                      {fmt(summary.paidAmount)}
-                    </td>
-                  </tr>
-
-                  <tr>
-                    <td className="border border-gray-200 bg-gray-50 px-4 py-2 font-semibold text-right">
-                      المتبقي
-                    </td>
-                    <td className="border border-gray-200 px-4 py-2 text-center text-red-600 font-semibold">
-                      {fmt(summary.remainingAmount)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </table>
+
+      {/* ملخص التقرير */}
+      {summary && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: "18px",
+          }}
+        >
+          <table
+            style={{
+              width: "330px",
+              borderCollapse: "collapse",
+              fontSize: "11px",
+            }}
+          >
+            <tbody>
+              <tr>
+                <td style={summaryTitle}>إجمالي قبل الخصم</td>
+                <td style={summaryValue}>{fmt(summary.subtotal)}</td>
+              </tr>
+
+              <tr>
+                <td style={summaryTitle}>إجمالي الخصم</td>
+                <td style={summaryValue}>{fmt(summary.discountAmount)}</td>
+              </tr>
+
+              <tr>
+                <td style={summaryTitle}>الإجمالي النهائي</td>
+                <td
+                  style={{
+                    ...summaryValue,
+                    fontWeight: 700,
+                  }}
+                >
+                  {fmt(summary.total)}
+                </td>
+              </tr>
+
+              <tr>
+                <td style={summaryTitle}>المدفوع</td>
+                <td
+                  style={{
+                    ...summaryValue,
+                    color: "#16a34a",
+                    fontWeight: 700,
+                  }}
+                >
+                  {fmt(summary.paidAmount)}
+                </td>
+              </tr>
+
+              <tr>
+                <td style={summaryTitle}>المتبقي</td>
+                <td
+                  style={{
+                    ...summaryValue,
+                    color: "#dc2626",
+                    fontWeight: 700,
+                  }}
+                >
+                  {fmt(summary.remainingAmount)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* التوقيع */}
       <div
@@ -213,8 +265,18 @@ export default function InvoiceListPrintTemplate({
           fontSize: "11px",
         }}
       >
-        <div style={{ textAlign: "center", width: "180px" }}>
-          <div style={{ borderTop: "1px solid #111827", paddingTop: "6px" }}>
+        <div
+          style={{
+            textAlign: "center",
+            width: "180px",
+          }}
+        >
+          <div
+            style={{
+              borderTop: "1px solid #111827",
+              paddingTop: "6px",
+            }}
+          >
             توقيع المسؤول
           </div>
         </div>
@@ -222,15 +284,33 @@ export default function InvoiceListPrintTemplate({
     </div>
   );
 }
-
 const cellCenter = {
   border: "1px solid #e5e7eb",
   padding: "5px",
   textAlign: "center",
+  verticalAlign: "middle",
 };
 
 const cellRight = {
   border: "1px solid #e5e7eb",
   padding: "5px",
   textAlign: "right",
+  verticalAlign: "middle",
+};
+
+const summaryTitle = {
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  padding: "8px 10px",
+  textAlign: "right",
+  fontWeight: 700,
+  width: "60%",
+};
+
+const summaryValue = {
+  border: "1px solid #e5e7eb",
+  padding: "8px 10px",
+  textAlign: "center",
+  fontWeight: 600,
+  width: "40%",
 };

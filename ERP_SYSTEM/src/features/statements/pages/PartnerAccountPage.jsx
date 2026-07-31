@@ -1,23 +1,35 @@
 import { useState } from "react";
 import { FileText, Receipt, StoreIcon } from "lucide-react";
+
 import { useGetPartnerStatementQuery } from "../statementsApi";
+import { useGetInvoicesQuery } from "../../invoices/invoicesApi";
+import { useGetPartyByIdQuery } from "../../partners/partiesApi";
+
 import PartnerSelectHeader from "../components/PartnerSelectHeader";
 import StatementFilters from "../components/StatementFilters";
 import StatementTable from "../components/StatementTable";
 import PartnerInvoicesTab from "../components/PartnerInvoicesTab";
 import PartnerItemsTab from "../components/PartnerItemsTab";
-import PackagingDrawer from "../../sales/components/PackagingDrawer";
-import { useGetInvoicesQuery } from "../../invoices/invoicesApi";
-import { useGetPartyByIdQuery } from "../../partners/partiesApi";
 import SalesFiltersCard from "../../sales/components/SalesFiltersCard";
 
-const emptyFilters = {
+const emptyStatementFilters = {
+  Search: "",
+  FromDate: "",
+  ToDate: "",
+  SourceType: "",
+  MovementType: "",
+  CashMovementTypeId: "",
+};
+
+const emptyInvoiceFilters = {
   invoiceNumber: "",
   movementType: "",
   fromDate: "",
   toDate: "",
   paymentMethod: "",
   status: "",
+  itemsCategoryId: "",
+  currency: "",
   storeId: "",
   driverId: "",
   country: "",
@@ -26,23 +38,20 @@ const emptyFilters = {
 export default function PartnerAccountPage() {
   const [partnerId, setPartnerId] = useState("");
   const [activeTab, setActiveTab] = useState("statement");
+
   const [filters, setFilters] = useState({
     statement: {
-      draft: emptyFilters,
-      applied: emptyFilters,
+      draft: emptyStatementFilters,
+      applied: emptyStatementFilters,
     },
     invoices: {
-      draft: emptyFilters,
-      applied: emptyFilters,
+      draft: emptyInvoiceFilters,
+      applied: emptyInvoiceFilters,
     },
   });
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [showPackaging, setShowPackaging] = useState(false);
-  const [containersMovement, setContainersMovement] = useState({
-    containerStoreId: null,
-    items: [],
-  });
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetPartnerStatementQuery(
@@ -52,50 +61,37 @@ export default function PartnerAccountPage() {
         PageSize: pageSize,
         ...filters.statement.applied,
       },
-      { skip: !partnerId },
+      {
+        skip: !partnerId,
+      },
     );
-  const { data: partner, isLoading: partnerLoading } = useGetPartyByIdQuery(
-    partnerId,
+
+  const { data: partner } = useGetPartyByIdQuery(partnerId, {
+    skip: !partnerId,
+  });
+
+  useGetInvoicesQuery(
+    {
+      businessPartnerId: partnerId,
+      pageSize: 100,
+    },
     {
       skip: !partnerId,
     },
   );
-  const { data: invoicesForPackaging } = useGetInvoicesQuery(
-    { businessPartnerId: partnerId, pageSize: 100 },
-    { skip: !partnerId || !showPackaging },
-  );
-
-  const aggregatedContainerLines = (() => {
-    const map = {};
-    (invoicesForPackaging?.items || []).forEach((inv) => {
-      (inv.containerLines || []).forEach((c) => {
-        if (!map[c.containerId]) {
-          map[c.containerId] = {
-            id: c.containerId,
-            containerName: c.containerName,
-            containerCode: c.containerCode,
-            outgoingUnits: 0,
-            incomingUnits: 0,
-          };
-        }
-        map[c.containerId].outgoingUnits += c.outgoingUnits || 0;
-        map[c.containerId].incomingUnits += c.incomingUnits || 0;
-      });
-    });
-    return Object.values(map);
-  })();
 
   const handlePartnerChange = (id) => {
     setPartnerId(id);
     setPage(1);
+
     setFilters({
       statement: {
-        draft: emptyFilters,
-        applied: emptyFilters,
+        draft: emptyStatementFilters,
+        applied: emptyStatementFilters,
       },
       invoices: {
-        draft: emptyFilters,
-        applied: emptyFilters,
+        draft: emptyInvoiceFilters,
+        applied: emptyInvoiceFilters,
       },
     });
   };
@@ -125,11 +121,14 @@ export default function PartnerAccountPage() {
   };
 
   const handleReset = (tab) => {
+    const empty =
+      tab === "statement" ? emptyStatementFilters : emptyInvoiceFilters;
+
     setFilters((prev) => ({
       ...prev,
       [tab]: {
-        draft: emptyFilters,
-        applied: emptyFilters,
+        draft: empty,
+        applied: empty,
       },
     }));
 
@@ -138,19 +137,14 @@ export default function PartnerAccountPage() {
     }
   };
 
-  const handleInvoiceSearch = () => setInvoiceApplied(invoiceDraft);
-  const handleInvoiceReset = () => {
-    setInvoiceDraft(emptyFilters);
-    setInvoiceApplied(emptyFilters);
-  };
-
   return (
     <div className="animate-fadeUp">
       <div className="mb-6">
         <h2 className="font-display text-2xl font-bold text-ink-900">
           العملاء والموردين
         </h2>
-        <p className="text-sm text-ink-400 mt-1">
+
+        <p className="mt-1 text-sm text-ink-400">
           كشف حساب متكامل مع سجل الفواتير الخاصة بكل عميل أو مورد
         </p>
       </div>
@@ -158,53 +152,53 @@ export default function PartnerAccountPage() {
       <PartnerSelectHeader
         partnerId={partnerId}
         onChange={handlePartnerChange}
-        onOpenPackaging={() => setShowPackaging(true)}
       />
 
       {!partnerId ? (
-        <div className="text-center py-20 border border-dashed border-ink-400/20 rounded-2xl">
+        <div className="rounded-2xl border border-dashed border-ink-400/20 py-20 text-center">
           <p className="text-ink-400">
             اختر عميل أو مورد من الأعلى لعرض بياناته
           </p>
         </div>
       ) : (
         <>
-          <div className="inline-flex bg-ink-400/5 rounded-xl p-1 mb-4">
+          <div className="mb-4 inline-flex rounded-xl bg-ink-400/5 p-1">
             <button
               onClick={() => setActiveTab("statement")}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
                 activeTab === "statement"
-                  ? "bg-white text-primary-500 font-medium shadow-sm"
+                  ? "bg-white font-medium text-primary-500 shadow-sm"
                   : "text-ink-400 hover:text-ink-900"
               }`}
             >
               <Receipt size={14} />
               كشف الحساب
             </button>
+
             <button
               onClick={() => setActiveTab("invoices")}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
                 activeTab === "invoices"
-                  ? "bg-white text-primary-500 font-medium shadow-sm"
+                  ? "bg-white font-medium text-primary-500 shadow-sm"
                   : "text-ink-400 hover:text-ink-900"
               }`}
             >
               <FileText size={14} />
               الفواتير
             </button>
+
             <button
               onClick={() => setActiveTab("items")}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm rounded-lg transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
                 activeTab === "items"
-                  ? "bg-white text-primary-500 font-medium shadow-sm"
+                  ? "bg-white font-medium text-primary-500 shadow-sm"
                   : "text-ink-400 hover:text-ink-900"
               }`}
             >
               <StoreIcon size={14} />
-              الاصناف
+              الأصناف
             </button>
           </div>
-
           {activeTab === "statement" && (
             <>
               <StatementFilters
@@ -213,16 +207,23 @@ export default function PartnerAccountPage() {
                 onSearch={() => handleSearch("statement")}
                 onReset={() => handleReset("statement")}
               />
+
               <StatementTable
                 data={data}
                 isLoading={isLoading}
                 isFetching={isFetching}
                 isError={isError}
                 refetch={refetch}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
               />
             </>
-          )}
-
+          )}{" "}
           {activeTab === "invoices" && (
             <>
               <SalesFiltersCard
@@ -231,6 +232,7 @@ export default function PartnerAccountPage() {
                 onSearch={() => handleSearch("invoices")}
                 onReset={() => handleReset("invoices")}
               />
+
               <PartnerInvoicesTab
                 partner={partner}
                 partnerId={partnerId}
@@ -238,18 +240,9 @@ export default function PartnerAccountPage() {
               />
             </>
           )}
-
           {activeTab === "items" && <PartnerItemsTab partnerId={partnerId} />}
         </>
       )}
-
-      <PackagingDrawer
-        partyId={partnerId}
-        isOpen={showPackaging}
-        onClose={() => setShowPackaging(false)}
-        initialItems={containersMovement.items}
-        onSave={(data) => setContainersMovement(data)}
-      />
     </div>
   );
 }

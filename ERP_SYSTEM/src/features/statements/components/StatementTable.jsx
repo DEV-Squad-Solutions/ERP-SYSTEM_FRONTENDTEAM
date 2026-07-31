@@ -1,5 +1,6 @@
 import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
 import BalanceBadge from "./BalanceBadge";
+import Pagination from "../../../shared/components/ui/Pagination";
 
 /**
  * @param {{
@@ -16,6 +17,10 @@ export default function StatementTable({
   isFetching,
   isError,
   refetch,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }) {
   if (isLoading) {
     return (
@@ -168,6 +173,18 @@ export default function StatementTable({
               />
             </div>
           </div>
+        </div>
+      )}
+      {data?.totalPages > 0 && (
+        <div className="border-t border-ink-400/10 bg-white px-5 py-4">
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalCount={data?.totalCount || 0}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+            label="حركة"
+          />
         </div>
       )}
     </div>

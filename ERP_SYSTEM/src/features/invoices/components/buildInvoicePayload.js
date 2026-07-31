@@ -1,3 +1,5 @@
+// features/invoices/components/buildInvoicePayload.js
+
 const invoiceTypeMap = {
   sale: "Sales",
   purchase: "Purchase",
@@ -19,6 +21,7 @@ function withOptionalNumber(obj, key, value) {
   }
   return obj;
 }
+
 function withOptionalString(obj, key, value) {
   if (value !== undefined && value !== null && value !== "") {
     obj[key] = value;
@@ -26,7 +29,43 @@ function withOptionalString(obj, key, value) {
   return obj;
 }
 
-export function buildInvoicePayload({
+function buildLinesForCreate({ lines, isReturnInvoice }) {
+  return lines
+    .filter(
+      (line) =>
+        line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
+    )
+    .map((line) => {
+      const lineObj = {
+        itemId: Number(line.itemId),
+        count: Number(line.count) || 0,
+        weight: Number(line.weight) || 0,
+        price: Number(line.price) || 0,
+        notes: line.notes || "",
+      };
+      if (isReturnInvoice) {
+        withOptionalNumber(
+          lineObj,
+          "sourceInvoiceLineId",
+          line.sourceInvoiceLineId,
+        );
+        withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
+      }
+      return lineObj;
+    });
+}
+
+function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
+  if (!isSalesInvoice) return [];
+  return (containersMovement?.items || []).map((item) => ({
+    containerId: Number(item.containerId),
+    outgoingUnits: Number(item.issuedQuantity) || 0,
+    incomingUnits: Number(item.receivedQuantity) || 0,
+  }));
+}
+
+// ==== إنشاء فاتورة جديدة - الفورم هنا بيستخدم slugs زي "sale"/"cash"/"items" ====
+export function buildCreateInvoiceRequest({
   movementType,
   header,
   lines,
@@ -37,16 +76,27 @@ export function buildInvoicePayload({
   const isReturnInvoice =
     movementType === "salesReturn" || movementType === "purchaseReturn";
 
-  // الباك إند بيتطلب itemId حقيقي - الأصناف اليدوية (isTemporaryItem) مش مدعومة هنا خالص
-  const validLines = lines.filter(
-    (line) => line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
-  );
+  const resolvedInvoiceType = invoiceTypeMap[movementType];
+  const resolvedPaymentTerm = paymentTermMap[header.paymentMethod];
+  const resolvedContentType = contentTypeMap[header.invoiceContentType];
+
+  if (!resolvedInvoiceType) {
+    throw new Error(`نوع الفاتورة غير معروف: "${movementType}"`);
+  }
+  if (!resolvedPaymentTerm) {
+    throw new Error(`طريقة الدفع غير معروفة: "${header.paymentMethod}"`);
+  }
+  if (!resolvedContentType) {
+    throw new Error(`محتوى الفاتورة غير معروف: "${header.invoiceContentType}"`);
+  }
+
+  const paidAmount = Number(header.paid) || 0;
 
   const payload = {
     invoiceNumber: header.invoiceNumber,
-    invoiceType: invoiceTypeMap[movementType],
-    contentType: contentTypeMap[header.invoiceContentType],
-    paymentTerm: paymentTermMap[header.paymentMethod],
+    invoiceType: resolvedInvoiceType,
+    contentType: resolvedContentType,
+    paymentTerm: resolvedPaymentTerm,
     invoiceDate: header.date,
     dueDate: header.dueDate || header.date,
     storeId: Number(header.storeId),
@@ -56,39 +106,15 @@ export function buildInvoicePayload({
     vehicleNumber: header.carNumber || "",
     exportInvoiceCode: header.exportInvoiceCode || "",
     discountAmount: Number(header.discount) || 0,
-    paidAmount: Number(header.paid) || 0,
+    paidAmount,
     notes: header.generalNotes || "",
-    lines: validLines.map((line) => {
-      const lineObj = {
-        itemId: Number(line.itemId),
-        count: Number(line.count) || 0,
-        weight: Number(line.weight) || 0,
-        price: Number(line.price) || 0,
-        notes: line.notes || "",
-      };
-      // sourceInvoiceLineId / returnUnitCost بيبقوا مهمين بس مع فواتير المرتجعات
-      if (isReturnInvoice) {
-        withOptionalNumber(
-          lineObj,
-          "sourceInvoiceLineId",
-          line.sourceInvoiceLineId,
-        );
-        withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
-      }
-      return lineObj;
+    lines: buildLinesForCreate({ lines, isReturnInvoice }),
+    containerLines: buildContainerLinesForCreate({
+      containersMovement,
+      isSalesInvoice,
     }),
-    containerLines: isSalesInvoice
-      ? (containersMovement?.items || []).map((item) => ({
-          containerId: Number(item.containerId),
-          outgoingUnits: Number(item.issuedQuantity) || 0,
-          incomingUnits: Number(item.receivedQuantity) || 0,
-        }))
-      : [],
   };
 
-  const paidAmount = payload.paidAmount;
-
-  // itemsCategoryId اختياري - مش مربوط بواجهة حاليًا، بيتشال لو مفيش قيمة
   withOptionalNumber(payload, "itemsCategoryId", header.itemsCategoryId);
   withOptionalString(payload, "partnerInvoiceNo", header.partnerInvoiceNo);
   withOptionalNumber(
@@ -105,7 +131,6 @@ export function buildInvoicePayload({
   withOptionalNumber(payload, "actualDriverId", header.actualDriverId);
   withOptionalNumber(payload, "exchangeRate", header.exchangeRate);
 
-  // أي مبلغ مدفوع > 0 (نقدي أو آجل بدفعة جزئية) لازم يبقى معاه خزنة ونوع حركة
   if (paidAmount > 0) {
     withOptionalNumber(payload, "cashboxId", header.cashboxId);
     withOptionalNumber(
@@ -120,10 +145,100 @@ export function buildInvoicePayload({
     );
   }
 
-  // wbTotal بيتحسب في الباك تلقائيًا (wbWeight - wbScaleDifference - wbDiscount) - مبيتبعتش خالص
   withOptionalNumber(payload, "wbWeight", header.WBWeight);
   withOptionalNumber(payload, "wbScaleDifference", header.WBScaleDifference);
   withOptionalNumber(payload, "wbDiscount", header.WBDiscount);
 
   return payload;
+}
+
+// ==== تعديل فاتورة موجودة - الفورم هنا بيستخدم قيم enum جاهزة من السيرفر ====
+// (form.invoiceType = "Sales", form.paymentTerm = "Cash", form.contentType = "Items" ... إلخ)
+export function buildInvoiceUpdateBody({
+  form,
+  lines,
+  containerLines,
+  rowVersion,
+}) {
+  const isReturnInvoice =
+    form.invoiceType === "SalesReturn" || form.invoiceType === "PurchaseReturn";
+
+  if (!form.invoiceType) throw new Error("نوع الفاتورة مطلوب");
+  if (!form.paymentTerm) throw new Error("طريقة الدفع مطلوبة");
+  if (!form.contentType) throw new Error("محتوى الفاتورة مطلوب");
+  if (!rowVersion) throw new Error("rowVersion مفقود - أعد تحميل الفاتورة");
+
+  const validLines = lines
+    .filter(
+      (line) =>
+        line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
+    )
+    .map((line) => {
+      const lineObj = {
+        itemId: Number(line.itemId),
+        count: Number(line.count) || 0,
+        weight: Number(line.weight) || 0,
+        price: Number(line.price) || 0,
+        notes: line.notes || "",
+      };
+      if (isReturnInvoice) {
+        withOptionalNumber(
+          lineObj,
+          "sourceInvoiceLineId",
+          line.sourceInvoiceLineId,
+        );
+        withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
+      }
+      return lineObj;
+    });
+
+  const paidAmount = Number(form.paidAmount) || 0;
+
+  const body = {
+    invoiceType: form.invoiceType,
+    paymentTerm: form.paymentTerm,
+    contentType: form.contentType,
+    invoiceDate: form.invoiceDate,
+    dueDate: form.dueDate || form.invoiceDate,
+    businessPartnerId: Number(form.businessPartnerId),
+    storeId: Number(form.storeId),
+    usesExternalDriver: form.usesExternalDriver,
+    externalDriverName: form.usesExternalDriver ? form.externalDriverName : "",
+    vehicleNumber: form.vehicleNumber || "",
+    exportInvoiceCode: form.exportInvoiceCode || "",
+    discountAmount: Number(form.discountAmount) || 0,
+    paidAmount,
+    notes: form.notes || "",
+    lines: validLines,
+    containerLines: (containerLines || []).map((c) => ({
+      containerId: Number(c.containerId),
+      outgoingUnits: Number(c.outgoingUnits) || 0,
+      incomingUnits: Number(c.incomingUnits) || 0,
+    })),
+    rowVersion,
+  };
+
+  withOptionalNumber(body, "containerStoreId", form.containerStoreId);
+  withOptionalNumber(body, "countryId", form.countryId);
+  withOptionalNumber(
+    body,
+    "driverId",
+    form.usesExternalDriver ? null : form.driverId,
+  );
+  withOptionalNumber(body, "actualDriverId", form.actualDriverId);
+  withOptionalString(body, "partnerInvoiceNo", form.partnerInvoiceNo);
+  withOptionalNumber(body, "itemsCategoryId", form.itemsCategoryId);
+  withOptionalNumber(body, "exchangeRate", form.exchangeRate);
+
+  if (paidAmount > 0) {
+    withOptionalNumber(body, "cashboxId", form.cashboxId);
+    withOptionalNumber(body, "cashMovementTypeId", form.cashMovementTypeId);
+    withOptionalNumber(body, "cashboxExchangeRate", form.cashboxExchangeRate);
+  }
+
+  withOptionalNumber(body, "wbWeight", form.wbWeight);
+  withOptionalNumber(body, "wbScaleDifference", form.wbScaleDifference);
+  withOptionalNumber(body, "wbDiscount", form.wbDiscount);
+
+  return body;
 }

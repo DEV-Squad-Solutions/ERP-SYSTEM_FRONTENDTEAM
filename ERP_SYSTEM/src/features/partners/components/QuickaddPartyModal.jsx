@@ -58,14 +58,20 @@ export default function QuickAddPartyModal({
 
   const onSubmit = async (data) => {
     try {
-      const newParty = await createParty(data).unwrap();
+      const response = await createParty(data).unwrap();
+
       toast.success(
         data.partyType === "customer"
           ? "تم إضافة العميل بنجاح"
           : "تم إضافة المورد بنجاح",
       );
+
       reset();
-      onCreated?.(newParty);
+
+      const createdParty = response.data ?? response;
+
+      onCreated?.(createdParty);
+
       onClose();
     } catch {
       toast.error("تعذر الحفظ، حاول مرة أخرى");

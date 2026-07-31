@@ -50,7 +50,6 @@ export const router = createBrowserRouter([
       { path: "drivers/statement", element: <DriverStatementPage /> },
       { path: "treasury", element: <CashboxesListPage /> },
       { path: "treasury/:cashboxId", element: <CashboxDetailPage /> },
-      { path: "bank", element: <BankPage /> },
       { path: "inventory", element: <InventoryPage /> },
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
       { path: "assets", element: <ComingSoon title="الأصول - إهلاك" /> },

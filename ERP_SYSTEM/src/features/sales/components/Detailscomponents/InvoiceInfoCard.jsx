@@ -1,4 +1,5 @@
 const paymentTermLabels = { Cash: "نقدي", Credit: "آجل" };
+const contentTypeLabels = { Items: "أصناف", Containers: "عبوات" };
 
 /**
  * @param {{ invoice: Object }} props
@@ -13,7 +14,9 @@ export default function InvoiceInfoCard({ invoice }) {
     { label: "تاريخ الاستحقاق", value: invoice.dueDate, num: true },
     { label: "العميل / المورد", value: invoice.businessPartnerName },
     { label: "المخزن", value: invoice.storeName },
-    { label: "مخزن العبوات", value: invoice.containerStoreName },
+    ...(invoice.contentType === "Containers"
+      ? [{ label: "مخزن العبوات", value: invoice.containerStoreName }]
+      : []),
     { label: "الدولة", value: invoice.countryName },
     { label: "السائق", value: driverLine },
     ...(invoice.actualDriverName && invoice.actualDriverId !== invoice.driverId
@@ -24,6 +27,41 @@ export default function InvoiceInfoCard({ invoice }) {
       label: "طريقة الدفع",
       value: paymentTermLabels[invoice.paymentTerm] || invoice.paymentTerm,
     },
+    {
+      label: "محتوى الفاتورة",
+      value: contentTypeLabels[invoice.contentType] || invoice.contentType,
+    },
+    ...(invoice.itemsCategoryName
+      ? [{ label: "تصنيف الأصناف", value: invoice.itemsCategoryName }]
+      : []),
+    ...(invoice.partnerInvoiceNo
+      ? [
+          {
+            label: "رقم فاتورة الشريك",
+            value: invoice.partnerInvoiceNo,
+            num: true,
+          },
+        ]
+      : []),
+    ...(invoice.exportInvoiceCode
+      ? [
+          {
+            label: "كود فاتورة التصدير",
+            value: invoice.exportInvoiceCode,
+            num: true,
+          },
+        ]
+      : []),
+    {
+      label: "العملة",
+      value:
+        invoice.currency === invoice.baseCurrency
+          ? invoice.currency
+          : `${invoice.currency} (أساسي: ${invoice.baseCurrency})`,
+    },
+    ...(invoice.currency !== invoice.baseCurrency
+      ? [{ label: "سعر الصرف", value: invoice.exchangeRate, num: true }]
+      : []),
   ];
 
   return (

@@ -4,11 +4,11 @@ import { toast } from "sonner";
 
 import InvoiceHeader from "../components/Detailscomponents/InvoiceHeader";
 import InvoiceInfoCard from "../components/Detailscomponents/InvoiceInfoCard";
+import InvoiceWeighbridgeCard from "../components/Detailscomponents/InvoiceWeighbridgeCard";
+import InvoicePaymentCard from "../components/Detailscomponents/InvoicePaymentCard";
 import InvoiceItemsTable from "../components/Detailscomponents/InvoiceItemsTable";
+import InvoiceContainerLinesTable from "../components/Detailscomponents/InvoiceContainerLinesTable";
 import InvoiceSummaryCard from "../components/Detailscomponents/InvoiceSummaryCard";
-import PackagingDrawer from "../components/Detailscomponents/PackagingDrawer";
-import AuditLogDrawer from "../components/Detailscomponents/AuditLogDrawer";
-import PrintPreviewModal from "../components/Detailscomponents/PrintPreviewModal";
 import ConfirmDeleteModal from "../components/Detailscomponents/ConfirmDeleteModal";
 import {
   InvoiceDetailsSkeleton,
@@ -17,7 +17,6 @@ import {
 
 import {
   useGetInvoiceByIdQuery,
-  useDuplicateInvoiceMutation,
   useDeleteInvoiceMutation,
 } from "../../invoices/invoicesApi";
 
@@ -33,12 +32,7 @@ export default function InvoiceDetailsPage() {
     refetch,
   } = useGetInvoiceByIdQuery(id);
 
-  const [duplicateInvoice] = useDuplicateInvoiceMutation();
   const [deleteInvoice, { isLoading: isDeleting }] = useDeleteInvoiceMutation();
-
-  const [packagingOpen, setPackagingOpen] = useState(false);
-  const [auditOpen, setAuditOpen] = useState(false);
-  const [printOpen, setPrintOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const handleAction = useCallback(
@@ -47,38 +41,20 @@ export default function InvoiceDetailsPage() {
         case "edit":
           navigate(`/dashboard/sales/${id}/edit`);
           break;
-        case "print":
-          setPrintOpen(true);
-          break;
-        case "copy":
-          try {
-            const created = await duplicateInvoice(id).unwrap();
-            toast.success(`تم إنشاء نسخة جديدة برقم ${created.invoiceNumber}`);
-            navigate(`/dashboard/sales/${created.id}`);
-          } catch {
-            toast.error("تعذر نسخ الفاتورة، حاول مرة أخرى");
-          }
-          break;
-        case "pdf":
-          toast("جارٍ تجهيز ملف PDF...");
-          break;
-        case "packaging":
-          setPackagingOpen(true);
-          break;
-        case "audit":
-          setAuditOpen(true);
-          break;
+
         case "delete":
           setDeleteOpen(true);
           break;
+
         case "back":
           navigate("/dashboard/sales");
           break;
+
         default:
           break;
       }
     },
-    [id, navigate, duplicateInvoice],
+    [id, navigate],
   );
 
   const handleConfirmDelete = async () => {
@@ -87,7 +63,7 @@ export default function InvoiceDetailsPage() {
       toast.success("تم حذف الفاتورة");
       navigate("/dashboard/sales");
     } catch {
-      toast.error("تعذر حذف الفاتورة");
+      toast.error("حدث خطأ أثناء حذف الفاتورة");
     }
   };
 
@@ -110,40 +86,25 @@ export default function InvoiceDetailsPage() {
               onAction={handleAction}
               isFetching={isFetching}
             />
+
             <InvoiceInfoCard invoice={invoice} />
+
+            <InvoiceWeighbridgeCard invoice={invoice} />
+
+            <InvoicePaymentCard invoice={invoice} />
+
             <InvoiceItemsTable
               items={invoice.lines}
               currency={invoice.currency}
             />
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-              <div className="lg:col-span-2" />
+            <InvoiceContainerLinesTable
+              containerLines={invoice.containerLines}
+            />
+            <div className="flex ">
               <InvoiceSummaryCard invoice={invoice} />
             </div>
           </div>
 
-          <PackagingDrawer
-            containerLines={invoice.containerLines}
-            storeName={invoice.containerStoreName}
-            invoiceNumber={invoice.invoiceNumber}
-            isOpen={packagingOpen}
-            onClose={() => setPackagingOpen(false)}
-          />
-          <AuditLogDrawer
-            open={auditOpen}
-            onClose={() => setAuditOpen(false)}
-            invoiceId={id}
-          />
-          <PrintPreviewModal
-            open={printOpen}
-            onClose={() => setPrintOpen(false)}
-            invoiceId={id}
-            onConfirm={(mode) =>
-              toast(
-                `جارٍ التنفيذ: ${mode === "original" ? "طباعة أصل" : mode === "copy" ? "نسخة" : "PDF"}`,
-              )
-            }
-          />
           <ConfirmDeleteModal
             open={deleteOpen}
             onClose={() => setDeleteOpen(false)}

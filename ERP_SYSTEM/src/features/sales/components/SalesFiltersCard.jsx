@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
 import { Search, RotateCcw, Filter, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-
+import { useGetItemsCategoriesSelectQuery } from "../../itemsCategories/itemsCategoriesApi";
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
 import { useGetDriversSelectQuery } from "../../drivers/driversApi";
 import { useGetCountriesSelectQuery } from "../../countries/countriesApi";
-
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
@@ -27,7 +26,12 @@ const statusOptions = [
   { value: "1", label: "غير مسعرة" },
   { value: "2", label: "متسعرة" },
 ];
-
+const currencyOptions = [
+  { value: "EGP", label: "جنيه مصري" },
+  { value: "USD", label: "دولار أمريكي" },
+  { value: "EUR", label: "يورو" },
+  { value: "SAR", label: "ريال سعودي" },
+];
 export default function SalesFiltersCard({
   draft,
   onChange,
@@ -47,7 +51,8 @@ export default function SalesFiltersCard({
 
   const { data: countries, isLoading: isLoadingCountries } =
     useGetCountriesSelectQuery();
-
+  const { data: itemCategories, isLoading: isLoadingCategories } =
+    useGetItemsCategoriesSelectQuery();
   const set = (key, value) =>
     onChange({
       ...draft,
@@ -219,6 +224,37 @@ export default function SalesFiltersCard({
                     options={paymentOptions}
                     value={draft.paymentMethod}
                     onChange={(v) => set("paymentMethod", v)}
+                    placeholder="الكل"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1.5 text-sm font-medium">
+                    تصنيف الأصناف
+                  </label>
+
+                  <CompactSelect
+                    options={
+                      itemCategories?.map((c) => ({
+                        value: c.id,
+                        label: c.name,
+                      })) || []
+                    }
+                    value={draft.itemsCategoryId}
+                    onChange={(v) => set("itemsCategoryId", v)}
+                    isLoading={isLoadingCategories}
+                    placeholder="الكل"
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-1.5 text-sm font-medium">
+                    العملة
+                  </label>
+
+                  <CompactSelect
+                    options={currencyOptions}
+                    value={draft.currency}
+                    onChange={(v) => set("currency", v)}
                     placeholder="الكل"
                   />
                 </div>

@@ -16,13 +16,15 @@ import InvoiceListPrintTemplate from "../../../shared/components/print/InvoiceLi
 import { exportInvoicesToExcel } from "../../../shared/hooks/exportInvoicesToExcel";
 const emptyFilters = {
   invoiceNumber: "",
-  movementType: "sale",
+  movementType: "",
   partyId: "",
   country: "",
   storeId: "",
   driverId: "",
   paymentMethod: "",
   status: "",
+  itemsCategoryId: "",
+  currency: "",
   fromDate: "",
   toDate: "",
 };

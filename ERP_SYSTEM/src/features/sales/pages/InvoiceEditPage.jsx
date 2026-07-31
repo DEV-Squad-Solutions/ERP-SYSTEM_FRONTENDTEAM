@@ -6,14 +6,18 @@ import {
   useGetInvoiceByIdQuery,
   useUpdateInvoiceMutation,
 } from "../../invoices/invoicesApi";
+import { buildInvoiceUpdateBody } from "../../invoices/components/buildInvoicePayload";
 import {
   useGetPartiesSelectQuery,
   useGetPartyContainerStoreQuery,
 } from "../../partners/partiesApi";
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
 import { useGetDriversSelectQuery } from "../../drivers/driversApi";
-// ⚠️ افتراض اسم الـ hook ده، لازم تتأكد منه لو مختلف
 import { useGetCountriesSelectQuery } from "../../countries/countriesApi";
+import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
+import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
+// ⚠️ افتراض اسم الـ hook ده، لازم تتأكد منه لو مختلف
+import { useGetItemsCategoriesSelectQuery } from "../../itemsCategories/itemsCategoriesApi";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
@@ -32,15 +36,18 @@ const invoiceTypeOptions = [
   { value: "PurchaseReturn", label: "مرتجع شراء" },
 ];
 
-const itemsCategoryOptions = [
-  { value: "pickled", label: "مخلل" },
-  { value: "fresh", label: "فريش" },
+const invoiceContentTypeOptions = [
+  { value: "Items", label: "أصناف" },
+  { value: "Containers", label: "عبوات" },
 ];
 
-const invoiceContentTypeOptions = [
-  { value: "items", label: "أصناف" },
-  { value: "containers", label: "عبوات" },
-];
+const paymentStatusLabels = {
+  Unpaid: "غير مدفوعة",
+  PartiallyPaid: "مدفوعة جزئيًا",
+  Paid: "مدفوعة بالكامل",
+};
+
+const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
 
 const emptyLine = () => ({
   itemId: null,
@@ -83,6 +90,8 @@ export default function InvoiceEditPage() {
     useGetCountriesSelectQuery();
   const { data: drivers, isLoading: isLoadingDrivers } =
     useGetDriversSelectQuery();
+  const { data: itemsCategories, isLoading: isLoadingCategories } =
+    useGetItemsCategoriesSelectQuery();
 
   const [form, setForm] = useState(null);
   const [lines, setLines] = useState([]);
@@ -91,6 +100,16 @@ export default function InvoiceEditPage() {
   const [containerStoreName, setContainerStoreName] = useState("");
 
   const prevPartyIdRef = useRef(null);
+
+  const hasPayment = Number(form?.paidAmount) > 0;
+
+  const { data: cashboxes } = useGetCashboxOptionsQuery(undefined, {
+    skip: !hasPayment,
+  });
+  const { data: cashMovementTypeOptions } = useGetCashMovementTypeOptionsQuery(
+    undefined,
+    { skip: !hasPayment },
+  );
 
   // بيانات مخزن العبوات بتاع العميل الحالي (بيتغير أوتوماتيك مع تغيير العميل)
   const {
@@ -106,6 +125,7 @@ export default function InvoiceEditPage() {
     setForm({
       invoiceType: invoice.invoiceType,
       paymentTerm: invoice.paymentTerm,
+      contentType: invoice.contentType,
       invoiceDate: invoice.invoiceDate,
       dueDate: invoice.dueDate,
       businessPartnerId: invoice.businessPartnerId,
@@ -118,28 +138,44 @@ export default function InvoiceEditPage() {
       externalDriverName: invoice.externalDriverName || "",
       vehicleNumber: invoice.vehicleNumber || "",
       exportInvoiceCode: invoice.exportInvoiceCode || "",
+      partnerInvoiceNo: invoice.partnerInvoiceNo || "",
+      itemsCategoryId: invoice.itemsCategoryId || "",
+      exchangeRate: invoice.exchangeRate || "",
       discountAmount: invoice.discountAmount || 0,
       paidAmount: invoice.paidAmount || 0,
-      itemsCategory: invoice.itemsCategory || "fresh",
-      invoiceContentType: invoice.invoiceContentType || "items",
-      generalNotes: invoice.generalNotes || invoice.notes || "",
-      // ==== ملاحظات مقسمة لأربع حقول ====
-      weighbridgeWeight: invoice.weighbridgeWeight || "",
-      scaleDifference: invoice.scaleDifference || "",
-      notesDiscount: invoice.notesDiscount || "",
-      notesTotal: invoice.notesTotal || "",
+      cashboxId: invoice.cashboxId || "",
+      cashboxName: invoice.cashboxName || "",
+      cashMovementTypeId: invoice.cashMovementTypeId || "",
+      cashMovementTypeName: invoice.cashMovementTypeName || "",
+      cashboxExchangeRate: invoice.cashboxExchangeRate || "",
+      notes: invoice.notes || "",
+      wbWeight: invoice.wbWeight || "",
+      wbScaleDifference: invoice.wbScaleDifference || "",
+      wbDiscount: invoice.wbDiscount || "",
     });
     setLines(
       invoice.lines?.length
-        ? invoice.lines
+        ? invoice.lines.map((l) => ({
+            itemId: l.itemId,
+            itemName: l.itemName,
+            itemCode: l.itemCode,
+            isTemporaryItem: false,
+            itemUnitId: l.itemUnitId,
+            itemUnitName: l.itemUnitName,
+            count: l.count,
+            weight: l.weight,
+            quantity: l.quantity,
+            price: l.price,
+            notes: l.notes || "",
+            sourceInvoiceLineId: l.sourceInvoiceLineId,
+            returnUnitCost: l.returnUnitCost,
+          }))
         : Array.from({ length: 10 }, () => emptyLine()),
     );
     setContainerLines(invoice.containerLines || []);
     setContainerStoreName(invoice.containerStoreName || "");
     setRowVersion(invoice.rowVersion);
 
-    // نسجل العميل الأصلي كخط أساس، عشان الـ effect التاني
-    // ما يشتغلش تلقائي أول ما الصفحة تفتح
     prevPartyIdRef.current = invoice.businessPartnerId;
   }, [invoice]);
 
@@ -164,8 +200,38 @@ export default function InvoiceEditPage() {
     }
   }, [partyContainerStoreData, form?.businessPartnerId]);
 
+  // لو المدفوع رجع صفر، صفّر الخزنة ونوع الحركة
+  useEffect(() => {
+    if (!form) return;
+    if (!hasPayment && (form.cashboxId || form.cashMovementTypeId)) {
+      setForm((prev) => ({
+        ...prev,
+        cashboxId: "",
+        cashboxName: "",
+        cashMovementTypeId: "",
+        cashMovementTypeName: "",
+        cashboxExchangeRate: "",
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPayment]);
+
   const setField = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  const handleCashboxChange = (cashboxId) => {
+    const cashbox = cashboxes?.find((c) => String(c.id) === String(cashboxId));
+    setField("cashboxId", cashboxId);
+    setField("cashboxName", cashbox?.name || "");
+  };
+
+  const handleCashMovementTypeChange = (typeId) => {
+    const type = cashMovementTypeOptions?.find(
+      (t) => String(t.id) === String(typeId),
+    );
+    setField("cashMovementTypeId", typeId);
+    setField("cashMovementTypeName", type?.name || "");
+  };
 
   const updateLine = (index, updatedLine) => {
     setLines((prev) => prev.map((l, i) => (i === index ? updatedLine : l)));
@@ -193,36 +259,79 @@ export default function InvoiceEditPage() {
       ),
     [lines],
   );
-  const displayTotal = displaySubtotal - (Number(form?.discountAmount) || 0);
+  const displayTotal = Math.max(
+    displaySubtotal - (Number(form?.discountAmount) || 0),
+    0,
+  );
+  const displayRemaining = Math.max(
+    displayTotal - (Number(form?.paidAmount) || 0),
+    0,
+  );
+  const displayWbTotal =
+    (parseFloat(form?.wbWeight) || 0) -
+    (parseFloat(form?.wbScaleDifference) || 0) -
+    (parseFloat(form?.wbDiscount) || 0);
+
+  const isReturnInvoice =
+    form?.invoiceType === "SalesReturn" ||
+    form?.invoiceType === "PurchaseReturn";
 
   const handleSubmit = async () => {
     if (!form) return;
 
-    if (lines.some((l) => !l.itemId && !(l.isTemporaryItem && l.itemName))) {
-      toast.error("لازم تختار صنف أو تكتب اسمه لكل سطر قبل الحفظ");
+    const hasTemporaryLine = lines.some(
+      (l) => l.isTemporaryItem && Number(l.quantity) > 0,
+    );
+    if (hasTemporaryLine) {
+      toast.error("مفيش دعم لصنف يدوي حاليًا", {
+        description: "شيل الأصناف اليدوية واختار صنف موجود بالفعل قبل الحفظ",
+      });
+      return;
+    }
+
+    if (lines.some((l) => l.itemId && !(Number(l.quantity) > 0))) {
+      toast.error("كل الأصناف المختارة لازم تكون ليها كمية أكبر من صفر");
+      return;
+    }
+
+    if (
+      form.paymentTerm === "Cash" &&
+      Number(form.paidAmount) !== displayTotal
+    ) {
+      toast.error(
+        "الفاتورة النقدية لازم يكون المدفوع = إجمالي الفاتورة بالظبط",
+      );
+      return;
+    }
+
+    if (
+      Number(form.paidAmount) > 0 &&
+      (!form.cashboxId || !form.cashMovementTypeId)
+    ) {
+      toast.error("اختر الخزنة ونوع الحركة أولاً لإن فيه مبلغ مدفوع");
       return;
     }
 
     try {
-      await updateInvoice({
-        id,
-        ...form,
+      const body = buildInvoiceUpdateBody({
+        form,
         lines,
         containerLines,
         rowVersion,
-      }).unwrap();
+      });
+
+      await updateInvoice({ id, ...body }).unwrap();
 
       toast.success("تم حفظ التعديلات بنجاح");
       navigate(`/dashboard/sales/${id}`);
     } catch (err) {
-      // 409 = تعارض نسخة (حد تاني عدّل الفاتورة قبلك)
       if (err?.status === 409) {
         toast.error("الفاتورة اتعدلت من حد تاني، لازم تحمّل النسخة الأحدث", {
           duration: 6000,
         });
         refetch();
       } else {
-        toast.error("حصل خطأ أثناء حفظ التعديلات");
+        toast.error(err?.message || "حصل خطأ أثناء حفظ التعديلات");
       }
     }
   };
@@ -259,9 +368,23 @@ export default function InvoiceEditPage() {
           >
             <ArrowRight size={18} />
           </button>
-          <h2 className="font-display text-2xl font-bold text-ink-900">
-            تعديل الفاتورة #{invoice.invoiceNumber}
-          </h2>
+          <div>
+            <h2 className="font-display text-2xl font-bold text-ink-900">
+              تعديل الفاتورة #{invoice.invoiceNumber}
+            </h2>
+            {invoice.paymentStatus && (
+              <span className="inline-flex items-center text-[11px] font-medium text-ink-400 bg-ink-400/10 rounded-full px-2 py-0.5 mt-1">
+                {paymentStatusLabels[invoice.paymentStatus] ||
+                  invoice.paymentStatus}
+                {" · "}
+                متبقي:{" "}
+                {Number(invoice.remainingAmount || 0).toLocaleString(
+                  "ar-EG",
+                )}{" "}
+                {invoice.currency}
+              </span>
+            )}
+          </div>
         </div>
         <Button onClick={handleSubmit} disabled={isSaving}>
           <Save size={16} />
@@ -377,6 +500,7 @@ export default function InvoiceEditPage() {
               value={form.driverId}
               onChange={(v) => setField("driverId", v)}
               isLoading={isLoadingDrivers}
+              isDisabled={form.usesExternalDriver}
             />
           </div>
 
@@ -406,6 +530,12 @@ export default function InvoiceEditPage() {
             onChange={(e) => setField("exportInvoiceCode", e.target.value)}
           />
 
+          <Input
+            label="رقم فاتورة الشريك"
+            value={form.partnerInvoiceNo}
+            onChange={(e) => setField("partnerInvoiceNo", e.target.value)}
+          />
+
           <label className="flex items-center gap-2 text-sm text-ink-900 mt-6">
             <input
               type="checkbox"
@@ -425,12 +555,17 @@ export default function InvoiceEditPage() {
 
           <div>
             <label className="block mb-1.5 text-sm font-medium text-ink-900">
-              نوع الأصناف
+              تصنيف الأصناف
             </label>
             <CompactSelect
-              options={itemsCategoryOptions}
-              value={form.itemsCategory}
-              onChange={(v) => setField("itemsCategory", v)}
+              options={
+                itemsCategories?.map((c) => ({ value: c.id, label: c.name })) ||
+                []
+              }
+              value={form.itemsCategoryId}
+              onChange={(v) => setField("itemsCategoryId", v)}
+              isLoading={isLoadingCategories}
+              placeholder="اختياري"
             />
           </div>
 
@@ -440,43 +575,110 @@ export default function InvoiceEditPage() {
             </label>
             <CompactSelect
               options={invoiceContentTypeOptions}
-              value={form.invoiceContentType}
-              onChange={(v) => setField("invoiceContentType", v)}
+              value={form.contentType}
+              onChange={(v) => setField("contentType", v)}
             />
           </div>
+
+          <Input
+            type="number"
+            label="سعر الصرف"
+            value={form.exchangeRate}
+            onChange={(e) => setField("exchangeRate", e.target.value)}
+          />
+
+          <div>
+            <label className="block mb-1.5 text-sm font-medium text-ink-900">
+              العملة
+            </label>
+            <div className="w-full rounded-lg border border-ink-400/10 px-3 py-2 text-sm bg-ink-400/5 text-ink-700 min-h-[38px] flex items-center">
+              {currencyLabels[invoice.currency] || invoice.currency}
+            </div>
+          </div>
         </div>
+
+        {/* ==== الدفع ==== */}
+        {hasPayment && (
+          <div className="mt-4 pt-4 border-t border-ink-400/10 grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block mb-1.5 text-sm font-medium text-ink-900">
+                الخزنة <span className="text-negative">*</span>
+              </label>
+              <CompactSelect
+                options={
+                  cashboxes?.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
+                  })) || []
+                }
+                value={form.cashboxId}
+                onChange={handleCashboxChange}
+                placeholder="اختر الخزنة"
+              />
+            </div>
+            <div>
+              <label className="block mb-1.5 text-sm font-medium text-ink-900">
+                نوع الحركة <span className="text-negative">*</span>
+              </label>
+              <CompactSelect
+                options={
+                  cashMovementTypeOptions?.map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                  })) || []
+                }
+                value={form.cashMovementTypeId}
+                onChange={handleCashMovementTypeChange}
+                placeholder="اختر نوع الحركة"
+              />
+            </div>
+            <Input
+              type="number"
+              label="سعر صرف الخزنة"
+              value={form.cashboxExchangeRate}
+              onChange={(e) => setField("cashboxExchangeRate", e.target.value)}
+            />
+          </div>
+        )}
 
         {/* ==== ملاحظات عامة ==== */}
         <div className="mt-3">
           <Input
             label="ملاحظات عامة"
-            value={form.generalNotes}
-            onChange={(e) => setField("generalNotes", e.target.value)}
+            value={form.notes}
+            onChange={(e) => setField("notes", e.target.value)}
           />
         </div>
 
-        {/* ==== ملاحظات: مقسمة لأربع حقول ==== */}
+        {/* ==== وزن البسكال ==== */}
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Input
+            type="number"
             label="وزن البسكال"
-            value={form.weighbridgeWeight}
-            onChange={(e) => setField("weighbridgeWeight", e.target.value)}
+            value={form.wbWeight}
+            onChange={(e) => setField("wbWeight", e.target.value)}
           />
           <Input
+            type="number"
             label="فرق الميزان"
-            value={form.scaleDifference}
-            onChange={(e) => setField("scaleDifference", e.target.value)}
+            value={form.wbScaleDifference}
+            onChange={(e) => setField("wbScaleDifference", e.target.value)}
           />
           <Input
+            type="number"
             label="الخصم"
-            value={form.notesDiscount}
-            onChange={(e) => setField("notesDiscount", e.target.value)}
+            value={form.wbDiscount}
+            onChange={(e) => setField("wbDiscount", e.target.value)}
           />
-          <Input
-            label="الاجمالي"
-            value={form.notesTotal}
-            onChange={(e) => setField("notesTotal", e.target.value)}
-          />
+          <div>
+            <label className="block mb-1.5 text-sm font-medium text-ink-900">
+              الاجمالي
+            </label>
+            <div className="w-full rounded-lg border border-ink-400/10 px-3 py-2 text-sm num bg-ink-400/5 text-ink-700 min-h-[38px] flex items-center">
+              {displayWbTotal.toLocaleString("ar-EG")}
+            </div>
+            <p className="text-[11px] text-ink-400 mt-1">يتحسب تلقائيًا</p>
+          </div>
         </div>
       </div>
 
@@ -490,11 +692,13 @@ export default function InvoiceEditPage() {
           </Button>
         </div>
         <div className="overflow-x-auto custom-scroll">
-          <table className="w-full text-right border-collapse min-w-[900px]">
+          <table className="w-full text-right border-collapse min-w-[1050px]">
             <thead>
               <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
                 <th className="p-2.5 font-medium">#</th>
                 <th className="p-2.5 font-medium">الصنف</th>
+                <th className="p-2.5 font-medium">العدد بالمخزن</th>
+                <th className="p-2.5 font-medium">الوحدة</th>
                 <th className="p-2.5 font-medium">العدد</th>
                 <th className="p-2.5 font-medium">وزن الوحدة</th>
                 <th className="p-2.5 font-medium">الكمية</th>
@@ -519,6 +723,12 @@ export default function InvoiceEditPage() {
             </tbody>
           </table>
         </div>
+        {isReturnInvoice && (
+          <p className="text-xs text-gold-600 bg-gold-50 rounded-lg px-3 py-2 mt-3">
+            فاتورة مرتجع — كل سطر محتاج يتربط بسطر الفاتورة الأصلي (مفيش واجهة
+            لده حاليًا، محتاج نضيفها).
+          </p>
+        )}
       </div>
 
       {/* العبوات */}
@@ -572,24 +782,33 @@ export default function InvoiceEditPage() {
               setField("discountAmount", Number(e.target.value) || 0)
             }
           />
-          <div>
-            <Input
-              type="number"
-              label="المدفوع"
-              value={form.paidAmount}
-              onChange={(e) =>
-                setField("paidAmount", Number(e.target.value) || 0)
-              }
-            />
-            <p className="text-[11px] text-ink-400 mt-1">إرشادي فقط</p>
-          </div>
+          <Input
+            type="number"
+            label="المدفوع"
+            value={form.paidAmount}
+            onChange={(e) =>
+              setField("paidAmount", Number(e.target.value) || 0)
+            }
+          />
           <div>
             <p className="text-xs text-ink-400 mb-1">الإجمالي (تقديري)</p>
             <p className="num font-bold text-ink-900">
               {displayTotal.toLocaleString("ar-EG")} {invoice.currency}
             </p>
           </div>
+          <div>
+            <p className="text-xs text-ink-400 mb-1">المتبقي (تقديري)</p>
+            <p
+              className={`num font-bold ${displayRemaining > 0 ? "text-negative" : "text-positive"}`}
+            >
+              {displayRemaining.toLocaleString("ar-EG")} {invoice.currency}
+            </p>
+          </div>
         </div>
+        <p className="text-[11px] text-ink-400 mt-2">
+          القيم دي تقديرية للعرض بس — القيم الفعلية (زي المخزون والتكاليف)
+          بيحسبها السيرفر بعد الحفظ.
+        </p>
       </div>
     </div>
   );
