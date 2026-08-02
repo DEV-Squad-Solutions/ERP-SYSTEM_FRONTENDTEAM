@@ -27,7 +27,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
-
+import { useNavigate } from "react-router-dom";
 const directionOptions = [
   { value: "Receipt", label: "وارد" },
   { value: "Payment", label: "صادر" },
@@ -134,7 +134,7 @@ export default function DriverStatementPage() {
   const [pageSize, setPageSize] = useState(20);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
-
+  const navigate = useNavigate();
   const {
     data: drivers,
     isLoading: isLoadingDrivers,
@@ -645,8 +645,16 @@ export default function DriverStatementPage() {
                             "—"
                           )}
                         </td>
-                        <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5">
-                          {row.invoiceNumber || "—"}
+                        <td className="p-2.5 text-sm font-medium num">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/invoices/${row.invoiceId}`)
+                            }
+                            className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+                          >
+                            {row.invoiceNumber || "-"}
+                          </button>
                         </td>
                         <td className="p-2.5 num text-negative text-[13px] border-l border-ink-400/5">
                           {row.amountPaidToDriver > 0

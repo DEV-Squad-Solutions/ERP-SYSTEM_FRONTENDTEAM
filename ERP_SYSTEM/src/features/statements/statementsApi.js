@@ -8,14 +8,23 @@ export const statementsApi = baseApi.injectEndpoints({
         { type: "Statement", id: params.BusinessPartnerId },
       ],
     }),
-    getPartnerItemInvoices: builder.query({
-      query: (params) => ({
-        url: "/Statements/partner-item-invoices", // عدّل المسار الصح عندك
-        params,
+    getPartnerItemMovements: builder.query({
+      query: ({ businessPartnerId, itemId, countryId, fromDate, toDate }) => ({
+        url: "/BusinessPartners/item-report",
+        method: "GET",
+        params: {
+          businessPartnerId,
+          itemId,
+          countryId: countryId || undefined,
+          fromDate: fromDate || undefined,
+          toDate: toDate || undefined,
+        },
       }),
+
+      providesTags: ["PartnerItemMovements"],
     }),
   }),
 });
 
-export const { useGetPartnerStatementQuery, useGetPartnerItemInvoicesQuery } =
+export const { useGetPartnerStatementQuery, useGetPartnerItemMovementsQuery } =
   statementsApi;

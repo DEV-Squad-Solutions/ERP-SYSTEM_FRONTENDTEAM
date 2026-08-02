@@ -417,6 +417,7 @@ export default function SalesInvoicesTable({
           totalCount={data.totalCount}
           onPageChange={onPageChange}
           onPageSizeChange={onPageSizeChange}
+          label="فاتورة"
         />
       )}
 

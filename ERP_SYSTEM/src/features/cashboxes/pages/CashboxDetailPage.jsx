@@ -44,8 +44,10 @@ export default function CashboxDetailPage() {
       pageSize,
     });
 
+  // cashboxId لازم يتبعت آخر حاجة في الـ spread عشان يفضل هو الأساس
+  // حتى لو الـ payload الجاي من الجدول فيه cashboxId بقيمة undefined
   async function handleAddVoucher(payload) {
-    await createVoucher({ cashboxId, ...payload }).unwrap();
+    await createVoucher({ ...payload, cashboxId }).unwrap();
   }
 
   async function handleUpdateVoucher(payload) {
@@ -127,6 +129,7 @@ export default function CashboxDetailPage() {
 
       <div className="overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card">
         <CashboxLedgerTable
+          cashboxId={cashboxId}
           data={data}
           isLoading={isLoading}
           isFetching={isFetching}

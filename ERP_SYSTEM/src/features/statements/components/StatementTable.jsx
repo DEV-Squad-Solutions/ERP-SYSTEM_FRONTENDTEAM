@@ -80,15 +80,15 @@ export default function StatementTable({
         <table className="min-w-full border-collapse text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-ink-400/10 text-xs font-semibold text-ink-600">
-              <th className="w-36 px-4 py-3 text-center">التاريخ</th>
+              <th className="min-w-[320px] px-4 py-3 text-right">البيان</th>
+
+              <th className="w-44 px-4 py-3 text-center">الرصيد</th>
 
               <th className="w-32 px-4 py-3 text-center text-negative">مدين</th>
 
               <th className="w-32 px-4 py-3 text-center text-positive">دائن</th>
 
-              <th className="w-44 px-4 py-3 text-center">الرصيد</th>
-
-              <th className="min-w-[320px] px-4 py-3 text-right">البيان</th>
+              <th className="w-36 px-4 py-3 text-center">التاريخ</th>
 
               <th className="min-w-[220px] px-4 py-3 text-right">الملاحظات</th>
             </tr>
@@ -100,9 +100,25 @@ export default function StatementTable({
                 key={index}
                 className="border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0"
               >
-                {/* التاريخ */}
-                <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
-                  {item.date}
+                {/* البيان */}
+                <td className="px-4 py-3 text-right">
+                  <div className="font-medium text-ink-900">
+                    {item.movementName || "—"}
+                  </div>
+
+                  {item.documentNumber && (
+                    <div className="mt-1 text-xs text-ink-500">
+                      رقم المستند: {item.documentNumber}
+                    </div>
+                  )}
+                </td>
+
+                {/* الرصيد */}
+                <td className="px-4 py-3 text-center">
+                  <BalanceBadge
+                    amount={item.balanceAmount}
+                    description={item.balanceDescription}
+                  />
                 </td>
 
                 {/* مدين */}
@@ -119,25 +135,9 @@ export default function StatementTable({
                     : "—"}
                 </td>
 
-                {/* الرصيد */}
-                <td className="px-4 py-3 text-center">
-                  <BalanceBadge
-                    amount={item.balanceAmount}
-                    description={item.balanceDescription}
-                  />
-                </td>
-
-                {/* البيان */}
-                <td className="px-4 py-3 text-right">
-                  <div className="font-medium text-ink-900">
-                    {item.movementName || "—"}
-                  </div>
-
-                  {item.documentNumber && (
-                    <div className="mt-1 text-xs text-ink-500">
-                      رقم المستند: {item.documentNumber}
-                    </div>
-                  )}
+                {/* التاريخ */}
+                <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
+                  {item.date}
                 </td>
 
                 {/* الملاحظات */}

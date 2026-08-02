@@ -115,7 +115,6 @@ export const {
   useGetInvoiceByIdQuery,
   useCreateInvoiceMutation,
   useUpdateInvoiceMutation,
-  useDuplicateInvoiceMutation,
   useDeleteInvoiceMutation,
   useGetItemBalanceQuery,
 } = invoicesApi;
