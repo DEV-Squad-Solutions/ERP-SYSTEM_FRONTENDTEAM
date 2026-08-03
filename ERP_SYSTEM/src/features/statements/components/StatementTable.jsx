@@ -57,6 +57,9 @@ export default function StatementTable({
   }
 
   const items = data?.items || [];
+  const currency = data?.currency || "EGP";
+  const baseCurrency = data?.baseCurrency || "EGP";
+  const isForeign = currency !== baseCurrency;
 
   if (!isFetching && items.length === 0) {
     return (
@@ -70,23 +73,44 @@ export default function StatementTable({
     );
   }
 
+  const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+
   return (
     <div
       className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
         isFetching ? "opacity-60" : ""
       }`}
     >
+      {isForeign && (
+        <div className="flex items-center gap-2 border-b border-ink-400/10 bg-primary-50/40 px-5 py-2.5 text-xs font-medium text-primary-600">
+          <span>
+            عميل بعملة أجنبية — المبالغ معروضة بعملة الحساب ({currency}) وما
+            يقابلها بالمصري ({baseCurrency})
+          </span>
+        </div>
+      )}
+
       <div className="overflow-x-auto custom-scroll">
         <table className="min-w-full border-collapse text-sm">
           <thead className="bg-slate-50">
             <tr className="border-b border-ink-400/10 text-xs font-semibold text-ink-600">
+              <th className="w-48 px-4 py-3 text-center">الرصيد</th>
+
+              <th className="w-32 px-4 py-3 text-center text-positive">
+                مدين{" "}
+                {isForeign && (
+                  <span className="text-[10px] text-ink-400">({currency})</span>
+                )}
+              </th>
+
+              <th className="w-32 px-4 py-3 text-center text-negative">
+                دائن{" "}
+                {isForeign && (
+                  <span className="text-[10px] text-ink-400">({currency})</span>
+                )}
+              </th>
+
               <th className="min-w-[320px] px-4 py-3 text-right">البيان</th>
-
-              <th className="w-44 px-4 py-3 text-center">الرصيد</th>
-
-              <th className="w-32 px-4 py-3 text-center text-negative">مدين</th>
-
-              <th className="w-32 px-4 py-3 text-center text-positive">دائن</th>
 
               <th className="w-36 px-4 py-3 text-center">التاريخ</th>
 
@@ -100,39 +124,47 @@ export default function StatementTable({
                 key={index}
                 className="border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0"
               >
-                {/* البيان */}
-                <td className="px-4 py-3 text-right">
-                  <div className="font-medium text-ink-900">
-                    {item.movementName || "—"}
-                  </div>
-
-                  {item.documentNumber && (
-                    <div className="mt-1 text-xs text-ink-500">
-                      رقم المستند: {item.documentNumber}
-                    </div>
-                  )}
-                </td>
-
                 {/* الرصيد */}
                 <td className="px-4 py-3 text-center">
                   <BalanceBadge
                     amount={item.balanceAmount}
                     description={item.balanceDescription}
                   />
+
+                  {isForeign && (
+                    <div className="num mt-1 text-[11px] text-ink-400">
+                      {fmt(item.baseBalanceAmount)} {baseCurrency}
+                    </div>
+                  )}
                 </td>
 
                 {/* مدين */}
-                <td className="num px-4 py-3 text-center font-medium text-negative">
-                  {item.debitAmount > 0
-                    ? item.debitAmount.toLocaleString("ar-EG")
-                    : "—"}
+                <td className="num px-4 py-3 text-center font-medium text-positive">
+                  {item.debitAmount > 0 ? fmt(item.debitAmount) : "—"}
+
+                  {isForeign && item.debitAmount > 0 && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(item.baseDebitAmount)} {baseCurrency}
+                    </div>
+                  )}
                 </td>
 
                 {/* دائن */}
-                <td className="num px-4 py-3 text-center font-medium text-positive">
-                  {item.creditAmount > 0
-                    ? item.creditAmount.toLocaleString("ar-EG")
-                    : "—"}
+                <td className="num px-4 py-3 text-center font-medium text-negative">
+                  {item.creditAmount > 0 ? fmt(item.creditAmount) : "—"}
+
+                  {isForeign && item.creditAmount > 0 && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(item.baseCreditAmount)} {baseCurrency}
+                    </div>
+                  )}
+                </td>
+
+                {/* البيان */}
+                <td className="px-4 py-3 text-right">
+                  <div className="font-medium text-ink-900">
+                    {item.description || "—"}
+                  </div>
                 </td>
 
                 {/* التاريخ */}
@@ -142,7 +174,7 @@ export default function StatementTable({
 
                 {/* الملاحظات */}
                 <td className="px-4 py-3 text-right text-ink-500">
-                  {item.notes || item.description || "—"}
+                  {item.notes || "—"}
                 </td>
               </tr>
             ))}
@@ -156,10 +188,18 @@ export default function StatementTable({
             <div className="flex items-center gap-2">
               <span className="text-sm text-ink-500">رصيد أول المدة</span>
 
-              <BalanceBadge
-                amount={data.summary.openingBalanceAmount}
-                description={data.summary.openingBalanceDescription}
-              />
+              <div className="flex flex-col items-start">
+                <BalanceBadge
+                  amount={data.summary.openingBalanceAmount}
+                  description={data.summary.openingBalanceDescription}
+                />
+
+                {isForeign && (
+                  <span className="num mt-1 text-[11px] text-ink-400">
+                    {fmt(data.summary.baseOpeningBalanceAmount)} {baseCurrency}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -167,10 +207,18 @@ export default function StatementTable({
                 رصيد آخر المدة
               </span>
 
-              <BalanceBadge
-                amount={data.summary.closingBalanceAmount}
-                description={data.summary.closingBalanceDescription}
-              />
+              <div className="flex flex-col items-start">
+                <BalanceBadge
+                  amount={data.summary.closingBalanceAmount}
+                  description={data.summary.closingBalanceDescription}
+                />
+
+                {isForeign && (
+                  <span className="num mt-1 text-[11px] text-ink-400">
+                    {fmt(data.summary.baseClosingBalanceAmount)} {baseCurrency}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

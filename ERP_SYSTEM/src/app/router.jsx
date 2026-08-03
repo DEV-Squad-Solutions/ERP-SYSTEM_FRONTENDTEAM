@@ -16,6 +16,8 @@ import CashboxesListPage from "../features/cashboxes/pages/CashboxesListPage";
 import CashboxDetailPage from "../features/cashboxes/pages/CashboxDetailPage";
 import DriverTripCostEntryPage from "../features/drivers/pages/DriverTripCostEntryPage";
 import DriverStatementPage from "../features/drivers/pages/DriverStatementPage";
+import PartnerOpeningBalancesPage from "../features/partners/pages/PartnerOpeningBalancesPage";
+import StockOpeningBalancesPage from "../features/inventory/pages/StockOpeningBalancesPage";
 function ComingSoon({ title }) {
   return (
     <div className="text-center py-20 text-gray-400">
@@ -46,11 +48,27 @@ export const router = createBrowserRouter([
       { path: "purchases/:id/edit", element: <InvoiceEditPage /> },
       { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
       { path: "partners", element: <PartnerAccountPage /> },
+      {
+        path: "partners/opening-balances",
+        element: <PartnerOpeningBalancesPage />,
+      },
       { path: "drivers/trip-costs", element: <DriverTripCostEntryPage /> },
       { path: "drivers/statement", element: <DriverStatementPage /> },
       { path: "treasury", element: <CashboxesListPage /> },
       { path: "treasury/:cashboxId", element: <CashboxDetailPage /> },
       { path: "inventory", element: <InventoryPage /> },
+      {
+        path: "inventory/opening-balances",
+        element: <StockOpeningBalancesPage />,
+      },
+      {
+        path: "inventory/invoices",
+        element: <ComingSoon title="فواتير المخزون" />,
+      },
+      {
+        path: "inventory/adjustments",
+        element: <ComingSoon title="تسويات المخزون" />,
+      },
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
       { path: "assets", element: <ComingSoon title="الأصول - إهلاك" /> },
       {

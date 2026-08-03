@@ -19,6 +19,9 @@ import {
   WalletCardsIcon,
   DollarSignIcon,
   Van,
+  History,
+  FileText,
+  SlidersHorizontal,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -28,10 +31,52 @@ export const navigationItems = [
     path: "/dashboard/sales",
     icon: TrendingUp,
   },
-  { label: "العملاء/الموردين", path: "/dashboard/partners", icon: Users },
+  {
+    label: "العملاء/الموردين",
+    icon: Users,
+    children: [
+      {
+        label: "قائمة العملاء/الموردين",
+        path: "/dashboard/partners",
+        icon: Users,
+        end: true,
+      },
+      {
+        label: "أرصدة افتتاحية",
+        path: "/dashboard/partners/opening-balances",
+        icon: History,
+      },
+    ],
+  },
   { label: "السائقين ", path: "/dashboard/drivers/statement", icon: Van },
   { label: "الخزائن/البنك", path: "/dashboard/treasury", icon: Wallet },
-  { label: "المخازن", path: "/dashboard/inventory", icon: Boxes },
+  {
+    label: "المخازن",
+    icon: Boxes,
+    children: [
+      {
+        label: "نظرة عامة",
+        path: "/dashboard/inventory",
+        icon: Boxes,
+        end: true,
+      },
+      {
+        label: "أرصدة افتتاحية مخزنية",
+        path: "/dashboard/inventory/opening-balances",
+        icon: History,
+      },
+      {
+        label: "الفواتير",
+        path: "/dashboard/inventory/invoices",
+        icon: FileText,
+      },
+      {
+        label: "تسويات مخزون",
+        path: "/dashboard/inventory/adjustments",
+        icon: SlidersHorizontal,
+      },
+    ],
+  },
   { label: "المصاريف", path: "/dashboard/expenses", icon: Receipt },
   { label: " الأجور -المرتبات", path: "/dashboard/assets", icon: Building },
   {

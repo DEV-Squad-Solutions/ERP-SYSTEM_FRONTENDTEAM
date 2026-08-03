@@ -29,30 +29,43 @@ function withOptionalString(obj, key, value) {
   return obj;
 }
 
+function buildLineObject({ line, isReturnInvoice }) {
+  const lineObj = {
+    itemId: Number(line.itemId),
+    price: Number(line.price) || 0,
+    notes: line.notes || "",
+  };
+
+  const hasCount =
+    line.count !== undefined && line.count !== null && line.count !== "";
+  const hasWeight =
+    line.weight !== undefined && line.weight !== null && line.weight !== "";
+
+  if (hasCount && hasWeight) {
+    withOptionalNumber(lineObj, "count", line.count);
+    withOptionalNumber(lineObj, "weight", line.weight);
+  } else {
+    withOptionalNumber(lineObj, "quantity", line.quantity);
+  }
+
+  if (isReturnInvoice) {
+    withOptionalNumber(
+      lineObj,
+      "sourceInvoiceLineId",
+      line.sourceInvoiceLineId,
+    );
+    withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
+  }
+  return lineObj;
+}
+
 function buildLinesForCreate({ lines, isReturnInvoice }) {
   return lines
     .filter(
       (line) =>
         line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
     )
-    .map((line) => {
-      const lineObj = {
-        itemId: Number(line.itemId),
-        count: Number(line.count) || 0,
-        weight: Number(line.weight) || 0,
-        price: Number(line.price) || 0,
-        notes: line.notes || "",
-      };
-      if (isReturnInvoice) {
-        withOptionalNumber(
-          lineObj,
-          "sourceInvoiceLineId",
-          line.sourceInvoiceLineId,
-        );
-        withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
-      }
-      return lineObj;
-    });
+    .map((line) => buildLineObject({ line, isReturnInvoice }));
 }
 
 function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
@@ -64,7 +77,6 @@ function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
   }));
 }
 
-// ==== إنشاء فاتورة جديدة - الفورم هنا بيستخدم slugs زي "sale"/"cash"/"items" ====
 export function buildCreateInvoiceRequest({
   movementType,
   header,
@@ -117,11 +129,13 @@ export function buildCreateInvoiceRequest({
 
   withOptionalNumber(payload, "itemsCategoryId", header.itemsCategoryId);
   withOptionalString(payload, "partnerInvoiceNo", header.partnerInvoiceNo);
-  withOptionalNumber(
-    payload,
-    "containerStoreId",
-    containersMovement?.containerStoreId,
-  );
+  if (isSalesInvoice) {
+    withOptionalNumber(
+      payload,
+      "containerStoreId",
+      containersMovement?.containerStoreId,
+    );
+  }
   withOptionalNumber(payload, "countryId", header.countryId);
   withOptionalNumber(
     payload,
@@ -133,11 +147,6 @@ export function buildCreateInvoiceRequest({
 
   if (paidAmount > 0) {
     withOptionalNumber(payload, "cashboxId", header.cashboxId);
-    withOptionalNumber(
-      payload,
-      "cashMovementTypeId",
-      header.cashMovementTypeId,
-    );
     withOptionalNumber(
       payload,
       "cashboxExchangeRate",
@@ -152,8 +161,6 @@ export function buildCreateInvoiceRequest({
   return payload;
 }
 
-// ==== تعديل فاتورة موجودة - الفورم هنا بيستخدم قيم enum جاهزة من السيرفر ====
-// (form.invoiceType = "Sales", form.paymentTerm = "Cash", form.contentType = "Items" ... إلخ)
 export function buildInvoiceUpdateBody({
   form,
   lines,
@@ -173,24 +180,7 @@ export function buildInvoiceUpdateBody({
       (line) =>
         line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
     )
-    .map((line) => {
-      const lineObj = {
-        itemId: Number(line.itemId),
-        count: Number(line.count) || 0,
-        weight: Number(line.weight) || 0,
-        price: Number(line.price) || 0,
-        notes: line.notes || "",
-      };
-      if (isReturnInvoice) {
-        withOptionalNumber(
-          lineObj,
-          "sourceInvoiceLineId",
-          line.sourceInvoiceLineId,
-        );
-        withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
-      }
-      return lineObj;
-    });
+    .map((line) => buildLineObject({ line, isReturnInvoice }));
 
   const paidAmount = Number(form.paidAmount) || 0;
 
@@ -231,8 +221,8 @@ export function buildInvoiceUpdateBody({
   withOptionalNumber(body, "exchangeRate", form.exchangeRate);
 
   if (paidAmount > 0) {
+    // نفس قاعدة الإنشاء - الـ API مبيقبلش cashMovementTypeId
     withOptionalNumber(body, "cashboxId", form.cashboxId);
-    withOptionalNumber(body, "cashMovementTypeId", form.cashMovementTypeId);
     withOptionalNumber(body, "cashboxExchangeRate", form.cashboxExchangeRate);
   }
 

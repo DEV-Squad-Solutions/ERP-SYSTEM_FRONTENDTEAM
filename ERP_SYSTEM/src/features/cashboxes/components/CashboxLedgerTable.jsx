@@ -1,5 +1,5 @@
 // features/cashboxes/components/CashboxLedgerTable.jsx
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   FileSearch,
   AlertCircle,
@@ -28,6 +28,8 @@ function buildDescriptionDisplay(v) {
     : v.cashMovementTypeName;
 }
 
+const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+
 export default function CashboxLedgerTable({
   data,
   isLoading,
@@ -35,6 +37,8 @@ export default function CashboxLedgerTable({
   isError,
   refetch,
   cashboxId, // خزنة الصفحة الحالية - بتتبعت مع كل سند
+  cashboxCurrency, // عملة الخزنة - يفضل تتبعت من الصفحة الأب (بيانات الخزنة نفسها)
+  cashboxBaseCurrency, // العملة الأساسية (المصري) - افتراضي EGP
   partyOptions = [],
   driverOptions = [],
   onAddVoucher,
@@ -80,21 +84,12 @@ export default function CashboxLedgerTable({
     const receipt = Number(draft.receiptAmount) || 0;
     const payment = Number(draft.paymentAmount) || 0;
 
-    if (receipt <= 0 && payment <= 0) {
-      toast.error("ادخل مبلغ وارد أو صادر");
-      return;
-    }
-    if (receipt > 0 && payment > 0) {
-      toast.error("اكتب المبلغ في وارد أو صادر بس مش الاتنين مع بعض");
-      return;
-    }
-
     setSaving(true);
     try {
       await onAddVoucher({
         cashboxId,
         voucherDate: draft.voucherDate,
-        direction: receipt > 0 ? "Receipt" : "Payment", // CashDirection enum name
+        direction: receipt > 0 ? "Receipt" : "Payment",
         amount: receipt > 0 ? receipt : payment,
         description: draft.description || undefined,
         notes: draft.notes || undefined,
@@ -102,13 +97,11 @@ export default function CashboxLedgerTable({
       setDraft(emptyDraft());
       setTimeout(() => dateInputRef.current?.focus(), 0);
     } catch (err) {
-      toast.error("تعذر حفظ الحركة");
     } finally {
       setSaving(false);
     }
   }
 
-  // Enter في أي حقل بصف الإضافة = حفظ. Escape = إلغاء
   function handleRowKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -119,23 +112,18 @@ export default function CashboxLedgerTable({
     }
   }
 
-  // توصيف/تعديل سطر: cashboxId + cashMovementTypeId بيتبعتوا مع بعض عشان الـ API يقفل السند فعليًا
   async function handleUpdateRowDescription(row, c) {
     if (!onUpdateVoucher) return;
-    if (!cashboxId) {
-      toast.error("لازم تحدد الخزنة الأول عشان تقدر تقفل السند");
-      return;
-    }
 
     setUpdatingRowId(row.id);
     try {
       await onUpdateVoucher({
         ...row,
         id: row.id,
-        direction: row.direction, // متتغيرش وقت التوصيف
+        direction: row.direction,
         cashboxId,
         cashMovementTypeId: c.cashMovementType.value,
-        partyType: c.partyType, // CashPartyType enum name: None | Partner | Driver | Other
+        partyType: c.partyType,
         businessPartnerId:
           c.partyType === "Partner" ? (c.businessPartner?.value ?? null) : null,
         driverId: c.partyType === "Driver" ? (c.driver?.value ?? null) : null,
@@ -145,7 +133,6 @@ export default function CashboxLedgerTable({
       });
       toast.success("تم تحديث التوصيف");
     } catch (err) {
-      toast.error("تعذر تحديث التوصيف");
     } finally {
       setUpdatingRowId(null);
       setEditingRow(null);
@@ -185,19 +172,38 @@ export default function CashboxLedgerTable({
   }
 
   const vouchers = data?.items || [];
+
+  // عملة الخزنة: من الـ props الأول، وإلا من أول سند راجع في القايمة، وإلا EGP افتراضي
+  const currency = cashboxCurrency || vouchers[0]?.currency || "EGP";
+  const baseCurrency =
+    cashboxBaseCurrency || vouchers[0]?.baseCurrency || "EGP";
+  const isForeign = currency !== baseCurrency;
+
   const sorted = [...vouchers].sort((a, b) =>
     a.voucherDate.localeCompare(b.voucherDate),
   );
+
   let running = 0;
+  let baseRunning = 0;
   const rows = sorted.map((v) => {
     const debit = v.direction === "Receipt" ? v.amount : 0;
     const credit = v.direction === "Payment" ? v.amount : 0;
+    const baseDebit =
+      v.direction === "Receipt" ? (v.baseAmount ?? v.amount) : 0;
+    const baseCredit =
+      v.direction === "Payment" ? (v.baseAmount ?? v.amount) : 0;
+
     running += debit - credit;
+    baseRunning += baseDebit - baseCredit;
+
     return {
       ...v,
       debit,
       credit,
+      baseDebit,
+      baseCredit,
       balance: running,
+      baseBalance: baseRunning,
       isDescribed: Boolean(v.cashMovementTypeId),
       descriptionDisplay: buildDescriptionDisplay(v),
     };
@@ -205,6 +211,8 @@ export default function CashboxLedgerTable({
 
   const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
   const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
+  const totalBaseDebit = rows.reduce((s, r) => s + r.baseDebit, 0);
+  const totalBaseCredit = rows.reduce((s, r) => s + r.baseCredit, 0);
   const showEmptyState = !isFetching && rows.length === 0 && !isAdding;
 
   return (
@@ -216,6 +224,15 @@ export default function CashboxLedgerTable({
         }
         .cash-row-anim { animation: cashRowIn 0.18s ease-out; }
       `}</style>
+
+      {isForeign && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-primary-100 bg-primary-50/50 px-3 py-2 text-xs font-medium text-primary-600">
+          <span>
+            خزنة بعملة أجنبية ({currency}) — المبالغ معروضة بعملة الخزنة وما
+            يقابلها بالمصري ({baseCurrency})
+          </span>
+        </div>
+      )}
 
       {!isAdding && (
         <button
@@ -237,7 +254,19 @@ export default function CashboxLedgerTable({
                 رقم السند
               </th>
               <th className="p-2.5 font-medium border-l border-ink-400/5">
-                التاريخ
+                الرصيد
+              </th>
+              <th className="p-2.5 font-medium border-l border-ink-400/5 text-positive">
+                وارد{" "}
+                {isForeign && (
+                  <span className="text-[10px] text-ink-400">({currency})</span>
+                )}
+              </th>
+              <th className="p-2.5 font-medium border-l border-ink-400/5 text-negative">
+                صادر{" "}
+                {isForeign && (
+                  <span className="text-[10px] text-ink-400">({currency})</span>
+                )}
               </th>
               <th className="p-2.5 font-medium border-l border-ink-400/5">
                 البيان
@@ -246,13 +275,7 @@ export default function CashboxLedgerTable({
                 التوصيف
               </th>
               <th className="p-2.5 font-medium border-l border-ink-400/5">
-                الرصيد
-              </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5 text-negative">
-                صادر
-              </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5 text-positive">
-                وارد
+                التاريخ
               </th>
               <th className="p-2.5 font-medium border-l border-ink-400/5">
                 ملاحظات
@@ -288,13 +311,38 @@ export default function CashboxLedgerTable({
                   تلقائي
                 </td>
 
+                <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
+                  —
+                </td>
+
                 <td className="p-1.5 border-l border-ink-400/5">
                   <input
-                    ref={dateInputRef}
-                    type="date"
-                    value={draft.voucherDate}
+                    type="number"
+                    placeholder={isForeign ? `وارد (${currency})` : "وارد"}
+                    value={draft.receiptAmount}
                     onChange={(e) =>
-                      setDraft((d) => ({ ...d, voucherDate: e.target.value }))
+                      setDraft((d) => ({
+                        ...d,
+                        receiptAmount: e.target.value,
+                        paymentAmount: "",
+                      }))
+                    }
+                    onKeyDown={handleRowKeyDown}
+                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
+                  />
+                </td>
+
+                <td className="p-1.5 border-l border-ink-400/5">
+                  <input
+                    type="number"
+                    placeholder={isForeign ? `صادر (${currency})` : "صادر"}
+                    value={draft.paymentAmount}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        paymentAmount: e.target.value,
+                        receiptAmount: "",
+                      }))
                     }
                     onKeyDown={handleRowKeyDown}
                     className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
@@ -319,37 +367,13 @@ export default function CashboxLedgerTable({
                   يتحدد بعدين
                 </td>
 
-                <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
-                  —
-                </td>
-
                 <td className="p-1.5 border-l border-ink-400/5">
                   <input
-                    type="number"
-                    placeholder="صادر"
-                    value={draft.paymentAmount}
+                    ref={dateInputRef}
+                    type="date"
+                    value={draft.voucherDate}
                     onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        paymentAmount: e.target.value,
-                        receiptAmount: "",
-                      }))
-                    }
-                    onKeyDown={handleRowKeyDown}
-                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
-                  />
-                </td>
-                <td className="p-1.5 border-l border-ink-400/5">
-                  <input
-                    type="number"
-                    placeholder="وارد"
-                    value={draft.receiptAmount}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        receiptAmount: e.target.value,
-                        paymentAmount: "",
-                      }))
+                      setDraft((d) => ({ ...d, voucherDate: e.target.value }))
                     }
                     onKeyDown={handleRowKeyDown}
                     className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
@@ -404,9 +428,34 @@ export default function CashboxLedgerTable({
                 <td className="p-2.5 num font-medium text-ink-900 border-l border-ink-400/5">
                   {row.voucherNumber}
                 </td>
-                <td className="p-2.5 num text-ink-600 border-l border-ink-400/5">
-                  {row.voucherDate}
+
+                <td
+                  className={`p-2.5 num font-semibold border-l border-ink-400/5 ${row.balance >= 0 ? "text-ink-900" : "text-negative"}`}
+                >
+                  {fmt(row.balance)}
+                  {isForeign && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(row.baseBalance)} {baseCurrency}
+                    </div>
+                  )}
                 </td>
+                <td className="p-2.5 num text-positive border-l border-ink-400/5">
+                  {row.debit > 0 ? fmt(row.debit) : "—"}
+                  {isForeign && row.debit > 0 && (
+                    <div className="mt-0.5 text-[11px] text-ink-400">
+                      {fmt(row.baseDebit)} {baseCurrency}
+                    </div>
+                  )}
+                </td>
+                <td className="p-2.5 num text-negative border-l border-ink-400/5">
+                  {row.credit > 0 ? fmt(row.credit) : "—"}
+                  {isForeign && row.credit > 0 && (
+                    <div className="mt-0.5 text-[11px] text-ink-400">
+                      {fmt(row.baseCredit)} {baseCurrency}
+                    </div>
+                  )}
+                </td>
+
                 <td
                   className="p-2.5 text-ink-700 border-l border-ink-400/5 max-w-[200px] truncate"
                   title={row.description}
@@ -432,16 +481,8 @@ export default function CashboxLedgerTable({
                   </button>
                 </td>
 
-                <td
-                  className={`p-2.5 num font-semibold border-l border-ink-400/5 ${row.balance >= 0 ? "text-ink-900" : "text-negative"}`}
-                >
-                  {row.balance.toLocaleString("ar-EG")}
-                </td>
-                <td className="p-2.5 num text-negative border-l border-ink-400/5">
-                  {row.credit > 0 ? row.credit.toLocaleString("ar-EG") : "—"}
-                </td>
-                <td className="p-2.5 num text-positive border-l border-ink-400/5">
-                  {row.debit > 0 ? row.debit.toLocaleString("ar-EG") : "—"}
+                <td className="p-2.5 num text-ink-600 border-l border-ink-400/5">
+                  {row.voucherDate}
                 </td>
 
                 <td
@@ -458,17 +499,32 @@ export default function CashboxLedgerTable({
           {rows.length > 0 && (
             <tfoot>
               <tr className="bg-primary-50/50 border-t-2 border-primary-100 font-semibold text-ink-900">
-                <td className="p-2.5" colSpan={4}>
-                  الإجمالي
-                </td>
-                <td className="p-2.5 num">{running.toLocaleString("ar-EG")}</td>
-                <td className="p-2.5 num text-negative">
-                  {totalCredit.toLocaleString("ar-EG")}
+                <td className="p-2.5">الإجمالي</td>
+                <td className="p-2.5 num">
+                  {fmt(running)}
+                  {isForeign && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(baseRunning)} {baseCurrency}
+                    </div>
+                  )}
                 </td>
                 <td className="p-2.5 num text-positive">
-                  {totalDebit.toLocaleString("ar-EG")}
+                  {fmt(totalDebit)}
+                  {isForeign && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(totalBaseDebit)} {baseCurrency}
+                    </div>
+                  )}
                 </td>
-                <td className="p-2.5" colSpan={2}></td>
+                <td className="p-2.5 num text-negative">
+                  {fmt(totalCredit)}
+                  {isForeign && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(totalBaseCredit)} {baseCurrency}
+                    </div>
+                  )}
+                </td>
+                <td className="p-2.5" colSpan={5}></td>
               </tr>
             </tfoot>
           )}

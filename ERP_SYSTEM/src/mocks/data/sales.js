@@ -67,11 +67,7 @@ function generateInvoices(count) {
 
 export const mockSalesInvoices = generateInvoices(83); // رقم كبير شوية عشان نجرب الـ pagination فعليًا
 
-export const generateInvoiceNumber = (movementType) => {
-  const prefix = movementType === "purchase" ? "PUR" : "SAL";
-  const count = mockSalesInvoices.filter(
-    (inv) => inv.movementType === movementType,
-  ).length;
-  const nextNum = (movementType === "purchase" ? 1000 : 2000) + count + 1;
-  return `${prefix}-${nextNum}`;
+export const generateInvoiceNumber = () => {
+  const year = new Date().getFullYear();
+  return `${year}`;
 };
