@@ -416,9 +416,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         if (shouldPrint) {
           printInvoice(invoice);
         }
-      } catch {
-        toast.error("تعذر حفظ الفاتورة، حاول مرة أخرى");
-      }
+      } catch {}
     },
     [
       isFormValid,
@@ -517,6 +515,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
             type="number"
             value={header.exchangeRate}
             onChange={(e) => setHeaderField("exchangeRate", e.target.value)}
+            disabled={!isForeignCurrency}
             hint={!isForeignCurrency ? "متاح فقط للعملات الأجنبية" : undefined}
           />
           <LedgerSelect

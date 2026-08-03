@@ -80,27 +80,43 @@ export default function InvoiceDetailsPage() {
 
       {!isLoading && !isError && invoice && (
         <>
-          <div className="mx-auto max-w-6xl space-y-5 animate-fadeUp">
+          <div className="mx-auto max-w-7xl space-y-5 animate-fadeUp">
             <InvoiceHeader
               invoice={invoice}
               onAction={handleAction}
               isFetching={isFetching}
             />
 
-            <InvoiceInfoCard invoice={invoice} />
+            {/* معلومات الفاتورة + الدفع */}
+            <div className="grid gap-5 lg:grid-cols-2">
+              <InvoiceInfoCard invoice={invoice} />
+              <InvoicePaymentCard invoice={invoice} />
+            </div>
 
-            <InvoiceWeighbridgeCard invoice={invoice} />
+            {/* بيانات الميزان تعرض عند الحاجة فقط */}
+            {(invoice.wbWeight > 0 ||
+              invoice.wbScaleDifference > 0 ||
+              invoice.contentType === "Weight") && (
+              <InvoiceWeighbridgeCard invoice={invoice} />
+            )}
 
-            <InvoicePaymentCard invoice={invoice} />
+            {/* الأصناف */}
+            {invoice.lines?.length > 0 && (
+              <InvoiceItemsTable
+                items={invoice.lines}
+                currency={invoice.currency}
+              />
+            )}
 
-            <InvoiceItemsTable
-              items={invoice.lines}
-              currency={invoice.currency}
-            />
-            <InvoiceContainerLinesTable
-              containerLines={invoice.containerLines}
-            />
-            <div className="flex ">
+            {/* الحاويات */}
+            {invoice.containerLines?.length > 0 && (
+              <InvoiceContainerLinesTable
+                containerLines={invoice.containerLines}
+              />
+            )}
+
+            {/* الملخص */}
+            <div className="flex justify-end">
               <InvoiceSummaryCard invoice={invoice} />
             </div>
           </div>
