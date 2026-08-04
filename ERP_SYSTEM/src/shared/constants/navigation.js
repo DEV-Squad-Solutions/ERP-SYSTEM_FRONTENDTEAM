@@ -55,11 +55,17 @@ export const navigationItems = [
     icon: Boxes,
     children: [
       {
+        label: "قائمة المخازن",
+        path: "/dashboard/inventory/stores",
+        icon: Building,
+      },
+      {
         label: "نظرة عامة",
         path: "/dashboard/inventory",
         icon: Boxes,
         end: true,
       },
+
       {
         label: "أرصدة افتتاحية مخزنية",
         path: "/dashboard/inventory/opening-balances",

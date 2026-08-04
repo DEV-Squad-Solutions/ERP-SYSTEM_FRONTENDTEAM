@@ -7,14 +7,37 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK === "false";
 export const storesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getStores: builder.query({
-      ...(USE_MOCK
-        ? {
-            queryFn: async () => ({ data: await mockDelay([...mockStores]) }),
-          }
-        : {
-            query: () => ({ url: "/Stores", method: "GET" }),
+      query: ({
+        pageNumber = 1,
+        pageSize = 20,
+        search,
+        code,
+        name,
+        businessPartnerId,
+        isContainerStore,
+        isActive,
+      } = {}) => ({
+        url: "/Stores",
+        params: {
+          PageNumber: pageNumber,
+          PageSize: pageSize,
+          ...(search && { Search: search }),
+          ...(code && { Code: code }),
+          ...(name && { Name: name }),
+          ...(businessPartnerId && { BusinessPartnerId: businessPartnerId }),
+          ...(isContainerStore !== undefined && {
+            IsContainerStore: isContainerStore,
           }),
-      providesTags: ["Store"],
+          ...(isActive !== undefined && { IsActive: isActive }),
+        },
+      }),
+      providesTags: (result) =>
+        result?.items
+          ? [
+              ...result.items.map((s) => ({ type: "Store", id: s.id })),
+              { type: "Store", id: "LIST" },
+            ]
+          : [{ type: "Store", id: "LIST" }],
     }),
 
     getStoreById: builder.query({
@@ -56,41 +79,34 @@ export const storesApi = baseApi.injectEndpoints({
       providesTags: ["Store"],
     }),
 
-    // Step 2 of the guided journey. Sends businessPartnerId to link the
-    // store to the customer created in Step 1.
     createStore: builder.mutation({
-      ...(USE_MOCK
-        ? {
-            queryFn: async (data) => {
-              const created = { id: `str-${mockStores.length + 1}`, ...data };
-              mockStores.push(created);
-              return { data: await mockDelay(created) };
-            },
-          }
-        : {
-            query: (data) => ({ url: "Stores", method: "POST", body: data }),
-          }),
-      invalidatesTags: ["Store"],
+      query: (body) => ({
+        url: "/Stores",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [{ type: "Store", id: "LIST" }],
     }),
-
     updateStore: builder.mutation({
-      ...(USE_MOCK
-        ? {
-            queryFn: async ({ id, ...data }) => {
-              const index = mockStores.findIndex((s) => s.id === id);
-              if (index !== -1)
-                mockStores[index] = { ...mockStores[index], ...data };
-              return { data: await mockDelay(mockStores[index]) };
-            },
-          }
-        : {
-            query: ({ id, ...data }) => ({
-              url: `Stores/${id}`,
-              method: "PUT",
-              body: data,
-            }),
-          }),
-      invalidatesTags: (result, error, { id }) => [{ type: "Store", id }],
+      query: ({ id, ...body }) => ({
+        url: `/Stores/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Store", id },
+        { type: "Store", id: "LIST" },
+      ],
+    }),
+    deleteStore: builder.mutation({
+      query: (id) => ({
+        url: `/Stores/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: "Store", id },
+        { type: "Store", id: "LIST" },
+      ],
     }),
   }),
 });
@@ -101,4 +117,5 @@ export const {
   useGetStoresSelectQuery,
   useCreateStoreMutation,
   useUpdateStoreMutation,
+  useDeleteStoreMutation,
 } = storesApi;

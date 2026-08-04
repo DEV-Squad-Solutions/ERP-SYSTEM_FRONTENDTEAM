@@ -2,7 +2,7 @@ import { baseApi } from "../../lib/baseApi";
 import { mockItems, mockStockLedger } from "../../mocks/data/inventory";
 import { mockDelay } from "../../mocks/mockDelay";
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === "false";
 
 export const inventoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
