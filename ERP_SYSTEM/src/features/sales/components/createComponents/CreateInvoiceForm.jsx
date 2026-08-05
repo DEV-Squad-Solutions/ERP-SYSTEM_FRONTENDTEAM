@@ -35,6 +35,7 @@ import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
 import Button from "../../../../shared/components/ui/Button";
 import InvoiceLineRow from "./NewInvoiceLineRow";
+import ReturnSourcePicker from "./ReturnSourcePicker";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
@@ -53,7 +54,15 @@ const emptyLine = () => ({
   quantity: null,
   price: null,
   notes: "",
+  sourceInvoiceLineId: null,
+  sourceInvoiceId: null,
+  sourceInvoiceNumber: null,
+  isReturnLine: false,
+  maxReturnQuantity: null,
 });
+
+const RETURN_TYPES = new Set(["salesReturn", "purchaseReturn"]);
+const PAYMENT_EPSILON = 0.01;
 
 const movementOptions = [
   { value: "sale", label: "بيع" },
@@ -74,7 +83,6 @@ const invoiceContentTypeOptions = [
 
 const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
 
-// ============ شريحة العملة - بتتحرك مع الظهور/الاختفاء/التغيير مع كل تغيير للعميل ============
 function CurrencyChip({ currency }) {
   const [renderedCurrency, setRenderedCurrency] = useState(currency);
   const [visible, setVisible] = useState(false);
@@ -85,7 +93,6 @@ function CurrencyChip({ currency }) {
 
     if (currency) {
       if (renderedCurrency && renderedCurrency !== currency) {
-        // العملة اتغيرت (عميل جديد بعملة مختلفة) - اختفاء سريع ثم ظهور بالقيمة الجديدة
         setVisible(false);
         hideTimer = setTimeout(() => {
           setRenderedCurrency(currency);
@@ -96,7 +103,6 @@ function CurrencyChip({ currency }) {
         showTimer = setTimeout(() => setVisible(true), 10);
       }
     } else {
-      // اتشال العميل - اختفاء ثم إزالة من الـ DOM
       setVisible(false);
       hideTimer = setTimeout(() => setRenderedCurrency(null), 160);
     }
@@ -147,6 +153,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
   });
   const [itemsLocked, setItemsLocked] = useState(true);
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
+  const [fullReturnState, setFullReturnState] = useState(null);
+
   const [header, setHeader] = useState({
     invoiceNumber: "INVS-" + generateInvoiceNumber(),
     movementType: "sale",
@@ -196,11 +204,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
     }));
   }, [lines]);
 
-  // نوع الفاتورة "بيع" هو الوحيد اللي بيسمح بحركة عبوات
   const isSalesInvoice = header.movementType === "sale";
-  const isReturnInvoice =
-    header.movementType === "salesReturn" ||
-    header.movementType === "purchaseReturn";
+  const isReturnInvoice = RETURN_TYPES.has(header.movementType);
+  const isCashPayment = header.paymentMethod === "cash";
+
+  const returnLines = useMemo(
+    () => lines.filter((l) => l.isReturnLine),
+    [lines],
+  );
+  const activeSourceInvoiceId = returnLines[0]?.sourceInvoiceId ?? null;
 
   const setHeaderField = useCallback(
     (key, value) => setHeader((h) => ({ ...h, [key]: value })),
@@ -211,14 +223,54 @@ export default function CreateInvoiceForm({ onSuccess }) {
     setItemsLocked(!header.storeId);
   }, [header.storeId]);
 
-  // ==== مخزن العبوات بتاع العميل - بيتحدث تلقائيًا مع تغيير العميل ====
+  // ==== التحويل بين نوع الفاتورة العادي والمرتجع ====
+  const prevMovementTypeRef = useRef(header.movementType);
+  useEffect(() => {
+    const prev = prevMovementTypeRef.current;
+    const cur = header.movementType;
+    if (prev === cur) return;
+
+    const goingToReturn = RETURN_TYPES.has(cur);
+    const cameFromReturn = RETURN_TYPES.has(prev);
+
+    if (goingToReturn) {
+      setLines((ls) => ls.filter((l) => l.isReturnLine));
+      setFullReturnState(null);
+      setHeaderField("discount", 0);
+    } else if (cameFromReturn) {
+      setLines((ls) => {
+        const kept = ls.filter((l) => l.itemId || l.isTemporaryItem);
+        return kept.length > 0 ? kept : Array.from({ length: 10 }, emptyLine);
+      });
+      setFullReturnState(null);
+    }
+
+    prevMovementTypeRef.current = cur;
+  }, [header.movementType, setHeaderField]);
+
+  // لو "مرتجع كامل" واتعدلت الكمية/اتحذف سطر يدويًا، ارجع لحالة "جزئي" وصفّر الخصم
+  useEffect(() => {
+    if (!fullReturnState) return;
+
+    const currentReturnLines = lines.filter((l) => l.isReturnLine);
+    const stillFull =
+      currentReturnLines.length === fullReturnState.lineCount &&
+      currentReturnLines.every(
+        (l) => Number(l.quantity) === Number(l.maxReturnQuantity),
+      );
+
+    if (!stillFull) {
+      setFullReturnState(null);
+      setHeaderField("discount", 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines]);
+
   const { data: partyContainerStoreData } = useGetPartyContainerStoreQuery(
     header.partyId,
     { skip: !header.partyId || !isSalesInvoice },
   );
 
-  // الخزنة لازمة مع أي مبلغ مدفوع أكبر من صفر (نقدي أو آجل بدفعة جزئية)
-  // ملاحظة: الـ API مبيقبلش نوع حركة نقدية - السيرفر بيختاره تلقائيًا حسب نوع الفاتورة
   const hasPayment = Number(header.paid) > 0;
 
   const { data: cashboxes } = useGetCashboxOptionsQuery(undefined, {
@@ -236,7 +288,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [cashboxes, setHeaderField],
   );
 
-  // لما المدفوع يترجع صفر، صفّر الخزنة عشان متتبعتش من غير داعي
   useEffect(() => {
     if (!hasPayment && header.cashboxId) {
       setHeader((h) => ({
@@ -259,7 +310,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partyContainerStoreData, isSalesInvoice]);
 
-  // لو نوع الفاتورة مش بيع، نصفّر حركة العبوات بالكامل (منتبعتش للباك خالص)
   useEffect(() => {
     if (
       !isSalesInvoice &&
@@ -323,11 +373,51 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [],
   );
   const addLine = useCallback(() => {
-    if (itemsLocked) return;
+    if (itemsLocked || isReturnInvoice) return;
     setLines((prev) => [...prev, emptyLine()]);
-  }, [itemsLocked]);
+  }, [itemsLocked, isReturnInvoice]);
 
-  // ==== الملخص المالي الكامل - بيتحدث تلقائيًا مع أي تغيير في الأصناف/الخصم ====
+  const handleAddReturnLines = useCallback(
+    (newLines, meta) => {
+      let rejected = false;
+
+      setLines((prev) => {
+        const existingReturnLines = prev.filter((l) => l.isReturnLine);
+        if (
+          existingReturnLines.length > 0 &&
+          existingReturnLines[0].sourceInvoiceId !== meta.sourceInvoiceId
+        ) {
+          rejected = true;
+          return prev;
+        }
+        const nonEmpty = prev.filter((l) => l.itemId || l.isTemporaryItem);
+        return [...nonEmpty, ...newLines];
+      });
+
+      if (rejected) {
+        toast.error("في أصناف مضافة بالفعل من فاتورة تانية", {
+          description:
+            "شيل الأصناف الحالية الأول لو عايز ترجع من فاتورة مختلفة",
+        });
+        return;
+      }
+
+      if (meta.isFullReturn) {
+        setHeaderField("discount", meta.discountAmount);
+        setFullReturnState({
+          sourceInvoiceId: meta.sourceInvoiceId,
+          discountAmount: meta.discountAmount,
+          lineCount: newLines.length,
+        });
+      } else {
+        setHeaderField("discount", 0);
+        setFullReturnState(null);
+      }
+    },
+    [setHeaderField],
+  );
+
+  // ==== الملخص المالي ====
   const totalQuantity = useMemo(
     () => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0),
     [lines],
@@ -358,7 +448,26 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const netTotal = Math.max(invoiceTotal - discount, 0);
   const remaining = Math.max(netTotal - paid, 0);
 
-  // wbTotal بيتحسب في الباك تلقائيًا - هنا للعرض بس
+  // ==== نقدي = مدفوع لازم يساوي الصافي بالظبط - نملّه تلقائي ونقفله ====
+  useEffect(() => {
+    if (isCashPayment) {
+      setHeaderField("paid", netTotal > 0 ? String(netTotal) : "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCashPayment, netTotal]);
+
+  const paymentRuleError = useMemo(() => {
+    if (netTotal <= 0) return null;
+    if (isCashPayment) {
+      if (Math.abs(paid - netTotal) > PAYMENT_EPSILON) {
+        return `الدفع نقدي - لازم المدفوع يساوي الصافي بالظبط (${netTotal.toLocaleString("ar-EG")})`;
+      }
+    } else if (paid > netTotal + PAYMENT_EPSILON) {
+      return "المدفوع أكبر من صافي الفاتورة - غير مسموح في الآجل";
+    }
+    return null;
+  }, [isCashPayment, paid, netTotal]);
+
   const wbTotal = useMemo(
     () =>
       (parseFloat(header.WBWeight) || 0) -
@@ -374,13 +483,30 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
-  // ==== التحقق السريع قبل الحفظ - بيمنع إرسال فاتورة ناقصة ويوضح السبب للمستخدم ====
+  // ==== التحقق قبل الحفظ ====
   const missingRequiredFields = useMemo(() => {
     const missing = [];
     if (!header.partyId) missing.push("العميل / المورد");
     if (!header.storeId) missing.push("المخزن");
+    if (isReturnInvoice && returnLines.length === 0) {
+      missing.push("أصناف المرتجع (اختر من الفاتورة الأصلية)");
+    }
+    if (paid > 0 && !header.cashboxId) {
+      missing.push("الخزنة");
+    }
+    if (paymentRuleError) {
+      missing.push(paymentRuleError);
+    }
     return missing;
-  }, [header.partyId, header.storeId]);
+  }, [
+    header.partyId,
+    header.storeId,
+    header.cashboxId,
+    isReturnInvoice,
+    returnLines.length,
+    paid,
+    paymentRuleError,
+  ]);
 
   const isFormValid = missingRequiredFields.length === 0;
 
@@ -396,13 +522,21 @@ export default function CreateInvoiceForm({ onSuccess }) {
         return;
       }
 
-      const payload = buildCreateInvoiceRequest({
-        movementType: header.movementType,
-        header,
-        lines,
-        containersMovement,
-        isTemporaryDriver,
-      });
+      let payload;
+      try {
+        payload = buildCreateInvoiceRequest({
+          movementType: header.movementType,
+          header,
+          lines,
+          containersMovement,
+          isTemporaryDriver,
+        });
+      } catch (err) {
+        toast.error("تعذر تجهيز بيانات الفاتورة", {
+          description: err?.message,
+        });
+        return;
+      }
 
       try {
         const invoice = await createInvoice(payload).unwrap();
@@ -432,7 +566,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
     ],
   );
 
-  // ==== اختصارات الكيبورد: Ctrl/Cmd+S للحفظ، Ctrl/Cmd+Enter للحفظ والطباعة ====
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isModifier = e.ctrlKey || e.metaKey;
@@ -784,7 +917,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         )}
 
-        {/* ==== ملاحظات عامة ==== */}
         <div className="grid grid-cols-1">
           <LedgerField
             label="ملاحظات عامة"
@@ -793,7 +925,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
           />
         </div>
 
-        {/* ==== وزن البسكال ==== */}
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerField
             label="وزن البسكال"
@@ -826,13 +957,25 @@ export default function CreateInvoiceForm({ onSuccess }) {
         </div>
       </LedgerPanel>
 
-      {/* ============ القسم 4: الأصناف ============ */}
+      {/* ============ القسم 4: فواتير المصدر (للمرتجع فقط) ============ */}
+      {isReturnInvoice && (
+        <ReturnSourcePicker
+          movementType={header.movementType}
+          partyId={header.partyId}
+          storeId={header.storeId}
+          asOfDate={header.date}
+          activeSourceInvoiceId={activeSourceInvoiceId}
+          onAddLines={handleAddReturnLines}
+        />
+      )}
+
+      {/* ============ القسم 5: الأصناف ============ */}
       <LedgerPanel
         title={
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="flex items-center gap-2 pr-3">
               <StoreIcon size={15} />
-              الأصناف
+              {isReturnInvoice ? "أصناف المرتجع" : "الأصناف"}
             </span>
             {unpricedCount > 0 && (
               <span className="rounded-full bg-gold-50 px-2 py-0.5 text-xs font-medium text-gold-600">
@@ -852,56 +995,68 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </div>
             )}
 
-            <div
-              className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-150 ${
-                itemsLocked ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              <table className="w-full min-w-[950px] border-collapse text-right">
-                <thead>
-                  <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
-                    <th className="p-2.5 font-medium">#</th>
-                    <th className="p-2.5 font-medium">الصنف</th>
-                    <th className="p-2.5 font-medium">العدد بالمخزن</th>
-                    <th className="p-2.5 font-medium">الوحدة</th>
-                    <th className="p-2.5 font-medium">العدد</th>
-                    <th className="p-2.5 font-medium">وزن الوحدة</th>
-                    <th className="p-2.5 font-medium">الكمية</th>
-                    <th className="p-2.5 font-medium">سعر الكيلو</th>
-                    <th className="p-2.5 font-medium">القيمة</th>
-                    <th className="p-2.5 font-medium">ملاحظات</th>
-                    <th className="p-2.5"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line, index) => (
-                    <InvoiceLineRow
-                      key={line.id ?? index}
-                      index={index}
-                      line={line}
-                      storeId={header.storeId}
-                      invoiceDate={header.date}
-                      onChange={(newLine) => updateLine(index, newLine)}
-                      onRemove={() => removeLine(index)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-              <button
-                type="button"
-                onClick={addLine}
-                disabled={itemsLocked}
-                className="flex w-full items-center justify-center gap-2 border-t border-ink-400/10 py-3 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 disabled:cursor-not-allowed"
+            {!itemsLocked && isReturnInvoice && lines.length === 0 && (
+              <div className="mb-3 rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 py-6 text-center">
+                <p className="text-sm text-primary-700">
+                  اختر أصناف المرتجع من الفاتورة الأصلية فوق
+                </p>
+              </div>
+            )}
+
+            {lines.length > 0 && (
+              <div
+                className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-150 ${
+                  itemsLocked ? "pointer-events-none opacity-50" : ""
+                }`}
               >
-                <Plus size={16} />
-                إضافة صنف آخر
-              </button>
-            </div>
+                <table className="w-full min-w-[950px] border-collapse text-right">
+                  <thead>
+                    <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
+                      <th className="p-2.5 font-medium">#</th>
+                      <th className="p-2.5 font-medium">الصنف</th>
+                      <th className="p-2.5 font-medium">العدد بالمخزن</th>
+                      <th className="p-2.5 font-medium">الوحدة</th>
+                      <th className="p-2.5 font-medium">العدد</th>
+                      <th className="p-2.5 font-medium">وزن الوحدة</th>
+                      <th className="p-2.5 font-medium">الكمية</th>
+                      <th className="p-2.5 font-medium">سعر الكيلو</th>
+                      <th className="p-2.5 font-medium">القيمة</th>
+                      <th className="p-2.5 font-medium">ملاحظات</th>
+                      <th className="p-2.5"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((line, index) => (
+                      <InvoiceLineRow
+                        key={line.sourceInvoiceLineId ?? line.id ?? index}
+                        index={index}
+                        line={line}
+                        storeId={header.storeId}
+                        invoiceDate={header.date}
+                        onChange={(newLine) => updateLine(index, newLine)}
+                        onRemove={() => removeLine(index)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+                {!isReturnInvoice && (
+                  <button
+                    type="button"
+                    onClick={addLine}
+                    disabled={itemsLocked}
+                    className="flex w-full items-center justify-center gap-2 border-t border-ink-400/10 py-3 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 disabled:cursor-not-allowed"
+                  >
+                    <Plus size={16} />
+                    إضافة صنف آخر
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </LedgerPanel>
 
-      {/* ============ القسم 5: ملخص الفاتورة ============ */}
+      {/* ============ القسم 6: ملخص الفاتورة ============ */}
       <LedgerPanel
         title={
           <div className="mb-2 flex items-center justify-between px-1">
@@ -914,7 +1069,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
       >
         <div className="space-y-3 lg:sticky lg:top-4">
           <div className="overflow-hidden rounded-xl border border-ink-400/10 bg-white">
-            {/* عدد العبوات */}
             <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
               <span className="text-sm text-ink-600">عدد العبوات</span>
               <span className="num text-sm font-semibold text-ink-900">
@@ -926,7 +1080,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </span>
             </div>
 
-            {/* إجمالي الكمية */}
             <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
               <span className="text-sm text-ink-600">إجمالي الكمية</span>
               <span className="num text-sm font-semibold text-ink-900">
@@ -934,7 +1087,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </span>
             </div>
 
-            {/* إجمالي الفاتورة */}
             <div className="flex items-center justify-between border-b border-ink-400/10 bg-primary-500/[0.03] px-3 py-2.5">
               <span className="text-sm font-semibold text-ink-900">
                 إجمالي الفاتورة
@@ -944,7 +1096,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </span>
             </div>
 
-            {/* الخصم */}
             <div className="flex items-stretch border-b border-ink-400/10">
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 الخصم
@@ -953,14 +1104,22 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 <NumericInput
                   value={header.discount ?? ""}
                   decimals
-                  onChange={(value) =>
-                    setHeaderField("discount", value === "" ? "" : value)
-                  }
+                  disabled={isReturnInvoice}
+                  onChange={(value) => {
+                    if (isReturnInvoice) return;
+                    setHeaderField("discount", value === "" ? "" : value);
+                  }}
                 />
+                {isReturnInvoice && (
+                  <p className="mt-1 text-[11px] text-ink-400">
+                    {fullReturnState
+                      ? "خصم الفاتورة الأصلية بيتطبق تلقائيًا لأنه مرتجع كامل"
+                      : "مفيش خصم على المرتجع الجزئي"}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* الصافي */}
             <div className="flex items-center justify-between border-y border-ink-400/10 bg-ink-900/[0.02] px-3 py-2.5">
               <span className="text-sm font-semibold text-ink-900">الصافي</span>
               <span className="num text-sm font-bold text-ink-900">
@@ -968,7 +1127,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </span>
             </div>
 
-            {/* المدفوع */}
             <div className="flex items-stretch border-b border-ink-400/10">
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 المدفوع
@@ -977,14 +1135,25 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 <NumericInput
                   value={header.paid ?? ""}
                   decimals
-                  onChange={(value) =>
-                    setHeaderField("paid", value === "" ? "" : value)
-                  }
+                  disabled={isCashPayment}
+                  onChange={(value) => {
+                    if (isCashPayment) return;
+                    setHeaderField("paid", value === "" ? "" : value);
+                  }}
                 />
+                {isCashPayment && (
+                  <p className="mt-1 text-[11px] text-ink-400">
+                    نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
+                  </p>
+                )}
+                {!isCashPayment && paymentRuleError && (
+                  <p className="mt-1 text-[11px] text-negative">
+                    {paymentRuleError}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* المتبقي */}
             <div className="flex items-center justify-between bg-ink-900/[0.02] px-3 py-2.5">
               <span className="text-sm font-semibold text-ink-900">
                 المتبقي
@@ -994,7 +1163,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </span>
             </div>
 
-            {/* المقابل بالجنيه المصري - يظهر فقط لو العملة أجنبية */}
             {isForeignCurrency && (
               <div className="flex items-center justify-between border-t border-ink-400/10 px-3 py-2 text-xs text-ink-400">
                 <span>ما يقابل الصافي بالمصري</span>

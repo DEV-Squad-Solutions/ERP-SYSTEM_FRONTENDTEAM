@@ -59,12 +59,6 @@ export const navigationItems = [
         path: "/dashboard/inventory/stores",
         icon: Building,
       },
-      {
-        label: "نظرة عامة",
-        path: "/dashboard/inventory",
-        icon: Boxes,
-        end: true,
-      },
 
       {
         label: "أرصدة افتتاحية مخزنية",

@@ -31,10 +31,16 @@ function withOptionalString(obj, key, value) {
 
 function buildLineObject({ line, isReturnInvoice }) {
   const lineObj = {
-    itemId: Number(line.itemId),
     price: Number(line.price) || 0,
     notes: line.notes || "",
   };
+
+  // الفرقة بين صنف حقيقي وصنف مؤقت هي وجود itemId أو itemName - مفيش فلاج منفصل في الـ API
+  if (line.isTemporaryItem) {
+    lineObj.itemName = (line.itemName || "").trim();
+  } else {
+    lineObj.itemId = Number(line.itemId);
+  }
 
   const hasCount =
     line.count !== undefined && line.count !== null && line.count !== "";
@@ -56,15 +62,30 @@ function buildLineObject({ line, isReturnInvoice }) {
     );
     withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
   }
+
   return lineObj;
 }
 
 function buildLinesForCreate({ lines, isReturnInvoice }) {
   return lines
-    .filter(
-      (line) =>
-        line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
-    )
+    .filter((line) => {
+      const hasValidItem = line.isTemporaryItem
+        ? Boolean(line.itemName?.trim())
+        : Boolean(line.itemId);
+
+      if (!hasValidItem || !(Number(line.quantity) > 0)) return false;
+
+      // المرتجع لازم يكون مرجّع لصنف حقيقي من فاتورة أصلية - الصنف المؤقت
+      // مالوش سجل حركة أصلي فمينفعش يترجع
+      if (
+        isReturnInvoice &&
+        (line.isTemporaryItem || !line.sourceInvoiceLineId)
+      ) {
+        return false;
+      }
+
+      return true;
+    })
     .map((line) => buildLineObject({ line, isReturnInvoice }));
 }
 
@@ -75,6 +96,32 @@ function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
     outgoingUnits: Number(item.issuedQuantity) || 0,
     incomingUnits: Number(item.receivedQuantity) || 0,
   }));
+}
+
+// حساب الصافي هنا كمان (نفس منطق الفورم) عشان نتحقق من قاعدة الدفع النقدي/الآجل
+// قبل ما نبعت للباك، ونديله رسالة عربي واضحة بدل 400 عام
+function computeNetTotal(lines, discountAmount) {
+  const total = lines
+    .filter((l) => Number(l.price) > 0)
+    .reduce((sum, l) => sum + (Number(l.quantity) || 0) * Number(l.price), 0);
+  return Math.max(total - (Number(discountAmount) || 0), 0);
+}
+
+function validatePaymentRule({ paymentTerm, paidAmount, netTotal }) {
+  const EPSILON = 0.01;
+  if (paymentTerm === "Cash") {
+    if (Math.abs(paidAmount - netTotal) > EPSILON) {
+      throw new Error(
+        `الدفع نقدي - لازم يكون المدفوع (${paidAmount}) يساوي صافي الفاتورة (${netTotal}) بالظبط`,
+      );
+    }
+  } else if (paymentTerm === "Credit") {
+    if (paidAmount > netTotal + EPSILON) {
+      throw new Error(
+        `المدفوع (${paidAmount}) أكبر من صافي الفاتورة (${netTotal}) - غير مسموح`,
+      );
+    }
+  }
 }
 
 export function buildCreateInvoiceRequest({
@@ -102,7 +149,34 @@ export function buildCreateInvoiceRequest({
     throw new Error(`محتوى الفاتورة غير معروف: "${header.invoiceContentType}"`);
   }
 
+  const builtLines = buildLinesForCreate({ lines, isReturnInvoice });
+
+  if (isReturnInvoice && builtLines.length === 0) {
+    throw new Error(
+      "لازم تختار صنف واحد على الأقل من الفاتورة الأصلية للمرتجع",
+    );
+  }
+  if (
+    !isReturnInvoice &&
+    header.invoiceContentType === "items" &&
+    builtLines.length === 0
+  ) {
+    throw new Error("لازم تضيف صنف واحد على الأقل بكمية أكبر من صفر");
+  }
+
   const paidAmount = Number(header.paid) || 0;
+  const discountAmount = Number(header.discount) || 0;
+  const netTotal = computeNetTotal(lines, discountAmount);
+
+  validatePaymentRule({
+    paymentTerm: resolvedPaymentTerm,
+    paidAmount,
+    netTotal,
+  });
+
+  if (paidAmount > 0 && !header.cashboxId) {
+    throw new Error("أي مبلغ مدفوع لازم يكون له خزنة محددة");
+  }
 
   const payload = {
     invoiceNumber: header.invoiceNumber,
@@ -117,10 +191,10 @@ export function buildCreateInvoiceRequest({
     externalDriverName: isTemporaryDriver ? header.driverName : "",
     vehicleNumber: header.carNumber || "",
     exportInvoiceCode: header.exportInvoiceCode || "",
-    discountAmount: Number(header.discount) || 0,
+    discountAmount,
     paidAmount,
     notes: header.generalNotes || "",
-    lines: buildLinesForCreate({ lines, isReturnInvoice }),
+    lines: builtLines,
     containerLines: buildContainerLinesForCreate({
       containersMovement,
       isSalesInvoice,
@@ -175,14 +249,25 @@ export function buildInvoiceUpdateBody({
   if (!form.contentType) throw new Error("محتوى الفاتورة مطلوب");
   if (!rowVersion) throw new Error("rowVersion مفقود - أعد تحميل الفاتورة");
 
-  const validLines = lines
-    .filter(
-      (line) =>
-        line.itemId && !line.isTemporaryItem && Number(line.quantity) > 0,
-    )
-    .map((line) => buildLineObject({ line, isReturnInvoice }));
+  const validLines = buildLinesForCreate({ lines, isReturnInvoice });
+
+  if (isReturnInvoice && validLines.length === 0) {
+    throw new Error("لازم يفضل صنف واحد على الأقل من الفاتورة الأصلية للمرتجع");
+  }
 
   const paidAmount = Number(form.paidAmount) || 0;
+  const discountAmount = Number(form.discountAmount) || 0;
+  const netTotal = computeNetTotal(lines, discountAmount);
+
+  validatePaymentRule({
+    paymentTerm: form.paymentTerm,
+    paidAmount,
+    netTotal,
+  });
+
+  if (paidAmount > 0 && !form.cashboxId) {
+    throw new Error("أي مبلغ مدفوع لازم يكون له خزنة محددة");
+  }
 
   const body = {
     invoiceType: form.invoiceType,
@@ -196,7 +281,7 @@ export function buildInvoiceUpdateBody({
     externalDriverName: form.usesExternalDriver ? form.externalDriverName : "",
     vehicleNumber: form.vehicleNumber || "",
     exportInvoiceCode: form.exportInvoiceCode || "",
-    discountAmount: Number(form.discountAmount) || 0,
+    discountAmount,
     paidAmount,
     notes: form.notes || "",
     lines: validLines,
@@ -221,7 +306,6 @@ export function buildInvoiceUpdateBody({
   withOptionalNumber(body, "exchangeRate", form.exchangeRate);
 
   if (paidAmount > 0) {
-    // نفس قاعدة الإنشاء - الـ API مبيقبلش cashMovementTypeId
     withOptionalNumber(body, "cashboxId", form.cashboxId);
     withOptionalNumber(body, "cashboxExchangeRate", form.cashboxExchangeRate);
   }

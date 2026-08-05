@@ -106,6 +106,31 @@ export const invoicesApi = baseApi.injectEndpoints({
         },
       }),
     }),
+    getReturnSources: builder.query({
+      query: ({
+        businessPartnerId,
+        storeId,
+        returnType,
+        asOfDate,
+        search,
+        currentReturnInvoiceId,
+        pageNumber = 1,
+        pageSize = 20,
+      }) => ({
+        url: "/Invoices/return-sources",
+        params: {
+          BusinessPartnerId: businessPartnerId,
+          StoreId: storeId,
+          ReturnType: returnType,
+          AsOfDate: asOfDate,
+          Search: search || undefined,
+          CurrentReturnInvoiceId: currentReturnInvoiceId || undefined,
+          PageNumber: pageNumber,
+          PageSize: pageSize,
+        },
+      }),
+      keepUnusedDataFor: 30,
+    }),
   }),
 });
 
@@ -117,4 +142,5 @@ export const {
   useUpdateInvoiceMutation,
   useDeleteInvoiceMutation,
   useGetItemBalanceQuery,
+  useGetReturnSourcesQuery,
 } = invoicesApi;
