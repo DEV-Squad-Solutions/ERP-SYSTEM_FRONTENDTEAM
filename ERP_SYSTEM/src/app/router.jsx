@@ -95,12 +95,7 @@ export const router = createBrowserRouter([
       },
 
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
-      { path: "assets", element: <ComingSoon title="الأصول - إهلاك" /> },
-      {
-        path: "reconciliation",
-        element: <ComingSoon title="مذكرة المراجعة" />,
-      },
-      { path: "journal-entries", element: <ComingSoon title="قيود اليومية" /> },
+
       {
         path: "adjusted-trial-balance",
         element: <ComingSoon title="ميزان بعد التسوية" />,

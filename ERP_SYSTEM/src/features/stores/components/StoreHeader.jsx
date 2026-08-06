@@ -1,7 +1,7 @@
 import { Pencil, Trash2, ArrowRight, Warehouse, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function StoreHeader({ store, onEdit, onDelete, onPrint }) {
+export default function StoreHeader({ store, onPrint }) {
   const navigate = useNavigate();
 
   const isActive = store?.isActive ?? store?.status === "Active";
@@ -9,7 +9,6 @@ export default function StoreHeader({ store, onEdit, onDelete, onPrint }) {
   return (
     <div className="bg-white rounded-2xl shadow-card p-6 mb-6" dir="rtl">
       <div className="flex items-start justify-between flex-wrap gap-4">
-        {/* Right side: identity */}
         <div className="flex items-start gap-4">
           <div className="w-14 h-14 rounded-2xl bg-ink-50 flex items-center justify-center shrink-0">
             <Warehouse className="w-7 h-7 text-ink-600" />
@@ -58,20 +57,6 @@ export default function StoreHeader({ store, onEdit, onDelete, onPrint }) {
           >
             <Printer className="w-4 h-4" />
             طباعة
-          </button>
-          <button
-            onClick={onEdit}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-ink-700 bg-ink-50 hover:bg-ink-100 transition-colors"
-          >
-            <Pencil className="w-4 h-4" />
-            تعديل
-          </button>
-          <button
-            onClick={onDelete}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            حذف
           </button>
         </div>
       </div>

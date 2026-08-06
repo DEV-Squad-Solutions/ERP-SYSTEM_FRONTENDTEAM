@@ -11,7 +11,10 @@ const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 // TODO: الـ API الحالي (InventoryReports/stock) مبيرجعش تصنيف الصنف (category)،
 // فمفيش فلترة حسب التصنيف دلوقتي زي ما كان مطلوب في الـ spec الأصلي.
 // أول ما يتضاف الحقل ده في الـ response أو في fetch منفصل، نضيف فلتر Select هنا.
-export default function StoreInventoryTab({ storeId }) {
+export default function StoreInventoryTab({
+  storeId,
+  activeTab = "inventory",
+}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [hasStock, setHasStock] = useState(undefined); // undefined = الكل
@@ -145,11 +148,11 @@ export default function StoreInventoryTab({ storeId }) {
                       <td className="py-2.5 px-3">
                         <button
                           onClick={() =>
-                            navigate(`/dashboard/items/${row.itemId}`, {
-                              state: { fromStoreId: storeId },
-                            })
+                            navigate(
+                              `/dashboard/items/${row.itemId}?fromStore=${storeId}&tab=${activeTab}`,
+                            )
                           }
-                          className="text-ink-900 font-medium hover:underline"
+                          className="font-medium text-ink-900 hover:text-primary-600 hover:underline transition-colors"
                         >
                           {row.itemName}
                         </button>

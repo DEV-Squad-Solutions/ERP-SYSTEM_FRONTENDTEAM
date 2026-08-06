@@ -8,16 +8,28 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 /**
  * @param {{
- *   partnerId: string,
+ *   partnerId: string | number,
  *   onChange: (id: string) => void
  * }} props
  */
 export default function PartnerSelectHeader({ partnerId, onChange }) {
-  const { data: parties, isLoading } = useGetPartiesSelectQuery();
+  const { data: parties = [], isLoading } = useGetPartiesSelectQuery();
   const [showAdd, setShowAdd] = useState(false);
 
+  const normalizedId = partnerId ? String(partnerId) : "";
+
+  const options = parties.map((p) => ({
+    value: String(p.id),
+    label: p.name,
+  }));
+
+  const handleChange = (value) => {
+    onChange(String(value));
+  };
+
   const handleCreated = (newParty) => {
-    onChange(newParty.id);
+    onChange(String(newParty.id));
+    setShowAdd(false);
   };
 
   return (
@@ -26,14 +38,9 @@ export default function PartnerSelectHeader({ partnerId, onChange }) {
         <div className="flex-1">
           <CompactSelect
             label="العميل / المورد"
-            options={
-              parties?.map((p) => ({
-                value: p.id,
-                label: p.name,
-              })) || []
-            }
-            value={partnerId}
-            onChange={onChange}
+            options={options}
+            value={normalizedId}
+            onChange={handleChange}
             isLoading={isLoading}
             placeholder="اختر عميل أو مورد لعرض كشف حسابه"
           />
@@ -49,12 +56,14 @@ export default function PartnerSelectHeader({ partnerId, onChange }) {
         </button>
 
         <Link
-          to={partnerId ? `/dashboard/stores/containers/${partnerId}` : "#"}
+          to={
+            normalizedId ? `/dashboard/stores/containers/${normalizedId}` : "#"
+          }
           onClick={(e) => {
-            if (!partnerId) e.preventDefault();
+            if (!normalizedId) e.preventDefault();
           }}
           className={`flex items-center justify-center px-3 rounded-xl border border-ink-400/15 transition-colors shrink-0 ${
-            partnerId
+            normalizedId
               ? "text-gold-600 hover:bg-gold-50"
               : "pointer-events-none opacity-40 text-ink-400"
           }`}

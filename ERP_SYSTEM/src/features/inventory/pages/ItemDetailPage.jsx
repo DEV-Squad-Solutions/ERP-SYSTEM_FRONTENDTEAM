@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Pencil,
@@ -11,14 +11,15 @@ import {
 } from "lucide-react";
 
 import { useGetItemByIdQuery, useDeleteItemMutation } from "../inventoryApi";
-import QuickAddItemModal from "../components/QuickAddItemModal"; // عدّل المسار حسب مكانه عندك
-
+import QuickAddItemModal from "../components/QuickAddItemModal";
 export default function ItemDetailPage() {
   const { id } = useParams();
   const itemId = Number(id);
   const navigate = useNavigate();
-  const location = useLocation();
-  const fromStoreId = location.state?.fromStoreId;
+  const [searchParams] = useSearchParams();
+
+  const fromStoreId = searchParams.get("fromStore");
+  const fromTab = searchParams.get("tab") || "inventory";
 
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -32,14 +33,11 @@ export default function ItemDetailPage() {
   const [deleteItem, { isLoading: isDeleting }] = useDeleteItemMutation();
 
   const handleDelete = async () => {
-    if (!window.confirm(`هل أنت متأكد من حذف الصنف "${item?.name}"؟`)) return;
     try {
       await deleteItem(itemId).unwrap();
       toast.success("تم حذف الصنف بنجاح");
-      // الـ cache tag الخاص بتقرير أرصدة المخزن بيتعمله invalidate تلقائيًا
-      // (شوف inventoryApi.js) فلما نرجع لصفحة المخزن هيجيب بيانات محدّثة لوحده.
       if (fromStoreId) {
-        navigate(`/dashboard/stores/${fromStoreId}`);
+        navigate(`/dashboard/stores/${fromStoreId}?tab=${fromTab}`);
       } else {
         navigate("/dashboard/items");
       }
@@ -50,7 +48,7 @@ export default function ItemDetailPage() {
 
   const handleBack = () => {
     if (fromStoreId) {
-      navigate(`/dashboard/stores/${fromStoreId}`);
+      navigate(`/dashboard/stores/${fromStoreId}?tab=${fromTab}`);
     } else {
       navigate(-1);
     }

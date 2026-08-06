@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FileText, Receipt, StoreIcon } from "lucide-react";
 
 import { useGetPartnerStatementQuery } from "../statementsApi";
@@ -11,6 +12,10 @@ import StatementTable from "../components/StatementTable";
 import PartnerInvoicesTab from "../components/PartnerInvoicesTab";
 import PartnerItemsTab from "../components/PartnerItemsTab";
 import SalesFiltersCard from "../../sales/components/SalesFiltersCard";
+
+import { usePersistentTab } from "../../../shared/hooks/usePersistentTab";
+
+const TABS = ["statement", "invoices", "items"];
 
 const emptyStatementFilters = {
   Search: "",
@@ -36,8 +41,11 @@ const emptyInvoiceFilters = {
 };
 
 export default function PartnerAccountPage() {
-  const [partnerId, setPartnerId] = useState("");
-  const [activeTab, setActiveTab] = useState("statement");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const partnerId = searchParams.get("partnerId") || "";
+
+  const [activeTab, setActiveTab] = usePersistentTab("statement", TABS);
 
   const [filters, setFilters] = useState({
     statement: {
@@ -81,7 +89,20 @@ export default function PartnerAccountPage() {
   );
 
   const handlePartnerChange = (id) => {
-    setPartnerId(id);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+
+      if (id) {
+        next.set("partnerId", id);
+      } else {
+        next.delete("partnerId");
+      }
+
+      next.set("tab", "statement");
+
+      return next;
+    });
+
     setPage(1);
 
     setFilters({
@@ -199,6 +220,7 @@ export default function PartnerAccountPage() {
               الأصناف
             </button>
           </div>
+
           {activeTab === "statement" && (
             <>
               <StatementFilters
@@ -223,7 +245,8 @@ export default function PartnerAccountPage() {
                 }}
               />
             </>
-          )}{" "}
+          )}
+
           {activeTab === "invoices" && (
             <>
               <SalesFiltersCard
@@ -240,6 +263,7 @@ export default function PartnerAccountPage() {
               />
             </>
           )}
+
           {activeTab === "items" && <PartnerItemsTab partnerId={partnerId} />}
         </>
       )}

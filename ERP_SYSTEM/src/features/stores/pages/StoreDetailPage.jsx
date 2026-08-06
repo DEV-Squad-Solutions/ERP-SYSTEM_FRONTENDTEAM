@@ -6,6 +6,7 @@ import {
   useDeleteStoreMutation,
   useGetStoreStockReportQuery,
 } from "../storesApi";
+import { usePersistentTab } from "../../../shared/hooks/usePersistentTab";
 
 import StoreHeader from "../components/StoreHeader";
 import StoreStatsCards from "../components/StoreStatsCards";
@@ -22,12 +23,13 @@ const TABS = [
   { key: "movements", label: "الحركات" },
   { key: "transfers", label: "التحويلات" },
 ];
+const TAB_KEYS = TABS.map((t) => t.key);
 
 export default function StoreDetailPage() {
   const { id } = useParams();
   const storeId = Number(id);
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = usePersistentTab("overview", TAB_KEYS);
 
   const {
     data: store,
@@ -38,8 +40,6 @@ export default function StoreDetailPage() {
   const [deleteStore, { isLoading: isDeleting }] = useDeleteStoreMutation();
   const { printStore, printRef, storeToPrint } = useStorePrint();
 
-  // نستخدم صفحة واحدة صغيرة بس عشان نجيب الـ summary (عدد الأصناف / قيمة
-  // المخزون الإجمالية) لبطاقات الإحصائيات في الهيدر، من غير ما نجيب كل الأصناف.
   const { data: stockReport } = useGetStoreStockReportQuery(
     { storeId, pageNumber: 1, pageSize: 1 },
     { skip: !storeId },
@@ -53,7 +53,7 @@ export default function StoreDetailPage() {
   };
 
   const handleEdit = () => {
-    navigate(`/stores/${storeId}/edit`);
+    navigate(`/dashboard/stores/${storeId}/edit`);
   };
 
   const handleDelete = async () => {
@@ -61,7 +61,7 @@ export default function StoreDetailPage() {
     try {
       await deleteStore(storeId).unwrap();
       toast.success("تم حذف المخزن بنجاح");
-      navigate("/stores");
+      navigate("/dashboard/stores");
     } catch (err) {
       toast.error(err?.data?.title || "حدث خطأ أثناء حذف المخزن");
     }
@@ -80,7 +80,7 @@ export default function StoreDetailPage() {
       <div className="p-6 text-center" dir="rtl">
         <p className="text-ink-500">تعذر تحميل بيانات المخزن.</p>
         <button
-          onClick={() => navigate("/stores")}
+          onClick={() => navigate("/dashboard/stores")}
           className="mt-3 text-sm text-ink-600 underline"
         >
           الرجوع لقائمة المخازن
@@ -93,8 +93,6 @@ export default function StoreDetailPage() {
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
       <StoreHeader
         store={store}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
         onPrint={() => printStore({ ...store, ...stats })}
       />
 
@@ -118,7 +116,9 @@ export default function StoreDetailPage() {
       </div>
 
       {activeTab === "overview" && <StoreOverviewTab store={store} />}
-      {activeTab === "inventory" && <StoreInventoryTab storeId={storeId} />}
+      {activeTab === "inventory" && (
+        <StoreInventoryTab storeId={storeId} activeTab={activeTab} />
+      )}
       {activeTab === "movements" && <StoreMovementsTab storeId={storeId} />}
       {activeTab === "transfers" && <StoreTransfersTab storeId={storeId} />}
 
