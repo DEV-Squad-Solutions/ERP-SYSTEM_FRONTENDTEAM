@@ -22,7 +22,7 @@ import {
   useGetDriversSelectQuery,
 } from "../driversApi";
 import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
-import QuickAddDriverModal from "../../sales/components/QuickAddDriverModal"; // عدّل المسار حسب مكانه عندك
+import QuickAddDriverModal from "../components/QuickAddDriverModal"; // عدّل المسار حسب مكانه عندك
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";

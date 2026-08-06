@@ -1,12 +1,9 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, SlidersHorizontal, RotateCcw } from "lucide-react";
-import {
-  useDeleteStoreMutation,
-  useGetStoresQuery,
-} from "../../stores/storesApi";
-import StoreCard from "../../stores/components/StoreCard";
-import StoreFormModal from "../../stores/components/StoreFormModal";
+import { useDeleteStoreMutation, useGetStoresQuery } from "../storesApi";
+import StoreCard from "../components/StoreCard";
+import StoreFormModal from "../components/StoreFormModal";
 import Button from "../../../shared/components/ui/Button";
 import { toast } from "sonner";
 
@@ -193,9 +190,7 @@ export default function StoresListPage() {
             <StoreCard
               key={store.id}
               store={store}
-              onClick={() =>
-                navigate(`/dashboard/inventory/stores/${store.id}`)
-              }
+              onClick={() => navigate(`/dashboard/stores/${store.id}`)}
               onEdit={openEdit}
               onDelete={handleDelete}
             />

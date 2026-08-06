@@ -1,22 +1,58 @@
-// features/cashboxes/pages/CashboxesListPage.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
-import { useGetCashboxesQuery } from "../cashboxesApi";
+import { toast } from "sonner";
+import { Plus, ArrowLeftRight } from "lucide-react";
+import {
+  useGetCashboxesQuery,
+  useDeleteCashboxMutation,
+} from "../cashboxesApi";
 import CashboxCard from "../components/CashboxCard";
 import CashboxFormModal from "../components/CashboxFormModal";
+import CashboxTransferModal from "../components/CashboxTransferModal";
 import Button from "../../../shared/components/ui/Button";
 
 export default function CashboxesListPage() {
   const navigate = useNavigate();
-  const [showNewCashbox, setShowNewCashbox] = useState(false);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [editingCashbox, setEditingCashbox] = useState(null);
+
   const {
     data: cashboxes,
     isLoading,
     isError,
     refetch,
   } = useGetCashboxesQuery();
-  console.log(cashboxes);
+  const [deleteCashbox] = useDeleteCashboxMutation();
+
+  const openCreate = () => {
+    setEditingCashbox(null);
+    setShowFormModal(true);
+  };
+
+  const openEdit = (cashbox) => {
+    setEditingCashbox(cashbox);
+    setShowFormModal(true);
+  };
+
+  const handleDelete = (cashbox) => {
+    toast(`حذف "${cashbox.name}"؟`, {
+      description: "الإجراء ده لا يمكن التراجع عنه",
+      action: {
+        label: "تأكيد الحذف",
+        onClick: async () => {
+          try {
+            await deleteCashbox(cashbox.id).unwrap();
+            toast.success("تم حذف الخزنة بنجاح");
+          } catch {
+            toast.error("حصل خطأ أثناء الحذف، حاول تاني");
+          }
+        },
+      },
+      cancel: { label: "إلغاء" },
+      duration: 6000,
+    });
+  };
 
   return (
     <div className="animate-fadeUp">
@@ -29,10 +65,17 @@ export default function CashboxesListPage() {
             إدارة الخزائن النقدية والحسابات البنكية
           </p>
         </div>
-        <Button onClick={() => setShowNewCashbox(true)}>
-          <Plus size={16} />
-          خزنة جديدة
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowTransferModal(true)}>
+            <ArrowLeftRight size={16} />
+            تحويل بين الخزائن
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus size={16} />
+            خزنة جديدة
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -58,7 +101,7 @@ export default function CashboxesListPage() {
       {!isLoading && !isError && cashboxes?.items?.length === 0 && (
         <div className="text-center py-20 border border-dashed border-ink-400/20 rounded-2xl">
           <p className="text-ink-400 mb-3">لا توجد خزائن بعد</p>
-          <Button onClick={() => setShowNewCashbox(true)}>
+          <Button onClick={openCreate}>
             <Plus size={16} />
             إضافة أول خزنة
           </Button>
@@ -72,15 +115,27 @@ export default function CashboxesListPage() {
               key={cashbox.id}
               cashbox={cashbox}
               onClick={() => navigate(`/dashboard/treasury/${cashbox.id}`)}
+              onEdit={openEdit}
+              onDelete={handleDelete}
             />
           ))}
         </div>
       )}
 
       <CashboxFormModal
-        isOpen={showNewCashbox}
-        onClose={() => setShowNewCashbox(false)}
-        onCreated={(created) => navigate(`/treasury/${created.id}`)}
+        isOpen={showFormModal}
+        onClose={() => setShowFormModal(false)}
+        cashbox={editingCashbox}
+        onSaved={(saved) => {
+          if (!editingCashbox) navigate(`/dashboard/treasury/${saved.id}`);
+        }}
+      />
+
+      <CashboxTransferModal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        cashboxes={cashboxes?.items ?? []}
+        onDone={refetch}
       />
     </div>
   );

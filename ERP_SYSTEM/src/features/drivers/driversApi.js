@@ -2,6 +2,40 @@ import { baseApi } from "../../lib/baseApi";
 
 export const driversApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    getDrivers: builder.query({
+      query: (params) => ({
+        url: "Drivers",
+        params,
+      }),
+      providesTags: (result) =>
+        result?.items
+          ? [
+              ...result.items.map((d) => ({ type: "Driver", id: d.id })),
+              { type: "Driver", id: "LIST" },
+            ]
+          : [{ type: "Driver", id: "LIST" }],
+    }),
+    updateDriver: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `Drivers/${id}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Driver", id },
+        { type: "Driver", id: "LIST" },
+      ],
+    }),
+    deleteDriver: builder.mutation({
+      query: (id) => ({
+        url: `Drivers/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: "Driver", id },
+        { type: "Driver", id: "LIST" },
+      ],
+    }),
     getDriversSelect: builder.query({
       query: () => "Drivers/select",
       providesTags: ["Driver"],
@@ -40,9 +74,12 @@ export const driversApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetDriversQuery,
   useGetDriversSelectQuery,
   useGetDriverByIdQuery,
   useCreateDriverMutation,
+  useUpdateDriverMutation,
+  useDeleteDriverMutation,
   useGetDriverStatementQuery,
   useGetDriverTripsCostEntryQuery,
   useBulkUpdateDriverTripCostsMutation,

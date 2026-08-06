@@ -42,13 +42,39 @@ export const navigationItems = [
         end: true,
       },
       {
+        label: "كشف حساب عميل/مورد",
+        path: "/dashboard/partners/statement",
+        icon: FileText,
+      },
+      {
         label: "أرصدة افتتاحية",
         path: "/dashboard/partners/opening-balances",
         icon: History,
       },
     ],
   },
-  { label: "السائقين ", path: "/dashboard/drivers/statement", icon: Van },
+  {
+    label: "السائقين",
+    icon: Van,
+    children: [
+      {
+        label: "قائمة السائقين",
+        path: "/dashboard/drivers",
+        icon: Van,
+        end: true,
+      },
+      {
+        label: "مصاريف الرحلات",
+        path: "/dashboard/drivers/trip-costs",
+        icon: Receipt,
+      },
+      {
+        label: "كشف حساب سائق",
+        path: "/dashboard/drivers/statement",
+        icon: FileText,
+      },
+    ],
+  },
   { label: "الخزائن/البنك", path: "/dashboard/treasury", icon: Wallet },
   {
     label: "المخازن",
@@ -56,7 +82,7 @@ export const navigationItems = [
     children: [
       {
         label: "قائمة المخازن",
-        path: "/dashboard/inventory/stores",
+        path: "/dashboard/stores",
         icon: Building,
       },
 
@@ -65,11 +91,7 @@ export const navigationItems = [
         path: "/dashboard/inventory/opening-balances",
         icon: History,
       },
-      {
-        label: "الفواتير",
-        path: "/dashboard/inventory/invoices",
-        icon: FileText,
-      },
+
       {
         label: "تسويات مخزون",
         path: "/dashboard/inventory/adjustments",

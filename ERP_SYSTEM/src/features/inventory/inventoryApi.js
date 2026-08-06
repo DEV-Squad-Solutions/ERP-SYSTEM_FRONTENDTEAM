@@ -1,60 +1,71 @@
 import { baseApi } from "../../lib/baseApi";
-import { mockItems, mockStockLedger } from "../../mocks/data/inventory";
-import { mockDelay } from "../../mocks/mockDelay";
-
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === "false";
 
 export const inventoryApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getItems: builder.query({
-      query: () => ({
+      query: (params) => ({
         url: "/items",
         method: "GET",
+        params,
       }),
-      providesTags: ["Inventory"],
+      providesTags: (result) =>
+        result?.items
+          ? [
+              ...result.items.map((i) => ({ type: "Item", id: i.id })),
+              { type: "Item", id: "LIST" },
+            ]
+          : [{ type: "Item", id: "LIST" }],
     }),
+
+    getItemById: builder.query({
+      query: (id) => ({ url: `Items/${id}`, method: "GET" }),
+      providesTags: (result, error, id) => [{ type: "Item", id }],
+    }),
+
     getItemsSelect: builder.query({
       query: (params) => ({ url: "Items/select", params }),
       providesTags: ["Item"],
     }),
+
     createItem: builder.mutation({
       query: (data) => ({ url: "Items", method: "POST", body: data }),
-      invalidatesTags: ["Item"],
-    }),
-    getStockLedger: builder.query({
-      ...(USE_MOCK
-        ? {
-            queryFn: async ({ itemId, from, to, movementType } = {}) => {
-              let data = [...mockStockLedger];
-              if (itemId) data = data.filter((r) => r.itemId === itemId);
-              if (from) data = data.filter((r) => r.date >= from);
-              if (to) data = data.filter((r) => r.date <= to);
-              if (movementType && movementType !== "all") {
-                data = data.filter((r) => r.movementType === movementType);
-              }
-              return { data: await mockDelay(data) };
-            },
-          }
-        : { query: (params) => ({ url: "/inventory/ledger", params }) }),
-      providesTags: ["Inventory"],
+      invalidatesTags: [{ type: "Item", id: "LIST" }],
     }),
 
+    updateItem: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `Items/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: "Item", id },
+        { type: "Item", id: "LIST" },
+        { type: "StoreStockReport" }, // اسم/كود الصنف بيتغير في أي مخزن ظاهر فيه
+      ],
+    }),
+
+    deleteItem: builder.mutation({
+      query: (id) => ({
+        url: `Items/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: "Item", id },
+        { type: "Item", id: "LIST" },
+        { type: "StoreStockReport" }, // الصنف المحذوف يختفي من قوائم أرصدة المخازن
+      ],
+    }),
+
+    getStockLedger: builder.query({
+      query: (params) => ({ url: "/inventory/ledger", params }),
+      providesTags: ["Inventory"],
+    }),
     deleteStockEntry: builder.mutation({
-      ...(USE_MOCK
-        ? {
-            queryFn: async (id) => {
-              const index = mockStockLedger.findIndex((r) => r.id === id);
-              if (index !== -1) mockStockLedger.splice(index, 1);
-              await mockDelay(null);
-              return { data: { id } };
-            },
-          }
-        : {
-            query: (id) => ({
-              url: `/inventory/ledger/${id}`,
-              method: "DELETE",
-            }),
-          }),
+      query: (id) => ({
+        url: `/inventory/ledger/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: ["Inventory"],
     }),
   }),
@@ -62,7 +73,10 @@ export const inventoryApi = baseApi.injectEndpoints({
 
 export const {
   useGetItemsQuery,
+  useGetItemByIdQuery,
   useCreateItemMutation,
+  useUpdateItemMutation,
+  useDeleteItemMutation,
   useGetStockLedgerQuery,
   useDeleteStockEntryMutation,
   useGetItemsSelectQuery,

@@ -3,7 +3,7 @@ import { Boxes, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
-import QuickAddCustomerModal from "../../partners/components/QuickaddPartyModal";
+import QuickAddCustomerModal from "../../partners/components/QuickAddPartyModal";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 /**

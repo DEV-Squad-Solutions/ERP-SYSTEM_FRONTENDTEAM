@@ -4,14 +4,14 @@ import { toast } from "sonner";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
-import { useGetStoresSelectQuery } from "../../stores/storesApi";
+import { useGetStoresSelectQuery } from "../storesApi";
 import {
   useGetStockOpeningBalancesQuery,
   useDeleteStockOpeningBalanceMutation,
-} from "../stockOpeningBalancesApi";
+} from "../../inventory/stockOpeningBalancesApi";
 
-import StockOpeningBalancesTable from "../components/StockOpeningBalancesTable";
-import StockOpeningBalanceForm from "../components/StockOpeningBalanceForm";
+import StockOpeningBalancesTable from "../../inventory/components/StockOpeningBalancesTable";
+import StockOpeningBalanceForm from "../../inventory/components/StockOpeningBalanceForm";
 
 const emptyFilters = {
   documentNumber: "",

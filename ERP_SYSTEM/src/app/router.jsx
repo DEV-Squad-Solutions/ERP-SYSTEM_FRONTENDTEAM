@@ -3,7 +3,6 @@ import LoginPage from "../features/auth/pages/LoginPage";
 import ProtectedRoute from "../shared/components/ProtectedRoute";
 import DashboardLayout from "../shared/components/layout/DashboardLayout";
 import DashboardHome from "../features/dashboard/pages/DashboardHome";
-import InventoryPage from "../features/inventory/pages/InventoryPage";
 import SalesPage from "../features/sales/pages/SalesPage";
 import Error404 from "../shared/components/Error404";
 import InvoiceCreatePage from "../features/sales/pages/InvoiceCreatePage";
@@ -17,9 +16,19 @@ import CashboxDetailPage from "../features/cashboxes/pages/CashboxDetailPage";
 import DriverTripCostEntryPage from "../features/drivers/pages/DriverTripCostEntryPage";
 import DriverStatementPage from "../features/drivers/pages/DriverStatementPage";
 import PartnerOpeningBalancesPage from "../features/partners/pages/PartnerOpeningBalancesPage";
-import StockOpeningBalancesPage from "../features/inventory/pages/StockOpeningBalancesPage";
-import StoresListPage from "../features/inventory/pages/StoresListPage";
-import StoreDetailPage from "../features/inventory/pages/StoreDetailPage";
+import PartnersListPage from "../features/partners/pages/PartnersListPage";
+import PartnerDetailPage from "../features/partners/pages/PartnerDetailPage";
+import DriverDetailPage from "../features/drivers/pages/DriverDetailPage";
+import DriversListPage from "../features/drivers/pages/DriversListPage";
+import StoreDetailPage from "../features/stores/pages/StoreDetailPage";
+import StoresListPage from "../features/stores/pages/StoresListPage";
+import StockOpeningBalancesPage from "../features/stores/pages/StockOpeningBalancesPage";
+import ItemDetailPage from "../features/inventory/pages/ItemDetailPage";
+import StockAdjustmentsListPage from "../features/stock-adjustments/pages/StockAdjustmentsListPage";
+import StockAdjustmentCreatePage from "../features/stock-adjustments/pages/StockAdjustmentCreatePage";
+import StockAdjustmentEditPage from "../features/stock-adjustments/pages/StockAdjustmentEditPage";
+import StockAdjustmentDetailPage from "../features/stock-adjustments/pages/StockAdjustmentDetailPage";
+
 function ComingSoon({ title }) {
   return (
     <div className="text-center py-20 text-gray-400">
@@ -49,30 +58,42 @@ export const router = createBrowserRouter([
       { path: "purchases/:id", element: <InvoiceDetailsPage /> },
       { path: "purchases/:id/edit", element: <InvoiceEditPage /> },
       { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
-      { path: "partners", element: <PartnerAccountPage /> },
+      { path: "partners", element: <PartnersListPage /> },
+      { path: "partners/:partnerId", element: <PartnerDetailPage /> },
+      { path: "partners/statement", element: <PartnerAccountPage /> },
       {
         path: "partners/opening-balances",
         element: <PartnerOpeningBalancesPage />,
       },
+      { path: "drivers", element: <DriversListPage /> },
+      { path: "drivers/:driverId", element: <DriverDetailPage /> },
       { path: "drivers/trip-costs", element: <DriverTripCostEntryPage /> },
       { path: "drivers/statement", element: <DriverStatementPage /> },
       { path: "treasury", element: <CashboxesListPage /> },
       { path: "treasury/:cashboxId", element: <CashboxDetailPage /> },
-      { path: "inventory", element: <InventoryPage /> },
-      { path: "inventory/stores", element: <StoresListPage /> },
-      { path: "inventory/stores/:storeId", element: <StoreDetailPage /> },
+      { path: "stores", element: <StoresListPage /> },
+      { path: "stores/:id", element: <StoreDetailPage /> },
+      { path: "items/:id", element: <ItemDetailPage /> },
       {
         path: "inventory/opening-balances",
         element: <StockOpeningBalancesPage />,
       },
+
+      // ---------- تسويات المخزون ----------
+      { path: "inventory/adjustments", element: <StockAdjustmentsListPage /> },
       {
-        path: "inventory/invoices",
-        element: <ComingSoon title="فواتير المخزون" />,
+        path: "inventory/adjustments/new",
+        element: <StockAdjustmentCreatePage />,
       },
       {
-        path: "inventory/adjustments",
-        element: <ComingSoon title="تسويات المخزون" />,
+        path: "inventory/adjustments/:id",
+        element: <StockAdjustmentDetailPage />,
       },
+      {
+        path: "inventory/adjustments/:id/edit",
+        element: <StockAdjustmentEditPage />,
+      },
+
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
       { path: "assets", element: <ComingSoon title="الأصول - إهلاك" /> },
       {

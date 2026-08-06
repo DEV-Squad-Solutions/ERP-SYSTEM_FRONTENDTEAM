@@ -9,7 +9,7 @@ import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 import NumericInput from "../../../../shared/components/ui/NumericInput";
 import Input from "../../../../shared/components/ui/Input";
-import QuickAddItemModal from "../QuickAddItemModal";
+import QuickAddItemModal from "../../../inventory/components/QuickAddItemModal";
 
 function InvoiceLineRow({
   line,

@@ -58,6 +58,14 @@ export const cashboxesApi = baseApi.injectEndpoints({
         { type: "Cashbox", id: "OPTIONS" },
       ],
     }),
+    transferBetweenCashboxes: builder.mutation({
+      query: (data) => ({
+        url: "Cashboxes/transfer",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: [{ type: "Cashbox", id: "LIST" }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -69,4 +77,5 @@ export const {
   useCreateCashboxMutation,
   useUpdateCashboxMutation,
   useDeleteCashboxMutation,
+  useTransferBetweenCashboxesMutation,
 } = cashboxesApi;

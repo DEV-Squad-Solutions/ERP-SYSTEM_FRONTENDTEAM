@@ -25,7 +25,7 @@ import { useGetDriversSelectQuery } from "../../../drivers/driversApi";
 import { useGetStoresSelectQuery } from "../../../stores/storesApi";
 import { useGetCountriesSelectQuery } from "../../../countries/countriesApi";
 import QuickAddCustomerModal from "../QuickAddCustomerModal";
-import QuickAddDriverModal from "../QuickAddDriverModal";
+import QuickAddDriverModal from "../../../drivers/components/QuickAddDriverModal";
 import PackagingDrawer from "../PackagingDrawer";
 import { useCreateInvoiceMutation } from "../../../invoices/invoicesApi";
 import { buildCreateInvoiceRequest } from "../../../invoices/components/buildInvoicePayload";

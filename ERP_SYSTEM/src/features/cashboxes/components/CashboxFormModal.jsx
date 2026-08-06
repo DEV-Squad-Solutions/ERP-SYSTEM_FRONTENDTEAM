@@ -1,4 +1,4 @@
-// features/cashboxes/components/CashboxFormModal.jsx
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,60 +6,123 @@ import { toast } from "sonner";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
-import { useCreateCashboxMutation } from "../cashboxesApi";
-import { Currency } from "lucide-react";
+import {
+  useCreateCashboxMutation,
+  useUpdateCashboxMutation,
+} from "../cashboxesApi";
 
 const schema = z.object({
   code: z.string().min(1, "الكود مطلوب"),
-
   name: z.string().min(2, "اسم الخزنة مطلوب"),
-
   currency: z.enum(["EGP", "USD", "EUR", "GBP", "SAR", "AED", "KWD"]),
-
-  openingBalance: z
-    .number({
-      invalid_type_error: "أدخل رقم صحيح",
-    })
-    .min(0),
-
+  openingBalance: z.number({ invalid_type_error: "أدخل رقم صحيح" }).min(0),
+  openingBalanceDate: z.string().min(1, "التاريخ مطلوب"),
+  openingExchangeRate: z
+    .number({ invalid_type_error: "أدخل رقم صحيح" })
+    .min(0)
+    .optional(),
   isActive: z.boolean(),
-
   notes: z.string().optional(),
 });
 
-export default function CashboxFormModal({ isOpen, onClose, onCreated }) {
-  const [createCashbox, { isLoading }] = useCreateCashboxMutation();
+const emptyValues = {
+  code: "",
+  name: "",
+  currency: "EGP",
+  openingBalance: 0,
+  openingBalanceDate: new Date().toISOString().slice(0, 10),
+  openingExchangeRate: 1,
+  isActive: true,
+  notes: "",
+};
+
+/**
+ * @param {{
+ *   isOpen: boolean,
+ *   onClose: () => void,
+ *   onSaved?: (cashbox: Object) => void,
+ *   cashbox?: Object | null
+ * }} props
+ */
+export default function CashboxFormModal({
+  isOpen,
+  onClose,
+  onSaved,
+  cashbox = null,
+}) {
+  const isEdit = Boolean(cashbox);
+  const [createCashbox, { isLoading: isCreating }] = useCreateCashboxMutation();
+  const [updateCashbox, { isLoading: isUpdating }] = useUpdateCashboxMutation();
+  const isLoading = isCreating || isUpdating;
 
   const {
     register,
     handleSubmit,
     control,
     reset,
+    setError,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: {
-      code: "",
-      name: "",
-      currency: "EGP",
-      openingBalance: 0,
-      isActive: true,
-      notes: "",
-    },
+    defaultValues: emptyValues,
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    reset(
+      cashbox
+        ? {
+            code: cashbox.code ?? "",
+            name: cashbox.name ?? "",
+            currency: cashbox.currency ?? "EGP",
+            openingBalance: cashbox.openingBalance ?? 0,
+            openingBalanceDate:
+              cashbox.openingBalanceDate ?? emptyValues.openingBalanceDate,
+            openingExchangeRate: cashbox.openingExchangeRate ?? 1,
+            isActive: cashbox.isActive ?? true,
+            notes: cashbox.notes ?? "",
+          }
+        : emptyValues,
+    );
+  }, [cashbox, isOpen, reset]);
 
   const onSubmit = async (values) => {
     try {
-      const created = await createCashbox(values).unwrap();
-      toast.success("تم إنشاء الخزنة بنجاح");
-      reset();
+      const saved = isEdit
+        ? await updateCashbox({
+            id: cashbox.id,
+            rowVersion: cashbox.rowVersion,
+            ...values,
+          }).unwrap()
+        : await createCashbox(values).unwrap();
+
+      toast.success(isEdit ? "تم تحديث الخزنة بنجاح" : "تم إنشاء الخزنة بنجاح");
+      onSaved?.(saved);
       onClose();
-      onCreated?.(created);
-    } catch (err) {}
+    } catch (err) {
+      const code = err?.data?.code ?? err?.data?.errorCode;
+
+      if (code === "Cashboxes.Concurrency") {
+        toast.error("تم تعديل الخزنة من مكان آخر، حدّث الصفحة وحاول تاني");
+        return;
+      }
+
+      if (err?.status === 400 && (err?.data?.message || err?.data?.detail)) {
+        // رسالة السيرفر بتوضح غالبًا إنه فيه سندات مرتبطة بالخزنة
+        toast.error(err.data.message ?? err.data.detail);
+        return;
+      }
+
+      toast.error(isEdit ? "تعذر تحديث الخزنة" : "تعذر إنشاء الخزنة");
+    }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="إضافة خزنة جديدة">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEdit ? "تعديل بيانات الخزنة" : "إضافة خزنة جديدة"}
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Input
           label="كود الخزنة"
@@ -74,6 +137,18 @@ export default function CashboxFormModal({ isOpen, onClose, onCreated }) {
           {...register("name")}
         />
 
+        {isEdit && (
+          <div className="rounded-lg border bg-ink-400/5 p-3">
+            <p className="text-xs text-ink-400 mb-1">
+              الرصيد الحالي (محسوب من الحركة)
+            </p>
+            <p className="text-sm font-semibold text-ink-900">
+              {cashbox.currentBalance?.toLocaleString("ar-EG")}{" "}
+              {cashbox.currency}
+            </p>
+          </div>
+        )}
+
         <Input
           label="الرصيد الافتتاحي"
           type="number"
@@ -81,13 +156,19 @@ export default function CashboxFormModal({ isOpen, onClose, onCreated }) {
           error={errors.openingBalance?.message}
           {...register("openingBalance", { valueAsNumber: true })}
         />
+        <Input
+          label="تاريخ الرصيد الافتتاحي"
+          type="date"
+          error={errors.openingBalanceDate?.message}
+          {...register("openingBalanceDate")}
+        />
+
         <Controller
           control={control}
           name="currency"
           render={({ field }) => (
             <div>
               <label className="mb-1 block text-sm font-medium">العملة</label>
-
               <select {...field} className="w-full rounded-lg border px-3 py-2">
                 <option value="EGP">الجنيه المصري</option>
                 <option value="USD">الدولار الأمريكي</option>
@@ -97,7 +178,6 @@ export default function CashboxFormModal({ isOpen, onClose, onCreated }) {
                 <option value="AED">الدرهم الإماراتي</option>
                 <option value="KWD">الدينار الكويتي</option>
               </select>
-
               {errors.currency && (
                 <p className="mt-1 text-sm text-red-500">
                   {errors.currency.message}
@@ -106,13 +186,21 @@ export default function CashboxFormModal({ isOpen, onClose, onCreated }) {
             </div>
           )}
         />
+
+        <Input
+          label="سعر الصرف الافتتاحي"
+          type="number"
+          step="0.0001"
+          error={errors.openingExchangeRate?.message}
+          {...register("openingExchangeRate", { valueAsNumber: true })}
+        />
+
         <Controller
           control={control}
           name="isActive"
           render={({ field }) => (
             <label className="flex items-center justify-between rounded-lg border p-3">
               <span className="font-medium">تفعيل الخزنة</span>
-
               <input
                 type="checkbox"
                 checked={field.value}
@@ -129,12 +217,23 @@ export default function CashboxFormModal({ isOpen, onClose, onCreated }) {
           {...register("notes")}
         />
 
+        {isEdit && (
+          <p className="text-xs text-ink-400">
+            تنبيه: الرصيد الافتتاحي والعملة مينفعش يتغيروا لو فيه سندات مسجلة
+            على الخزنة دي — السيرفر هيرفض الحفظ ويوضح السبب.
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>
             إلغاء
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "جاري الحفظ..." : "حفظ الخزنة"}
+            {isLoading
+              ? "جاري الحفظ..."
+              : isEdit
+                ? "حفظ التعديلات"
+                : "حفظ الخزنة"}
           </Button>
         </div>
       </form>
