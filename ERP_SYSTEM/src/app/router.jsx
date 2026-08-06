@@ -29,6 +29,7 @@ import StockAdjustmentCreatePage from "../features/stock-adjustments/pages/Stock
 import StockAdjustmentEditPage from "../features/stock-adjustments/pages/StockAdjustmentEditPage";
 import StockAdjustmentDetailPage from "../features/stock-adjustments/pages/StockAdjustmentDetailPage";
 import PermissionsPage from "../features/permissions/pages/PermissionsPage";
+import CashMovementTypesListPage from "../features/cashMovementTypes/pages/CashMovementTypesListPage";
 
 function ComingSoon({ title }) {
   return (
@@ -72,6 +73,10 @@ export const router = createBrowserRouter([
       { path: "drivers/statement", element: <DriverStatementPage /> },
       { path: "treasury", element: <CashboxesListPage /> },
       { path: "treasury/:cashboxId", element: <CashboxDetailPage /> },
+      {
+        path: "treasury/cash-movement-types",
+        element: <CashMovementTypesListPage />,
+      },
       { path: "stores", element: <StoresListPage /> },
       { path: "stores/:id", element: <StoreDetailPage /> },
       { path: "items/:id", element: <ItemDetailPage /> },
@@ -80,7 +85,6 @@ export const router = createBrowserRouter([
         element: <StockOpeningBalancesPage />,
       },
 
-      // ---------- تسويات المخزون ----------
       { path: "inventory/adjustments", element: <StockAdjustmentsListPage /> },
       {
         path: "inventory/adjustments/new",

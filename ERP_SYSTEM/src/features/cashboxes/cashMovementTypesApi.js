@@ -19,7 +19,6 @@ export const cashMovementTypesApi = baseApi.injectEndpoints({
       providesTags: [{ type: "CashMovementType", id: "LIST" }],
     }),
 
-    // GET /api/v1/CashMovementTypes/select
     getCashMovementTypeOptions: builder.query({
       query: ({ direction, forPartner } = {}) => ({
         url: "/CashMovementTypes/select",

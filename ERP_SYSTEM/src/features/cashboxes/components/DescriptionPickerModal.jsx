@@ -1,9 +1,7 @@
 // features/cashboxes/components/DescriptionPickerModal.jsx
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
 import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
-
-// partyType الحقيقي حسب توثيق الباك: None / Partner / Driver / Other
+import Modal from "../../../shared/components/ui/Modal";
 const PARTY_TYPES = [
   { value: "None", label: "بدون طرف", forPartner: false },
   { value: "Partner", label: "عميل / مورد", forPartner: true },
@@ -55,11 +53,9 @@ export default function DescriptionPickerModal({
   const forPartner =
     PARTY_TYPES.find((p) => p.value === partyType)?.forPartner ?? false;
 
-  // بيتحمل أول ما المودال يتفتح، وكل ما partyType (وبالتالي forPartner) يتغير
   const { data: movementTypeOptions = [], isFetching: loadingTypes } =
     useGetCashMovementTypeOptionsQuery({ forPartner }, { skip: !isOpen });
 
-  // لو نوع الطرف اتغير وبقى النوع القديم مش موجود في الليستة الجديدة، امسحه
   useEffect(() => {
     if (
       movementTypeId &&
@@ -111,139 +107,143 @@ export default function DescriptionPickerModal({
     (partyType !== "Other" || externalPartyName.trim());
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-ink-400/10">
-          <h3 className="font-display font-bold text-ink-900">توصيف الحركة</h3>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-ink-900/5 text-ink-400"
-          >
-            <X size={16} />
-          </button>
+    <Modal isOpen={isOpen} onClose={onClose} title="توصيف الحركة">
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink">
+            نوع الطرف
+          </label>
+
+          <div className="grid grid-cols-4 gap-2">
+            {PARTY_TYPES.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => {
+                  setPartyType(p.value);
+                  setBusinessPartnerId("");
+                  setDriverId("");
+                  setExternalPartyName("");
+                }}
+                className={`rounded-xl border px-3 py-2 text-sm transition ${
+                  partyType === p.value
+                    ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
+                    : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div>
-            <label className="block text-xs text-ink-400 mb-1">نوع الطرف</label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {PARTY_TYPES.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => {
-                    setPartyType(p.value);
-                    setBusinessPartnerId("");
-                    setDriverId("");
-                    setExternalPartyName("");
-                  }}
-                  className={`text-xs px-2 py-2 rounded-lg border transition-colors ${
-                    partyType === p.value
-                      ? "bg-primary-50 border-primary-300 text-primary-600 font-medium"
-                      : "bg-white border-ink-400/15 text-ink-600 hover:border-ink-400/30"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink">
+            نوع الحركة
+          </label>
 
-          <div>
-            <label className="block text-xs text-ink-400 mb-1">
-              نوع الحركة *
-            </label>
-            <select
-              value={movementTypeId}
-              onChange={(e) => setMovementTypeId(e.target.value)}
-              disabled={loadingTypes}
-              className="w-full text-sm border border-ink-400/15 rounded-lg px-3 py-2 bg-white disabled:opacity-50"
-            >
-              <option value="">
-                {loadingTypes ? "جاري التحميل..." : "اختر نوع الحركة"}
+          <select
+            value={movementTypeId}
+            onChange={(e) => setMovementTypeId(e.target.value)}
+            disabled={loadingTypes}
+            className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 disabled:opacity-50"
+          >
+            <option value="">
+              {loadingTypes ? "جاري التحميل..." : "اختر نوع الحركة"}
+            </option>
+
+            {movementTypeOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} — {t.direction === "Receipt" ? "وارد" : "صادر"}
               </option>
-              {movementTypeOptions.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} — {t.direction === "Receipt" ? "وارد" : "صادر"}
+            ))}
+          </select>
+
+          {!loadingTypes && movementTypeOptions.length === 0 && (
+            <p className="mt-1 text-xs text-ink/50">
+              لا توجد أنواع حركة متاحة.
+            </p>
+          )}
+        </div>
+
+        {partyType === "Partner" && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">
+              العميل / المورد
+            </label>
+
+            <select
+              value={businessPartnerId}
+              onChange={(e) => setBusinessPartnerId(e.target.value)}
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+            >
+              <option value="">اختر</option>
+
+              {partyOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>
-            {!loadingTypes && movementTypeOptions.length === 0 && (
-              <p className="text-xs text-ink-400 mt-1">
-                لا توجد أنواع حركة متاحة لنوع الطرف ده
-              </p>
-            )}
           </div>
+        )}
 
-          {partyType === "Partner" && (
-            <div>
-              <label className="block text-xs text-ink-400 mb-1">
-                العميل / المورد
-              </label>
-              <select
-                value={businessPartnerId}
-                onChange={(e) => setBusinessPartnerId(e.target.value)}
-                className="w-full text-sm border border-ink-400/15 rounded-lg px-3 py-2 bg-white"
-              >
-                <option value="">اختر</option>
-                {partyOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+        {partyType === "Driver" && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">
+              السائق
+            </label>
 
-          {partyType === "Driver" && (
-            <div>
-              <label className="block text-xs text-ink-400 mb-1">السائق</label>
-              <select
-                value={driverId}
-                onChange={(e) => setDriverId(e.target.value)}
-                className="w-full text-sm border border-ink-400/15 rounded-lg px-3 py-2 bg-white"
-              >
-                <option value="">اختر</option>
-                {driverOptions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+            <select
+              value={driverId}
+              onChange={(e) => setDriverId(e.target.value)}
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+            >
+              <option value="">اختر</option>
 
-          {partyType === "Other" && (
-            <div>
-              <label className="block text-xs text-ink-400 mb-1">
-                اسم الطرف
-              </label>
-              <input
-                type="text"
-                value={externalPartyName}
-                onChange={(e) => setExternalPartyName(e.target.value)}
-                className="w-full text-sm border border-ink-400/15 rounded-lg px-3 py-2"
-              />
-            </div>
-          )}
-        </div>
+              {driverOptions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-ink-400/10">
+        {partyType === "Other" && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-ink">
+              اسم الطرف
+            </label>
+
+            <input
+              type="text"
+              value={externalPartyName}
+              onChange={(e) => setExternalPartyName(e.target.value)}
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+            />
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-gold/20 pt-4">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-ink-400 hover:text-ink-700"
+            className="rounded-xl border border-gold/30 px-4 py-2 text-sm text-ink hover:bg-ink/5"
           >
             إلغاء
           </button>
+
           <button
+            type="button"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg disabled:opacity-50"
+            className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
           >
             تأكيد
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

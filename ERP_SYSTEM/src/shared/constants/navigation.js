@@ -75,7 +75,23 @@ export const navigationItems = [
       },
     ],
   },
-  { label: "الخزائن/البنك", path: "/dashboard/treasury", icon: Wallet },
+  {
+    label: "الخزائن/البنك",
+    icon: Wallet,
+    children: [
+      {
+        label: "الخزائن والبنوك",
+        path: "/dashboard/treasury",
+        icon: Wallet,
+        end: true,
+      },
+      {
+        label: "أنواع حركات الخزنة",
+        path: "/dashboard/treasury/cash-movement-types",
+        icon: SlidersHorizontal,
+      },
+    ],
+  },
   {
     label: "المخازن",
     icon: Boxes,
