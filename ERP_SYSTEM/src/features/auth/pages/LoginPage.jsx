@@ -26,7 +26,6 @@ export default function LoginPage() {
 
   return (
     <div dir="rtl" className="min-h-screen flex">
-      {/* الجانب البصري - يختفي على الموبايل */}
       <div className="hidden lg:flex lg:w-2/5 bg-primary-500 relative overflow-hidden flex-col justify-between p-10">
         <div
           className="absolute inset-0 opacity-[0.07]"

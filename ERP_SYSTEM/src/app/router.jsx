@@ -28,6 +28,7 @@ import StockAdjustmentsListPage from "../features/stock-adjustments/pages/StockA
 import StockAdjustmentCreatePage from "../features/stock-adjustments/pages/StockAdjustmentCreatePage";
 import StockAdjustmentEditPage from "../features/stock-adjustments/pages/StockAdjustmentEditPage";
 import StockAdjustmentDetailPage from "../features/stock-adjustments/pages/StockAdjustmentDetailPage";
+import PermissionsPage from "../features/permissions/pages/PermissionsPage";
 
 function ComingSoon({ title }) {
   return (
@@ -106,7 +107,7 @@ export const router = createBrowserRouter([
         element: <ComingSoon title="تقارير المركز المالي" />,
       },
       { path: "reports", element: <ComingSoon title="التقارير" /> },
-      { path: "permissions", element: <ComingSoon title="الصلاحيات" /> },
+      { path: "permissions", element: <PermissionsPage /> },
     ],
   },
 ]);
