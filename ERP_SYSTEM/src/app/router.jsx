@@ -30,6 +30,8 @@ import StockAdjustmentEditPage from "../features/stock-adjustments/pages/StockAd
 import StockAdjustmentDetailPage from "../features/stock-adjustments/pages/StockAdjustmentDetailPage";
 import PermissionsPage from "../features/permissions/pages/PermissionsPage";
 import CashMovementTypesListPage from "../features/cashMovementTypes/pages/CashMovementTypesListPage";
+import UnitsPage from "../features/units/pages/UnitsPage";
+import PackagingUnitsPage from "../features/containers/pages/PackagingUnitsPage";
 
 function ComingSoon({ title }) {
   return (
@@ -98,7 +100,8 @@ export const router = createBrowserRouter([
         path: "inventory/adjustments/:id/edit",
         element: <StockAdjustmentEditPage />,
       },
-
+      { path: "inventory/units", element: <UnitsPage /> },
+      { path: "inventory/containers", element: <PackagingUnitsPage /> },
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
 
       {

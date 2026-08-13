@@ -22,6 +22,8 @@ import {
   History,
   FileText,
   SlidersHorizontal,
+  Ruler,
+  PackageOpen,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -101,13 +103,21 @@ export const navigationItems = [
         path: "/dashboard/stores",
         icon: Building,
       },
-
+      {
+        label: "وحدات القياس",
+        path: "/dashboard/inventory/units",
+        icon: Ruler,
+      },
+      {
+        label: "العبوات",
+        path: "/dashboard/inventory/containers",
+        icon: PackageOpen,
+      },
       {
         label: "أرصدة افتتاحية مخزنية",
         path: "/dashboard/inventory/opening-balances",
         icon: History,
       },
-
       {
         label: "تسويات مخزون",
         path: "/dashboard/inventory/adjustments",
