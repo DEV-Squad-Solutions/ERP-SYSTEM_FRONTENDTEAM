@@ -110,7 +110,12 @@ const authSlice = createSlice({
     },
   },
 });
-
+export const selectAccessToken = (state) => state.auth.accessToken;
+export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
+export const selectSelectedCompany = (state) => state.auth.selectedCompany;
+export const selectRoles = (state) => state.auth.roles;
+export const selectIsAdmin = (state) =>
+  state.auth.roles?.includes("Admin") ?? false;
 export const { setCredentials, setCompanySelection, updateTokens, logout } =
   authSlice.actions;
 export default authSlice.reducer;

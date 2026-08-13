@@ -29,18 +29,15 @@ const showErrors = (error) => {
 const baseQueryWithReauth = async (args, api, extraOptions) => {
   let result = await baseQuery(args, api, extraOptions);
 
-  // لو الـ Access Token انتهى
   if (result.error?.status === 401) {
     const refreshToken = api.getState().auth.refreshToken;
 
-    // لو مفيش Refresh Token
     if (!refreshToken) {
       showErrors(result.error);
       api.dispatch(logout());
       return result;
     }
 
-    // محاولة تجديد الـ Token
     const refreshResult = await baseQuery(
       {
         url: "/Auth/refresh",
@@ -60,10 +57,8 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
         }),
       );
 
-      // إعادة تنفيذ الطلب الأصلي
       result = await baseQuery(args, api, extraOptions);
 
-      // لو فشل بعد التجديد
       if (result.error) {
         showErrors(result.error);
       }
@@ -75,7 +70,6 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     return result;
   }
 
-  // أي Error غير 401
   if (result.error) {
     showErrors(result.error);
   }
