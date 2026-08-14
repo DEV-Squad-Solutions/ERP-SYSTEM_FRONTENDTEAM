@@ -9,7 +9,6 @@ import {
 } from "../driversApi";
 
 const emptyForm = {
-  code: "",
   name: "",
   phoneNumber: "",
   nationalId: "",
@@ -43,7 +42,6 @@ export default function QuickAddDriverModal({
     setForm(
       driver
         ? {
-            code: driver.code ?? "",
             name: driver.name ?? "",
             phoneNumber: driver.phoneNumber ?? "",
             nationalId: driver.nationalId ?? "",
@@ -85,11 +83,6 @@ export default function QuickAddDriverModal({
       title={isEdit ? "تعديل بيانات السائق" : "إضافة سائق جديد"}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          label="الكود"
-          value={form.code}
-          onChange={handleChange("code")}
-        />
         <Input
           label="اسم السائق"
           value={form.name}

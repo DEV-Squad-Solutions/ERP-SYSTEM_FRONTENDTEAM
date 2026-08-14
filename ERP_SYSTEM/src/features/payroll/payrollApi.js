@@ -1,20 +1,53 @@
 // features/payroll/payrollApi.js
 //
-// مبني على نفس Pattern الموجود في driversApi.js
-// أسماء الـendpoints دي متوقعة (استنتاج) من شكل الـJSON اللي بعتها ومن نفس
-// الـconvention المستخدم في Drivers ("Drivers", "Drivers/select"...).
-// أي سطر عليه // TODO INTEGRATION يحتاج تأكيد من Swagger قبل ما تشتغل عليه فعليًا.
+// مبني على نفس Pattern الموجود في driversApi.js، مع إضافة mock switch:
+// لو USE_MOCKS (في payroll.mocks.js) = true، كل endpoint بيرجع من الـin-memory
+// mock store بدل ما ينادي الـbackend الحقيقي. غيّر القيمة هناك بس للتبديل.
 
 import { baseApi } from "../../lib/baseApi";
+import {
+  USE_MOCKS,
+  mockDelay,
+  mockGetEmployees,
+  mockGetEmployeeById,
+  mockGetEmployeesSelect,
+  mockCreateEmployee,
+  mockUpdateEmployee,
+  mockDeleteEmployee,
+  mockGetEmployeeAttendances,
+  mockCreateEmployeeAttendance,
+  mockUpdateEmployeeAttendance,
+  mockDeleteEmployeeAttendance,
+  mockGetEmployeeTransactions,
+  mockCreateEmployeeTransaction,
+  mockUpdateEmployeeTransaction,
+  mockDeleteEmployeeTransaction,
+  mockGetPayrollEntries,
+  mockGetPayrollEntryById,
+  mockGeneratePayrollEntries,
+  mockApprovePayrollEntry,
+  mockDisbursePayrollEntry,
+} from "./payroll.mocks";
+
+// helper بيلف أي mock function عشان يرجع بنفس شكل { data } / { error } اللي
+// RTK Query متوقعه من queryFn، ومحاكي delay بسيط زي شبكة حقيقية.
+async function withMock(fn) {
+  await mockDelay();
+  try {
+    return { data: fn() };
+  } catch (error) {
+    return { error: { status: 400, data: { message: error.message } } };
+  }
+}
 
 export const payrollApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // ============ Employees ============
     getEmployees: builder.query({
-      query: (params) => ({
-        url: "Employees",
-        params,
-      }),
+      queryFn: async (params, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockGetEmployees(params));
+        return baseQuery({ url: "Employees", params });
+      },
       providesTags: (result) =>
         result?.employees
           ? [
@@ -28,27 +61,35 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     getEmployeeById: builder.query({
-      query: (id) => `Employees/${id}`,
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockGetEmployeeById(id));
+        return baseQuery(`Employees/${id}`);
+      },
       providesTags: (result, error, id) => [{ type: "Employee", id }],
     }),
 
     // TODO INTEGRATION: تأكيد المسار، مستنتج من نمط Drivers/select
     getEmployeesSelect: builder.query({
-      query: () => "Employees/select",
+      queryFn: async (_arg, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockGetEmployeesSelect());
+        return baseQuery("Employees/select");
+      },
       providesTags: ["Employee"],
     }),
 
     createEmployee: builder.mutation({
-      query: (data) => ({ url: "Employees", method: "POST", body: data }),
+      queryFn: async (data, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockCreateEmployee(data));
+        return baseQuery({ url: "Employees", method: "POST", body: data });
+      },
       invalidatesTags: [{ type: "Employee", id: "LIST" }],
     }),
 
     updateEmployee: builder.mutation({
-      query: ({ id, ...data }) => ({
-        url: `Employees/${id}`,
-        method: "PUT",
-        body: data,
-      }),
+      queryFn: async ({ id, ...data }, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockUpdateEmployee(id, data));
+        return baseQuery({ url: `Employees/${id}`, method: "PUT", body: data });
+      },
       invalidatesTags: (result, error, { id }) => [
         { type: "Employee", id },
         { type: "Employee", id: "LIST" },
@@ -56,7 +97,10 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     deleteEmployee: builder.mutation({
-      query: (id) => ({ url: `Employees/${id}`, method: "DELETE" }),
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockDeleteEmployee(id));
+        return baseQuery({ url: `Employees/${id}`, method: "DELETE" });
+      },
       invalidatesTags: (result, error, id) => [
         { type: "Employee", id },
         { type: "Employee", id: "LIST" },
@@ -65,10 +109,11 @@ export const payrollApi = baseApi.injectEndpoints({
 
     // ============ Attendance ============
     getEmployeeAttendances: builder.query({
-      query: (params) => ({
-        url: "EmployeeAttendances",
-        params,
-      }),
+      queryFn: async (params, _api, _extra, baseQuery) => {
+        if (USE_MOCKS)
+          return withMock(() => mockGetEmployeeAttendances(params));
+        return baseQuery({ url: "EmployeeAttendances", params });
+      },
       providesTags: (result) =>
         result?.items
           ? [
@@ -79,20 +124,28 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     createEmployeeAttendance: builder.mutation({
-      query: (data) => ({
-        url: "EmployeeAttendances",
-        method: "POST",
-        body: data,
-      }),
+      queryFn: async (data, _api, _extra, baseQuery) => {
+        if (USE_MOCKS)
+          return withMock(() => mockCreateEmployeeAttendance(data));
+        return baseQuery({
+          url: "EmployeeAttendances",
+          method: "POST",
+          body: data,
+        });
+      },
       invalidatesTags: [{ type: "Attendance", id: "LIST" }],
     }),
 
     updateEmployeeAttendance: builder.mutation({
-      query: ({ id, ...data }) => ({
-        url: `EmployeeAttendances/${id}`,
-        method: "PUT",
-        body: data,
-      }),
+      queryFn: async ({ id, ...data }, _api, _extra, baseQuery) => {
+        if (USE_MOCKS)
+          return withMock(() => mockUpdateEmployeeAttendance(id, data));
+        return baseQuery({
+          url: `EmployeeAttendances/${id}`,
+          method: "PUT",
+          body: data,
+        });
+      },
       invalidatesTags: (result, error, { id }) => [
         { type: "Attendance", id },
         { type: "Attendance", id: "LIST" },
@@ -100,24 +153,23 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     deleteEmployeeAttendance: builder.mutation({
-      query: (id) => ({ url: `EmployeeAttendances/${id}`, method: "DELETE" }),
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockDeleteEmployeeAttendance(id));
+        return baseQuery({
+          url: `EmployeeAttendances/${id}`,
+          method: "DELETE",
+        });
+      },
       invalidatesTags: [{ type: "Attendance", id: "LIST" }],
     }),
 
-    // ============ Transactions (Deductions / Advances / Overtime & Allowances) ============
-    // TODO INTEGRATION: الـschema المبعوت فيه type: "Debit" | "Credit" بس.
-    // الـSpec بيفرّق بين 4 مفاهيم مختلفة (سلف / خصومات / إضافي / بدلات).
-    // لغاية ما نتأكد من الـbackend، الافتراض المؤقت:
-    //   - Debit  = خصم من صافي المرتب (يغطي: خصومات + سلف)
-    //   - Credit = إضافة لصافي المرتب (يغطي: إضافي + بدلات + مكافآت)
-    // وبيتم التفرقة بينهم في الواجهة عن طريق فلترة إضافية (لسه محتاجة endpoint
-    // أو حقل category من الباك إند). الصفحات الأربعة بتستخدم نفس الـendpoints
-    // دول مع فلاتر مختلفة كنقطة بداية، وسهل نعدلها لما ياخد الحقل category قيمة حقيقية.
+    // ============ Transactions ============
     getEmployeeTransactions: builder.query({
-      query: (params) => ({
-        url: "EmployeeTransactions",
-        params,
-      }),
+      queryFn: async (params, _api, _extra, baseQuery) => {
+        if (USE_MOCKS)
+          return withMock(() => mockGetEmployeeTransactions(params));
+        return baseQuery({ url: "EmployeeTransactions", params });
+      },
       providesTags: (result) =>
         result?.items
           ? [
@@ -128,20 +180,28 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     createEmployeeTransaction: builder.mutation({
-      query: (data) => ({
-        url: "EmployeeTransactions",
-        method: "POST",
-        body: data,
-      }),
+      queryFn: async (data, _api, _extra, baseQuery) => {
+        if (USE_MOCKS)
+          return withMock(() => mockCreateEmployeeTransaction(data));
+        return baseQuery({
+          url: "EmployeeTransactions",
+          method: "POST",
+          body: data,
+        });
+      },
       invalidatesTags: [{ type: "Transaction", id: "LIST" }],
     }),
 
     updateEmployeeTransaction: builder.mutation({
-      query: ({ id, ...data }) => ({
-        url: `EmployeeTransactions/${id}`,
-        method: "PUT",
-        body: data,
-      }),
+      queryFn: async ({ id, ...data }, _api, _extra, baseQuery) => {
+        if (USE_MOCKS)
+          return withMock(() => mockUpdateEmployeeTransaction(id, data));
+        return baseQuery({
+          url: `EmployeeTransactions/${id}`,
+          method: "PUT",
+          body: data,
+        });
+      },
       invalidatesTags: (result, error, { id }) => [
         { type: "Transaction", id },
         { type: "Transaction", id: "LIST" },
@@ -149,16 +209,22 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     deleteEmployeeTransaction: builder.mutation({
-      query: (id) => ({ url: `EmployeeTransactions/${id}`, method: "DELETE" }),
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockDeleteEmployeeTransaction(id));
+        return baseQuery({
+          url: `EmployeeTransactions/${id}`,
+          method: "DELETE",
+        });
+      },
       invalidatesTags: [{ type: "Transaction", id: "LIST" }],
     }),
 
-    // ============ Payroll Entries (المرتبات) ============
+    // ============ Payroll Entries ============
     getPayrollEntries: builder.query({
-      query: (params) => ({
-        url: "PayrollEntries",
-        params,
-      }),
+      queryFn: async (params, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockGetPayrollEntries(params));
+        return baseQuery({ url: "PayrollEntries", params });
+      },
       providesTags: (result) =>
         result?.items
           ? [
@@ -169,26 +235,33 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     getPayrollEntryById: builder.query({
-      query: (id) => `PayrollEntries/${id}`,
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockGetPayrollEntryById(id));
+        return baseQuery(`PayrollEntries/${id}`);
+      },
       providesTags: (result, error, id) => [{ type: "PayrollEntry", id }],
     }),
 
-    // TODO INTEGRATION: مسار توليد المرتبات لفترة معينة غير مؤكد
     generatePayrollEntries: builder.mutation({
-      query: (data) => ({
-        url: "PayrollEntries/generate",
-        method: "POST",
-        body: data,
-      }),
+      queryFn: async (data, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockGeneratePayrollEntries(data));
+        return baseQuery({
+          url: "PayrollEntries/generate",
+          method: "POST",
+          body: data,
+        });
+      },
       invalidatesTags: [{ type: "PayrollEntry", id: "LIST" }],
     }),
 
-    // TODO INTEGRATION: مسارات الاعتماد والصرف غير مؤكدة
     approvePayrollEntry: builder.mutation({
-      query: (id) => ({
-        url: `PayrollEntries/${id}/approve`,
-        method: "PATCH",
-      }),
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockApprovePayrollEntry(id));
+        return baseQuery({
+          url: `PayrollEntries/${id}/approve`,
+          method: "PATCH",
+        });
+      },
       invalidatesTags: (result, error, id) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },
@@ -196,10 +269,13 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     disbursePayrollEntry: builder.mutation({
-      query: (id) => ({
-        url: `PayrollEntries/${id}/disburse`,
-        method: "PATCH",
-      }),
+      queryFn: async (id, _api, _extra, baseQuery) => {
+        if (USE_MOCKS) return withMock(() => mockDisbursePayrollEntry(id));
+        return baseQuery({
+          url: `PayrollEntries/${id}/disburse`,
+          method: "PATCH",
+        });
+      },
       invalidatesTags: (result, error, id) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },

@@ -572,66 +572,97 @@ export default function DriverStatementPage() {
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         التاريخ
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         المستند
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        المصدر
+                        العميل
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         الحركة
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         البيان
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         رقم الرحلة
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         رقم الفاتورة
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5 text-negative">
                         مدفوع للسائق
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5 text-positive">
                         مستلم منه
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         تكلفة الرحلة
                       </th>
+
                       <th className="p-2.5 font-medium border-l border-ink-400/5">
                         الرصيد
                       </th>
+
                       <th className="p-2.5 font-medium">الخزنة</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row, idx) => (
                       <tr
-                        key={row.sourceId}
+                        key={`${row.sourceId}-${row.date}-${idx}`}
                         className="border-b border-ink-400/5 last:border-0 hover:bg-primary-50/30 transition-colors animate-fadeUp print:hover:bg-transparent"
                         style={{
                           animationDelay: `${Math.min(idx, 12) * 25}ms`,
                         }}
                       >
+                        {/* التاريخ */}
                         <td className="p-2.5 num text-ink-600 text-[13px] whitespace-nowrap border-l border-ink-400/5">
-                          {row.date}
+                          {row.date || "—"}
                         </td>
+
+                        {/* المستند */}
                         <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5">
                           {row.documentNumber || "—"}
                         </td>
-                        <td className="p-2.5 text-ink-600 text-xs border-l border-ink-400/5">
-                          {row.sourceName}
+
+                        {/* العميل */}
+                        <td className="p-2.5 text-xs border-l border-ink-400/5">
+                          {row.businessPartnerId && row.businessPartnerName ? (
+                            <Link
+                              to={`/dashboard/partners/${row.businessPartnerId}`}
+                              className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+                            >
+                              {row.businessPartnerName}
+                            </Link>
+                          ) : (
+                            <span className="text-ink-400">—</span>
+                          )}
                         </td>
+
+                        {/* الحركة */}
                         <td className="p-2.5 text-ink-600 text-xs border-l border-ink-400/5">
-                          {row.movementName}
+                          {row.movementName || "—"}
                         </td>
+
+                        {/* البيان */}
                         <td
-                          className="p-2.5 text-ink-700 text-xs max-w-[160px] truncate border-l border-ink-400/5"
+                          className="p-2.5 text-ink-700 text-xs max-w-[180px] truncate border-l border-ink-400/5"
                           title={row.description}
                         >
                           {row.description || "—"}
                         </td>
+
+                        {/* رقم الرحلة */}
                         <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
                           {row.driverTripNumber ? (
                             <Link
@@ -645,40 +676,47 @@ export default function DriverStatementPage() {
                             "—"
                           )}
                         </td>
-                        <td className="p-2.5 text-sm font-medium num">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              navigate(`/invoices/${row.invoiceId}`)
-                            }
-                            className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
-                          >
-                            {row.invoiceNumber || "-"}
-                          </button>
+
+                        {/* رقم الفاتورة */}
+                        <td className="p-2.5 text-sm font-medium num border-l border-ink-400/5">
+                          {row.invoiceNumber || "—"}
                         </td>
+
+                        {/* مدفوع للسائق */}
                         <td className="p-2.5 num text-negative text-[13px] border-l border-ink-400/5">
                           {row.amountPaidToDriver > 0
                             ? fmt(row.amountPaidToDriver)
                             : "—"}
                         </td>
+
+                        {/* مستلم منه */}
                         <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">
                           {row.amountReceivedFromDriver > 0
                             ? fmt(row.amountReceivedFromDriver)
                             : "—"}
                         </td>
+
+                        {/* تكلفة الرحلة */}
                         <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5">
                           {row.tripCost > 0 ? fmt(row.tripCost) : "—"}
                         </td>
+
+                        {/* الرصيد */}
                         <td className="p-2.5 border-l border-ink-400/5">
                           <div className="flex flex-col gap-0.5">
                             <span className="num font-semibold text-[13px] text-ink-900">
                               {fmt(row.balanceAmount)}
                             </span>
-                            <BalanceBadge
-                              description={row.balanceDescription}
-                            />
+
+                            {row.balanceDescription && (
+                              <BalanceBadge
+                                description={row.balanceDescription}
+                              />
+                            )}
                           </div>
                         </td>
+
+                        {/* الخزنة */}
                         <td className="p-2.5 text-ink-600 text-xs">
                           {row.cashboxName || "—"}
                         </td>

@@ -101,7 +101,7 @@ export default function PayrollDashboardPage() {
               المرتبات المعلّقة
             </h3>
             <button
-              onClick={() => navigate("/payroll/salaries")}
+              onClick={() => navigate("/dashboard/payroll/salaries")}
               className="text-xs text-primary-600 hover:underline"
             >
               عرض الكل
@@ -121,7 +121,9 @@ export default function PayrollDashboardPage() {
                 <div
                   key={e.id}
                   className="flex items-center justify-between py-2 border-b border-ink-400/5 last:border-0 cursor-pointer hover:bg-ink-900/[0.015] -mx-2 px-2 rounded-lg transition-colors"
-                  onClick={() => navigate(`/payroll/salaries/${e.id}`)}
+                  onClick={() =>
+                    navigate(`/dashboard/payroll/salaries/${e.id}`)
+                  }
                 >
                   <div>
                     <p className="text-sm text-ink-900">{e.employeeName}</p>

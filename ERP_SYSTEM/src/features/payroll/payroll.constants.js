@@ -54,6 +54,74 @@ export const transactionTypeOptions = Object.entries(TRANSACTION_TYPE).map(
   ([value, label]) => ({ value, label }),
 );
 
+// ============================================================
+// MOCK: تصنيف فرعي لـ EmployeeTransactions
+// ============================================================
+// الـbackend حاليًا مش بيرجع غير type: Debit/Credit. لحد ما يتوفر حقل
+// "category" حقيقي، بنعمل mock عن طريق ترميز التصنيف جوه حقل notes بصيغة
+// "[CATEGORY] نص الملاحظة الحقيقي". دي حل مؤقت بحت عشان تقدر تشتغل على
+// الواجهة (سلف/خصومات/إضافي وبدلات) وهي متفرقة عن بعض، وسهل شيله لما ييجي
+// حقل category حقيقي من الباك إند (غيّر بس encodeCategory/parseCategory).
+
+export const TRANSACTION_CATEGORY = {
+  Overtime: { label: "ساعات إضافية", type: "Credit" },
+  TransportAllowance: { label: "بدل انتقال", type: "Credit" },
+  HousingAllowance: { label: "بدل سكن", type: "Credit" },
+  MealAllowance: { label: "بدل وجبة", type: "Credit" },
+  Bonus: { label: "مكافأة", type: "Credit" },
+  Incentive: { label: "حافز", type: "Credit" },
+  OtherAddition: { label: "أخرى (إضافة)", type: "Credit" },
+
+  AbsenceDeduction: { label: "خصم غياب", type: "Debit" },
+  LatenessDeduction: { label: "خصم تأخير", type: "Debit" },
+  Penalty: { label: "جزاء", type: "Debit" },
+  AdminDeduction: { label: "خصم إداري", type: "Debit" },
+  OtherDeduction: { label: "أخرى (خصم)", type: "Debit" },
+
+  Advance: { label: "سلفة", type: "Debit" },
+};
+
+export const overtimeAllowanceCategories = [
+  "Overtime",
+  "TransportAllowance",
+  "HousingAllowance",
+  "MealAllowance",
+  "Bonus",
+  "Incentive",
+  "OtherAddition",
+];
+
+export const deductionCategories = [
+  "AbsenceDeduction",
+  "LatenessDeduction",
+  "Penalty",
+  "AdminDeduction",
+  "OtherDeduction",
+];
+
+export const advanceCategories = ["Advance"];
+
+export function categoryOptionsFor(categoryKeys) {
+  return categoryKeys.map((key) => ({
+    value: key,
+    label: TRANSACTION_CATEGORY[key].label,
+  }));
+}
+
+export function encodeCategory(category, notes) {
+  return `[${category}] ${notes || ""}`.trim();
+}
+
+export function parseCategory(notes) {
+  const match = /^\[([A-Za-z]+)\]\s*(.*)$/.exec(notes || "");
+  if (!match) return { category: null, cleanNotes: notes || "" };
+  return { category: match[1], cleanNotes: match[2] };
+}
+
+export function categoryLabel(category) {
+  return TRANSACTION_CATEGORY[category]?.label || "—";
+}
+
 // حالات المرتب - افتراض منطقي بناءً على الـSpec (لسه مش موجودة في الـJSON المبعوت)
 // TODO INTEGRATION: تأكيد من PayrollEntries الفعلي هل فيه حقل status
 export const PAYROLL_STATUS = {

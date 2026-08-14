@@ -8,7 +8,6 @@ import Error404 from "../shared/components/Error404";
 import InvoiceCreatePage from "../features/sales/pages/InvoiceCreatePage";
 import InvoiceDetailsPage from "../features/sales/pages/InvoiceDetailsPage";
 import InvoiceEditPage from "../features/sales/pages/InvoiceEditPage";
-import StoreContainersPage from "../features/storeContainers/pages/StoreContainersPage";
 import BankPage from "../features/bank/Pages/BankPage";
 import PartnerAccountPage from "../features/statements/pages/PartnerAccountPage";
 import CashboxesListPage from "../features/cashboxes/pages/CashboxesListPage";
@@ -33,9 +32,18 @@ import CashMovementTypesListPage from "../features/cashMovementTypes/pages/CashM
 import UnitsPage from "../features/units/pages/UnitsPage";
 import PackagingUnitsPage from "../features/containers/pages/PackagingUnitsPage";
 import CountriesPage from "../features/countries/pages/CountriesPage";
-import EmployeeDetailPage from "../features/payroll/pages/EmployeeDetailPage";
-import EmployeesPage from "../features/payroll/pages/EmployeesPage";
 import PayrollDashboardPage from "../features/payroll/pages/PayrollDashboardPage";
+import EmployeesPage from "../features/payroll/pages/EmployeesPage";
+import EmployeeDetailPage from "../features/payroll/pages/EmployeeDetailPage";
+import SalariesPage from "../features/payroll/pages/SalariesPage";
+import SalaryDetailPage from "../features/payroll/pages/SalaryDetailPage";
+import AttendancePage from "../features/payroll/pages/AttendancePage";
+import OvertimePage from "../features/payroll/pages/OvertimePage";
+import DeductionsPage from "../features/payroll/pages/DeductionsPage";
+import AdvancesPage from "../features/payroll/pages/AdvancesPage";
+import AdvanceDetailPage from "../features/payroll/pages/AdvanceDetailPage";
+import ReportsPage from "../features/payroll/pages/ReportsPage";
+import ContainerStoreStatement from "../features/storeContainers/pages/ContainerStoreStatement";
 
 function ComingSoon({ title }) {
   return (
@@ -65,7 +73,10 @@ export const router = createBrowserRouter([
       { path: "purchases/new", element: <InvoiceCreatePage /> },
       { path: "purchases/:id", element: <InvoiceDetailsPage /> },
       { path: "purchases/:id/edit", element: <InvoiceEditPage /> },
-      { path: "stores/containers/:partyId", element: <StoreContainersPage /> },
+      {
+        path: "stores/containers/:partnerId",
+        element: <ContainerStoreStatement />,
+      },
       { path: "partners", element: <PartnersListPage /> },
       { path: "partners/:partnerId", element: <PartnerDetailPage /> },
       { path: "partners/statement", element: <PartnerAccountPage /> },
@@ -114,25 +125,14 @@ export const router = createBrowserRouter([
         path: "payroll/employees/:employeeCode",
         element: <EmployeeDetailPage />,
       },
-      { path: "payroll/salaries", element: <ComingSoon title="المرتبات" /> },
-      {
-        path: "payroll/salaries/:id",
-        element: <ComingSoon title="تفاصيل المرتب" />,
-      },
-      {
-        path: "payroll/attendance",
-        element: <ComingSoon title="الحضور والانصراف" />,
-      },
-      {
-        path: "payroll/overtime",
-        element: <ComingSoon title="الإضافي والبدلات" />,
-      },
-      { path: "payroll/deductions", element: <ComingSoon title="الخصومات" /> },
-      { path: "payroll/advances", element: <ComingSoon title="السلف" /> },
-      {
-        path: "payroll/reports",
-        element: <ComingSoon title="تقارير الأجور" />,
-      },
+      { path: "payroll/salaries", element: <SalariesPage /> },
+      { path: "payroll/salaries/:salaryId", element: <SalaryDetailPage /> },
+      { path: "payroll/attendance", element: <AttendancePage /> },
+      { path: "payroll/overtime", element: <OvertimePage /> },
+      { path: "payroll/deductions", element: <DeductionsPage /> },
+      { path: "payroll/advances", element: <AdvancesPage /> },
+      { path: "payroll/advances/:advanceId", element: <AdvanceDetailPage /> },
+      { path: "payroll/reports", element: <ReportsPage /> },
 
       {
         path: "adjusted-trial-balance",

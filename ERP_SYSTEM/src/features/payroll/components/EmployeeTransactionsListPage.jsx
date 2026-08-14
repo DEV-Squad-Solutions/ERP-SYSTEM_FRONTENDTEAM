@@ -1,59 +1,69 @@
-// features/payroll/pages/EmployeesPage.jsx
+// features/payroll/components/EmployeeTransactionsListPage.jsx
+//
+// كومبوننت List عام بيتلف حواليه صفحتين: Overtime & Allowances و Deductions.
+// الفلترة بتصنيف (category) بتحصل client-side حاليًا (parseCategory من notes)
+// لحد ما الباك إند يوفر حقل category حقيقي في EmployeeTransactions.
 
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Search,
   RotateCcw,
   Plus,
-  Eye,
   Pencil,
   Trash2,
+  Eye,
   AlertCircle,
   RefreshCw,
-  Users,
 } from "lucide-react";
-import { useGetEmployeesQuery, useDeleteEmployeeMutation } from "../payrollApi";
-import { employeeTypeOptions, fmtMoney } from "../payroll.constants";
-import EmployeeFormModal from "../components/EmployeeFormModal";
+import {
+  useGetEmployeeTransactionsQuery,
+  useDeleteEmployeeTransactionMutation,
+} from "../payrollApi";
+import { parseCategory, categoryLabel, fmtMoney } from "../payroll.constants";
+import TransactionFormModal from "./TransactionFormModal";
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
 
-const emptyFilters = {
-  search: "",
-  employeeType: "",
-  isActive: "",
-};
+const emptyFilters = { search: "", category: "" };
 
-const activeOptions = [
-  { value: "", label: "الكل" },
-  { value: "true", label: "نشط" },
-  { value: "false", label: "غير نشط" },
-];
-
-export default function EmployeesPage() {
-  const navigate = useNavigate();
+export default function EmployeeTransactionsListPage({
+  title,
+  subtitle,
+  categoryOptions,
+  categoryKeys,
+  emptyIcon: EmptyIcon,
+  emptyLabel,
+  onView,
+}) {
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   const { data, isLoading, isFetching, isError, refetch } =
-    useGetEmployeesQuery({
+    useGetEmployeeTransactionsQuery({
       PageNumber: page,
       PageSize: pageSize,
       Search: applied.search || undefined,
-      EmployeeType: applied.employeeType || undefined,
-      IsActive:
-        applied.isActive === "" ? undefined : applied.isActive === "true",
     });
 
-  const [deleteEmployee] = useDeleteEmployeeMutation();
+  const [deleteTransaction] = useDeleteEmployeeTransactionMutation();
+
+  // فلترة client-side على التصنيفات الخاصة بالصفحة دي (mock)
+  const rows = useMemo(() => {
+    const items = data?.items || [];
+    return items
+      .map((t) => ({ ...t, ...parseCategory(t.notes) }))
+      .filter((t) => categoryKeys.includes(t.category))
+      .filter((t) =>
+        applied.category ? t.category === applied.category : true,
+      );
+  }, [data, categoryKeys, applied.category]);
 
   const setField = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -68,24 +78,24 @@ export default function EmployeesPage() {
     setPage(1);
   };
 
-  const openAddModal = () => {
-    setEditingEmployee(null);
-    setShowFormModal(true);
+  const openAdd = () => {
+    setEditing(null);
+    setShowModal(true);
   };
 
-  const openEditModal = (employee) => {
-    setEditingEmployee(employee);
-    setShowFormModal(true);
+  const openEdit = (row) => {
+    setEditing(row);
+    setShowModal(true);
   };
 
-  const handleDelete = (employee) => {
-    toast(`حذف "${employee.name}"؟`, {
+  const handleDelete = (row) => {
+    toast(`حذف الحركة؟`, {
       description: "الإجراء ده لا يمكن التراجع عنه",
       action: {
         label: "تأكيد الحذف",
         onClick: async () => {
           try {
-            await deleteEmployee(employee.code).unwrap();
+            await deleteTransaction(row.id).unwrap();
             toast.success("تم الحذف بنجاح");
           } catch {
             toast.error("حصل خطأ أثناء الحذف، حاول تاني");
@@ -97,76 +107,38 @@ export default function EmployeesPage() {
     });
   };
 
-  const activeFiltersCount = useMemo(
-    () =>
-      Object.values(applied).filter((v) => v !== "" && v !== undefined).length,
-    [applied],
-  );
-
-  const employees = data?.employees || [];
-
   return (
     <div className="animate-fadeUp space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold text-ink-900">
-            الموظفين
+            {title}
           </h2>
-          <p className="text-sm text-ink-400 mt-1">
-            إدارة بيانات الموظفين والأجور
-          </p>
+          <p className="text-sm text-ink-400 mt-1">{subtitle}</p>
         </div>
-        <Button onClick={openAddModal}>
+        <Button onClick={openAdd}>
           <Plus size={16} />
-          إضافة موظف
+          إضافة
         </Button>
       </div>
 
-      {data?.summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
-            <p className="text-xs text-ink-400 mb-1">الموظفين الشهريين</p>
-            <p className="text-lg font-bold num text-ink-900">
-              {data.summary.totalMonthlyEmployees}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
-            <p className="text-xs text-ink-400 mb-1">الموظفين اليوميين</p>
-            <p className="text-lg font-bold num text-ink-900">
-              {data.summary.totalDailyEmployees}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* الفلاتر */}
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Input
             label="بحث"
             value={draft.search}
             onChange={(e) => setField("search", e.target.value)}
-            placeholder="اسم الموظف أو الرقم..."
+            placeholder="اسم الموظف..."
           />
           <div>
             <label className="block text-xs font-medium text-ink-400 mb-1">
-              نوع الأجر
+              النوع
             </label>
             <CompactSelect
-              options={employeeTypeOptions}
-              value={draft.employeeType}
-              onChange={(val) => setField("employeeType", val)}
+              options={categoryOptions}
+              value={draft.category}
+              onChange={(val) => setField("category", val)}
               placeholder="الكل"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
-              الحالة
-            </label>
-            <CompactSelect
-              options={activeOptions}
-              value={draft.isActive}
-              onChange={(val) => setField("isActive", val)}
             />
           </div>
           <div className="flex items-end gap-2">
@@ -179,22 +151,14 @@ export default function EmployeesPage() {
             </Button>
           </div>
         </div>
-        {activeFiltersCount > 0 && (
-          <p className="text-[11px] text-ink-400 mt-2">
-            {activeFiltersCount} فلتر مفعّل
-          </p>
-        )}
       </div>
 
-      {/* الجدول */}
       {isLoading ? (
         <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card overflow-hidden">
           <div className="h-10 bg-ink-900/[0.03] border-b border-ink-400/10" />
           <div className="divide-y divide-ink-400/5">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-3 py-3">
-                <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
-                <div className="h-3.5 w-32 rounded bg-ink-400/10 animate-pulse" />
                 <div className="h-3.5 w-24 rounded bg-ink-400/10 animate-pulse" />
                 <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
                 <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
@@ -210,7 +174,7 @@ export default function EmployeesPage() {
             strokeWidth={1.6}
           />
           <p className="text-ink-900 font-medium text-sm mb-1">
-            حدث خطأ في تحميل بيانات الموظفين
+            حدث خطأ في تحميل البيانات
           </p>
           <button
             onClick={refetch}
@@ -220,20 +184,21 @@ export default function EmployeesPage() {
             إعادة المحاولة
           </button>
         </div>
-      ) : employees.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-ink-400/20 rounded-2xl">
-          <div className="w-14 h-14 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
-            <Users size={24} className="text-ink-400/50" strokeWidth={1.6} />
-          </div>
-          <p className="text-ink-900 font-medium text-sm mb-1">
-            لا يوجد موظفين
-          </p>
-          <p className="text-xs text-ink-400 mb-4">
-            جرّب تعديل الفلاتر أو أضف موظف جديد
-          </p>
-          <Button onClick={openAddModal} variant="outline">
+          {EmptyIcon && (
+            <div className="w-14 h-14 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
+              <EmptyIcon
+                size={24}
+                className="text-ink-400/50"
+                strokeWidth={1.6}
+              />
+            </div>
+          )}
+          <p className="text-ink-900 font-medium text-sm mb-1">{emptyLabel}</p>
+          <Button onClick={openAdd} variant="outline" className="mt-3">
             <Plus size={14} />
-            إضافة موظف
+            إضافة
           </Button>
         </div>
       ) : (
@@ -241,23 +206,23 @@ export default function EmployeesPage() {
           <div
             className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 ${isFetching ? "opacity-60" : ""}`}
           >
-            <table className="w-full text-right border-collapse min-w-[900px]">
+            <table className="w-full text-right border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    رقم الموظف
+                    الموظف
                   </th>
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    اسم الموظف
+                    النوع
                   </th>
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    الوظيفة
+                    التاريخ
                   </th>
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    نوع الأجر
+                    الوصف
                   </th>
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    الراتب الأساسي
+                    القيمة
                   </th>
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     الحالة
@@ -266,65 +231,58 @@ export default function EmployeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {employees.map((emp, idx) => (
+                {rows.map((r, idx) => (
                   <tr
-                    key={emp.code}
+                    key={r.id}
                     className="border-b border-ink-400/5 last:border-0 hover:bg-primary-50/30 transition-colors animate-fadeUp"
                     style={{ animationDelay: `${Math.min(idx, 12) * 25}ms` }}
                   >
-                    <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5">
-                      {emp.code}
+                    <td className="p-2.5 text-sm text-ink-900 border-l border-ink-400/5">
+                      {r.employeeName}
                     </td>
-                    <td className="p-2.5 border-l border-ink-400/5">
-                      <button
-                        onClick={() =>
-                          navigate(`/dashboard/payroll/employees/${emp.code}`)
-                        }
-                        className="text-primary-600 hover:text-primary-700 hover:underline text-sm font-medium transition-colors"
-                      >
-                        {emp.name}
-                      </button>
+                    <td className="p-2.5 text-xs text-ink-700 border-l border-ink-400/5">
+                      {categoryLabel(r.category)}
                     </td>
-                    <td className="p-2.5 text-ink-700 text-xs border-l border-ink-400/5">
-                      {emp.jobTitle}
+                    <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                      {r.transactionDate}
                     </td>
-                    <td className="p-2.5 text-ink-700 text-xs border-l border-ink-400/5">
-                      {emp.employeeType === "Daily" ? "يومي" : "شهري"}
+                    <td className="p-2.5 text-xs text-ink-600 max-w-[200px] truncate border-l border-ink-400/5">
+                      {r.cleanNotes || "—"}
                     </td>
-                    <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5">
-                      {fmtMoney(emp.salary)}
+                    <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                      {fmtMoney(r.amount)}
                     </td>
                     <td className="p-2.5 border-l border-ink-400/5">
                       <span
                         className={
-                          emp.isActive
+                          r.isProcessed
                             ? "inline-block text-emerald-700 text-xs font-semibold bg-emerald-700/10 px-2 py-0.5 rounded-full"
-                            : "inline-block text-red-500 text-xs font-semibold bg-red-500/10 px-2 py-0.5 rounded-full"
+                            : "inline-block text-amber-600 text-xs font-semibold bg-amber-50 px-2 py-0.5 rounded-full"
                         }
                       >
-                        {emp.isActive ? "نشط" : "غير نشط"}
+                        {r.isProcessed ? "تم الترحيل" : "معلّق"}
                       </span>
                     </td>
                     <td className="p-2.5">
                       <div className="flex items-center gap-1">
+                        {onView && (
+                          <button
+                            onClick={() => onView(r)}
+                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            title="عرض"
+                          >
+                            <Eye size={15} />
+                          </button>
+                        )}
                         <button
-                          onClick={() =>
-                            navigate(`/dashboard/payroll/employees/${emp.code}`)
-                          }
-                          className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                          title="عرض"
-                        >
-                          <Eye size={15} />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(emp)}
+                          onClick={() => openEdit(r)}
                           className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                           title="تعديل"
                         >
                           <Pencil size={15} />
                         </button>
                         <button
-                          onClick={() => handleDelete(emp)}
+                          onClick={() => handleDelete(r)}
                           className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
                           title="حذف"
                         >
@@ -353,10 +311,12 @@ export default function EmployeesPage() {
         </>
       )}
 
-      <EmployeeFormModal
-        isOpen={showFormModal}
-        onClose={() => setShowFormModal(false)}
-        employee={editingEmployee}
+      <TransactionFormModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        transaction={editing}
+        categoryOptions={categoryOptions}
+        title={title}
       />
     </div>
   );

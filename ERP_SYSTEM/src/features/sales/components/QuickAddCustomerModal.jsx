@@ -16,7 +16,6 @@ import {
 import { useUpsertStoreContainersMutation } from "../../storeContainers/storeContainersApi";
 
 const customerSchema = z.object({
-  code: z.string().min(1, "كود العميل مطلوب"),
   name: z.string().min(2, "اسم العميل مطلوب"),
   currency: z.enum(["EGP", "USD"]),
   address: z.string().optional(),
@@ -24,14 +23,12 @@ const customerSchema = z.object({
 });
 
 const storeSchema = z.object({
-  code: z.string().min(1, "كود المخزن مطلوب"),
   name: z.string().min(2, "اسم المخزن مطلوب"),
   isContainerStore: z.boolean(),
   address: z.string().optional(),
 });
 
 const newContainerSchema = z.object({
-  code: z.string().min(1, "الكود مطلوب"),
   name: z.string().min(1, "الاسم مطلوب"),
   description: z.string().optional(),
 });
@@ -52,8 +49,8 @@ export default function CustomerContainerSetupWizard({
   const isAdmin = roles.includes("Admin") || roles.includes("CompanyOwner");
 
   const [step, setStep] = useState(STEP.CUSTOMER);
-  const [customer, setCustomer] = useState(null); // { id, code, name, address }
-  const [store, setStore] = useState(null); // { id, code, name }
+  const [customer, setCustomer] = useState(null);
+  const [store, setStore] = useState(null);
   const [selectedContainerIds, setSelectedContainerIds] = useState([]);
   const [showAddContainer, setShowAddContainer] = useState(false);
 
@@ -63,7 +60,6 @@ export default function CustomerContainerSetupWizard({
   const [upsertStoreContainers, { isLoading: isFinishing }] =
     useUpsertStoreContainersMutation();
 
-  // Company isolation: refetch containers whenever the wizard (re)opens
   const {
     data: containers = [],
     isFetching: isLoadingContainers,
@@ -91,7 +87,6 @@ export default function CustomerContainerSetupWizard({
   } = useForm({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      code: "",
       name: "",
       currency: "EGP",
       address: "",
@@ -104,7 +99,6 @@ export default function CustomerContainerSetupWizard({
   const submitCustomer = async (data) => {
     try {
       const created = await createParty({
-        code: data.code,
         name: data.name,
         currency: data.currency,
         address: data.address,
@@ -131,7 +125,6 @@ export default function CustomerContainerSetupWizard({
     resolver: zodResolver(storeSchema),
     values: customer
       ? {
-          code: `CONT-${customer.code}`,
           name: `${customer.name} Container Store`,
           isContainerStore: true,
           address: customer.address ?? "",
@@ -234,11 +227,6 @@ export default function CustomerContainerSetupWizard({
           className="space-y-4"
         >
           <Input
-            label="كود العميل"
-            {...registerCustomer("code")}
-            error={customerErrors.code?.message}
-          />
-          <Input
             label="اسم العميل"
             {...registerCustomer("name")}
             error={customerErrors.name?.message}
@@ -289,11 +277,6 @@ export default function CustomerContainerSetupWizard({
 
       {step === STEP.STORE && (
         <form onSubmit={handleSubmitStore(submitStore)} className="space-y-4">
-          <Input
-            label="الكود"
-            {...registerStore("code")}
-            error={storeErrors.code?.message}
-          />
           <Input
             label="الاسم"
             {...registerStore("name")}
@@ -390,11 +373,6 @@ export default function CustomerContainerSetupWizard({
                 onSubmit={handleSubmitNewContainer(submitNewContainer)}
                 className="space-y-4"
               >
-                <Input
-                  label="الكود"
-                  {...registerNewContainer("code")}
-                  error={newContainerErrors.code?.message}
-                />
                 <Input
                   label="الاسم"
                   {...registerNewContainer("name")}
