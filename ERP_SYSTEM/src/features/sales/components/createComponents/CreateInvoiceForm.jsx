@@ -164,7 +164,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     partyName: "",
     currency: "EGP",
     driverId: "",
-    actualDriverId: "",
+    actualDriverName: "",
     driverName: "",
     storeId: "",
     countryId: "",
@@ -834,16 +834,18 @@ export default function CreateInvoiceForm({ onSuccess }) {
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               السائق الفعلي
             </div>
-            <CompactSelect
-              label="السائق الفعلي"
-              options={
-                drivers?.map((d) => ({ value: d.id, label: d.name })) || []
+            <input
+              type="text"
+              value={header.actualDriverName}
+              onChange={(e) =>
+                setHeaderField("actualDriverName", e.target.value)
               }
-              value={header.actualDriverId}
-              onChange={(val) => setHeaderField("actualDriverId", val)}
-              placeholder="اختر السائق الفعلي (اختياري)"
+              placeholder="اكتب اسم السائق الفعلي (اختياري)"
+              className="flex-1 px-3 py-2 text-sm outline-none focus-visible:bg-ink-900/[0.02]"
+              aria-label="اسم السائق الفعلي"
             />
           </div>
+
           <LedgerField
             label="رقم السيارة"
             value={header.carNumber}

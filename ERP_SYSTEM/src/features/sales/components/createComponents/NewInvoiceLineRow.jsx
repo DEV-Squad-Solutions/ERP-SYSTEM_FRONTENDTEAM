@@ -298,15 +298,29 @@ function InvoiceLineRow({
         )}
       </td>
 
-      <td className="p-2 w-[110px]">
-        <div className={`${readonlyCls} font-medium`}>
-          {isReturnLine
-            ? `متاح: ${line.maxReturnQuantity ?? "-"}`
-            : line.isTemporaryItem || !line.itemId
-              ? "-"
-              : isLoadingBalance
-                ? "..."
-                : Number(balanceData?.balance ?? 0).toLocaleString("ar-EG")}
+      <td className="p-2 w-[130px]">
+        <div
+          className={`${readonlyCls} !text-right !bg-ink-400/5 flex flex-col gap-0.5 leading-tight px-2.5 py-1.5`}
+        >
+          {isReturnLine ? (
+            <span className="font-medium">
+              متاح: {line.maxReturnQuantity ?? "-"}
+            </span>
+          ) : line.isTemporaryItem || !line.itemId ? (
+            <span>-</span>
+          ) : isLoadingBalance ? (
+            <span>...</span>
+          ) : (
+            <>
+              <span className="font-medium">
+                {Number(balanceData?.balance ?? 0).toLocaleString("ar-EG")}
+              </span>
+              <span className="text-[10px] text-ink-400">
+                متوسط التكلفة:{" "}
+                {Number(balanceData?.averageCost ?? 0).toLocaleString("ar-EG")}
+              </span>
+            </>
+          )}
         </div>
       </td>
 

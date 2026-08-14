@@ -2,14 +2,13 @@ import { baseApi } from "../../lib/baseApi";
 
 export const containersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // GET /Containers يرجع شكل paginated: { items, pageNumber, pageSize, totalCount, totalPages }
+    // GET Containers يرجع { items, pageNumber, pageSize, totalCount, totalPages }
     getContainers: builder.query({
       query: (params) => ({ url: "/Containers", method: "GET", params }),
-      transformResponse: (response) => response.items,
       providesTags: (result) =>
-        result
+        result?.items
           ? [
-              ...result.map((c) => ({ type: "Container", id: c.id })),
+              ...result.items.map((c) => ({ type: "Container", id: c.id })),
               { type: "Container", id: "LIST" },
             ]
           : [{ type: "Container", id: "LIST" }],

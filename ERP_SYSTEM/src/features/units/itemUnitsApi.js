@@ -7,17 +7,16 @@ export const itemUnitsApi = baseApi.injectEndpoints({
       providesTags: ["ItemUnit"],
     }),
 
-    // GET ItemUnits يرجع شكل paginated: { items, pageNumber, pageSize, totalCount, totalPages }
+    // GET ItemUnits يرجع { items, pageNumber, pageSize, totalCount, totalPages }
     getItemUnits: builder.query({
       query: (params) => ({
         url: "ItemUnits",
         params,
       }),
-      transformResponse: (response) => response.items,
       providesTags: (result) =>
-        result
+        result?.items
           ? [
-              ...result.map((u) => ({ type: "ItemUnit", id: u.id })),
+              ...result.items.map((u) => ({ type: "ItemUnit", id: u.id })),
               { type: "ItemUnit", id: "LIST" },
             ]
           : [{ type: "ItemUnit", id: "LIST" }],

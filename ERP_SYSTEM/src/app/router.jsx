@@ -32,6 +32,7 @@ import PermissionsPage from "../features/permissions/pages/PermissionsPage";
 import CashMovementTypesListPage from "../features/cashMovementTypes/pages/CashMovementTypesListPage";
 import UnitsPage from "../features/units/pages/UnitsPage";
 import PackagingUnitsPage from "../features/containers/pages/PackagingUnitsPage";
+import CountriesPage from "../features/countries/pages/CountriesPage";
 
 function ComingSoon({ title }) {
   return (
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
         path: "partners/opening-balances",
         element: <PartnerOpeningBalancesPage />,
       },
+      { path: "partners/countries", element: <CountriesPage /> },
       { path: "drivers", element: <DriversListPage /> },
       { path: "drivers/:driverId", element: <DriverDetailPage /> },
       { path: "drivers/trip-costs", element: <DriverTripCostEntryPage /> },

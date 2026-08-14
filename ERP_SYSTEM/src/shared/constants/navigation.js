@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   Ruler,
   PackageOpen,
+  Globe,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -52,6 +53,11 @@ export const navigationItems = [
         label: "أرصدة افتتاحية",
         path: "/dashboard/partners/opening-balances",
         icon: History,
+      },
+      {
+        label: "الدول",
+        path: "/dashboard/partners/countries",
+        icon: Globe,
       },
     ],
   },

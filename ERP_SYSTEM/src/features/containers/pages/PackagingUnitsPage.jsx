@@ -1,5 +1,11 @@
-import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  SlidersHorizontal,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -9,20 +15,47 @@ import {
 import ContainerFormModal from "../components/ContainerFormModal";
 import Modal from "../../../shared/components/ui/Modal";
 import Button from "../../../shared/components/ui/Button";
+import Pagination from "../../../shared/components/ui/Pagination";
 
 export default function PackagingUnitsPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingContainer, setEditingContainer] = useState(null);
   const [deletingContainer, setDeletingContainer] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const filtersRef = useRef(null);
 
-  const {
-    data: containers = [],
-    isLoading,
-    isError,
-    refetch,
-  } = useGetContainersQuery();
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [filters, setFilters] = useState({
+    search: "",
+    code: "",
+    isActive: "",
+  });
+
+  const { data, isLoading, isError, refetch, isFetching } =
+    useGetContainersQuery({
+      pageNumber: page,
+      pageSize,
+      search: filters.search || undefined,
+      code: filters.code || undefined,
+      isActive:
+        filters.isActive === "" ? undefined : filters.isActive === "true",
+    });
+
+  const containers = data?.items ?? [];
   const [deleteContainer, { isLoading: isDeleting }] =
     useDeleteContainerMutation();
+
+  const handleChange = (key) => (e) => {
+    setPage(1);
+    setFilters((f) => ({ ...f, [key]: e.target.value }));
+  };
+
+  const resetFilters = () => {
+    setPage(1);
+    setFilters({ search: "", code: "", isActive: "" });
+  };
+  const hasActiveFilters = filters.search || filters.code || filters.isActive;
 
   const openCreate = () => {
     setEditingContainer(null);
@@ -57,10 +90,77 @@ export default function PackagingUnitsPage() {
           </p>
         </div>
 
-        <Button onClick={openCreate}>
-          <Plus size={16} />
-          عبوة جديدة
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative" ref={filtersRef}>
+            <Button variant="outline" onClick={() => setShowFilters((s) => !s)}>
+              <SlidersHorizontal size={16} />
+              فلاتر
+              {hasActiveFilters && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-700 mr-1" />
+              )}
+            </Button>
+
+            {showFilters && (
+              <div className="absolute left-0 mt-2 w-80 bg-white border border-ink-400/10 rounded-2xl shadow-lg p-4 z-20 space-y-3">
+                <div>
+                  <label className="block text-xs text-ink-400 mb-1.5">
+                    بحث
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={handleChange("search")}
+                    placeholder="ابحث بالاسم..."
+                    className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-ink-400 mb-1.5">
+                    الكود
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.code}
+                    onChange={handleChange("code")}
+                    placeholder="مثال: CTN-001"
+                    className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-ink-400 mb-1.5">
+                    الحالة
+                  </label>
+                  <select
+                    value={filters.isActive}
+                    onChange={handleChange("isActive")}
+                    className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+                  >
+                    <option value="">الكل</option>
+                    <option value="true">نشطة</option>
+                    <option value="false">غير نشطة</option>
+                  </select>
+                </div>
+
+                {hasActiveFilters && (
+                  <button
+                    onClick={resetFilters}
+                    className="flex items-center gap-1.5 text-xs text-ink-400 hover:text-emerald-700 pt-1"
+                  >
+                    <RotateCcw size={12} />
+                    إعادة تعيين الفلاتر
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <Button onClick={openCreate}>
+            <Plus size={16} />
+            عبوة جديدة
+          </Button>
+        </div>
       </div>
 
       {isLoading && (
@@ -85,7 +185,7 @@ export default function PackagingUnitsPage() {
 
       {!isLoading && !isError && containers.length === 0 && (
         <div className="text-center py-20 border border-dashed border-ink-400/20 rounded-2xl">
-          <p className="text-ink-400 mb-3">لا توجد عبوات مضافة بعد</p>
+          <p className="text-ink-400 mb-3">لا توجد عبوات مطابقة</p>
           <Button onClick={openCreate}>
             <Plus size={16} />
             إضافة أول عبوة
@@ -94,7 +194,11 @@ export default function PackagingUnitsPage() {
       )}
 
       {!isLoading && !isError && containers.length > 0 && (
-        <div className="bg-white border border-ink-400/10 rounded-2xl overflow-hidden">
+        <div
+          className={`bg-white border border-ink-400/10 rounded-2xl overflow-hidden transition-opacity duration-200 ${
+            isFetching ? "opacity-60" : ""
+          }`}
+        >
           <table className="w-full text-right">
             <thead>
               <tr className="border-b border-ink-400/10 text-xs text-ink-400 bg-ink-400/5">
@@ -152,6 +256,17 @@ export default function PackagingUnitsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {data?.totalCount > 0 && (
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalCount={data.totalCount}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          label="عبوة"
+        />
       )}
 
       <ContainerFormModal
