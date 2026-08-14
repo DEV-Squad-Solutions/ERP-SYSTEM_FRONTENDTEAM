@@ -25,6 +25,10 @@ import {
   Ruler,
   PackageOpen,
   Globe,
+  CreditCard,
+  MinusCircle,
+  Clock,
+  Timer,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -132,7 +136,54 @@ export const navigationItems = [
     ],
   },
   { label: "المصاريف", path: "/dashboard/expenses", icon: Receipt },
-  { label: " الأجور -المرتبات", path: "/dashboard/assets", icon: Building },
+
+  {
+    label: "الأجور والمرتبات",
+    icon: DollarSignIcon,
+    children: [
+      {
+        label: "لوحة التحكم",
+        path: "/dashboard/payroll",
+        icon: LayoutDashboard,
+        end: true,
+      },
+      {
+        label: "الموظفين",
+        path: "/dashboard/payroll/employees",
+        icon: Users,
+      },
+      {
+        label: "المرتبات",
+        path: "/dashboard/payroll/salaries",
+        icon: WalletCardsIcon,
+      },
+      {
+        label: "الحضور والانصراف",
+        path: "/dashboard/payroll/attendance",
+        icon: Clock,
+      },
+      {
+        label: "الإضافي والبدلات",
+        path: "/dashboard/payroll/overtime",
+        icon: Timer,
+      },
+      {
+        label: "الخصومات",
+        path: "/dashboard/payroll/deductions",
+        icon: MinusCircle,
+      },
+      {
+        label: "السلف",
+        path: "/dashboard/payroll/advances",
+        icon: CreditCard,
+      },
+      {
+        label: "التقارير",
+        path: "/dashboard/payroll/reports",
+        icon: FileBarChart,
+      },
+    ],
+  },
   {
     label: " ميزان المراجعة",
     path: "/dashboard/reconciliation",

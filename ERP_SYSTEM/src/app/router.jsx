@@ -33,6 +33,9 @@ import CashMovementTypesListPage from "../features/cashMovementTypes/pages/CashM
 import UnitsPage from "../features/units/pages/UnitsPage";
 import PackagingUnitsPage from "../features/containers/pages/PackagingUnitsPage";
 import CountriesPage from "../features/countries/pages/CountriesPage";
+import EmployeeDetailPage from "../features/payroll/pages/EmployeeDetailPage";
+import EmployeesPage from "../features/payroll/pages/EmployeesPage";
+import PayrollDashboardPage from "../features/payroll/pages/PayrollDashboardPage";
 
 function ComingSoon({ title }) {
   return (
@@ -105,6 +108,31 @@ export const router = createBrowserRouter([
       { path: "inventory/units", element: <UnitsPage /> },
       { path: "inventory/containers", element: <PackagingUnitsPage /> },
       { path: "expenses", element: <ComingSoon title="المصاريف" /> },
+      { path: "payroll", element: <PayrollDashboardPage /> },
+      { path: "payroll/employees", element: <EmployeesPage /> },
+      {
+        path: "payroll/employees/:employeeCode",
+        element: <EmployeeDetailPage />,
+      },
+      { path: "payroll/salaries", element: <ComingSoon title="المرتبات" /> },
+      {
+        path: "payroll/salaries/:id",
+        element: <ComingSoon title="تفاصيل المرتب" />,
+      },
+      {
+        path: "payroll/attendance",
+        element: <ComingSoon title="الحضور والانصراف" />,
+      },
+      {
+        path: "payroll/overtime",
+        element: <ComingSoon title="الإضافي والبدلات" />,
+      },
+      { path: "payroll/deductions", element: <ComingSoon title="الخصومات" /> },
+      { path: "payroll/advances", element: <ComingSoon title="السلف" /> },
+      {
+        path: "payroll/reports",
+        element: <ComingSoon title="تقارير الأجور" />,
+      },
 
       {
         path: "adjusted-trial-balance",
