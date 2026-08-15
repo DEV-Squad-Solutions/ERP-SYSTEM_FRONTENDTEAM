@@ -278,7 +278,7 @@ export default function EmployeesPage() {
                     <td className="p-2.5 border-l border-ink-400/5">
                       <button
                         onClick={() =>
-                          navigate(`/dashboard/payroll/employees/${emp.code}`)
+                          navigate(`/dashboard/payroll/employees/${emp.id}`)
                         }
                         className="text-primary-600 hover:text-primary-700 hover:underline text-sm font-medium transition-colors"
                       >

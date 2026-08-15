@@ -7,7 +7,7 @@
 //
 // عشان تشغّل/توقف الـmocks: غيّر القيمة تحت في السطر الأول بس.
 
-export const USE_MOCKS = true;
+export const USE_MOCKS = false;
 
 const mockDelay = (ms = 350) => new Promise((res) => setTimeout(res, ms));
 

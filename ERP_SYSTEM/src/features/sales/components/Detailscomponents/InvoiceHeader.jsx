@@ -95,7 +95,11 @@ export default function InvoiceHeader({ invoice, onAction, isFetching }) {
           </button>
 
           <button
-            onClick={() => onAction("packaging")}
+            onClick={() =>
+              navigate(
+                `/dashboard/stores/containers/${invoice.businessPartnerId}`,
+              )
+            }
             className="p-2 rounded-lg text-gold-600 hover:bg-gold-50 transition-colors"
             title="مخزن العبوات"
           >

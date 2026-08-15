@@ -4,18 +4,57 @@ import { baseApi } from "../../lib/baseApi";
 export const cashboxesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCashboxes: builder.query({
-      query: ({ pageNumber = 1, pageSize = 20, search } = {}) => ({
+      query: ({
+        pageNumber = 1,
+        pageSize = 12,
+        search,
+        code,
+        name,
+        currency,
+        isActive,
+      } = {}) => ({
         url: "/Cashboxes",
         method: "GET",
-        params: { pageNumber, pageSize, ...(search ? { search } : {}) },
+        params: {
+          pageNumber,
+          pageSize,
+          ...(search?.trim() && {
+            search: search.trim(),
+          }),
+          ...(code?.trim() && {
+            code: code.trim(),
+          }),
+          ...(name?.trim() && {
+            name: name.trim(),
+          }),
+          ...(currency && {
+            currency,
+          }),
+          ...(isActive !== undefined &&
+            isActive !== "" && {
+              isActive: isActive === "true",
+            }),
+        },
       }),
+
       providesTags: (result) =>
         result?.items
           ? [
-              ...result.items.map((c) => ({ type: "Cashbox", id: c.id })),
-              { type: "Cashbox", id: "LIST" },
+              ...result.items.map((cashbox) => ({
+                type: "Cashbox",
+                id: cashbox.id,
+              })),
+              {
+                type: "Cashbox",
+                id: "LIST",
+              },
             ]
-          : [{ type: "Cashbox", id: "LIST" }],
+          : [
+              {
+                type: "Cashbox",
+                id: "LIST",
+              },
+            ],
     }),
 
     getCashboxOptions: builder.query({
@@ -58,14 +97,6 @@ export const cashboxesApi = baseApi.injectEndpoints({
         { type: "Cashbox", id: "OPTIONS" },
       ],
     }),
-    transferBetweenCashboxes: builder.mutation({
-      query: (data) => ({
-        url: "Cashboxes/transfer",
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: [{ type: "Cashbox", id: "LIST" }],
-    }),
   }),
   overrideExisting: false,
 });
@@ -77,5 +108,4 @@ export const {
   useCreateCashboxMutation,
   useUpdateCashboxMutation,
   useDeleteCashboxMutation,
-  useTransferBetweenCashboxesMutation,
 } = cashboxesApi;

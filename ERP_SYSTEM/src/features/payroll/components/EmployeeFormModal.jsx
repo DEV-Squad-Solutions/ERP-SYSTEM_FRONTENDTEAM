@@ -1,8 +1,4 @@
-// features/payroll/components/TransactionFormModal.jsx
-//
-// كومبوننت واحد بيتعاد استخدامه في 3 صفحات (الإضافي والبدلات / الخصومات / السلف)
-// بيفرق بينهم بس عن طريق "categoryOptions" اللي بتتبعت له. راجع تعليق
-// TRANSACTION_CATEGORY في payroll.constants.js لتفاصيل الـmock.
+ 
 
 import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -14,45 +10,50 @@ import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import {
-  useCreateEmployeeTransactionMutation,
-  useUpdateEmployeeTransactionMutation,
-  useGetEmployeesSelectQuery,
+  useCreateEmployeeMutation,
+  useUpdateEmployeeMutation,
 } from "../payrollApi";
-import {
-  encodeCategory,
-  parseCategory,
-  TRANSACTION_CATEGORY,
-} from "../payroll.constants";
+import { employeeTypeOptions } from "../payroll.constants";
 
 const schema = z.object({
-  employeeId: z.string().min(1, "الموظف مطلوب"),
-  category: z.string().min(1, "النوع مطلوب"),
-  transactionDate: z.string().min(1, "التاريخ مطلوب"),
-  amount: z.coerce.number().positive("القيمة لازم تكون أكبر من صفر"),
-  notes: z.string().optional(),
+  name: z.string().min(1, "اسم الموظف مطلوب"),
+  jobTitle: z.string().min(1, "الوظيفة مطلوبة"),
+  phoneNumber: z.string().optional(),
+  email: z
+    .string()
+    .email("بريد إلكتروني غير صحيح")
+    .optional()
+    .or(z.literal("")),
+  address: z.string().optional(),
+  type: z.string().min(1, "نوع الأجر مطلوب"),
+  salary: z.coerce.number().min(0, "لازم تكون قيمة موجبة"),
+  requiredWorkingDaysPerMonth: z.coerce.number().min(0).optional(),
+  isActive: z.boolean().default(true),
 });
 
 const defaultValues = {
-  employeeId: "",
-  category: "",
-  transactionDate: "",
-  amount: 0,
-  notes: "",
+  name: "",
+  jobTitle: "",
+  phoneNumber: "",
+  email: "",
+  address: "",
+  type: "Daily",
+  salary: 0,
+  requiredWorkingDaysPerMonth: 0,
+  isActive: true,
 };
 
-export default function TransactionFormModal({
+export default function EmployeeFormModal({
   isOpen,
   onClose,
-  transaction,
-  categoryOptions,
-  title,
+  employee,
+  onSaved,
 }) {
-  const isEdit = Boolean(transaction);
-  const { data: employees } = useGetEmployeesSelectQuery();
-  const [createTransaction, { isLoading: isCreating }] =
-    useCreateEmployeeTransactionMutation();
-  const [updateTransaction, { isLoading: isUpdating }] =
-    useUpdateEmployeeTransactionMutation();
+  const isEdit = Boolean(employee);
+  const [createEmployee, { isLoading: isCreating }] =
+    useCreateEmployeeMutation();
+  const [updateEmployee, { isLoading: isUpdating }] =
+    useUpdateEmployeeMutation();
   const isSubmitting = isCreating || isUpdating;
 
   const {
@@ -61,45 +62,45 @@ export default function TransactionFormModal({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(schema), defaultValues });
+  } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues,
+  });
 
-  const wasOpenRef = { current: false };
+   const wasOpenRef = { current: false };
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
-      if (transaction) {
-        const { category, cleanNotes } = parseCategory(transaction.notes);
-        reset({
-          employeeId: transaction.employeeId,
-          category: category || "",
-          transactionDate: transaction.transactionDate,
-          amount: transaction.amount,
-          notes: cleanNotes,
-        });
-      } else {
-        reset(defaultValues);
-      }
+      reset(
+        employee
+          ? {
+              name: employee.name,
+              jobTitle: employee.jobTitle,
+              phoneNumber: employee.phoneNumber || "",
+              email: employee.email || "",
+              address: employee.address || "",
+              type: employee.employeeType,  
+              salary: employee.salary,
+              requiredWorkingDaysPerMonth:
+                employee.requiredWorkingDaysPerMonth || 0,
+              isActive: employee.isActive,
+            }
+          : defaultValues,
+      );
     }
     wasOpenRef.current = isOpen;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const onSubmit = async (data) => {
-    const type = TRANSACTION_CATEGORY[data.category]?.type || "Debit";
-    const payload = {
-      employeeId: data.employeeId,
-      type,
-      amount: data.amount,
-      transactionDate: data.transactionDate,
-      notes: encodeCategory(data.category, data.notes),
-    };
     try {
       if (isEdit) {
-        await updateTransaction({ id: transaction.id, ...payload }).unwrap();
-        toast.success("تم التحديث بنجاح");
+        await updateEmployee({ id: employee.code, ...data }).unwrap();
+        toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
-        await createTransaction(payload).unwrap();
-        toast.success("تمت الإضافة بنجاح");
+        await createEmployee(data).unwrap();
+        toast.success("تم إضافة الموظف بنجاح");
       }
+      onSaved?.();
       onClose();
     } catch {
       toast.error("حصل خطأ أثناء الحفظ، حاول تاني");
@@ -110,78 +111,88 @@ export default function TransactionFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEdit ? `تعديل ${title}` : `إضافة ${title}`}
+      title={isEdit ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-ink-400 mb-1">
-            الموظف
-          </label>
-          <Controller
-            name="employeeId"
-            control={control}
-            render={({ field }) => (
-              <CompactSelect
-                options={
-                  employees?.map((e) => ({ value: e.id, label: e.name })) || []
-                }
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="اختر الموظف"
-              />
-            )}
-          />
-          {errors.employeeId && (
-            <p className="text-xs text-negative mt-1">
-              {errors.employeeId.message}
-            </p>
-          )}
-        </div>
+        {isEdit && (
+          <div className="text-xs text-ink-400">
+            رقم الموظف:{" "}
+            <span className="font-mono text-ink-700">{employee.code}</span>
+          </div>
+        )}
 
-        <div>
-          <label className="block text-xs font-medium text-ink-400 mb-1">
-            النوع
-          </label>
-          <Controller
-            name="category"
-            control={control}
-            render={({ field }) => (
-              <CompactSelect
-                options={categoryOptions}
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="اختر النوع"
-              />
-            )}
-          />
-          {errors.category && (
-            <p className="text-xs text-negative mt-1">
-              {errors.category.message}
-            </p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
-            label="التاريخ"
-            type="date"
-            {...register("transactionDate")}
-            error={errors.transactionDate?.message}
+            label="اسم الموظف"
+            {...register("name")}
+            error={errors.name?.message}
           />
           <Input
-            label="القيمة"
+            label="الوظيفة"
+            {...register("jobTitle")}
+            error={errors.jobTitle?.message}
+          />
+          <Input
+            label="رقم الهاتف"
+            {...register("phoneNumber")}
+            error={errors.phoneNumber?.message}
+          />
+          <Input
+            label="البريد الإلكتروني"
+            {...register("email")}
+            error={errors.email?.message}
+          />
+          <Input
+            label="العنوان"
+            {...register("address")}
+            error={errors.address?.message}
+          />
+
+          <div>
+            <label className="block text-xs font-medium text-ink-400 mb-1">
+              نوع الأجر
+            </label>
+            <Controller
+              name="type"
+              control={control}
+              render={({ field }) => (
+                <CompactSelect
+                  options={employeeTypeOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            {errors.type && (
+              <p className="text-xs text-negative mt-1">
+                {errors.type.message}
+              </p>
+            )}
+          </div>
+
+          <Input
+            label="الراتب الأساسي"
             type="number"
             step="0.01"
-            {...register("amount")}
-            error={errors.amount?.message}
+            {...register("salary")}
+            error={errors.salary?.message}
+          />
+          <Input
+            label="أيام العمل المطلوبة بالشهر"
+            type="number"
+            {...register("requiredWorkingDaysPerMonth")}
+            error={errors.requiredWorkingDaysPerMonth?.message}
           />
         </div>
 
-        <Input
-          label="الوصف"
-          {...register("notes")}
-          error={errors.notes?.message}
-        />
+        <label className="flex items-center gap-2 text-sm text-ink-700 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            {...register("isActive")}
+            className="rounded border-ink-400/30 accent-primary-500"
+          />
+          موظف نشط
+        </label>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-ink-400/10">
           <Button type="button" variant="outline" onClick={onClose}>

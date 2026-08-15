@@ -54,7 +54,7 @@ export const baseApi = createApi({
     "Cashbox",
     "CashMovementType",
     "CashVoucher",
-
+    "CashboxTransfer",
     // Countries
     "Country",
 

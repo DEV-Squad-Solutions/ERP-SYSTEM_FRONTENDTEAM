@@ -1,28 +1,15 @@
 // features/cashboxes/cashVouchersApi.js
-import { baseApi } from "../../lib/baseApi"; // عدّل المسار لو مختلف
+import { baseApi } from "../../lib/baseApi";
 
 export const cashVouchersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getCashVouchers: builder.query({
-      query: ({
-        cashboxId,
-        fromDate,
-        toDate,
-        pageNumber = 1,
-        pageSize = 20,
-      }) => ({
+      query: (params = {}) => ({
         url: "/CashVouchers",
-        params: {
-          CashboxId: cashboxId,
-          FromDate: fromDate || undefined,
-          ToDate: toDate || undefined,
-          PageNumber: pageNumber,
-          PageSize: pageSize,
-        },
+        method: "GET",
+        params,
       }),
-      providesTags: (result, error, arg) => [
-        { type: "CashVoucher", id: `LIST-${arg.cashboxId}` },
-      ],
+      providesTags: ["CashVouchers"],
     }),
 
     getCashVoucherById: builder.query({
@@ -37,7 +24,6 @@ export const cashVouchersApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // ⚠️ لسه محتاج تأكيد إن الـ endpoint ده موجود فعلاً عندك (مكنش في اللستة اللي بعتها الأول)
     updateCashVoucher: builder.mutation({
       query: ({ id, ...body }) => ({
         url: `/CashVouchers/${id}`,

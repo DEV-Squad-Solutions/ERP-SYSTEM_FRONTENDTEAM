@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -5,7 +6,10 @@ import { toast } from "sonner";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
-import { useTransferBetweenCashboxesMutation } from "../cashboxesApi";
+import {
+  useCreateCashboxTransferMutation,
+  useUpdateCashboxTransferMutation,
+} from "../cashboxTransfersApi";
 
 const schema = z
   .object({
@@ -35,15 +39,23 @@ const emptyValues = {
 };
 
 /**
- * @param {{ isOpen: boolean, onClose: () => void, cashboxes: Array, onDone?: () => void }} props
+ * @param {{ isOpen: boolean, onClose: () => void, cashboxes: Array, transfer?: object|null, onDone?: () => void }} props
  */
-export default function CashboxTransferModal({
+export default function CashboxTransferFormModal({
   isOpen,
   onClose,
   cashboxes = [],
-  onDone,
+  transfer = null,
+  onSaved,
 }) {
-  const [transfer, { isLoading }] = useTransferBetweenCashboxesMutation();
+  const isEdit = Boolean(transfer);
+  const cashboxOptions = Array.isArray(cashboxes) ? cashboxes : [];
+
+  const [createTransfer, { isLoading: isCreating }] =
+    useCreateCashboxTransferMutation();
+  const [updateTransfer, { isLoading: isUpdating }] =
+    useUpdateCashboxTransferMutation();
+  const isLoading = isCreating || isUpdating;
 
   const {
     register,
@@ -56,21 +68,46 @@ export default function CashboxTransferModal({
     defaultValues: emptyValues,
   });
 
+  useEffect(() => {
+    if (!isOpen) return;
+    reset(
+      transfer
+        ? {
+            fromCashboxId: transfer.sourceCashboxId,
+            toCashboxId: transfer.destinationCashboxId,
+            amount: transfer.amount,
+            date: transfer.transferDate?.slice(0, 10) ?? emptyValues.date,
+            notes: transfer.notes ?? "",
+          }
+        : emptyValues,
+    );
+  }, [transfer, isOpen, reset]);
+
   const onSubmit = async (values) => {
+    console.log("Submitting transfer form with values:", values);
     try {
-      await transfer(values).unwrap();
-      toast.success("تم التحويل بين الخزائن بنجاح");
-      reset(emptyValues);
-      onDone?.();
+      const saved = isEdit
+        ? await updateTransfer({
+            id: transfer.id,
+            rowVersion: transfer.rowVersion,
+            ...values,
+          }).unwrap()
+        : await createTransfer(values).unwrap();
+
+      toast.success(
+        isEdit ? "تم تعديل التحويل بنجاح" : "تم التحويل بين الخزائن بنجاح",
+      );
+      onSaved?.(saved);
       onClose();
-    } catch (err) {
-      const message = err?.data?.message ?? err?.data?.detail;
-      toast.error(message ?? "تعذر إتمام التحويل");
-    }
+    } catch (err) {}
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="تحويل بين الخزائن">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEdit ? "تعديل تحويل" : "تحويل بين الخزائن"}
+    >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Controller
           control={control}
@@ -80,7 +117,7 @@ export default function CashboxTransferModal({
               <label className="mb-1 block text-sm font-medium">من خزنة</label>
               <select {...field} className="w-full rounded-lg border px-3 py-2">
                 <option value="">اختر الخزنة</option>
-                {cashboxes.map((cb) => (
+                {cashboxOptions.map((cb) => (
                   <option key={cb.id} value={cb.id}>
                     {cb.name} ({cb.code}) —{" "}
                     {cb.currentBalance?.toLocaleString("ar-EG")} {cb.currency}
@@ -104,7 +141,7 @@ export default function CashboxTransferModal({
               <label className="mb-1 block text-sm font-medium">إلى خزنة</label>
               <select {...field} className="w-full rounded-lg border px-3 py-2">
                 <option value="">اختر الخزنة</option>
-                {cashboxes.map((cb) => (
+                {cashboxOptions.map((cb) => (
                   <option key={cb.id} value={cb.id}>
                     {cb.name} ({cb.code}) —{" "}
                     {cb.currentBalance?.toLocaleString("ar-EG")} {cb.currency}
@@ -146,7 +183,11 @@ export default function CashboxTransferModal({
             إلغاء
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "جاري التحويل..." : "تنفيذ التحويل"}
+            {isLoading
+              ? "جاري الحفظ..."
+              : isEdit
+                ? "حفظ التعديلات"
+                : "تنفيذ التحويل"}
           </Button>
         </div>
       </form>

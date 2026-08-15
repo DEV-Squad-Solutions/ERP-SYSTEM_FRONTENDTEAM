@@ -1,12 +1,29 @@
 // features/cashboxes/components/DescriptionPickerModal.jsx
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useMemo } from "react";
+
 import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
+
 import Modal from "../../../shared/components/ui/Modal";
+import CompactSelect from "../../../shared/components/ui/CompactSelect";
+
 const PARTY_TYPES = [
-  { value: "None", label: "بدون طرف", forPartner: false },
-  { value: "Partner", label: "عميل / مورد", forPartner: true },
-  { value: "Driver", label: "سائق", forPartner: false },
-  { value: "Other", label: "طرف آخر", forPartner: false },
+  {
+    value: "None",
+    label: "بدون طرف",
+  },
+  {
+    value: "Partner",
+    label: "عميل / مورد",
+  },
+  {
+    value: "Driver",
+    label: "سائق",
+  },
+  {
+    value: "Other",
+    label: "طرف آخر",
+  },
 ];
 
 /**
@@ -14,7 +31,11 @@ const PARTY_TYPES = [
  *   isOpen: boolean,
  *   onClose: () => void,
  *   onConfirm: (payload: {
- *     cashMovementType: {value, label, direction},
+ *     cashMovementType: {
+ *       value: number,
+ *       label: string,
+ *       direction: "Receipt" | "Payment"
+ *     },
  *     direction: "Receipt" | "Payment",
  *     partyType: string,
  *     businessPartner: {value, label} | null,
@@ -26,6 +47,7 @@ const PARTY_TYPES = [
  *   initialValue?: Object,
  * }}
  */
+
 export default function DescriptionPickerModal({
   isOpen,
   onClose,
@@ -40,47 +62,110 @@ export default function DescriptionPickerModal({
   const [driverId, setDriverId] = useState("");
   const [externalPartyName, setExternalPartyName] = useState("");
 
+  /*
+   * Initialize values when modal opens
+   */
   useEffect(() => {
-    if (isOpen) {
-      setPartyType(initialValue?.partyType || "None");
-      setMovementTypeId(initialValue?.cashMovementTypeId || "");
-      setBusinessPartnerId(initialValue?.businessPartnerId || "");
-      setDriverId(initialValue?.driverId || "");
-      setExternalPartyName(initialValue?.externalPartyName || "");
-    }
+    if (!isOpen) return;
+
+    setPartyType(initialValue?.partyType || "None");
+
+    setMovementTypeId(
+      initialValue?.cashMovementTypeId
+        ? String(initialValue.cashMovementTypeId)
+        : "",
+    );
+
+    setBusinessPartnerId(
+      initialValue?.businessPartnerId
+        ? String(initialValue.businessPartnerId)
+        : "",
+    );
+
+    setDriverId(initialValue?.driverId ? String(initialValue.driverId) : "");
+
+    setExternalPartyName(initialValue?.externalPartyName || "");
   }, [isOpen, initialValue]);
 
-  const forPartner =
-    PARTY_TYPES.find((p) => p.value === partyType)?.forPartner ?? false;
+  /*
+   * Determine whether movement types should be
+   * filtered for partners.
+   */
+  const forPartner = useMemo(() => {
+    return PARTY_TYPES.find((p) => p.value === partyType)?.value === "Partner";
+  }, [partyType]);
 
+  /*
+   * Cash Movement Types
+   */
   const { data: movementTypeOptions = [], isFetching: loadingTypes } =
-    useGetCashMovementTypeOptionsQuery({ forPartner }, { skip: !isOpen });
+    useGetCashMovementTypeOptionsQuery(
+      { forPartner },
+      {
+        skip: !isOpen,
+      },
+    );
 
+  /*
+   * If selected movement type is no longer available
+   * after changing party type, clear it.
+   */
   useEffect(() => {
-    if (
-      movementTypeId &&
-      !movementTypeOptions.some((t) => String(t.id) === String(movementTypeId))
-    ) {
+    if (!movementTypeId) return;
+
+    const exists = movementTypeOptions.some(
+      (type) => String(type.id) === String(movementTypeId),
+    );
+
+    if (!exists) {
       setMovementTypeId("");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movementTypeOptions, movementTypeId]);
+
+  /*
+   * Convert API options to CompactSelect options
+   */
+  const movementOptions = useMemo(() => {
+    return movementTypeOptions.map((type) => ({
+      value: String(type.id),
+      label: `${type.name} — ${type.direction === "Receipt" ? "وارد" : "صادر"}`,
+    }));
   }, [movementTypeOptions]);
 
-  if (!isOpen) return null;
+  const partnerOptions = useMemo(() => {
+    return partyOptions.map((party) => ({
+      value: String(party.id),
+      label: party.name,
+    }));
+  }, [partyOptions]);
 
+  const driverSelectOptions = useMemo(() => {
+    return driverOptions.map((driver) => ({
+      value: String(driver.id),
+      label: driver.name,
+    }));
+  }, [driverOptions]);
+
+  /*
+   * Confirm
+   */
   function handleConfirm() {
     const movementType = movementTypeOptions.find(
-      (t) => String(t.id) === String(movementTypeId),
+      (type) => String(type.id) === String(movementTypeId),
     );
+
     if (!movementType) return;
 
     const businessPartner =
       partyType === "Partner"
-        ? partyOptions.find((p) => String(p.id) === String(businessPartnerId))
+        ? partyOptions.find(
+            (party) => String(party.id) === String(businessPartnerId),
+          )
         : null;
+
     const driver =
       partyType === "Driver"
-        ? driverOptions.find((d) => String(d.id) === String(driverId))
+        ? driverOptions.find((driver) => String(driver.id) === String(driverId))
         : null;
 
     onConfirm({
@@ -89,130 +174,136 @@ export default function DescriptionPickerModal({
         label: movementType.name,
         direction: movementType.direction,
       },
-      direction: movementType.direction, // "Receipt" | "Payment" - جاي من النوع نفسه
+
+      direction: movementType.direction,
+
       partyType,
+
       businessPartner: businessPartner
-        ? { value: businessPartner.id, label: businessPartner.name }
+        ? {
+            value: businessPartner.id,
+            label: businessPartner.name,
+          }
         : null,
-      driver: driver ? { value: driver.id, label: driver.name } : null,
-      externalPartyName: partyType === "Other" ? externalPartyName : "",
+
+      driver: driver
+        ? {
+            value: driver.id,
+            label: driver.name,
+          }
+        : null,
+
+      externalPartyName: partyType === "Other" ? externalPartyName.trim() : "",
     });
+
     onClose();
   }
 
+  /*
+   * Validation
+   */
   const canConfirm =
-    movementTypeId &&
-    (partyType !== "Partner" || businessPartnerId) &&
-    (partyType !== "Driver" || driverId) &&
-    (partyType !== "Other" || externalPartyName.trim());
+    Boolean(movementTypeId) &&
+    (partyType !== "Partner" || Boolean(businessPartnerId)) &&
+    (partyType !== "Driver" || Boolean(driverId)) &&
+    (partyType !== "Other" || Boolean(externalPartyName.trim()));
+
+  if (!isOpen) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="توصيف الحركة">
-      <div className="space-y-4">
+      <div className="space-y-5">
+        {/* Party Type */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">
+          <label className="mb-2 block text-sm font-medium text-ink">
             نوع الطرف
           </label>
 
-          <div className="grid grid-cols-4 gap-2">
-            {PARTY_TYPES.map((p) => (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {PARTY_TYPES.map((party) => (
               <button
-                key={p.value}
+                key={party.value}
                 type="button"
                 onClick={() => {
-                  setPartyType(p.value);
+                  setPartyType(party.value);
+
                   setBusinessPartnerId("");
                   setDriverId("");
                   setExternalPartyName("");
+                  setMovementTypeId("");
                 }}
-                className={`rounded-xl border px-3 py-2 text-sm transition ${
-                  partyType === p.value
+                className={`rounded-xl border px-3 py-2.5 text-sm transition ${
+                  partyType === party.value
                     ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
                     : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
                 }`}
               >
-                {p.label}
+                {party.label}
               </button>
             ))}
           </div>
         </div>
 
+        {/* Movement Type */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink">
+          <label className="mb-1.5 block text-sm font-medium text-ink">
             نوع الحركة
           </label>
 
-          <select
+          <CompactSelect
+            options={movementOptions}
             value={movementTypeId}
-            onChange={(e) => setMovementTypeId(e.target.value)}
-            disabled={loadingTypes}
-            className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 disabled:opacity-50"
-          >
-            <option value="">
-              {loadingTypes ? "جاري التحميل..." : "اختر نوع الحركة"}
-            </option>
-
-            {movementTypeOptions.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} — {t.direction === "Receipt" ? "وارد" : "صادر"}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setMovementTypeId(value || "")}
+            isLoading={loadingTypes}
+            isDisabled={loadingTypes}
+            placeholder={
+              loadingTypes ? "جاري تحميل أنواع الحركة..." : "اختر نوع الحركة"
+            }
+          />
 
           {!loadingTypes && movementTypeOptions.length === 0 && (
-            <p className="mt-1 text-xs text-ink/50">
-              لا توجد أنواع حركة متاحة.
+            <p className="mt-1.5 text-xs text-ink/50">
+              لا توجد أنواع حركة متاحة لهذا النوع من الأطراف.
             </p>
           )}
         </div>
 
+        {/* Partner */}
         {partyType === "Partner" && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
               العميل / المورد
             </label>
 
-            <select
+            <CompactSelect
+              options={partnerOptions}
               value={businessPartnerId}
-              onChange={(e) => setBusinessPartnerId(e.target.value)}
-              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">اختر</option>
-
-              {partyOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setBusinessPartnerId(value || "")}
+              placeholder="اختر العميل / المورد"
+            />
           </div>
         )}
 
+        {/* Driver */}
         {partyType === "Driver" && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
               السائق
             </label>
 
-            <select
+            <CompactSelect
+              options={driverSelectOptions}
               value={driverId}
-              onChange={(e) => setDriverId(e.target.value)}
-              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
-            >
-              <option value="">اختر</option>
-
-              {driverOptions.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setDriverId(value || "")}
+              placeholder="اختر السائق"
+            />
           </div>
         )}
 
+        {/* Other */}
         {partyType === "Other" && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink">
+            <label className="mb-1.5 block text-sm font-medium text-ink">
               اسم الطرف
             </label>
 
@@ -220,16 +311,18 @@ export default function DescriptionPickerModal({
               type="text"
               value={externalPartyName}
               onChange={(e) => setExternalPartyName(e.target.value)}
-              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600"
+              placeholder="اكتب اسم الطرف"
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
             />
           </div>
         )}
 
+        {/* Actions */}
         <div className="flex justify-end gap-2 border-t border-gold/20 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-gold/30 px-4 py-2 text-sm text-ink hover:bg-ink/5"
+            className="rounded-xl border border-gold/30 px-4 py-2 text-sm text-ink transition hover:bg-ink/5"
           >
             إلغاء
           </button>
@@ -238,7 +331,7 @@ export default function DescriptionPickerModal({
             type="button"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+            className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             تأكيد
           </button>

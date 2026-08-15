@@ -29,6 +29,7 @@ import {
   MinusCircle,
   Clock,
   Timer,
+  ArrowLeftRight,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -96,6 +97,11 @@ export const navigationItems = [
         path: "/dashboard/treasury",
         icon: Wallet,
         end: true,
+      },
+      {
+        label: "التحويلات بين الخزائن",
+        path: "/dashboard/treasury/transfers",
+        icon: ArrowLeftRight,
       },
       {
         label: "أنواع حركات الخزنة",

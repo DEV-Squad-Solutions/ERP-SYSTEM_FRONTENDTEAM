@@ -44,6 +44,9 @@ import AdvancesPage from "../features/payroll/pages/AdvancesPage";
 import AdvanceDetailPage from "../features/payroll/pages/AdvanceDetailPage";
 import ReportsPage from "../features/payroll/pages/ReportsPage";
 import ContainerStoreStatement from "../features/storeContainers/pages/ContainerStoreStatement";
+import CashboxTransferDetailsPage from "../features/cashboxes/pages/CashboxTransferDetailsPage";
+import CashboxTransfersPage from "../features/cashboxes/pages/CashboxTransfersPage";
+import ExpensesPage from "../features/expenses/pages/ExpensesPage";
 
 function ComingSoon({ title }) {
   return (
@@ -91,6 +94,11 @@ export const router = createBrowserRouter([
       { path: "drivers/statement", element: <DriverStatementPage /> },
       { path: "treasury", element: <CashboxesListPage /> },
       { path: "treasury/:cashboxId", element: <CashboxDetailPage /> },
+      { path: "treasury/transfers", element: <CashboxTransfersPage /> },
+      {
+        path: "treasury/transfers/:id",
+        element: <CashboxTransferDetailsPage />,
+      },
       {
         path: "treasury/cash-movement-types",
         element: <CashMovementTypesListPage />,
@@ -118,7 +126,7 @@ export const router = createBrowserRouter([
       },
       { path: "inventory/units", element: <UnitsPage /> },
       { path: "inventory/containers", element: <PackagingUnitsPage /> },
-      { path: "expenses", element: <ComingSoon title="المصاريف" /> },
+      { path: "expenses", element: <ExpensesPage /> },
       { path: "payroll", element: <PayrollDashboardPage /> },
       { path: "payroll/employees", element: <EmployeesPage /> },
       {

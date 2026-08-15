@@ -56,7 +56,6 @@ export default function CashboxLedgerTable({
   const [updatingRowId, setUpdatingRowId] = useState(null);
   const dateInputRef = useRef(null);
 
-  // رقم السند تلقائي بالكامل من السيرفر - مفيش حقل ليه في الإضافة السريعة أصلاً
   function emptyDraft() {
     return {
       voucherDate: new Date().toISOString().slice(0, 10),
@@ -173,7 +172,6 @@ export default function CashboxLedgerTable({
 
   const vouchers = data?.items || [];
 
-  // عملة الخزنة: من الـ props الأول، وإلا من أول سند راجع في القايمة، وإلا EGP افتراضي
   const currency = cashboxCurrency || vouchers[0]?.currency || "EGP";
   const baseCurrency =
     cashboxBaseCurrency || vouchers[0]?.baseCurrency || "EGP";
