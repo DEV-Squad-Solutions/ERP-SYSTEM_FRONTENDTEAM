@@ -68,7 +68,7 @@ export default function InvoiceDetailsPage() {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-paper px-4 py-6 sm:px-8">
+    <div dir="rtl" className="min-h-screen   px-4 py-6 sm:px-8">
       {isLoading && <InvoiceDetailsSkeleton />}
 
       {!isLoading && isError && (
@@ -88,7 +88,7 @@ export default function InvoiceDetailsPage() {
             />
 
             {/* معلومات الفاتورة + الدفع */}
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid gap-5  ">
               <InvoiceInfoCard invoice={invoice} />
               <InvoicePaymentCard invoice={invoice} />
             </div>
