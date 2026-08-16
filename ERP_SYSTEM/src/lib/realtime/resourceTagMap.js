@@ -1,44 +1,91 @@
 export const resourceTagsMap = {
-  // الفواتير
-  Invoice: ["Invoice", "Cashbox"], // ضيف "Sale" أو "Purchase" هنا لو صفحاتهم منفصلة عن Invoice
+  // ==================== الفواتير ====================
 
-  // الخزائن
+  Invoice: [
+    "Invoice",
+    "Sale",
+    "Purchase",
+    "CashVoucher",
+    "Cashbox",
+    "Inventory",
+    "Party",
+    "Driver",
+  ],
+
+  // ==================== الخزائن ====================
+
   Cashbox: ["Cashbox"],
-  CashboxTransfer: ["Cashbox"], // مفيش tag مخصص لها حاليًا
+
+  CashboxTransfer: ["Cashbox", "CashboxTransfer"],
+
   CashMovementType: ["CashMovementType"],
-  CashVoucher: ["CashVoucher", "Cashbox"],
 
-  // المخزون
-  Store: ["Store"],
-  StoreContainer: ["StoreContainer", "ContainerStore"], // عندك التاجين، مش واضح الفرق بينهم — راجعهم
-  Container: ["Container"],
-  StockOpeningBalance: ["StockOpeningBalance", "Inventory", "StoreStockReport"],
-  StockAdjustment: ["StockAdjustment", "Inventory", "StoreStockReport"],
-  StockTransfer: ["StockTransfer", "Inventory", "StoreStockReport"],
-  InventoryCount: ["Inventory", "StoreStockReport", "InventoryCostReport"], // مفيش tag مخصص لها
+  CashVoucher: ["CashVoucher", "Cashbox", "Party", "Driver"],
 
-  // الأصناف
-  Item: ["Item"],
-  ItemUnit: ["ItemUnit"],
-  ItemsCategory: ["ItemsCategory"],
+  // ==================== المخزون ====================
 
-  // الشركاء
-  BusinessPartner: ["Party"], // الاسم مختلف عن SignalR
+  Store: ["Store", "Inventory", "StoreStockReport"],
+
+  StoreContainer: ["StoreContainer", "ContainerStore", "Inventory"],
+
+  Container: ["Container", "Inventory"],
+
+  StockOpeningBalance: [
+    "StockOpeningBalance",
+    "Inventory",
+    "StoreStockReport",
+    "InventoryCostReport",
+  ],
+
+  StockAdjustment: [
+    "StockAdjustment",
+    "Inventory",
+    "StoreStockReport",
+    "InventoryCostReport",
+  ],
+
+  StockTransfer: [
+    "StockTransfer",
+    "Inventory",
+    "StoreStockReport",
+    "InventoryCostReport",
+  ],
+
+  InventoryCount: ["Inventory", "StoreStockReport", "InventoryCostReport"],
+
+  // ==================== الأصناف ====================
+
+  Item: ["Item", "Inventory", "InventoryCostReport"],
+
+  ItemUnit: ["ItemUnit", "Item"],
+
+  ItemsCategory: ["ItemsCategory", "Item"],
+
+  // ==================== الشركاء ====================
+
+  BusinessPartner: ["Party", "PartyStatement", "Statement"],
+
   PartnerOpeningBalance: [
     "PartnerOpeningBalance",
     "PartyStatement",
     "Statement",
   ],
 
-  // السائقون
-  Driver: ["Driver"],
-  DriverTrip: ["DriverStatement", "DriverTripCost"], // مفيش tag اسمه DriverTrip حاليًا
+  // ==================== السائقون ====================
 
-  // البيانات المرجعية
+  Driver: ["Driver", "DriverStatement", "DriverTripCost"],
+
+  DriverTrip: ["DriverStatement", "DriverTripCost", "Driver"],
+
+  // ==================== البيانات المرجعية ====================
+
   Country: ["Country"],
-  ExchangeRate: [], // ⚠️ مفيش tag لها خالص — ضيفها في baseApi.js لو محتاج تحديث لحظي لأسعار الصرف
 
-  // الإدارة
+  ExchangeRate: ["ExchangeRate"],
+
+  // ==================== الإدارة ====================
+
   Company: ["Company"],
-  ApplicationUser: ["User"], // الاسم مختلف عن SignalR
+
+  ApplicationUser: ["User"],
 };

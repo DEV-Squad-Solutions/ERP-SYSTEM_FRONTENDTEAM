@@ -62,7 +62,6 @@ const emptyLine = () => ({
 });
 
 const RETURN_TYPES = new Set(["salesReturn", "purchaseReturn"]);
-const PAYMENT_EPSILON = 0.01;
 
 const movementOptions = [
   { value: "sale", label: "بيع" },
@@ -417,7 +416,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [setHeaderField],
   );
 
-  // ==== الملخص المالي ====
+  // ==== الملخص المالي (عرض بس - أي تحقق/رفض بقى مسؤولية الباك) ====
   const totalQuantity = useMemo(
     () => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0),
     [lines],
@@ -448,25 +447,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const netTotal = Math.max(invoiceTotal - discount, 0);
   const remaining = Math.max(netTotal - paid, 0);
 
-  // ==== نقدي = مدفوع لازم يساوي الصافي بالظبط - نملّه تلقائي ونقفله ====
+  // ==== نقدي = مدفوع بيتساوى تلقائيًا بالصافي (تعبئة تلقائية للراحة، مش validation) ====
   useEffect(() => {
     if (isCashPayment) {
       setHeaderField("paid", netTotal > 0 ? String(netTotal) : "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCashPayment, netTotal]);
-
-  const paymentRuleError = useMemo(() => {
-    if (netTotal <= 0) return null;
-    if (isCashPayment) {
-      if (Math.abs(paid - netTotal) > PAYMENT_EPSILON) {
-        return `الدفع نقدي - لازم المدفوع يساوي الصافي بالظبط (${netTotal.toLocaleString("ar-EG")})`;
-      }
-    } else if (paid > netTotal + PAYMENT_EPSILON) {
-      return "المدفوع أكبر من صافي الفاتورة - غير مسموح في الآجل";
-    }
-    return null;
-  }, [isCashPayment, paid, netTotal]);
 
   const wbTotal = useMemo(
     () =>
@@ -483,60 +470,17 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
-  // ==== التحقق قبل الحفظ ====
-  const missingRequiredFields = useMemo(() => {
-    const missing = [];
-    if (!header.partyId) missing.push("العميل / المورد");
-    if (!header.storeId) missing.push("المخزن");
-    if (isReturnInvoice && returnLines.length === 0) {
-      missing.push("أصناف المرتجع (اختر من الفاتورة الأصلية)");
-    }
-    if (paid > 0 && !header.cashboxId) {
-      missing.push("الخزنة");
-    }
-    if (paymentRuleError) {
-      missing.push(paymentRuleError);
-    }
-    return missing;
-  }, [
-    header.partyId,
-    header.storeId,
-    header.cashboxId,
-    isReturnInvoice,
-    returnLines.length,
-    paid,
-    paymentRuleError,
-  ]);
-
-  const isFormValid = missingRequiredFields.length === 0;
-
   const submitInvoice = useCallback(
     async (shouldPrint = false) => {
-      if (!isFormValid || isLoading) {
-        if (!isFormValid) {
-          toast.error("في بيانات مطلوبة ناقصة", {
-            description: missingRequiredFields.join("، "),
-          });
-          partySelectRef.current?.focus?.();
-        }
-        return;
-      }
+      if (isLoading) return;
 
-      let payload;
-      try {
-        payload = buildCreateInvoiceRequest({
-          movementType: header.movementType,
-          header,
-          lines,
-          containersMovement,
-          isTemporaryDriver,
-        });
-      } catch (err) {
-        toast.error("تعذر تجهيز بيانات الفاتورة", {
-          description: err?.message,
-        });
-        return;
-      }
+      const payload = buildCreateInvoiceRequest({
+        movementType: header.movementType,
+        header: { ...header, wbTotal },
+        lines,
+        containersMovement,
+        isTemporaryDriver,
+      });
 
       try {
         const invoice = await createInvoice(payload).unwrap();
@@ -553,11 +497,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
       } catch {}
     },
     [
-      isFormValid,
       isLoading,
-      missingRequiredFields,
       header,
       lines,
+      wbTotal,
       containersMovement,
       isTemporaryDriver,
       createInvoice,
@@ -673,7 +616,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       >
         <div className="flex items-stretch">
           <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-            عميل / مورد <span className="mr-1 text-negative">*</span>
+            عميل / مورد
           </div>
           <CompactSelect
             ref={partySelectRef}
@@ -756,7 +699,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              المخزن <span className="mr-1 text-negative">*</span>
+              المخزن
             </div>
             <CompactSelect
               label="المخزن"
@@ -893,7 +836,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-2 animate-[fadeIn_0.15s_ease-out]">
             <div className="flex items-stretch">
               <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                الخزنة <span className="mr-1 text-negative">*</span>
+                الخزنة
               </div>
               <CompactSelect
                 label="الخزنة"
@@ -1148,11 +1091,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                     نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
                   </p>
                 )}
-                {!isCashPayment && paymentRuleError && (
-                  <p className="mt-1 text-[11px] text-negative">
-                    {paymentRuleError}
-                  </p>
-                )}
               </div>
             </div>
 
@@ -1174,12 +1112,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </div>
             )}
           </div>
-
-          {!isFormValid && (
-            <p className="text-xs text-negative">
-              محتاج تحدد {missingRequiredFields.join("، ")} قبل الحفظ
-            </p>
-          )}
         </div>
       </LedgerPanel>
 
@@ -1187,7 +1119,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       <div className="space-y-2">
         <Button
           onClick={() => submitInvoice(false)}
-          disabled={isLoading || !isFormValid}
+          disabled={isLoading}
           title="حفظ (Ctrl+S)"
           className="h-10 w-full shadow-sm"
         >
@@ -1202,7 +1134,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         <Button
           variant="outline"
           onClick={() => submitInvoice(true)}
-          disabled={isLoading || !isFormValid}
+          disabled={isLoading}
           title="حفظ وطباعة (Ctrl+Enter)"
           className="h-10 w-full"
         >

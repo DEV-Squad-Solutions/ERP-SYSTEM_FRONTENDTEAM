@@ -3,34 +3,33 @@ import baseQueryWithReauth from "./baseQueryWithReauth";
 
 export const baseApi = createApi({
   reducerPath: "api",
-
   baseQuery: baseQueryWithReauth,
 
   tagTypes: [
-    // Auth / Users / Companies
+    // ==================== Auth / Administration ====================
     "Company",
     "User",
 
-    // Partners
+    // ==================== Partners ====================
     "Party",
     "PartyStatement",
     "Statement",
     "PartnerItemMovements",
     "PartnerOpeningBalance",
 
-    // Drivers
+    // ==================== Drivers ====================
     "Driver",
     "DriverStatement",
     "DriverTripCost",
 
-    // Items / Inventory
+    // ==================== Items ====================
     "Item",
     "ItemUnit",
     "PackagingUnit",
     "ItemsCategory",
-    "Inventory",
 
-    // Stores
+    // ==================== Inventory / Stores ====================
+    "Inventory",
     "Store",
     "StoreContainer",
     "ContainerStore",
@@ -39,27 +38,32 @@ export const baseApi = createApi({
     "StockTransfer",
     "StockAdjustment",
     "StockOpeningBalance",
+    "InventoryCount",
 
-    // Containers
+    // ==================== Containers ====================
     "Container",
 
-    // Invoices
+    // ==================== Invoices ====================
+    "Invoice",
     "Sale",
     "Purchase",
-    "Invoice",
     "InvoiceAuditLog",
     "InvoicePackaging",
 
-    // Cashboxes
+    // ==================== Cashboxes ====================
     "Cashbox",
     "CashMovementType",
     "CashVoucher",
     "CashboxTransfer",
-    // Countries
-    "Country",
 
-    // Existing tags from your baseApi
+    // ==================== Banking ====================
     "Bank",
+
+    // ==================== Countries / Exchange ====================
+    "Country",
+    "ExchangeRate",
+
+    // ==================== Accounting ====================
     "JournalEntry",
     "Treasury",
     "Expense",

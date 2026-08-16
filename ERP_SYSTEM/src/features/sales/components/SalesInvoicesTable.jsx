@@ -12,7 +12,6 @@ import {
   Eye,
   Pencil,
   Printer,
-  Boxes,
   Trash2,
   MoreVertical,
   FileSearch,
@@ -24,8 +23,8 @@ import {
   CircleCheck,
   CircleDashed,
 } from "lucide-react";
+
 import { useDeleteInvoiceMutation } from "../../invoices/invoicesApi";
-import PackagingDrawer from "./PackagingDrawer";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useInvoicePrint } from "../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../shared/components/print/InvoicePrintTemplate";
@@ -50,6 +49,7 @@ function TruncatedText({
   maxWidthClass = "max-w-[160px]",
 }) {
   const value = text || "—";
+
   return (
     <span
       title={value !== "—" ? value : undefined}
@@ -62,13 +62,14 @@ function TruncatedText({
 
 function PricingStatusBadge({ invoice }) {
   const isPriced = Number(invoice.total ?? 0) > 0;
+
   return isPriced ? (
-    <span className="inline-flex    items-center gap-1 text-[11px] font-medium text-positive bg-positive/10 rounded-full px-2 py-0.5">
+    <span className="inline-flex items-center gap-1 rounded-full bg-positive/10 px-2 py-0.5 text-[11px] font-medium text-positive">
       <CircleCheck size={11} />
       مسعّرة
     </span>
   ) : (
-    <span className="inline-flex    items-center gap-1 text-[11px] font-medium text-ink-400 bg-ink-400/10 rounded-full px-2 py-0  ">
+    <span className="inline-flex items-center gap-1 rounded-full bg-ink-400/10 px-2 py-0.5 text-[11px] font-medium text-ink-400">
       <CircleDashed size={11} />
       مؤجلة
     </span>
@@ -102,96 +103,130 @@ export default function SalesInvoicesTable({
   onPageSizeChange,
 }) {
   const navigate = useNavigate();
+
   const [deleteInvoice] = useDeleteInvoiceMutation();
+
   const [openMenuId, setOpenMenuId] = useState(null);
-  const [packagingFor, setPackagingFor] = useState(null);
   const [sorting, setSorting] = useState([]);
 
-  const handleDelete = (id) => {
-    setOpenMenuId(null);
-    deleteInvoice(id);
-    toast.success("تم حذف الفاتورة");
-  };
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
+
+  // ==================== Delete ====================
+
+  const handleDelete = async (invoice) => {
+    setOpenMenuId(null);
+
+    try {
+      await deleteInvoice({
+        id: invoice.id,
+        rowVersion: invoice.rowVersion,
+      }).unwrap();
+
+      // تظهر فقط في حالة نجاح الـ API
+      toast.success("تم حذف الفاتورة");
+    } catch (error) {
+      // لا تظهر أي رسالة عند الخطأ
+      console.error("Delete invoice failed:", error);
+    }
+  };
+
+  // ==================== Columns ====================
 
   const columns = useMemo(
     () => [
       columnHelper.accessor("invoiceNumber", {
         header: "رقم الفاتورة",
+
         cell: (info) => (
-          <span className="num font-medium text-ink-900 text-[13px]">
+          <span className="num text-[13px] font-medium text-ink-900">
             {info.getValue()}
           </span>
         ),
       }),
+
       columnHelper.accessor("invoiceDate", {
         header: "التاريخ",
+
         cell: (info) => (
-          <span className="num text-ink-600 text-[13px] whitespace-nowrap">
+          <span className="num whitespace-nowrap text-[13px] text-ink-600">
             {info.getValue()}
           </span>
         ),
       }),
+
       columnHelper.accessor("invoiceType", {
         header: "النوع",
         enableSorting: false,
+
         cell: (info) => (
-          <span className="text-ink-600 text-xs">
+          <span className="text-xs text-ink-600">
             {typeLabels[info.getValue()] || info.getValue()}
           </span>
         ),
       }),
+
       columnHelper.accessor("businessPartnerName", {
         header: "العميل",
+
         cell: (info) => (
           <TruncatedText
             text={info.getValue()}
-            className="text-ink-900 text-[13px]"
+            className="text-[13px] text-ink-900"
             maxWidthClass="max-w-[150px]"
           />
         ),
       }),
+
       columnHelper.accessor("storeName", {
         header: "المخزن",
         enableSorting: false,
+
         cell: (info) => (
           <TruncatedText
             text={info.getValue()}
-            className="text-ink-600 text-xs"
+            className="text-xs text-ink-600"
             maxWidthClass="max-w-[110px]"
           />
         ),
       }),
+
       columnHelper.accessor("paymentTerm", {
         header: "الدفع",
         enableSorting: false,
+
         cell: (info) => (
-          <span className="text-ink-600 text-xs">
+          <span className="text-xs text-ink-600">
             {paymentLabels[info.getValue()] || "—"}
           </span>
         ),
       }),
+
       columnHelper.accessor("total", {
         header: "الإجمالي",
+
         cell: (info) => (
-          <span className="num font-medium text-ink-900 text-[13px] whitespace-nowrap">
+          <span className="num whitespace-nowrap text-[13px] font-medium text-ink-900">
             {fmt(info.getValue())} {info.row.original.currency}
           </span>
         ),
       }),
+
       columnHelper.accessor("paidAmount", {
         header: "المدفوع",
+
         cell: (info) => (
-          <span className="num text-positive text-[13px] whitespace-nowrap">
+          <span className="num whitespace-nowrap text-[13px] text-positive">
             {fmt(info.getValue())}
           </span>
         ),
       }),
+
       columnHelper.accessor("remainingAmount", {
         header: "المتبقي",
+
         cell: (info) => (
           <span
-            className={`num font-medium text-[13px] whitespace-nowrap ${
+            className={`num whitespace-nowrap text-[13px] font-medium ${
               (info.getValue() || 0) > 0 ? "text-negative" : "text-positive"
             }`}
           >
@@ -199,46 +234,59 @@ export default function SalesInvoicesTable({
           </span>
         ),
       }),
+
       columnHelper.accessor("total", {
         id: "pricingStatus",
         header: "الحالة",
         enableSorting: false,
+
         cell: (info) => <PricingStatusBadge invoice={info.row.original} />,
       }),
+
+      // ==================== Actions ====================
+
       columnHelper.display({
         id: "actions",
         header: "إجراءات",
+
         cell: (info) => {
           const inv = info.row.original;
+
           return (
-            <div className="flex items-center gap-0.5 relative">
+            <div className="relative flex items-center gap-0.5">
+              {/* View */}
               <button
                 onClick={() => navigate(`/dashboard/sales/${inv.id}`)}
-                className="p-1.5 rounded-lg text-primary-500 hover:bg-primary-50"
+                className="rounded-lg p-1.5 text-primary-500 hover:bg-primary-50"
                 title="عرض"
               >
                 <Eye size={14} />
               </button>
+
+              {/* Edit */}
               <button
                 onClick={() => navigate(`/dashboard/sales/${inv.id}/edit`)}
-                className="p-1.5 rounded-lg text-primary-500 hover:bg-primary-50"
+                className="rounded-lg p-1.5 text-primary-500 hover:bg-primary-50"
                 title="تعديل"
               >
                 <Pencil size={14} />
               </button>
+
+              {/* Print */}
               <button
                 onClick={() => printInvoice(inv)}
-                className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-400/5"
+                className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-400/5"
                 title="طباعة"
               >
                 <Printer size={14} />
               </button>
 
+              {/* More */}
               <button
                 onClick={() =>
                   setOpenMenuId(openMenuId === inv.id ? null : inv.id)
                 }
-                className="p-1.5 rounded-lg text-ink-400 hover:bg-ink-400/5"
+                className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-400/5"
                 title="المزيد"
               >
                 <MoreVertical size={14} />
@@ -246,14 +294,16 @@ export default function SalesInvoicesTable({
 
               {openMenuId === inv.id && (
                 <>
+                  {/* Close menu */}
                   <div
                     onClick={() => setOpenMenuId(null)}
                     className="fixed inset-0 z-10"
                   />
-                  <div className="absolute left-0 top-full mt-1 w-40 bg-white rounded-xl shadow-card border border-ink-400/10 py-1 z-20 animate-fadeUp">
+
+                  <div className="absolute left-0 top-full z-20 mt-1 w-40 animate-fadeUp rounded-xl border border-ink-400/10 bg-white py-1 shadow-card">
                     <button
-                      onClick={() => handleDelete(inv.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-negative hover:bg-negative/5 text-right"
+                      onClick={() => handleDelete(inv)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-right text-xs text-negative hover:bg-negative/5"
                     >
                       <Trash2 size={13} />
                       حذف الفاتورة
@@ -266,34 +316,44 @@ export default function SalesInvoicesTable({
         },
       }),
     ],
-    [openMenuId],
+    [openMenuId, navigate, printInvoice],
   );
+
+  // ==================== Table ====================
 
   const table = useReactTable({
     data: data?.items || [],
     columns,
-    state: { sorting },
+
+    state: {
+      sorting,
+    },
+
     onSortingChange: setSorting,
+
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+
     manualPagination: true,
   });
 
-  // ==================== حالة التحميل ====================
+  // ==================== Loading ====================
+
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card overflow-hidden">
-        <div className="h-10 bg-ink-900/[0.03] border-b border-ink-400/10" />
+      <div className="overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card">
+        <div className="h-10 border-b border-ink-400/10 bg-ink-900/[0.03]" />
+
         <div className="divide-y divide-ink-400/5">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-3 py-3">
-              <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
-              <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
-              <div className="h-3.5 w-14 rounded bg-ink-400/10 animate-pulse" />
-              <div className="h-3.5 flex-1 max-w-[150px] rounded bg-ink-400/10 animate-pulse" />
-              <div className="h-3.5 w-24 rounded bg-ink-400/10 animate-pulse" />
-              <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
-              <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
+              <div className="h-3.5 w-16 animate-pulse rounded bg-ink-400/10" />
+              <div className="h-3.5 w-20 animate-pulse rounded bg-ink-400/10" />
+              <div className="h-3.5 w-14 animate-pulse rounded bg-ink-400/10" />
+              <div className="h-3.5 max-w-[150px] flex-1 animate-pulse rounded bg-ink-400/10" />
+              <div className="h-3.5 w-24 animate-pulse rounded bg-ink-400/10" />
+              <div className="h-3.5 w-16 animate-pulse rounded bg-ink-400/10" />
+              <div className="h-3.5 w-20 animate-pulse rounded bg-ink-400/10" />
             </div>
           ))}
         </div>
@@ -301,21 +361,24 @@ export default function SalesInvoicesTable({
     );
   }
 
-  // ==================== حالة الخطأ ====================
+  // ==================== Error ====================
+
   if (isError) {
     return (
-      <div className="text-center py-14 border border-dashed border-negative/25 bg-negative/[0.02] rounded-2xl">
+      <div className="rounded-2xl border border-dashed border-negative/25 bg-negative/[0.02] py-14 text-center">
         <AlertCircle
           size={32}
-          className="mx-auto text-negative/70 mb-3"
+          className="mx-auto mb-3 text-negative/70"
           strokeWidth={1.6}
         />
-        <p className="text-ink-900 font-medium text-sm mb-1">
+
+        <p className="mb-1 text-sm font-medium text-ink-900">
           حدث خطأ في تحميل الفواتير
         </p>
+
         <button
           onClick={refetch}
-          className="inline-flex items-center gap-2 text-xs font-medium text-primary-500 hover:text-primary-600 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-lg transition-colors mt-2"
+          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-4 py-2 text-xs font-medium text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-600"
         >
           <RefreshCw size={13} />
           إعادة المحاولة
@@ -326,38 +389,44 @@ export default function SalesInvoicesTable({
 
   const invoices = data?.items || [];
 
-  // ==================== حالة عدم وجود بيانات ====================
+  // ==================== Empty ====================
+
   if (!isFetching && invoices.length === 0) {
     return (
-      <div className="text-center py-16 border border-dashed border-ink-400/20 rounded-2xl">
-        <div className="w-12 h-12 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
+      <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-ink-400/5">
           <FileSearch size={22} className="text-ink-400/50" strokeWidth={1.6} />
         </div>
-        <p className="text-ink-900 font-medium text-sm mb-1">
+
+        <p className="mb-1 text-sm font-medium text-ink-900">
           لا توجد فواتير مطابقة
         </p>
+
         <p className="text-xs text-ink-400">جرّب تعديل الفلاتر</p>
       </div>
     );
   }
 
+  // ==================== Render ====================
+
   return (
     <>
       <div
-        className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 ${
+        className={`custom-scroll overflow-x-auto rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 ${
           isFetching ? "opacity-60" : ""
         }`}
       >
-        <table className="w-full text-right border-collapse min-w-[1150px]">
+        <table className="w-full min-w-[1150px] border-collapse text-right">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr
                 key={headerGroup.id}
-                className="bg-ink-900/[0.03] text-ink-400 text-[11px]"
+                className="bg-ink-900/[0.03] text-[11px] text-ink-400"
               >
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort();
                   const sortDir = header.column.getIsSorted();
+
                   return (
                     <th
                       key={header.id}
@@ -366,7 +435,7 @@ export default function SalesInvoicesTable({
                           ? header.column.getToggleSortingHandler()
                           : undefined
                       }
-                      className={`p-2.5 font-medium border-b border-ink-400/10 select-none whitespace-nowrap ${
+                      className={`whitespace-nowrap border-b border-ink-400/10 p-2.5 font-medium select-none ${
                         canSort ? "cursor-pointer hover:text-ink-900" : ""
                       }`}
                     >
@@ -375,6 +444,7 @@ export default function SalesInvoicesTable({
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
+
                         {canSort && (
                           <span className="text-ink-400/50">
                             {sortDir === "asc" ? (
@@ -393,11 +463,12 @@ export default function SalesInvoicesTable({
               </tr>
             ))}
           </thead>
+
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className="border-b border-ink-400/5 last:border-0 hover:bg-primary-50/30 transition-colors"
+                className="border-b border-ink-400/5 transition-colors last:border-0 hover:bg-primary-50/30"
               >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="p-2.5">
@@ -410,6 +481,8 @@ export default function SalesInvoicesTable({
         </table>
       </div>
 
+      {/* Pagination */}
+
       {data?.totalCount > 0 && (
         <Pagination
           page={page}
@@ -420,6 +493,8 @@ export default function SalesInvoicesTable({
           label="فاتورة"
         />
       )}
+
+      {/* Print */}
 
       <div style={{ display: "none" }}>
         <div ref={printRef}>

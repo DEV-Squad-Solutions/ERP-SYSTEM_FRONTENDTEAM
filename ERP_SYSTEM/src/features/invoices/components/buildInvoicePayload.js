@@ -29,6 +29,24 @@ function withOptionalString(obj, key, value) {
   return obj;
 }
 
+// wbTotal اختياري وهو مجرد assertion عند الباك: null/omission/صفر بيتخطى المطابقة
+// خالص، فمينفعش نبعته كـ 0 زي باقي الحقول الاختيارية - لازم يكون أكبر من صفر
+// فعليًا عشان يتبعت، غير كده منستخدمش المفتاح خالص في الـ payload.
+// القيمة دي بتيجي من الفورم (معادلة وزن البسكال - فرق الميزان - الخصم) والباك
+// هو اللي بيقارنها بمجموع كميات الأصناف الفعلية - مينفعش نحسبها هنا من نفس
+// الأسطر لإن كده هتبقى دايمًا متطابقة مع نفسها ويبقى الـ check عديم الفايدة.
+function withPositiveNumber(obj, key, value) {
+  if (
+    value !== undefined &&
+    value !== null &&
+    value !== "" &&
+    Number(value) > 0
+  ) {
+    obj[key] = Number(value);
+  }
+  return obj;
+}
+
 function buildLineObject({ line, isReturnInvoice }) {
   const lineObj = {
     price: Number(line.price) || 0,
@@ -66,27 +84,30 @@ function buildLineObject({ line, isReturnInvoice }) {
   return lineObj;
 }
 
+// pass واحد بس على الأسطر: فلترة وتحويل مع بعض بدل filter().map() منفصلين
 function buildLinesForCreate({ lines, isReturnInvoice }) {
-  return lines
-    .filter((line) => {
-      const hasValidItem = line.isTemporaryItem
-        ? Boolean(line.itemName?.trim())
-        : Boolean(line.itemId);
+  const result = [];
 
-      if (!hasValidItem || !(Number(line.quantity) > 0)) return false;
+  for (const line of lines) {
+    const hasValidItem = line.isTemporaryItem
+      ? Boolean(line.itemName?.trim())
+      : Boolean(line.itemId);
 
-      // المرتجع لازم يكون مرجّع لصنف حقيقي من فاتورة أصلية - الصنف المؤقت
-      // مالوش سجل حركة أصلي فمينفعش يترجع
-      if (
-        isReturnInvoice &&
-        (line.isTemporaryItem || !line.sourceInvoiceLineId)
-      ) {
-        return false;
-      }
+    if (!hasValidItem || !(Number(line.quantity) > 0)) continue;
 
-      return true;
-    })
-    .map((line) => buildLineObject({ line, isReturnInvoice }));
+    // المرتجع لازم يكون مرجّع لصنف حقيقي من فاتورة أصلية - الصنف المؤقت
+    // مالوش سجل حركة أصلي فمينفعش يترجع
+    if (
+      isReturnInvoice &&
+      (line.isTemporaryItem || !line.sourceInvoiceLineId)
+    ) {
+      continue;
+    }
+
+    result.push(buildLineObject({ line, isReturnInvoice }));
+  }
+
+  return result;
 }
 
 function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
@@ -98,30 +119,17 @@ function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
   }));
 }
 
-// حساب الصافي هنا كمان (نفس منطق الفورم) عشان نتحقق من قاعدة الدفع النقدي/الآجل
-// قبل ما نبعت للباك، ونديله رسالة عربي واضحة بدل 400 عام
-function computeNetTotal(lines, discountAmount) {
-  const total = lines
-    .filter((l) => Number(l.price) > 0)
-    .reduce((sum, l) => sum + (Number(l.quantity) || 0) * Number(l.price), 0);
-  return Math.max(total - (Number(discountAmount) || 0), 0);
-}
-
-function validatePaymentRule({ paymentTerm, paidAmount, netTotal }) {
-  const EPSILON = 0.01;
-  if (paymentTerm === "Cash") {
-    if (Math.abs(paidAmount - netTotal) > EPSILON) {
-      throw new Error(
-        `الدفع نقدي - لازم يكون المدفوع (${paidAmount}) يساوي صافي الفاتورة (${netTotal}) بالظبط`,
-      );
-    }
-  } else if (paymentTerm === "Credit") {
-    if (paidAmount > netTotal + EPSILON) {
-      throw new Error(
-        `المدفوع (${paidAmount}) أكبر من صافي الفاتورة (${netTotal}) - غير مسموح`,
-      );
-    }
-  }
+// مؤقت: الباك لسه معندوش حقل رسمي لاسم السائق الفعلي كنص (زي externalDriverName
+// بتاع السائق العادي). لحد ما يتضاف، بنبعت الاسم تحت externalActualDriverName
+// كمحاولة استباقية - راجع مع الباك اند اسم الحقل النهائي وعدّل هنا لو اتغير.
+function withActualDriver(obj, header) {
+  withOptionalNumber(obj, "actualDriverId", header.actualDriverId);
+  withOptionalString(
+    obj,
+    "externalActualDriverName",
+    header.actualDriverId ? "" : header.actualDriverName,
+  );
+  return obj;
 }
 
 export function buildCreateInvoiceRequest({
@@ -139,44 +147,9 @@ export function buildCreateInvoiceRequest({
   const resolvedPaymentTerm = paymentTermMap[header.paymentMethod];
   const resolvedContentType = contentTypeMap[header.invoiceContentType];
 
-  if (!resolvedInvoiceType) {
-    throw new Error(`نوع الفاتورة غير معروف: "${movementType}"`);
-  }
-  if (!resolvedPaymentTerm) {
-    throw new Error(`طريقة الدفع غير معروفة: "${header.paymentMethod}"`);
-  }
-  if (!resolvedContentType) {
-    throw new Error(`محتوى الفاتورة غير معروف: "${header.invoiceContentType}"`);
-  }
-
   const builtLines = buildLinesForCreate({ lines, isReturnInvoice });
-
-  if (isReturnInvoice && builtLines.length === 0) {
-    throw new Error(
-      "لازم تختار صنف واحد على الأقل من الفاتورة الأصلية للمرتجع",
-    );
-  }
-  if (
-    !isReturnInvoice &&
-    header.invoiceContentType === "items" &&
-    builtLines.length === 0
-  ) {
-    throw new Error("لازم تضيف صنف واحد على الأقل بكمية أكبر من صفر");
-  }
-
   const paidAmount = Number(header.paid) || 0;
   const discountAmount = Number(header.discount) || 0;
-  const netTotal = computeNetTotal(lines, discountAmount);
-
-  validatePaymentRule({
-    paymentTerm: resolvedPaymentTerm,
-    paidAmount,
-    netTotal,
-  });
-
-  if (paidAmount > 0 && !header.cashboxId) {
-    throw new Error("أي مبلغ مدفوع لازم يكون له خزنة محددة");
-  }
 
   const payload = {
     invoiceNumber: header.invoiceNumber,
@@ -216,7 +189,7 @@ export function buildCreateInvoiceRequest({
     "driverId",
     isTemporaryDriver ? null : header.driverId,
   );
-  withOptionalNumber(payload, "actualDriverId", header.actualDriverId);
+  withActualDriver(payload, header);
   withOptionalNumber(payload, "exchangeRate", header.exchangeRate);
 
   if (paidAmount > 0) {
@@ -231,6 +204,7 @@ export function buildCreateInvoiceRequest({
   withOptionalNumber(payload, "wbWeight", header.WBWeight);
   withOptionalNumber(payload, "wbScaleDifference", header.WBScaleDifference);
   withOptionalNumber(payload, "wbDiscount", header.WBDiscount);
+  withPositiveNumber(payload, "wbTotal", header.wbTotal);
 
   return payload;
 }
@@ -244,30 +218,9 @@ export function buildInvoiceUpdateBody({
   const isReturnInvoice =
     form.invoiceType === "SalesReturn" || form.invoiceType === "PurchaseReturn";
 
-  if (!form.invoiceType) throw new Error("نوع الفاتورة مطلوب");
-  if (!form.paymentTerm) throw new Error("طريقة الدفع مطلوبة");
-  if (!form.contentType) throw new Error("محتوى الفاتورة مطلوب");
-  if (!rowVersion) throw new Error("rowVersion مفقود - أعد تحميل الفاتورة");
-
   const validLines = buildLinesForCreate({ lines, isReturnInvoice });
-
-  if (isReturnInvoice && validLines.length === 0) {
-    throw new Error("لازم يفضل صنف واحد على الأقل من الفاتورة الأصلية للمرتجع");
-  }
-
   const paidAmount = Number(form.paidAmount) || 0;
   const discountAmount = Number(form.discountAmount) || 0;
-  const netTotal = computeNetTotal(lines, discountAmount);
-
-  validatePaymentRule({
-    paymentTerm: form.paymentTerm,
-    paidAmount,
-    netTotal,
-  });
-
-  if (paidAmount > 0 && !form.cashboxId) {
-    throw new Error("أي مبلغ مدفوع لازم يكون له خزنة محددة");
-  }
 
   const body = {
     invoiceType: form.invoiceType,
@@ -300,7 +253,7 @@ export function buildInvoiceUpdateBody({
     "driverId",
     form.usesExternalDriver ? null : form.driverId,
   );
-  withOptionalNumber(body, "actualDriverId", form.actualDriverId);
+  withActualDriver(body, form);
   withOptionalString(body, "partnerInvoiceNo", form.partnerInvoiceNo);
   withOptionalNumber(body, "itemsCategoryId", form.itemsCategoryId);
   withOptionalNumber(body, "exchangeRate", form.exchangeRate);
@@ -313,6 +266,7 @@ export function buildInvoiceUpdateBody({
   withOptionalNumber(body, "wbWeight", form.wbWeight);
   withOptionalNumber(body, "wbScaleDifference", form.wbScaleDifference);
   withOptionalNumber(body, "wbDiscount", form.wbDiscount);
+  withPositiveNumber(body, "wbTotal", form.wbTotal);
 
   return body;
 }

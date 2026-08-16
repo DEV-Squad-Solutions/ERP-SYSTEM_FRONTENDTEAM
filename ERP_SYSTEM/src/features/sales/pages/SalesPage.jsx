@@ -23,8 +23,6 @@ const emptyFilters = {
   driverId: "",
   paymentMethod: "",
   status: "",
-  itemsCategoryId: "",
-  currency: "",
   fromDate: "",
   toDate: "",
 };
