@@ -218,10 +218,10 @@ export default function CountriesPage() {
                     {country.code}
                   </td>
                   <td className="py-3 px-4 text-sm text-ink-900">
-                    {country.name}
+                    {country.englishName}
                   </td>
                   <td className="py-3 px-4 text-sm text-ink-900">
-                    {country.arabicName}
+                    {country.name}
                   </td>
                   <td className="py-3 px-4 text-sm">
                     <span

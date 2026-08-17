@@ -6,23 +6,18 @@ import { getApiErrors } from "../utils/getApiErrors";
 
 const baseQuery = fetchBaseQuery({
   baseUrl: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
-
-  cache: "no-store",
-
   prepareHeaders: (headers, { getState }) => {
     const token = getState().auth?.accessToken;
 
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
-
     return headers;
   },
 });
 
 const showErrors = (error) => {
   const messages = [...new Set(getApiErrors(error))];
-
   messages.forEach((message) => {
     toast.error(message);
   });
@@ -51,7 +46,6 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     );
 
     if (refreshResult.data) {
-      // حفظ التوكن الجديد
       api.dispatch(
         updateTokens({
           accessToken: refreshResult.data.accessToken,

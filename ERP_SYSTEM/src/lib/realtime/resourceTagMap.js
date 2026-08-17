@@ -5,6 +5,8 @@ export const resourceTagsMap = {
     "Invoice",
     "Sale",
     "Purchase",
+    "SaleReturn",
+    "PurchaseReturn",
     "CashVoucher",
     "Cashbox",
     "Inventory",

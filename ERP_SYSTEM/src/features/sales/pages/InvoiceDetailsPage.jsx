@@ -58,13 +58,19 @@ export default function InvoiceDetailsPage() {
   );
 
   const handleConfirmDelete = async () => {
-    try {
-      await deleteInvoice(id).unwrap();
-      toast.success("تم حذف الفاتورة");
-      navigate("/dashboard/sales");
-    } catch {
-      toast.error("حدث خطأ أثناء حذف الفاتورة");
+    if (!id || !invoice?.rowVersion) {
+      toast.error("بيانات الحذف غير مكتملة");
+      return;
     }
+    try {
+      await deleteInvoice({
+        id: id,
+        rowVersion: invoice.rowVersion,
+      }).unwrap();
+      toast.success("تم حذف الفاتورة بنجاح");
+      setDeleteOpen(false);
+      navigate("/dashboard/sales");
+    } catch (error) {}
   };
 
   return (

@@ -12,19 +12,37 @@ import {
 } from "../countriesApi";
 
 const countrySchema = z.object({
-  code: z.string().min(1, "كود الدولة مطلوب"),
-  name: z.string().min(1, "الاسم بالإنجليزي مطلوب"),
-  arabicName: z.string().min(1, "الاسم بالعربي مطلوب"),
-  isActive: z.preprocess((v) => v === "true" || v === true, z.boolean()),
+  name: z
+    .string()
+    .trim()
+    .min(1, "الاسم بالعربي مطلوب")
+    .max(200, "الاسم بالعربي يجب ألا يتجاوز 200 حرف"),
+
+  englishName: z
+    .string()
+    .trim()
+    .min(1, "الاسم بالإنجليزي مطلوب")
+    .max(200, "الاسم بالإنجليزي يجب ألا يتجاوز 200 حرف"),
+
+  isActive: z.preprocess((value) => {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  }, z.boolean()),
 });
 
 /**
- * @param {{ isOpen: boolean, onClose: () => void, country?: object|null }} props
+ * @param {{
+ *   isOpen: boolean,
+ *   onClose: () => void,
+ *   country?: object|null
+ * }} props
  */
 export default function CountryFormModal({ isOpen, onClose, country }) {
   const isEditing = Boolean(country);
 
   const [createCountry, { isLoading: isCreating }] = useCreateCountryMutation();
+
   const [updateCountry, { isLoading: isUpdating }] = useUpdateCountryMutation();
 
   const {
@@ -34,35 +52,62 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(countrySchema),
-    defaultValues: { code: "", name: "", arabicName: "", isActive: true },
+
+    defaultValues: {
+      name: "",
+      englishName: "",
+      isActive: true,
+    },
   });
 
   useEffect(() => {
     if (!isOpen) return;
-    reset(
-      country
-        ? {
-            code: country.code,
-            name: country.name,
-            arabicName: country.arabicName,
-            isActive: country.isActive,
-          }
-        : { code: "", name: "", arabicName: "", isActive: true },
-    );
+
+    if (country) {
+      reset({
+        name: country.name || "",
+        englishName: country.englishName || "",
+        isActive: country.isActive ?? true,
+      });
+    } else {
+      reset({
+        name: "",
+        englishName: "",
+        isActive: true,
+      });
+    }
   }, [isOpen, country, reset]);
 
   async function onSubmit(values) {
     try {
+      const payload = {
+        name: values.name.trim(),
+        englishName: values.englishName.trim(),
+        isActive: values.isActive,
+      };
+
       if (isEditing) {
-        await updateCountry({ id: country.id, ...values }).unwrap();
+        await updateCountry({
+          id: country.id,
+          ...payload,
+        }).unwrap();
+
         toast.success("تم تحديث الدولة بنجاح");
       } else {
-        await createCountry(values).unwrap();
+        await createCountry(payload).unwrap();
+
         toast.success("تم إضافة الدولة بنجاح");
       }
+
       onClose();
     } catch (err) {
-      toast.error("حصل خطأ، حاول تاني");
+      const message = err?.data?.message || err?.data?.title || err?.message;
+
+      if (err?.status === 409) {
+        toast.error("كود الدولة مستخدم بالفعل");
+      } else {
+        toast.error(message || "حدث خطأ أثناء حفظ الدولة");
+      }
     }
   }
 
@@ -72,69 +117,72 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
       onClose={onClose}
       title={isEditing ? "تعديل دولة" : "دولة جديدة"}
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-xs text-ink-400 mb-1.5">الكود</label>
-          <input
-            type="text"
-            placeholder="مثال: EG"
-            className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
-            {...register("code")}
-          />
-          {errors.code && (
-            <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>
-          )}
-        </div>
-
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" dir="rtl">
+        {/* الاسم بالعربي */}
         <div>
           <label className="block text-xs text-ink-400 mb-1.5">
-            الاسم بالإنجليزي
+            الاسم بالعربي
           </label>
+
           <input
             type="text"
-            placeholder="مثال: Egypt"
+            placeholder="مثال: مصر"
             className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
             {...register("name")}
           />
+
           {errors.name && (
             <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
           )}
         </div>
 
+        {/* الاسم بالإنجليزي */}
         <div>
           <label className="block text-xs text-ink-400 mb-1.5">
-            الاسم بالعربي
+            الاسم بالإنجليزي
           </label>
+
           <input
             type="text"
-            placeholder="مثال: مصر"
+            dir="ltr"
+            placeholder="Example: Egypt"
             className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
-            {...register("arabicName")}
+            {...register("englishName")}
           />
-          {errors.arabicName && (
+
+          {errors.englishName && (
             <p className="text-xs text-red-500 mt-1">
-              {errors.arabicName.message}
+              {errors.englishName.message}
             </p>
           )}
         </div>
 
+        {/* الحالة */}
         <div>
           <label className="block text-xs text-ink-400 mb-1.5">الحالة</label>
+
           <select
             className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
             {...register("isActive")}
           >
             <option value="true">نشطة</option>
+
             <option value="false">غير نشطة</option>
           </select>
         </div>
 
+        {/* الأزرار */}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>
             إلغاء
           </Button>
+
           <Button type="submit" disabled={isCreating || isUpdating}>
-            {isEditing ? "حفظ التعديلات" : "إضافة"}
+            {isCreating || isUpdating
+              ? "جاري الحفظ..."
+              : isEditing
+                ? "حفظ التعديلات"
+                : "إضافة"}
           </Button>
         </div>
       </form>

@@ -1,18 +1,21 @@
-// src/lib/realtime/RealtimeProvider.jsx
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
-  useCallback,
 } from "react";
+
 import { useDispatch } from "react-redux";
+
 import { getOrCreateConnection, stopConnection } from "./realtimeConnection";
 
 const RealtimeContext = createContext(null);
 
 const BATCH_WINDOW_MS = 300;
+
+const MAX_SEEN_EVENTS = 500;
 
 export function RealtimeProvider({
   children,
@@ -21,25 +24,49 @@ export function RealtimeProvider({
   getAccessToken,
 }) {
   const dispatch = useDispatch();
+
   const [isConnected, setIsConnected] = useState(false);
 
   const [externalUpdates, setExternalUpdates] = useState({});
 
   const seenEventsRef = useRef(new Set());
+
   const pendingTagsRef = useRef(new Set());
+
   const batchTimerRef = useRef(null);
+
+  // =========================================================
+  // FLUSH TAGS
+  // =========================================================
 
   const flushPendingTags = useCallback(() => {
     const tags = Array.from(pendingTagsRef.current);
+
     pendingTagsRef.current.clear();
+
     batchTimerRef.current = null;
-    if (tags.length === 0) return;
+
+    if (tags.length === 0) {
+      return;
+    }
+
     dispatch(baseApi.util.invalidateTags(tags));
   }, [dispatch, baseApi]);
 
+  // =========================================================
+  // SCHEDULE INVALIDATION
+  // =========================================================
+
   const scheduleInvalidate = useCallback(
     (tags) => {
-      tags.forEach((t) => pendingTagsRef.current.add(t));
+      if (!Array.isArray(tags) || tags.length === 0) {
+        return;
+      }
+
+      tags.forEach((tag) => {
+        pendingTagsRef.current.add(tag);
+      });
+
       if (!batchTimerRef.current) {
         batchTimerRef.current = setTimeout(flushPendingTags, BATCH_WINDOW_MS);
       }
@@ -47,84 +74,231 @@ export function RealtimeProvider({
     [flushPendingTags],
   );
 
+  // =========================================================
+  // SIGNALR EVENT
+  // =========================================================
+
   const handleEntityChanged = useCallback(
     (event) => {
-      const { eventId, resource, action, entityId } = event;
-      const dedupeKey = `${eventId}|${resource}|${action}|${entityId}`;
+      if (!event) {
+        return;
+      }
 
-      if (seenEventsRef.current.has(dedupeKey)) return;
+      const { eventId, resource, action, entityId, occurredAtUtc } = event;
+
+      if (!resource) {
+        return;
+      }
+
+      // -------------------------------------------------------
+      // DEDUPLICATION
+      // -------------------------------------------------------
+
+      const dedupeKey = [
+        eventId ?? "no-event-id",
+        resource,
+        action ?? "unknown",
+        entityId ?? "unknown",
+      ].join("|");
+
+      if (seenEventsRef.current.has(dedupeKey)) {
+        return;
+      }
+
       seenEventsRef.current.add(dedupeKey);
-      if (seenEventsRef.current.size > 500) {
+
+      if (seenEventsRef.current.size > MAX_SEEN_EVENTS) {
         seenEventsRef.current.clear();
       }
 
+      // -------------------------------------------------------
+      // RESOURCE → TAGS
+      // -------------------------------------------------------
+
       const tags = resourceTagsMap[resource];
-      if (tags && tags.length > 0) {
+
+      if (Array.isArray(tags) && tags.length > 0) {
         scheduleInvalidate(tags);
       }
 
-      setExternalUpdates((prev) => ({
-        ...prev,
-        [`${resource}-${entityId}`]: {
-          action,
-          occurredAtUtc: event.occurredAtUtc,
-        },
-      }));
+      // -------------------------------------------------------
+      // EXTERNAL UPDATE INFO
+      // -------------------------------------------------------
+
+      if (entityId != null) {
+        setExternalUpdates((previous) => ({
+          ...previous,
+
+          [`${resource}-${entityId}`]: {
+            action,
+            occurredAtUtc,
+          },
+        }));
+      }
     },
     [resourceTagsMap, scheduleInvalidate],
   );
 
+  // =========================================================
+  // SIGNALR CONNECTION
+  // =========================================================
+
   useEffect(() => {
+    if (typeof getAccessToken !== "function") {
+      console.warn("⏸️ SignalR: getAccessToken is not available");
+
+      return undefined;
+    }
+
+    const accessToken = getAccessToken();
+
+    if (!accessToken) {
+      setIsConnected(false);
+
+      return undefined;
+    }
+
     const connection = getOrCreateConnection(getAccessToken);
-    if (!getAccessToken) {
-      console.log("⏸️ SignalR: No access token");
-      return;
-    }
+
     if (!connection) {
-      console.error("❌ SignalR connection was not created");
-      return;
+      setIsConnected(false);
+
+      return undefined;
     }
+
+    // -------------------------------------------------------
+    // EVENT
+    // -------------------------------------------------------
 
     connection.on("ReceiveEntityChanged", handleEntityChanged);
 
-    connection.onreconnected(() => {
-      setIsConnected(true);
-      dispatch(baseApi.util.resetApiState());
-    });
+    // -------------------------------------------------------
+    // RECONNECTED
+    // -------------------------------------------------------
 
-    connection.onreconnecting(() => setIsConnected(false));
-    connection.onclose(() => setIsConnected(false));
+    const handleReconnected = () => {
+      console.log("🟢 SignalR: Reconnected");
+
+      setIsConnected(true);
+
+      /*
+       * أثناء انقطاع الاتصال ممكن تكون حصلت
+       * تغييرات missed.
+       *
+       * لذلك نمسح RTK Query cache بعد reconnect
+       * لضمان عدم عرض بيانات قديمة.
+       */
+      dispatch(baseApi.util.resetApiState());
+    };
+
+    connection.onreconnected(handleReconnected);
+
+    // -------------------------------------------------------
+    // RECONNECTING
+    // -------------------------------------------------------
+
+    const handleReconnecting = () => {
+      console.warn("🟡 SignalR: Reconnecting...");
+
+      setIsConnected(false);
+    };
+
+    connection.onreconnecting(handleReconnecting);
+
+    // -------------------------------------------------------
+    // CLOSED
+    // -------------------------------------------------------
+
+    const handleClose = (error) => {
+      console.warn("🔴 SignalR: Connection closed", error);
+
+      setIsConnected(false);
+    };
+
+    connection.onclose(handleClose);
+
+    // -------------------------------------------------------
+    // START
+    // -------------------------------------------------------
 
     if (connection.state === "Disconnected") {
       connection
         .start()
-        .then(() => setIsConnected(true))
-        .catch((err) => console.error("SignalR connection failed:", err));
+        .then(() => {
+          console.log("🟢 SignalR: Connected");
+
+          setIsConnected(true);
+        })
+        .catch((error) => {
+          console.error("❌ SignalR connection failed:", error);
+
+          setIsConnected(false);
+        });
     } else if (connection.state === "Connected") {
       setIsConnected(true);
     }
 
+    // -------------------------------------------------------
+    // CLEANUP
+    // -------------------------------------------------------
+
     return () => {
       connection.off("ReceiveEntityChanged", handleEntityChanged);
+
+      connection.onreconnected(handleReconnected);
+
+      connection.onreconnecting(handleReconnecting);
+
+      connection.onclose(handleClose);
+
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+
+        batchTimerRef.current = null;
+      }
+
+      pendingTagsRef.current.clear();
+
       void stopConnection();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleEntityChanged]);
+  }, [getAccessToken, handleEntityChanged, dispatch, baseApi]);
+
+  // =========================================================
+  // CONTEXT
+  // =========================================================
 
   return (
-    <RealtimeContext.Provider value={{ isConnected, externalUpdates }}>
+    <RealtimeContext.Provider
+      value={{
+        isConnected,
+        externalUpdates,
+      }}
+    >
       {children}
     </RealtimeContext.Provider>
   );
 }
 
+// =========================================================
+// EXTERNAL UPDATE ALERT
+// =========================================================
+
 export function useExternalUpdateAlert(resource, entityId) {
-  const ctx = useContext(RealtimeContext);
-  if (!ctx || entityId == null) return null;
-  return ctx.externalUpdates[`${resource}-${entityId}`] ?? null;
+  const context = useContext(RealtimeContext);
+
+  if (!context || entityId == null) {
+    return null;
+  }
+
+  return context.externalUpdates[`${resource}-${entityId}`] ?? null;
 }
 
+// =========================================================
+// REALTIME STATUS
+// =========================================================
+
 export function useRealtimeStatus() {
-  const ctx = useContext(RealtimeContext);
-  return ctx?.isConnected ?? false;
+  const context = useContext(RealtimeContext);
+
+  return context?.isConnected ?? false;
 }

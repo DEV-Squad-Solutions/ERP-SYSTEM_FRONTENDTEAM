@@ -1,11 +1,30 @@
 import { baseApi } from "../../lib/baseApi";
 
+// =========================================================
+// MOVEMENT TYPE → INVOICE TYPE
+// =========================================================
+
 const MOVEMENT_TYPE_TO_INVOICE_TYPE = {
   sale: "Sales",
   purchase: "Purchase",
   sale_return: "SalesReturn",
   purchase_return: "PurchaseReturn",
 };
+
+// =========================================================
+// INVOICE TYPE → TAG
+// =========================================================
+
+const INVOICE_TYPE_TO_TAG = {
+  Sales: "Sale",
+  Purchase: "Purchase",
+  SalesReturn: "SaleReturn",
+  PurchaseReturn: "PurchaseReturn",
+};
+
+// =========================================================
+// BUILD PARAMS
+// =========================================================
 
 function buildInvoiceParams({
   movementType,
@@ -48,85 +67,193 @@ function buildInvoiceParams({
   };
 }
 
+// =========================================================
+// GET INVOICE LIST TAGS
+// =========================================================
+
+function getInvoiceListTags(movementType) {
+  const invoiceType = MOVEMENT_TYPE_TO_INVOICE_TYPE[movementType];
+
+  const tags = [
+    {
+      type: "Invoice",
+      id: "LIST",
+    },
+  ];
+
+  const specificTag = INVOICE_TYPE_TO_TAG[invoiceType];
+
+  if (specificTag) {
+    tags.push({
+      type: specificTag,
+      id: "LIST",
+    });
+
+    return tags;
+  }
+
+  // No movement type filter
+  tags.push(
+    {
+      type: "Sale",
+      id: "LIST",
+    },
+    {
+      type: "Purchase",
+      id: "LIST",
+    },
+    {
+      type: "SaleReturn",
+      id: "LIST",
+    },
+    {
+      type: "PurchaseReturn",
+      id: "LIST",
+    },
+  );
+
+  return tags;
+}
+
+// =========================================================
+// INVOICE INVALIDATION
+// =========================================================
+
+const invoiceInvalidationTags = [
+  // Invoice lists
+  {
+    type: "Invoice",
+    id: "LIST",
+  },
+
+  {
+    type: "Sale",
+    id: "LIST",
+  },
+
+  {
+    type: "Purchase",
+    id: "LIST",
+  },
+
+  {
+    type: "SaleReturn",
+    id: "LIST",
+  },
+
+  {
+    type: "PurchaseReturn",
+    id: "LIST",
+  },
+
+  // Inventory
+  "Inventory",
+
+  // Cashbox
+  "Cashbox",
+  "CashVoucher",
+
+  // Partners
+  "Party",
+  "PartyStatement",
+  "Statement",
+
+  // Drivers
+  "Driver",
+  "DriverStatement",
+  "DriverTripCost",
+];
+
+// =========================================================
+// API
+// =========================================================
+
 export const invoicesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // =========================================================
+    // =====================================================
     // GET INVOICES
-    // =========================================================
+    // =====================================================
 
     getInvoices: builder.query({
       query: ({ page = 1, pageSize = 25, ...filters } = {}) => ({
         url: "Invoices",
+
         params: {
           PageNumber: page,
           PageSize: pageSize,
+
           ...buildInvoiceParams(filters),
         },
       }),
 
-      providesTags: (result, error, arg) => {
-        const movementType = arg?.movementType;
-
-        const invoiceType = MOVEMENT_TYPE_TO_INVOICE_TYPE[movementType];
-
-        if (invoiceType === "Purchase") {
-          return [
-            { type: "Purchase", id: "LIST" },
-            { type: "Invoice", id: "LIST" },
-          ];
-        }
-
-        if (invoiceType === "Sales") {
-          return [
-            { type: "Sale", id: "LIST" },
-            { type: "Invoice", id: "LIST" },
-          ];
-        }
-
-        return [
-          { type: "Invoice", id: "LIST" },
-          { type: "Sale", id: "LIST" },
-          { type: "Purchase", id: "LIST" },
-        ];
-      },
+      providesTags: (result, error, arg) =>
+        getInvoiceListTags(arg?.movementType),
     }),
 
-    // =========================================================
-    // GET INVOICES FOR SUMMARY / EXPORT
-    // =========================================================
+    // =====================================================
+    // SUMMARY / EXPORT
+    // =====================================================
 
     getInvoicesForSummary: builder.query({
       query: (filters = {}) => ({
         url: "Invoices",
+
         params: {
           PageNumber: 1,
           PageSize: 100,
+
           ...buildInvoiceParams(filters),
         },
       }),
 
       providesTags: [
-        { type: "Invoice", id: "LIST" },
-        { type: "Sale", id: "LIST" },
-        { type: "Purchase", id: "LIST" },
+        {
+          type: "Invoice",
+          id: "LIST",
+        },
+
+        {
+          type: "Sale",
+          id: "LIST",
+        },
+
+        {
+          type: "Purchase",
+          id: "LIST",
+        },
+
+        {
+          type: "SaleReturn",
+          id: "LIST",
+        },
+
+        {
+          type: "PurchaseReturn",
+          id: "LIST",
+        },
       ],
     }),
 
-    // =========================================================
-    // GET INVOICE BY ID
-    // =========================================================
+    // =====================================================
+    // GET BY ID
+    // =====================================================
 
     getInvoiceById: builder.query({
       query: (id) => ({
         url: `Invoices/${id}`,
       }),
 
-      providesTags: (result, error, id) => [{ type: "Invoice", id }],
+      providesTags: (result, error, id) => [
+        {
+          type: "Invoice",
+          id,
+        },
+      ],
     }),
 
-    // =========================================================
+    // =====================================================
     // CREATE
-    // =========================================================
+    // =====================================================
 
     createInvoice: builder.mutation({
       query: (data) => ({
@@ -135,26 +262,12 @@ export const invoicesApi = baseApi.injectEndpoints({
         body: data,
       }),
 
-      invalidatesTags: [
-        { type: "Invoice", id: "LIST" },
-        { type: "Sale", id: "LIST" },
-        { type: "Purchase", id: "LIST" },
-
-        "Inventory",
-        "Cashbox",
-        "CashVoucher",
-        "Party",
-        "PartyStatement",
-        "Statement",
-        "Driver",
-        "DriverStatement",
-        "DriverTripCost",
-      ],
+      invalidatesTags: invoiceInvalidationTags,
     }),
 
-    // =========================================================
+    // =====================================================
     // UPDATE
-    // =========================================================
+    // =====================================================
 
     updateInvoice: builder.mutation({
       query: ({ id, ...body }) => ({
@@ -164,31 +277,23 @@ export const invoicesApi = baseApi.injectEndpoints({
       }),
 
       invalidatesTags: (result, error, { id }) => [
-        { type: "Invoice", id },
-        { type: "Invoice", id: "LIST" },
+        {
+          type: "Invoice",
+          id,
+        },
 
-        { type: "Sale", id: "LIST" },
-        { type: "Purchase", id: "LIST" },
-
-        "Inventory",
-        "Cashbox",
-        "CashVoucher",
-        "Party",
-        "PartyStatement",
-        "Statement",
-        "Driver",
-        "DriverStatement",
-        "DriverTripCost",
+        ...invoiceInvalidationTags,
       ],
     }),
 
-    // =========================================================
+    // =====================================================
     // DELETE
-    // =========================================================
+    // =====================================================
 
     deleteInvoice: builder.mutation({
       query: ({ id, rowVersion }) => ({
         url: `Invoices/${id}`,
+
         method: "DELETE",
 
         params: {
@@ -197,34 +302,23 @@ export const invoicesApi = baseApi.injectEndpoints({
       }),
 
       invalidatesTags: (result, error, { id }) => [
-        // الفاتورة نفسها
-        { type: "Invoice", id },
-        { type: "Invoice", id: "LIST" },
+        {
+          type: "Invoice",
+          id,
+        },
 
-        // صفحات المبيعات والمشتريات
-        { type: "Sale", id: "LIST" },
-        { type: "Purchase", id: "LIST" },
-
-        // التأثيرات الجانبية
-        "Inventory",
-        "Cashbox",
-        "CashVoucher",
-        "Party",
-        "PartyStatement",
-        "Statement",
-        "Driver",
-        "DriverStatement",
-        "DriverTripCost",
+        ...invoiceInvalidationTags,
       ],
     }),
 
-    // =========================================================
+    // =====================================================
     // ITEM BALANCE
-    // =========================================================
+    // =====================================================
 
     getItemBalance: builder.query({
       query: ({ storeId, itemId, asOfDate, invoiceId }) => ({
         url: "Invoices/item-balance",
+
         params: {
           storeId,
           itemId,
@@ -232,11 +326,13 @@ export const invoicesApi = baseApi.injectEndpoints({
           invoiceId,
         },
       }),
+
+      providesTags: ["Inventory"],
     }),
 
-    // =========================================================
+    // =====================================================
     // RETURN SOURCES
-    // =========================================================
+    // =====================================================
 
     getReturnSources: builder.query({
       query: ({
@@ -253,20 +349,33 @@ export const invoicesApi = baseApi.injectEndpoints({
 
         params: {
           BusinessPartnerId: businessPartnerId,
+
           StoreId: storeId,
+
           ReturnType: returnType,
+
           AsOfDate: asOfDate,
+
           Search: search || undefined,
+
           CurrentReturnInvoiceId: currentReturnInvoiceId || undefined,
+
           PageNumber: pageNumber,
+
           PageSize: pageSize,
         },
       }),
+
+      providesTags: ["Invoice"],
 
       keepUnusedDataFor: 30,
     }),
   }),
 });
+
+// =========================================================
+// HOOKS
+// =========================================================
 
 export const {
   useGetInvoicesQuery,

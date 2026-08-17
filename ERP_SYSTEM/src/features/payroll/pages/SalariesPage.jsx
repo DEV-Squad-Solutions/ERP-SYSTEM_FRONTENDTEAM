@@ -1,13 +1,3 @@
-// features/payroll/pages/SalariesPage.jsx
-//
-// TODO INTEGRATION: PayrollEntries schema المبعوت مفيهوش حقل "status"
-// (مسودة/تحت المراجعة/معتمد/تم الصرف) ولا فصل overtime/allowances عن bonus،
-// ولا advances عن deduction. حاليًا: bonus = الإضافي+البدلات+المكافآت مجمّعين،
-// deduction = الخصومات+السلف مجمّعين، والحالة mock ثابتة "معتمد" لحد ما تتوفر
-// من الباك إند. الأزرار (اعتماد/صرف) موصولة فعليًا بـpayrollApi endpoints
-// (approvePayrollEntry/disbursePayrollEntry) وجاهزة تشتغل فور ما الـstatus
-// الحقيقي يوصل.
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
