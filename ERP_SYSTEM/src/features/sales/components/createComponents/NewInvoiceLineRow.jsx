@@ -3,23 +3,34 @@ import { Trash2, AlertCircle, PenLine, Plus, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useGetItemUnitsSelectQuery } from "../../../units/itemUnitsApi";
-import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
 
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 import NumericInput from "../../../../shared/components/ui/NumericInput";
 import Input from "../../../../shared/components/ui/Input";
 import QuickAddItemModal from "../../../inventory/components/QuickAddItemModal";
+import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
 
 const round2 = (value) => {
-  if (value === "" || value === null || value === undefined) return null;
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
   const number = Number(value);
-  if (!Number.isFinite(number)) return null;
+
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+
   return Math.round((number + Number.EPSILON) * 100) / 100;
 };
 
 const toNumber = (value) => {
-  if (value === "" || value === null || value === undefined) return null;
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
   const number = Number(value);
+
   return Number.isFinite(number) ? number : null;
 };
 
@@ -28,15 +39,24 @@ function InvoiceLineRow({
   index,
   storeId,
   invoiceDate,
+
+  // =========================================================
+  // الأصناف تأتي من CreateInvoiceForm
+  // =========================================================
   items,
-  itemOptions,
   isLoadingItems,
   isItemsError,
+
   onChange,
   onRemove,
 }) {
   const [showAddItem, setShowAddItem] = useState(false);
+
   const isReturnLine = Boolean(line.isReturnLine);
+
+  // =========================================================
+  // رصيد الصنف
+  // =========================================================
 
   const { data: balanceData, isLoading: isLoadingBalance } =
     useGetItemBalanceQuery(
@@ -55,25 +75,51 @@ function InvoiceLineRow({
       },
     );
 
+  // =========================================================
+  // وحدات الصنف
+  // =========================================================
+
   const { data: itemUnits, isLoading: isLoadingUnits } =
     useGetItemUnitsSelectQuery(line.itemId, {
       skip: !line.itemId || line.isTemporaryItem || isReturnLine,
     });
 
+  // =========================================================
+  // خيارات الأصناف
+  // =========================================================
+
+  const itemOptions =
+    items?.map((item) => ({
+      value: item.id,
+      label: item.name,
+    })) || [];
+
+  // =========================================================
+  // Helper
+  // =========================================================
+
   const set = (key, value) => {
-    onChange(index, {
+    onChange({
       ...line,
       [key]: value,
     });
   };
 
+  // =========================================================
+  // تحديث بيانات الصنف عند اختياره
+  // =========================================================
+
   const isFirstItemRender = useRef(true);
   const prevItemIdRef = useRef(line.itemId);
 
   useEffect(() => {
-    if (!items || !line.itemId || line.isTemporaryItem || isReturnLine) return;
+    if (!items || !line.itemId || line.isTemporaryItem || isReturnLine) {
+      return;
+    }
 
-    const selected = items.find((item) => item.id === line.itemId);
+    const selected = items.find(
+      (item) => String(item.id) === String(line.itemId),
+    );
 
     if (!selected) return;
 
@@ -81,7 +127,7 @@ function InvoiceLineRow({
       isFirstItemRender.current = false;
       prevItemIdRef.current = line.itemId;
 
-      onChange(index, {
+      onChange({
         ...line,
         itemId: selected.id,
         itemName: selected.name,
@@ -91,10 +137,10 @@ function InvoiceLineRow({
       return;
     }
 
-    if (line.itemId !== prevItemIdRef.current) {
+    if (String(line.itemId) !== String(prevItemIdRef.current)) {
       prevItemIdRef.current = line.itemId;
 
-      onChange(index, {
+      onChange({
         ...line,
         itemId: selected.id,
         itemName: selected.name,
@@ -112,80 +158,151 @@ function InvoiceLineRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemId, items]);
 
-  useEffect(() => {
-    if (!itemUnits || !line.itemUnitId || isReturnLine) return;
+  // =========================================================
+  // تحديث اسم الوحدة
+  // =========================================================
 
-    const unit = itemUnits.find((u) => u.id === line.itemUnitId);
+  useEffect(() => {
+    if (!itemUnits || !line.itemUnitId || isReturnLine) {
+      return;
+    }
+
+    const unit = itemUnits.find(
+      (u) => String(u.id) === String(line.itemUnitId),
+    );
 
     if (!unit) return;
 
     if (unit.name === line.itemUnitName) return;
 
-    onChange(index, {
+    onChange({
       ...line,
       itemUnitId: unit.id,
       itemUnitName: unit.name,
     });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemUnitId, itemUnits]);
+
+  // =========================================================
+  // العدد
+  // =========================================================
 
   const handleCountChange = (count) => {
     if (count === "") {
-      onChange(index, { ...line, count: "" });
+      onChange({
+        ...line,
+        count: "",
+      });
+
       return;
     }
 
-    onChange(index, { ...line, count });
+    if (count.endsWith(".")) {
+      onChange({
+        ...line,
+        count,
+      });
 
-    if (count.endsWith(".")) return;
+      return;
+    }
 
     const countNumber = toNumber(count);
     const weightNumber = toNumber(line.weight);
 
-    if (countNumber === null || weightNumber === null) return;
+    if (countNumber === null || weightNumber === null) {
+      onChange({
+        ...line,
+        count,
+      });
 
-    onChange(index, {
+      return;
+    }
+
+    onChange({
       ...line,
       count,
       quantity: round2(countNumber * weightNumber),
     });
   };
 
+  // =========================================================
+  // وزن الوحدة
+  // =========================================================
+
   const handleWeightChange = (weight) => {
     if (weight === "") {
-      onChange(index, { ...line, weight: "" });
+      onChange({
+        ...line,
+        weight: "",
+      });
+
       return;
     }
 
-    onChange(index, { ...line, weight });
+    if (weight.endsWith(".")) {
+      onChange({
+        ...line,
+        weight,
+      });
 
-    if (weight.endsWith(".")) return;
+      return;
+    }
 
     const weightNumber = toNumber(weight);
     const countNumber = toNumber(line.count);
 
-    if (weightNumber === null || countNumber === null) return;
+    if (weightNumber === null || countNumber === null) {
+      onChange({
+        ...line,
+        weight,
+      });
 
-    onChange(index, {
+      return;
+    }
+
+    onChange({
       ...line,
       weight,
       quantity: round2(countNumber * weightNumber),
     });
   };
 
+  // =========================================================
+  // الكمية
+  // =========================================================
+
   const handleQuantityChange = (quantity) => {
     if (quantity === "") {
-      onChange(index, { ...line, quantity: "" });
+      onChange({
+        ...line,
+        quantity: "",
+      });
+
       return;
     }
 
-    // لا نحول القيمة أثناء الكتابة حتى تظل 12. قابلة للاستكمال إلى 12.5.
-    onChange(index, { ...line, quantity });
+    if (quantity.endsWith(".")) {
+      onChange({
+        ...line,
+        quantity,
+      });
 
-    if (quantity.endsWith(".")) return;
+      return;
+    }
 
     const qty = toNumber(quantity);
-    if (qty === null) return;
 
+    if (qty === null) {
+      onChange({
+        ...line,
+        quantity,
+      });
+
+      return;
+    }
+
+    // المرتجع
     if (isReturnLine && line.maxReturnQuantity != null) {
       const maxReturnQuantity = toNumber(line.maxReturnQuantity);
 
@@ -196,64 +313,99 @@ function InvoiceLineRow({
           description: `أقصى كمية: ${limitedQuantity}`,
         });
 
-        onChange(index, { ...line, quantity: limitedQuantity });
+        onChange({
+          ...line,
+          quantity: limitedQuantity,
+        });
+
         return;
       }
     }
 
     const count = toNumber(line.count);
 
-    if (count !== null && count > 0 && !isReturnLine) {
-      onChange(index, {
-        ...line,
-        quantity,
-        weight: round2(qty / count),
-      });
-    }
+    onChange({
+      ...line,
+      quantity,
+      ...(count !== null && count > 0 && !isReturnLine
+        ? {
+            weight: round2(qty / count),
+          }
+        : {}),
+    });
   };
+
+  // =========================================================
+  // صنف يدوي
+  // =========================================================
 
   const handleToggleTemporaryItem = () => {
     if (isReturnLine) return;
-    onChange(index, {
+
+    onChange({
       ...line,
       isTemporaryItem: !line.isTemporaryItem,
+
       itemId: null,
       itemName: "",
       itemCode: "",
+
       itemUnitId: null,
       itemUnitName: "",
+
       weight: null,
       count: null,
       quantity: null,
     });
   };
 
+  // =========================================================
+  // إضافة صنف جديد
+  // =========================================================
+
   const handleItemCreated = (newItem) => {
-    onChange(index, {
+    onChange({
       ...line,
+
       isTemporaryItem: false,
+
       itemId: newItem.id,
       itemName: newItem.name,
       itemCode: newItem.code,
+
       itemUnitId: null,
       itemUnitName: "",
+
       weight: null,
       count: null,
       quantity: null,
     });
+
     setShowAddItem(false);
   };
 
+  // =========================================================
+  // حذف
+  // =========================================================
+
   const handleRemove = () => {
-    onRemove(index);
+    onRemove();
 
     toast.success("تم حذف الصنف من الفاتورة", {
       description: line.itemName || "صنف بدون اسم",
     });
   };
 
+  // =========================================================
+  // الإجمالي
+  // =========================================================
+
   const total =
     round2((toNumber(line.quantity) ?? 0) * (toNumber(line.price) ?? 0)) ?? 0;
+
+  // =========================================================
+  // خيارات الوحدات
+  // =========================================================
 
   const unitOptions =
     itemUnits?.map((unit) => ({
@@ -270,15 +422,25 @@ function InvoiceLineRow({
         isReturnLine ? "bg-primary-500/[0.025]" : "hover:bg-ink-900/[0.012]"
       }`}
     >
+      {/* =====================================================
+          #
+      ===================================================== */}
+
       <td className="p-2.5 text-center text-ink-400 text-xs num w-10">
         {index + 1}
       </td>
+
+      {/* =====================================================
+          الصنف
+      ===================================================== */}
 
       <td className="p-2 min-w-[180px]">
         {isReturnLine ? (
           <div className="flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50/60 px-2.5 py-2 text-sm text-ink-900">
             <Undo2 size={13} className="shrink-0 text-primary-500" />
+
             <span className="truncate">{line.itemName}</span>
+
             {line.sourceInvoiceNumber && (
               <span className="mr-auto shrink-0 text-[11px] text-ink-400">
                 من {line.sourceInvoiceNumber}
@@ -298,7 +460,7 @@ function InvoiceLineRow({
             ) : isItemsError ? (
               <div className="flex-1 flex items-center gap-1.5 text-xs text-negative px-2 py-2 bg-negative/5 rounded-lg">
                 <AlertCircle size={13} />
-                تعذر التحميل
+                تعذر تحميل الأصناف
               </div>
             ) : (
               <div className="flex-1 min-w-[180px]">
@@ -311,6 +473,9 @@ function InvoiceLineRow({
                 />
               </div>
             )}
+
+            {/* صنف يدوي */}
+
             <button
               type="button"
               onClick={handleToggleTemporaryItem}
@@ -323,6 +488,9 @@ function InvoiceLineRow({
             >
               <PenLine size={15} />
             </button>
+
+            {/* إضافة صنف جديد */}
+
             <button
               type="button"
               onClick={() => setShowAddItem(true)}
@@ -334,6 +502,10 @@ function InvoiceLineRow({
           </div>
         )}
       </td>
+
+      {/* =====================================================
+          الرصيد
+      ===================================================== */}
 
       <td className="p-2 w-[130px]">
         <div
@@ -354,17 +526,24 @@ function InvoiceLineRow({
                   maximumFractionDigits: 2,
                 })}
               </span>
+
               <span className="text-[10px] text-ink-400">
                 متوسط التكلفة:{" "}
                 {(round2(balanceData?.averageCost) ?? 0).toLocaleString(
                   "ar-EG",
-                  { maximumFractionDigits: 2 },
+                  {
+                    maximumFractionDigits: 2,
+                  },
                 )}
               </span>
             </>
           )}
         </div>
       </td>
+
+      {/* =====================================================
+          الوحدة
+      ===================================================== */}
 
       <td className="p-2 min-w-[120px]">
         {isReturnLine ? (
@@ -387,13 +566,17 @@ function InvoiceLineRow({
         )}
       </td>
 
+      {/* =====================================================
+          العدد
+      ===================================================== */}
+
       <td className="p-2 w-[90px]">
         {isReturnLine ? (
           <div className={readonlyCls}>—</div>
         ) : (
           <NumericInput
             value={line.count ?? ""}
-            decimals={true}
+            decimals
             maxDecimals={2}
             placeholder="العدد"
             onChange={handleCountChange}
@@ -401,13 +584,17 @@ function InvoiceLineRow({
         )}
       </td>
 
+      {/* =====================================================
+          وزن الوحدة
+      ===================================================== */}
+
       <td className="p-2 w-[100px]">
         {isReturnLine ? (
           <div className={readonlyCls}>—</div>
         ) : (
           <NumericInput
             value={line.weight ?? ""}
-            decimals={true}
+            decimals
             maxDecimals={2}
             placeholder="الوزن"
             onChange={handleWeightChange}
@@ -415,20 +602,28 @@ function InvoiceLineRow({
         )}
       </td>
 
+      {/* =====================================================
+          الكمية
+      ===================================================== */}
+
       <td className="p-2 w-[110px]">
         <NumericInput
           value={line.quantity ?? ""}
-          decimals={true}
+          decimals
           maxDecimals={2}
           placeholder="الكمية"
           onChange={handleQuantityChange}
         />
       </td>
 
+      {/* =====================================================
+          السعر
+      ===================================================== */}
+
       <td className="p-2 w-[120px]">
         <NumericInput
           value={line.price ?? ""}
-          decimals={true}
+          decimals
           maxDecimals={2}
           placeholder="السعر"
           disabled={isReturnLine}
@@ -436,11 +631,19 @@ function InvoiceLineRow({
         />
       </td>
 
+      {/* =====================================================
+          القيمة
+      ===================================================== */}
+
       <td className="p-2 w-[130px] text-center">
         <span className="num font-semibold">
           {total.toLocaleString("ar-EG")}
         </span>
       </td>
+
+      {/* =====================================================
+          ملاحظات
+      ===================================================== */}
 
       <td className="p-2 min-w-[150px]">
         <Input
@@ -451,6 +654,10 @@ function InvoiceLineRow({
         />
       </td>
 
+      {/* =====================================================
+          حذف
+      ===================================================== */}
+
       <td className="p-2 w-[50px] text-center">
         <button
           type="button"
@@ -460,6 +667,10 @@ function InvoiceLineRow({
           <Trash2 size={15} />
         </button>
       </td>
+
+      {/* =====================================================
+          إضافة صنف جديد
+      ===================================================== */}
 
       {!isReturnLine && (
         <QuickAddItemModal
