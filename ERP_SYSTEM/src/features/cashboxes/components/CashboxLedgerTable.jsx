@@ -1,5 +1,5 @@
-// features/cashboxes/components/CashboxLedgerTable.jsx
 import { useState, useRef, useMemo } from "react";
+
 import {
   FileSearch,
   AlertCircle,
@@ -8,13 +8,22 @@ import {
   Check,
   X,
   Loader2,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
+
 import { toast } from "sonner";
-import DescriptionPickerModal from "./DescriptionPickerModal";
+
+import CashVoucherEditModal from "./CashVoucherEditModal";
 import Pagination from "../../../shared/components/ui/Pagination";
+
+const fmt = (n) =>
+  Number(n ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 function buildDescriptionDisplay(v) {
   if (!v.cashMovementTypeId) return null;
+
   const partyLabel =
     v.partyType === "Partner"
       ? v.businessPartnerName
@@ -23,12 +32,21 @@ function buildDescriptionDisplay(v) {
         : v.partyType === "Other"
           ? v.externalPartyName
           : null;
+
   return partyLabel
     ? `${v.cashMovementTypeName} - ${partyLabel}`
     : v.cashMovementTypeName;
 }
 
-const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+function emptyDraft() {
+  return {
+    voucherDate: new Date().toISOString().slice(0, 10),
+    description: "",
+    receiptAmount: "",
+    paymentAmount: "",
+    notes: "",
+  };
+}
 
 export default function CashboxLedgerTable({
   data,
@@ -36,35 +54,61 @@ export default function CashboxLedgerTable({
   isFetching,
   isError,
   refetch,
-  cashboxId, // خزنة الصفحة الحالية - بتتبعت مع كل سند
-  cashboxCurrency, // عملة الخزنة - يفضل تتبعت من الصفحة الأب (بيانات الخزنة نفسها)
-  cashboxBaseCurrency, // العملة الأساسية (المصري) - افتراضي EGP
+
+  cashboxId,
+  cashboxCurrency,
+  cashboxBaseCurrency,
+
   partyOptions = [],
   driverOptions = [],
+
   onAddVoucher,
   onUpdateVoucher,
+
   page = 1,
   pageSize = 20,
   totalCount = 0,
+
   onPageChange,
   onPageSizeChange,
 }) {
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(emptyDraft());
+
   const [editingRow, setEditingRow] = useState(null);
   const [updatingRowId, setUpdatingRowId] = useState(null);
+
+  // ترتيب العرض — Client-side لحد ما الباك يدعم SortBy/SortDirection
+  const [sortKey, setSortKey] = useState("date"); // 'date' | 'number'
+  const [sortDir, setSortDir] = useState("asc"); // 'asc' | 'desc'
+
   const dateInputRef = useRef(null);
 
-  function emptyDraft() {
-    return {
-      voucherDate: new Date().toISOString().slice(0, 10),
-      description: "",
-      receiptAmount: "",
-      paymentAmount: "",
-      notes: "",
-    };
-  }
+  const vouchers = data?.items || [];
+
+  const currency = cashboxCurrency || vouchers[0]?.currency || "EGP";
+  const baseCurrency =
+    cashboxBaseCurrency || vouchers[0]?.baseCurrency || "EGP";
+  const isForeign = currency !== baseCurrency;
+
+  const openingBalance = Number(
+    data?.summary?.openingBalance ??
+      data?.summary?.openingCashboxBalance ??
+      data?.summary?.previousBalance ??
+      data?.openingBalance ??
+      0,
+  );
+
+  const openingBaseBalance = Number(
+    data?.summary?.openingBaseBalance ??
+      data?.summary?.openingBaseCashboxBalance ??
+      data?.summary?.previousBaseBalance ??
+      data?.openingBaseBalance ??
+      0,
+  );
+
+  /* ---------------- Add (POST Draft) ---------------- */
 
   function openAddRow() {
     setDraft(emptyDraft());
@@ -77,25 +121,39 @@ export default function CashboxLedgerTable({
     setDraft(emptyDraft());
   }
 
-  // إضافة سريعة: مسؤول الخزنة بيكتب المبلغ (وارد أو صادر) والبيان والملاحظات بس
-  // من غير توصيف - المحاسب بيوصفها بعدين من زرار "بدون توصيف" على السطر
   async function handleSave() {
     const receipt = Number(draft.receiptAmount) || 0;
     const payment = Number(draft.paymentAmount) || 0;
 
+    if (receipt <= 0 && payment <= 0) {
+      toast.error("أدخل قيمة وارد أو قيمة صادر");
+      return;
+    }
+
+    if (receipt > 0 && payment > 0) {
+      toast.error("لا يمكن إدخال وارد وصادر في نفس الحركة");
+      return;
+    }
+
+    const amount = receipt > 0 ? receipt : payment;
+
     setSaving(true);
+
     try {
       await onAddVoucher({
         cashboxId,
         voucherDate: draft.voucherDate,
         direction: receipt > 0 ? "Receipt" : "Payment",
-        amount: receipt > 0 ? receipt : payment,
+        amount,
         description: draft.description || undefined,
-        notes: draft.notes || undefined,
       });
+
+      toast.success("تم تسجيل الحركة (مسودة) — دوس على البيان لإكمال التوصيف");
+
       setDraft(emptyDraft());
       setTimeout(() => dateInputRef.current?.focus(), 0);
     } catch (err) {
+      toast.error(err?.data?.detail || "حدث خطأ أثناء حفظ الحركة");
     } finally {
       setSaving(false);
     }
@@ -105,44 +163,61 @@ export default function CashboxLedgerTable({
     if (e.key === "Enter") {
       e.preventDefault();
       if (!saving) handleSave();
-    } else if (e.key === "Escape") {
+    }
+    if (e.key === "Escape") {
       e.preventDefault();
       if (!saving) closeAddRow();
     }
   }
 
-  async function handleUpdateRowDescription(row, c) {
-    if (!onUpdateVoucher) return;
+  /* ---------------- Full edit ---------------- */
 
-    setUpdatingRowId(row.id);
+  async function handleFullEdit(payload) {
+    if (!editingRow) return;
+
+    setUpdatingRowId(editingRow.id);
+
     try {
       await onUpdateVoucher({
-        ...row,
-        id: row.id,
-        direction: row.direction,
+        id: editingRow.id,
         cashboxId,
-        cashMovementTypeId: c.cashMovementType.value,
-        partyType: c.partyType,
-        businessPartnerId:
-          c.partyType === "Partner" ? (c.businessPartner?.value ?? null) : null,
-        driverId: c.partyType === "Driver" ? (c.driver?.value ?? null) : null,
-        externalPartyName:
-          c.partyType === "Other" ? c.externalPartyName || null : null,
-        rowVersion: row.rowVersion,
+        rowVersion: editingRow.rowVersion,
+        ...payload,
       });
-      toast.success("تم تحديث التوصيف");
-    } catch (err) {
+
+      toast.success("تم تحديث السند");
     } finally {
       setUpdatingRowId(null);
-      setEditingRow(null);
     }
   }
+
+  /* ---------------- Sort toggle ---------------- */
+
+  function toggleSort(key) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function SortIcon({ active, dir }) {
+    if (!active) return <ArrowUpDown size={12} className="text-ink-300" />;
+    return dir === "asc" ? (
+      <ChevronUp size={12} className="text-primary-600" />
+    ) : (
+      <ChevronDown size={12} className="text-primary-600" />
+    );
+  }
+
+  /* ---------------- Loading / Error ---------------- */
 
   if (isLoading) {
     return (
       <div className="space-y-1">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="h-10 rounded-lg bg-ink-400/5 animate-pulse" />
+          <div key={i} className="h-10 animate-pulse rounded-lg bg-ink-400/5" />
         ))}
       </div>
     );
@@ -150,18 +225,18 @@ export default function CashboxLedgerTable({
 
   if (isError) {
     return (
-      <div className="text-center py-14 border border-dashed border-negative/25 bg-negative/[0.02] rounded-2xl">
+      <div className="rounded-2xl border border-dashed border-negative/25 bg-negative/[0.02] py-14 text-center">
         <AlertCircle
           size={34}
-          className="mx-auto text-negative/70 mb-3"
+          className="mx-auto mb-3 text-negative/70"
           strokeWidth={1.6}
         />
-        <p className="text-ink-900 font-medium mb-1">
+        <p className="mb-1 font-medium text-ink-900">
           حدث خطأ في تحميل حركة الخزنة
         </p>
         <button
           onClick={refetch}
-          className="inline-flex items-center gap-2 text-sm font-medium text-primary-500 hover:text-primary-600 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-lg transition-colors mt-2"
+          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-4 py-2 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-600"
         >
           <RefreshCw size={15} />
           إعادة المحاولة
@@ -170,72 +245,109 @@ export default function CashboxLedgerTable({
     );
   }
 
-  const vouchers = data?.items || [];
+  /* ---------------- Chronological order (ثابت لحساب الرصيد التراكمي) ---------------- */
 
-  const currency = cashboxCurrency || vouchers[0]?.currency || "EGP";
-  const baseCurrency =
-    cashboxBaseCurrency || vouchers[0]?.baseCurrency || "EGP";
-  const isForeign = currency !== baseCurrency;
+  const chronological = [...vouchers].sort((a, b) => {
+    const dateCompare = String(a.voucherDate || "").localeCompare(
+      String(b.voucherDate || ""),
+    );
+    if (dateCompare !== 0) return dateCompare;
+    return String(a.voucherNumber || "").localeCompare(
+      String(b.voucherNumber || ""),
+      undefined,
+      {
+        numeric: true,
+      },
+    );
+  });
 
-  const sorted = [...vouchers].sort((a, b) =>
-    a.voucherDate.localeCompare(b.voucherDate),
-  );
+  let running = openingBalance;
+  let baseRunning = openingBaseBalance;
 
-  let running = 0;
-  let baseRunning = 0;
-  const rows = sorted.map((v) => {
-    const debit = v.direction === "Receipt" ? v.amount : 0;
-    const credit = v.direction === "Payment" ? v.amount : 0;
-    const baseDebit =
-      v.direction === "Receipt" ? (v.baseAmount ?? v.amount) : 0;
-    const baseCredit =
-      v.direction === "Payment" ? (v.baseAmount ?? v.amount) : 0;
+  const rows = chronological.map((v) => {
+    const amount = Number(v.amount) || 0;
+    const exchangeRate = Number(v.exchangeRate ?? v.rate ?? 1) || 1;
+    const baseAmount = Number(v.baseAmount ?? amount * exchangeRate);
+
+    const debit = v.direction === "Receipt" ? amount : 0;
+    const credit = v.direction === "Payment" ? amount : 0;
+    const baseDebit = v.direction === "Receipt" ? baseAmount : 0;
+    const baseCredit = v.direction === "Payment" ? baseAmount : 0;
 
     running += debit - credit;
     baseRunning += baseDebit - baseCredit;
 
+    const isDescribed = Boolean(v.cashMovementTypeId);
+    const isDraft = typeof v.isDraft === "boolean" ? v.isDraft : !isDescribed;
+
     return {
       ...v,
+      amount,
+      exchangeRate,
+      baseAmount,
       debit,
       credit,
       baseDebit,
       baseCredit,
       balance: running,
       baseBalance: baseRunning,
-      isDescribed: Boolean(v.cashMovementTypeId),
+      isDescribed,
+      isDraft,
       descriptionDisplay: buildDescriptionDisplay(v),
     };
   });
 
-  const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
-  const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
-  const totalBaseDebit = rows.reduce((s, r) => s + r.baseDebit, 0);
-  const totalBaseCredit = rows.reduce((s, r) => s + r.baseCredit, 0);
+  const totalDebit = rows.reduce((sum, row) => sum + row.debit, 0);
+  const totalCredit = rows.reduce((sum, row) => sum + row.credit, 0);
+  const totalBaseDebit = rows.reduce((sum, row) => sum + row.baseDebit, 0);
+  const totalBaseCredit = rows.reduce((sum, row) => sum + row.baseCredit, 0);
+
+  // ترتيب العرض بس — الرصيد المحسوب لكل صف بيفضل زي ما هو (Snapshot زمني صحيح)
+  // حتى لو اتغيّر ترتيب العرض بالسند/التاريخ تنازليًا
+  const displayRows = [...rows].sort((a, b) => {
+    const cmp =
+      sortKey === "number"
+        ? String(a.voucherNumber || "").localeCompare(
+            String(b.voucherNumber || ""),
+            undefined,
+            {
+              numeric: true,
+            },
+          )
+        : String(a.voucherDate || "").localeCompare(
+            String(b.voucherDate || ""),
+          );
+
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
   const showEmptyState = !isFetching && rows.length === 0 && !isAdding;
 
   return (
     <div>
       <style>{`
-        @keyframes cashRowIn {
-          from { opacity: 0; transform: translateY(-6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes cashRowIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
         .cash-row-anim { animation: cashRowIn 0.18s ease-out; }
       `}</style>
 
       {isForeign && (
-        <div className="mb-3 flex items-center gap-2 rounded-xl border border-primary-100 bg-primary-50/50 px-3 py-2 text-xs font-medium text-primary-600">
-          <span>
-            خزنة بعملة أجنبية ({currency}) — المبالغ معروضة بعملة الخزنة وما
-            يقابلها بالمصري ({baseCurrency})
-          </span>
+        <div className="mb-3 rounded-xl border border-primary-100 bg-primary-50/50 px-3 py-2 text-xs font-medium text-primary-600">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span>
+              خزنة بعملة <strong>{currency}</strong>
+            </span>
+            <span>كل مبلغ له مقابل بالمصري وسعر صرف مستقل</span>
+            <span>
+              العملة الأساسية: <strong>{baseCurrency}</strong>
+            </span>
+          </div>
         </div>
       )}
 
       {!isAdding && (
         <button
           onClick={openAddRow}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs text-ink-400 hover:text-primary-500 hover:bg-primary-50/40 transition-colors border border-dashed border-ink-400/15 rounded-xl mb-3"
+          className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink-400/15 py-2.5 text-xs text-ink-400 transition-colors hover:bg-primary-50/40 hover:text-primary-500"
         >
           <Plus size={14} />
           إضافة حركة جديدة
@@ -243,57 +355,91 @@ export default function CashboxLedgerTable({
       )}
 
       <div
-        className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${isFetching ? "opacity-60" : ""}`}
+        className={`rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
+          isFetching ? "opacity-60" : ""
+        }`}
       >
-        <table className="w-full text-right border-collapse min-w-[1150px]">
+        <table
+          className="w-full table-fixed border-collapse text-right"
+          dir="rtl"
+        >
+          <colgroup>
+            <col className="w-[13%]" /> {/* الرصيد — أقصى اليمين */}
+            <col className="w-[12%]" /> {/* صادر */}
+            <col className="w-[12%]" /> {/* وارد */}
+            {isForeign && <col className="w-[9%]" />} {/* سعر الصرف */}
+            <col /> {/* البيان / التوصيف — الباقي */}
+            <col className="w-[10%]" /> {/* التاريخ */}
+            <col className="w-[10%]" /> {/* السند — أقصى الشمال */}
+          </colgroup>
+
           <thead>
-            <tr className="bg-ink-900/[0.03] text-ink-400 text-xs">
-              <th className="p-2.5 font-medium border-l border-ink-400/5">
-                رقم السند
-              </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5">
+            <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
+              <th className="border-l border-ink-400/5 p-2.5 font-medium">
                 الرصيد
               </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5 text-positive">
-                وارد{" "}
-                {isForeign && (
-                  <span className="text-[10px] text-ink-400">({currency})</span>
-                )}
-              </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5 text-negative">
+
+              <th className="border-l border-ink-400/5 p-2.5 font-medium text-negative">
                 صادر{" "}
                 {isForeign && (
                   <span className="text-[10px] text-ink-400">({currency})</span>
                 )}
               </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5">
-                البيان
+
+              <th className="border-l border-ink-400/5 p-2.5 font-medium text-positive">
+                وارد{" "}
+                {isForeign && (
+                  <span className="text-[10px] text-ink-400">({currency})</span>
+                )}
               </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5">
-                التوصيف
+
+              {isForeign && (
+                <th className="border-l border-ink-400/5 p-2.5 font-medium">
+                  سعر الصرف
+                </th>
+              )}
+
+              <th className="border-l border-ink-400/5 p-2.5 font-medium">
+                البيان / التوصيف
               </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5">
-                التاريخ
+
+              <th className="border-l border-ink-400/5 p-2.5 font-medium">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("date")}
+                  className="inline-flex items-center gap-1 hover:text-ink-700"
+                >
+                  التاريخ
+                  <SortIcon active={sortKey === "date"} dir={sortDir} />
+                </button>
               </th>
-              <th className="p-2.5 font-medium border-l border-ink-400/5">
-                ملاحظات
+
+              <th className="p-2.5 font-medium">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("number")}
+                  className="inline-flex items-center gap-1 hover:text-ink-700"
+                >
+                  السند
+                  <SortIcon active={sortKey === "number"} dir={sortDir} />
+                </button>
               </th>
-              <th className="p-2.5 font-medium w-10"></th>
             </tr>
           </thead>
+
           <tbody>
             {showEmptyState && (
               <tr>
-                <td colSpan={9} className="py-16">
+                <td colSpan={isForeign ? 7 : 6} className="py-16">
                   <div className="text-center">
-                    <div className="w-14 h-14 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
+                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-ink-400/5">
                       <FileSearch
                         size={26}
                         className="text-ink-400/50"
                         strokeWidth={1.6}
                       />
                     </div>
-                    <p className="text-ink-900 font-medium mb-1">
+                    <p className="mb-1 font-medium text-ink-900">
                       لا توجد حركات مسجلة
                     </p>
                     <p className="text-sm text-ink-400">ابدأ بتسجيل أول سند</p>
@@ -303,37 +449,40 @@ export default function CashboxLedgerTable({
             )}
 
             {isAdding && (
-              <tr className="cash-row-anim bg-primary-50/30 border-b border-ink-400/10">
-                {/* رقم السند - تلقائي، مفيش حقل إدخال */}
-                <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
-                  تلقائي
+              <tr className="cash-row-anim border-b border-ink-400/10 bg-primary-50/30 align-top">
+                <td className="p-1.5 pt-2.5">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex h-6 w-6 items-center justify-center rounded-md bg-positive/15 text-positive transition-colors hover:bg-positive/25 disabled:opacity-50"
+                      title="حفظ"
+                    >
+                      {saving ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Check size={13} />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeAddRow}
+                      disabled={saving}
+                      className="flex h-6 w-6 items-center justify-center rounded-md bg-ink-900/[0.05] text-ink-400 transition-colors hover:bg-ink-900/10 disabled:opacity-50"
+                      title="إلغاء"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
                 </td>
 
-                <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
-                  —
-                </td>
-
-                <td className="p-1.5 border-l border-ink-400/5">
+                <td className="border-l border-ink-400/5 p-1.5">
                   <input
                     type="number"
-                    placeholder={isForeign ? `وارد (${currency})` : "وارد"}
-                    value={draft.receiptAmount}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        receiptAmount: e.target.value,
-                        paymentAmount: "",
-                      }))
-                    }
-                    onKeyDown={handleRowKeyDown}
-                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
-                  />
-                </td>
-
-                <td className="p-1.5 border-l border-ink-400/5">
-                  <input
-                    type="number"
-                    placeholder={isForeign ? `صادر (${currency})` : "صادر"}
+                    min="0"
+                    step="0.01"
+                    placeholder="صادر"
                     value={draft.paymentAmount}
                     onChange={(e) =>
                       setDraft((d) => ({
@@ -343,29 +492,49 @@ export default function CashboxLedgerTable({
                       }))
                     }
                     onKeyDown={handleRowKeyDown}
-                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
+                    className="num w-full rounded-lg border border-ink-400/15 bg-white px-2 py-1.5 text-xs"
                   />
                 </td>
 
-                <td className="p-1.5 border-l border-ink-400/5">
+                <td className="border-l border-ink-400/5 p-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="وارد"
+                    value={draft.receiptAmount}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        receiptAmount: e.target.value,
+                        paymentAmount: "",
+                      }))
+                    }
+                    onKeyDown={handleRowKeyDown}
+                    className="num w-full rounded-lg border border-ink-400/15 bg-white px-2 py-1.5 text-xs"
+                  />
+                </td>
+
+                {isForeign && (
+                  <td className="border-l border-ink-400/5 p-1.5 pt-3 text-center text-[11px] text-ink-300">
+                    عند التعديل
+                  </td>
+                )}
+
+                <td className="border-l border-ink-400/5 p-1.5">
                   <input
                     type="text"
-                    placeholder="البيان"
+                    placeholder="البيان (اختياري) — التوصيف بعد الحفظ"
                     value={draft.description}
                     onChange={(e) =>
                       setDraft((d) => ({ ...d, description: e.target.value }))
                     }
                     onKeyDown={handleRowKeyDown}
-                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5"
+                    className="w-full rounded-lg border border-ink-400/15 bg-white px-2 py-1.5 text-xs"
                   />
                 </td>
 
-                {/* التوصيف مش متاح وقت الإضافة - المحاسب بياخده بعدين */}
-                <td className="p-1.5 border-l border-ink-400/5 text-ink-300 text-xs text-center">
-                  يتحدد بعدين
-                </td>
-
-                <td className="p-1.5 border-l border-ink-400/5">
+                <td className="border-l border-ink-400/5 p-1.5">
                   <input
                     ref={dateInputRef}
                     type="date"
@@ -374,131 +543,128 @@ export default function CashboxLedgerTable({
                       setDraft((d) => ({ ...d, voucherDate: e.target.value }))
                     }
                     onKeyDown={handleRowKeyDown}
-                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
+                    className="num w-full rounded-lg border border-ink-400/15 bg-white px-2 py-1.5 text-xs"
                   />
                 </td>
 
-                <td className="p-1.5 border-l border-ink-400/5">
-                  <input
-                    type="text"
-                    placeholder="ملاحظات"
-                    value={draft.notes}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, notes: e.target.value }))
-                    }
-                    onKeyDown={handleRowKeyDown}
-                    className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5"
-                  />
-                </td>
-
-                <td className="p-1.5">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="w-6 h-6 flex items-center justify-center rounded-md bg-positive/15 text-positive hover:bg-positive/25 transition-colors disabled:opacity-50"
-                      title="حفظ (Enter)"
-                    >
-                      {saving ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <Check size={13} />
-                      )}
-                    </button>
-                    <button
-                      onClick={closeAddRow}
-                      disabled={saving}
-                      className="w-6 h-6 flex items-center justify-center rounded-md bg-ink-900/[0.05] text-ink-400 hover:bg-ink-900/10 transition-colors disabled:opacity-50"
-                      title="إلغاء (Esc)"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
+                <td className="p-1.5 pt-3 text-center text-[11px] text-gold-700">
+                  مسودة
                 </td>
               </tr>
             )}
 
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-ink-400/5 last:border-0 hover:bg-ink-900/[0.01] transition-colors"
-              >
-                <td className="p-2.5 num font-medium text-ink-900 border-l border-ink-400/5">
-                  {row.voucherNumber}
-                </td>
+            {displayRows.map((row) => {
+              const isUpdating = updatingRowId === row.id;
 
-                <td
-                  className={`p-2.5 num font-semibold border-l border-ink-400/5 ${row.balance >= 0 ? "text-ink-900" : "text-negative"}`}
+              return (
+                <tr
+                  key={row.id}
+                  className="border-b border-ink-400/5 align-top transition-colors last:border-0 hover:bg-ink-900/[0.01]"
                 >
-                  {fmt(row.balance)}
-                  {isForeign && (
-                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
-                      {fmt(row.baseBalance)} {baseCurrency}
-                    </div>
-                  )}
-                </td>
-                <td className="p-2.5 num text-positive border-l border-ink-400/5">
-                  {row.debit > 0 ? fmt(row.debit) : "—"}
-                  {isForeign && row.debit > 0 && (
-                    <div className="mt-0.5 text-[11px] text-ink-400">
-                      {fmt(row.baseDebit)} {baseCurrency}
-                    </div>
-                  )}
-                </td>
-                <td className="p-2.5 num text-negative border-l border-ink-400/5">
-                  {row.credit > 0 ? fmt(row.credit) : "—"}
-                  {isForeign && row.credit > 0 && (
-                    <div className="mt-0.5 text-[11px] text-ink-400">
-                      {fmt(row.baseCredit)} {baseCurrency}
-                    </div>
-                  )}
-                </td>
-
-                <td
-                  className="p-2.5 text-ink-700 border-l border-ink-400/5 max-w-[200px] truncate"
-                  title={row.description}
-                >
-                  {row.description}
-                </td>
-
-                <td className="p-2.5 border-l border-ink-400/5">
-                  <button
-                    type="button"
-                    onClick={() => setEditingRow(row)}
-                    disabled={updatingRowId === row.id}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs transition-colors ${
-                      row.isDescribed
-                        ? "bg-ink-900/[0.04] text-ink-700 hover:bg-ink-900/[0.08]"
-                        : "bg-gold-50 text-gold-700 hover:bg-gold-100"
-                    } disabled:opacity-50`}
+                  {/* الرصيد */}
+                  <td
+                    className={`num border-l border-ink-400/5 p-2.5 font-semibold ${
+                      row.balance >= 0 ? "text-ink-900" : "text-negative"
+                    }`}
                   >
-                    {updatingRowId === row.id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : null}
-                    {row.descriptionDisplay || "بدون توصيف — دوس للإضافة"}
-                  </button>
-                </td>
+                    {fmt(row.balance)}
+                    {isForeign && (
+                      <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                        {fmt(row.baseBalance)} {baseCurrency}
+                      </div>
+                    )}
+                  </td>
 
-                <td className="p-2.5 num text-ink-600 border-l border-ink-400/5">
-                  {row.voucherDate}
-                </td>
+                  {/* صادر */}
+                  <td className="num border-l border-ink-400/5 p-2.5 text-negative">
+                    {row.credit > 0 ? fmt(row.credit) : "—"}
+                    {isForeign && row.credit > 0 && (
+                      <div className="mt-0.5 text-[11px] text-ink-400">
+                        {fmt(row.baseCredit)} {baseCurrency}
+                      </div>
+                    )}
+                  </td>
 
-                <td
-                  className="p-2.5 text-ink-400 text-xs max-w-[160px] truncate border-l border-ink-400/5"
-                  title={row.notes}
-                >
-                  {row.notes || "—"}
-                </td>
-                <td className="p-2.5"></td>
-              </tr>
-            ))}
+                  {/* وارد */}
+                  <td className="num border-l border-ink-400/5 p-2.5 text-positive">
+                    {row.debit > 0 ? fmt(row.debit) : "—"}
+                    {isForeign && row.debit > 0 && (
+                      <div className="mt-0.5 text-[11px] text-ink-400">
+                        {fmt(row.baseDebit)} {baseCurrency}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* سعر الصرف — عمود مستقل */}
+                  {isForeign && (
+                    <td className="num border-l border-ink-400/5 p-2.5 text-xs text-ink-600">
+                      {row.debit > 0 || row.credit > 0
+                        ? fmt(row.exchangeRate)
+                        : "—"}
+                    </td>
+                  )}
+
+                  {/* البيان + التوصيف */}
+                  <td className="border-l border-ink-400/5 p-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditingRow(row)}
+                      disabled={isUpdating}
+                      className={`inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-xs transition-colors ${
+                        row.isDescribed
+                          ? "bg-ink-900/[0.04] text-ink-700 hover:bg-ink-900/[0.08]"
+                          : "bg-gold-50 text-gold-700 hover:bg-gold-100"
+                      } disabled:opacity-50`}
+                      title="دوس لتعديل السند بالكامل"
+                    >
+                      {isUpdating ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : null}
+                      <span className="truncate">
+                        {row.descriptionDisplay || "بدون توصيف — دوس للتعديل"}
+                      </span>
+                    </button>
+
+                    {row.description && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingRow(row)}
+                        className="mt-1 block w-full break-words text-right text-[11px] text-ink-400 hover:text-ink-600"
+                      >
+                        {row.description}
+                      </button>
+                    )}
+                  </td>
+
+                  {/* التاريخ */}
+                  <td className="num border-l border-ink-400/5 p-2.5 text-ink-600">
+                    {row.voucherDate}
+                  </td>
+
+                  {/* السند + الحالة */}
+                  <td className="p-2.5">
+                    <div className="num font-medium text-ink-900">
+                      {row.voucherNumber}
+                    </div>
+                    <span
+                      className={`mt-1 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        row.isDraft
+                          ? "bg-gold-50 text-gold-700"
+                          : "bg-positive/10 text-positive"
+                      }`}
+                    >
+                      {row.isDraft ? "مسودة" : "مرحّل"}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
 
           {rows.length > 0 && (
             <tfoot>
-              <tr className="bg-primary-50/50 border-t-2 border-primary-100 font-semibold text-ink-900">
-                <td className="p-2.5">الإجمالي</td>
-                <td className="p-2.5 num">
+              <tr className="border-t-2 border-primary-100 bg-primary-50/50 font-semibold text-ink-900">
+                <td className="num p-2.5">
                   {fmt(running)}
                   {isForeign && (
                     <div className="mt-0.5 text-[11px] font-normal text-ink-400">
@@ -506,15 +672,8 @@ export default function CashboxLedgerTable({
                     </div>
                   )}
                 </td>
-                <td className="p-2.5 num text-positive">
-                  {fmt(totalDebit)}
-                  {isForeign && (
-                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
-                      {fmt(totalBaseDebit)} {baseCurrency}
-                    </div>
-                  )}
-                </td>
-                <td className="p-2.5 num text-negative">
+
+                <td className="num p-2.5 text-negative">
                   {fmt(totalCredit)}
                   {isForeign && (
                     <div className="mt-0.5 text-[11px] font-normal text-ink-400">
@@ -522,20 +681,36 @@ export default function CashboxLedgerTable({
                     </div>
                   )}
                 </td>
-                <td className="p-2.5" colSpan={5}></td>
+
+                <td className="num p-2.5 text-positive">
+                  {fmt(totalDebit)}
+                  {isForeign && (
+                    <div className="mt-0.5 text-[11px] font-normal text-ink-400">
+                      {fmt(totalBaseDebit)} {baseCurrency}
+                    </div>
+                  )}
+                </td>
+
+                {isForeign && <td className="p-2.5"></td>}
+
+                <td className="p-2.5" colSpan={3}>
+                  الإجمالي
+                </td>
               </tr>
             </tfoot>
           )}
         </table>
 
-        {/* التوصيف بقى بس لتعديل سطر موجود بالفعل (سواء متوصف أو لأ) */}
-        <DescriptionPickerModal
+        <CashVoucherEditModal
           isOpen={editingRow !== null}
           onClose={() => setEditingRow(null)}
-          onConfirm={(c) => handleUpdateRowDescription(editingRow, c)}
+          onSave={handleFullEdit}
+          voucher={editingRow}
+          isForeign={isForeign}
+          currency={currency}
+          baseCurrency={baseCurrency}
           partyOptions={partyOptions}
           driverOptions={driverOptions}
-          initialValue={editingRow || undefined}
         />
 
         {totalCount > 0 && (

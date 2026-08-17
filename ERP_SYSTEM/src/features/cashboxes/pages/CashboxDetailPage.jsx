@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
+
 import {
   RefreshCw,
   ArrowRight,
@@ -9,24 +11,31 @@ import {
   Filter,
   ChevronDown,
 } from "lucide-react";
+
 import { AnimatePresence, motion } from "framer-motion";
 
 import { useGetCashboxByIdQuery } from "../cashboxesApi";
+
 import {
   useGetCashVouchersQuery,
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
 } from "../cashVouchersApi";
 
+import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
+
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
+
 import { useGetDriversSelectQuery } from "../../drivers/driversApi";
 
 import CashboxLedgerTable from "../components/CashboxLedgerTable";
+
 import Button from "../../../shared/components/ui/Button";
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 import { useCashboxLedgerPrint } from "../../../shared/hooks/useCashboxLedgerPrint";
+
 import CashboxLedgerPrintTemplate from "../../../shared/components/print/CashboxLedgerPrintTemplate";
 
 const currencySymbols = {
@@ -72,6 +81,7 @@ const draftOptions = [
 
 export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
+
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState({
@@ -82,9 +92,23 @@ export default function CashboxDetailPage() {
   const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [page, setPage] = useState(1);
+
   const [pageSize, setPageSize] = useState(25);
 
-  const { data: cashbox } = useGetCashboxByIdQuery(cashboxId);
+  /*
+   * ---------------------------------------------------------
+   * Cashbox
+   * ---------------------------------------------------------
+   */
+
+  const { data: cashbox, isFetching: isFetchingCashbox } =
+    useGetCashboxByIdQuery(cashboxId);
+
+  /*
+   * ---------------------------------------------------------
+   * Select data
+   * ---------------------------------------------------------
+   */
 
   const { data: parties, isLoading: isLoadingParties } =
     useGetPartiesSelectQuery();
@@ -92,15 +116,40 @@ export default function CashboxDetailPage() {
   const { data: drivers, isLoading: isLoadingDrivers } =
     useGetDriversSelectQuery();
 
+  // نوع الحركة — لاستخدامه كفلتر في الجدول
+  const {
+    data: movementTypesForFilter,
+    isLoading: isLoadingMovementTypesFilter,
+  } = useGetCashMovementTypeOptionsQuery({
+    direction: filters.draft.Direction || undefined,
+    forPartner: filters.draft.PartyType === "Partner",
+  });
+
+  const movementTypeFilterOptions = useMemo(
+    () =>
+      (movementTypesForFilter || []).map((t) => ({
+        value: String(t.id),
+        label: t.name,
+      })),
+    [movementTypesForFilter],
+  );
+
+  /*
+   * ---------------------------------------------------------
+   * Mutations
+   * ---------------------------------------------------------
+   */
+
   const [createVoucher] = useCreateCashVoucherMutation();
+
   const [updateVoucher] = useUpdateCashVoucherMutation();
 
   /*
-   * تجهيز Parameters للـ API
-   *
-   * cashboxId إجباري لأننا داخل خزنة معينة.
-   * باقي الفلاتر لا يتم إرسالها لو قيمتها فارغة.
+   * ---------------------------------------------------------
+   * Query params
+   * ---------------------------------------------------------
    */
+
   const queryParams = useMemo(() => {
     const activeFilters = Object.fromEntries(
       Object.entries(filters.applied).filter(
@@ -119,16 +168,27 @@ export default function CashboxDetailPage() {
   const { data, isLoading, isFetching, isError, refetch } =
     useGetCashVouchersQuery(queryParams);
 
+  /*
+   * ---------------------------------------------------------
+   * Currency
+   * ---------------------------------------------------------
+   */
+
   const cashboxCurrency = cashbox?.currency || "EGP";
+
   const cashboxBaseCurrency = cashbox?.baseCurrency || "EGP";
 
   const isForeignCashbox = cashboxCurrency !== cashboxBaseCurrency;
 
-  const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+  const fmt = (n) =>
+    Number(n ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
   /*
-   * Options
+   * ---------------------------------------------------------
+   * Select Options
+   * ---------------------------------------------------------
    */
+
   const partyOptions = useMemo(
     () =>
       (parties || []).map((party) => ({
@@ -148,21 +208,18 @@ export default function CashboxDetailPage() {
   );
 
   /*
-   * تغيير Draft Filter
+   * ---------------------------------------------------------
+   * Filters
+   * ---------------------------------------------------------
    */
+
   const setFilter = (key, value) => {
     setFilters((prev) => ({
       ...prev,
-      draft: {
-        ...prev.draft,
-        [key]: value,
-      },
+      draft: { ...prev.draft, [key]: value },
     }));
   };
 
-  /*
-   * تطبيق الفلاتر
-   */
   const handleSearch = () => {
     setFilters((prev) => ({
       ...prev,
@@ -172,32 +229,22 @@ export default function CashboxDetailPage() {
     setPage(1);
   };
 
-  /*
-   * Reset
-   */
   const handleReset = () => {
     const reset = { ...emptyFilters };
 
-    setFilters({
-      draft: reset,
-      applied: reset,
-    });
+    setFilters({ draft: reset, applied: reset });
 
     setPage(1);
   };
 
-  /*
-   * عدد الفلاتر المفعلة
-   */
-  const activeFilters = useMemo(() => {
-    return Object.values(filters.draft).filter(
-      (value) => value !== "" && value !== null && value !== undefined,
-    ).length;
-  }, [filters.draft]);
+  const activeFilters = useMemo(
+    () =>
+      Object.values(filters.draft).filter(
+        (value) => value !== "" && value !== null && value !== undefined,
+      ).length,
+    [filters.draft],
+  );
 
-  /*
-   * لو اختار PartyType مختلف، نمسح الطرف الآخر
-   */
   const handlePartyTypeChange = (value) => {
     setFilters((prev) => ({
       ...prev,
@@ -211,6 +258,12 @@ export default function CashboxDetailPage() {
       },
     }));
   };
+
+  /*
+   * ---------------------------------------------------------
+   * Voucher handlers
+   * ---------------------------------------------------------
+   */
 
   async function handleAddVoucher(payload) {
     await createVoucher({
@@ -235,6 +288,12 @@ export default function CashboxDetailPage() {
     setPage(1);
   };
 
+  /*
+   * ---------------------------------------------------------
+   * Printing
+   * ---------------------------------------------------------
+   */
+
   const { printList, printRef } = useCashboxLedgerPrint({
     title: `كشف حركة ${cashbox?.name || "الخزنة"}`,
   });
@@ -250,7 +309,7 @@ export default function CashboxDetailPage() {
         العودة للخزائن
       </button>
 
-      {/* Cashbox Header */}
+      {/* Header */}
       <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -267,8 +326,7 @@ export default function CashboxDetailPage() {
                       : "border-primary-200 bg-primary-50 text-primary-600"
                   }`}
                 >
-                  {currencySymbols[cashboxCurrency] || cashboxCurrency}{" "}
-                  {cashboxCurrency}
+                  {currencySymbols[cashboxCurrency]} {cashboxCurrency}
                 </span>
               )}
             </div>
@@ -288,14 +346,27 @@ export default function CashboxDetailPage() {
                 </p>
 
                 {isForeignCashbox && (
-                  <p className="num text-xs text-ink-400">
-                    ≈{" "}
-                    {fmt(
-                      cashbox.currentBalance *
-                        (cashbox.openingExchangeRate || 1),
-                    )}{" "}
-                    {cashboxBaseCurrency}
-                  </p>
+                  <>
+                    <p className="num text-xs text-ink-400">
+                      ≈{" "}
+                      {fmt(
+                        cashbox.currentBalance *
+                          (cashbox.currentExchangeRate ??
+                            cashbox.openingExchangeRate ??
+                            1),
+                      )}{" "}
+                      {cashboxBaseCurrency}
+                    </p>
+
+                    <p className="mt-1 text-[11px] text-ink-400">
+                      سعر الصرف:{" "}
+                      {fmt(
+                        cashbox.currentExchangeRate ??
+                          cashbox.openingExchangeRate ??
+                          1,
+                      )}
+                    </p>
+                  </>
                 )}
               </div>
             )}
@@ -309,7 +380,9 @@ export default function CashboxDetailPage() {
               <Button variant="outline" onClick={refetch}>
                 <RefreshCw
                   size={16}
-                  className={isFetching ? "animate-spin" : ""}
+                  className={
+                    isFetching || isFetchingCashbox ? "animate-spin" : ""
+                  }
                 />
                 تحديث
               </Button>
@@ -320,7 +393,6 @@ export default function CashboxDetailPage() {
 
       {/* Filters */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {/* Filter Header */}
         <button
           type="button"
           onClick={() => setFiltersOpen((prev) => !prev)}
@@ -340,16 +412,11 @@ export default function CashboxDetailPage() {
             </div>
           </div>
 
-          <motion.div
-            animate={{
-              rotate: filtersOpen ? 180 : 0,
-            }}
-          >
+          <motion.div animate={{ rotate: filtersOpen ? 180 : 0 }}>
             <ChevronDown size={20} />
           </motion.div>
         </button>
 
-        {/* Filter Body */}
         <AnimatePresence initial={false}>
           {filtersOpen && (
             <motion.form
@@ -357,25 +424,13 @@ export default function CashboxDetailPage() {
                 e.preventDefault();
                 handleSearch();
               }}
-              initial={{
-                height: 0,
-                opacity: 0,
-              }}
-              animate={{
-                height: "auto",
-                opacity: 1,
-              }}
-              exit={{
-                height: 0,
-                opacity: 0,
-              }}
-              transition={{
-                duration: 0.25,
-              }}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
             >
               <div className="border-t p-5">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {/* Search */}
                   <Input
                     label="بحث عام"
                     placeholder="رقم السند، البيان، الطرف..."
@@ -383,7 +438,6 @@ export default function CashboxDetailPage() {
                     onChange={(e) => setFilter("Search", e.target.value)}
                   />
 
-                  {/* Voucher Number */}
                   <Input
                     label="رقم السند"
                     placeholder="رقم السند"
@@ -391,10 +445,9 @@ export default function CashboxDetailPage() {
                     onChange={(e) => setFilter("VoucherNumber", e.target.value)}
                   />
 
-                  {/* Direction */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
-                      نوع الحركة
+                      نوع الحركة (وارد/صادر)
                     </label>
 
                     <CompactSelect
@@ -405,7 +458,22 @@ export default function CashboxDetailPage() {
                     />
                   </div>
 
-                  {/* Party Type */}
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">
+                      نوع الحركة (التوصيف)
+                    </label>
+
+                    <CompactSelect
+                      options={movementTypeFilterOptions}
+                      value={filters.draft.CashMovementTypeId}
+                      onChange={(value) =>
+                        setFilter("CashMovementTypeId", value)
+                      }
+                      isLoading={isLoadingMovementTypesFilter}
+                      placeholder="الكل"
+                    />
+                  </div>
+
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
                       نوع الطرف
@@ -419,7 +487,6 @@ export default function CashboxDetailPage() {
                     />
                   </div>
 
-                  {/* Partner */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
                       الشريك
@@ -440,7 +507,6 @@ export default function CashboxDetailPage() {
                     />
                   </div>
 
-                  {/* Driver */}
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
                       السائق
@@ -459,7 +525,17 @@ export default function CashboxDetailPage() {
                     />
                   </div>
 
-                  {/* Draft */}
+                  <Input
+                    label="رقم رحلة السائق"
+                    placeholder="Trip ID"
+                    value={filters.draft.DriverTripId}
+                    onChange={(e) => setFilter("DriverTripId", e.target.value)}
+                    disabled={
+                      filters.draft.PartyType !== "" &&
+                      filters.draft.PartyType !== "Driver"
+                    }
+                  />
+
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
                       حالة السند
@@ -473,7 +549,6 @@ export default function CashboxDetailPage() {
                     />
                   </div>
 
-                  {/* From Date */}
                   <Input
                     type="date"
                     label="من تاريخ"
@@ -481,7 +556,6 @@ export default function CashboxDetailPage() {
                     onChange={(e) => setFilter("FromDate", e.target.value)}
                   />
 
-                  {/* To Date */}
                   <Input
                     type="date"
                     label="إلى تاريخ"
@@ -490,7 +564,6 @@ export default function CashboxDetailPage() {
                   />
                 </div>
 
-                {/* Actions */}
                 <div className="mt-6 flex justify-end gap-3 border-t border-slate-200 pt-5">
                   <Button type="button" variant="outline" onClick={handleReset}>
                     <RotateCcw size={16} />

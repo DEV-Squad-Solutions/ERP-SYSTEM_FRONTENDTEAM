@@ -23,6 +23,12 @@ const CURRENCIES = [
 const editPartySchema = z.object({
   name: z.string().trim().min(2, "اسم الشريك مطلوب"),
 
+  email: z
+    .string()
+    .trim()
+    .email("البريد الإلكتروني غير صحيح")
+    .or(z.literal("")),
+
   currency: z.enum(["EGP", "USD", "EUR", "GBP", "SAR", "AED", "KWD"]),
 
   address: z.string().optional(),
@@ -38,6 +44,7 @@ const editPartySchema = z.object({
 
 const DEFAULT_VALUES = {
   name: "",
+  email: "",
   currency: "EGP",
   address: "",
   phoneNumber: "",
@@ -64,6 +71,7 @@ export default function EditPartyModal({ isOpen, onClose, party }) {
 
     reset({
       name: party.name ?? "",
+      email: party.email ?? "",
       currency: party.currency ?? "EGP",
       address: party.address ?? "",
       phoneNumber: party.phoneNumber ?? "",
@@ -101,12 +109,23 @@ export default function EditPartyModal({ isOpen, onClose, party }) {
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="تعديل الشريك" size="md">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* اسم الشريك */}
         <Input
           label="اسم الشريك"
           {...register("name")}
           error={errors.name?.message}
         />
 
+        {/* البريد الإلكتروني */}
+        <Input
+          label="البريد الإلكتروني"
+          type="email"
+          placeholder="example@email.com"
+          {...register("email")}
+          error={errors.email?.message}
+        />
+
+        {/* العملة */}
         <div>
           <label className="mb-1.5 block text-xs text-ink-500">العملة</label>
 
@@ -120,26 +139,36 @@ export default function EditPartyModal({ isOpen, onClose, party }) {
               </option>
             ))}
           </select>
+
+          {errors.currency?.message && (
+            <p className="mt-1 text-xs text-red-500">
+              {errors.currency.message}
+            </p>
+          )}
         </div>
 
+        {/* رقم الهاتف */}
         <Input
           label="رقم الهاتف"
           {...register("phoneNumber")}
           error={errors.phoneNumber?.message}
         />
 
+        {/* الرقم الضريبي */}
         <Input
           label="الرقم الضريبي"
           {...register("taxNumber")}
           error={errors.taxNumber?.message}
         />
 
+        {/* العنوان */}
         <Input
           label="العنوان"
           {...register("address")}
           error={errors.address?.message}
         />
 
+        {/* حد الائتمان */}
         <Input
           label="حد الائتمان"
           type="number"
@@ -148,11 +177,14 @@ export default function EditPartyModal({ isOpen, onClose, party }) {
           error={errors.creditLimit?.message}
         />
 
+        {/* الحالة */}
         <label className="flex items-center gap-2 text-sm text-ink-700">
           <input type="checkbox" {...register("isActive")} />
-          الشريك نشط
+
+          <span>الشريك نشط</span>
         </label>
 
+        {/* الأزرار */}
         <div className="flex gap-3 pt-3">
           <Button
             type="button"

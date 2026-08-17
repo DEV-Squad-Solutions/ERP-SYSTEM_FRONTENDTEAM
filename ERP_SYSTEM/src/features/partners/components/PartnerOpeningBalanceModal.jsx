@@ -27,7 +27,6 @@ const balanceTypeOptions = [
 function emptyForm() {
   return {
     businessPartnerId: "",
-    documentNumber: "",
     documentDate: new Date().toISOString().slice(0, 10),
     currency: "EGP",
     balanceType: "Receivable",
@@ -40,26 +39,33 @@ function emptyForm() {
 export default function PartnerOpeningBalanceModal({
   isOpen,
   onClose,
-  editingItem, // null = إضافة جديد / object = تعديل
+  editingItem,
 }) {
   const { data: parties } = useGetPartiesSelectQuery(undefined, {
     skip: !isOpen,
   });
+
   const [createBalance, { isLoading: isCreating }] =
     useCreatePartnerOpeningBalanceMutation();
+
   const [updateBalance, { isLoading: isUpdating }] =
     useUpdatePartnerOpeningBalanceMutation();
 
   const [form, setForm] = useState(emptyForm());
+
   const isEditing = Boolean(editingItem);
   const isSaving = isCreating || isUpdating;
 
+  /* =========================================================
+     Initialize Form
+  ========================================================= */
+
   useEffect(() => {
     if (!isOpen) return;
+
     if (editingItem) {
       setForm({
         businessPartnerId: editingItem.businessPartnerId ?? "",
-        documentNumber: editingItem.documentNumber ?? "",
         documentDate:
           editingItem.documentDate ?? new Date().toISOString().slice(0, 10),
         currency: editingItem.currency ?? "EGP",
@@ -73,47 +79,33 @@ export default function PartnerOpeningBalanceModal({
     }
   }, [isOpen, editingItem]);
 
-  const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  /* =========================================================
+     Field Change
+  ========================================================= */
+
+  const setField = (key, value) => {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
 
   if (!isOpen) return null;
+
+  /* =========================================================
+     Submit
+  ========================================================= */
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const trimmedDocNumber = form.documentNumber.trim();
-    const amountNumber = Number(form.amount);
-
-    if (!form.businessPartnerId) {
-      toast.error("اختر العميل أو المورد");
-      return;
-    }
-    if (!trimmedDocNumber) {
-      toast.error("رقم المستند مطلوب");
-      return;
-    }
-    if (trimmedDocNumber.length > 50) {
-      toast.error("رقم المستند لازم يكون 50 حرف كحد أقصى");
-      return;
-    }
-    if (!form.documentDate) {
-      toast.error("التاريخ مطلوب");
-      return;
-    }
-    if (!(amountNumber > 0)) {
-      toast.error("المبلغ لازم يكون رقم موجب");
-      return;
-    }
-
-    const trimmedNotes = form.notes.trim();
-
     const payload = {
       businessPartnerId: Number(form.businessPartnerId),
-      documentNumber: trimmedDocNumber,
       documentDate: form.documentDate,
       currency: form.currency,
       balanceType: form.balanceType,
-      amount: amountNumber,
-      notes: trimmedNotes || undefined,
+      amount: Number(form.amount),
+      notes: form.notes.trim() || undefined,
     };
 
     if (form.exchangeRate !== "" && Number(form.exchangeRate) > 0) {
@@ -127,106 +119,140 @@ export default function PartnerOpeningBalanceModal({
           ...payload,
           rowVersion: editingItem.rowVersion,
         }).unwrap();
+
         toast.success("تم تعديل الرصيد الافتتاحي بنجاح");
       } else {
         await createBalance(payload).unwrap();
+
         toast.success("تم إضافة الرصيد الافتتاحي بنجاح");
       }
+
       onClose();
     } catch (err) {
       const serverMessage =
-        err?.data?.detail || err?.data?.title || "تعذر حفظ الرصيد الافتتاحي";
+        err?.data?.detail ||
+        err?.data?.message ||
+        err?.data?.title ||
+        "تعذر حفظ الرصيد الافتتاحي";
+
       toast.error(serverMessage);
     }
   };
 
+  /* =========================================================
+     Render
+  ========================================================= */
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-card">
+        {/* =====================================================
+            Header
+        ===================================================== */}
+
         <div className="flex items-center justify-between border-b border-ink-400/10 px-5 py-4">
           <h3 className="text-sm font-semibold text-ink-900">
             {isEditing ? "تعديل رصيد افتتاحي" : "إضافة رصيد افتتاحي"}
           </h3>
+
           <button
             type="button"
             onClick={onClose}
-            className="text-ink-400 transition-colors hover:text-ink-700"
+            disabled={isSaving}
+            className="text-ink-400 transition-colors hover:text-ink-700 disabled:opacity-50"
           >
             <X size={18} />
           </button>
         </div>
 
+        {/* =====================================================
+            Form
+        ===================================================== */}
+
         <form onSubmit={handleSubmit} className="space-y-3 p-5">
+          {/* =================================================
+              Partner
+          ================================================= */}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-400">
-              العميل / المورد <span className="text-negative">*</span>
+              العميل / المورد
             </label>
+
             <CompactSelect
               options={
-                parties?.map((p) => ({ value: p.id, label: p.name })) || []
+                parties?.map((party) => ({
+                  value: party.id,
+                  label: party.name,
+                })) || []
               }
               value={form.businessPartnerId}
-              onChange={(val) => setField("businessPartnerId", val)}
+              onChange={(value) => setField("businessPartnerId", value)}
               placeholder="اختر العميل أو المورد"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-ink-400">
-                رقم المستند <span className="text-negative">*</span>
-              </label>
-              <input
-                type="text"
-                maxLength={50}
-                value={form.documentNumber}
-                onChange={(e) => setField("documentNumber", e.target.value)}
-                className="w-full rounded-lg border border-ink-400/15 px-3 py-2 text-sm outline-none focus:border-primary-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-ink-400">
-                التاريخ <span className="text-negative">*</span>
-              </label>
-              <input
-                type="date"
-                value={form.documentDate}
-                onChange={(e) => setField("documentDate", e.target.value)}
-                className="w-full rounded-lg border border-ink-400/15 px-3 py-2 text-sm outline-none focus:border-primary-500"
-              />
-            </div>
+          {/* =================================================
+              Date
+          ================================================= */}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-400">
+              التاريخ
+            </label>
+
+            <input
+              type="date"
+              value={form.documentDate}
+              onChange={(e) => setField("documentDate", e.target.value)}
+              className="w-full rounded-lg border border-ink-400/15 px-3 py-2 text-sm outline-none focus:border-primary-500"
+            />
           </div>
+
+          {/* =================================================
+              Balance Type + Currency
+          ================================================= */}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-ink-400">
-                نوع الرصيد <span className="text-negative">*</span>
+                نوع الرصيد
               </label>
+
               <CompactSelect
                 options={balanceTypeOptions}
                 value={form.balanceType}
-                onChange={(val) => setField("balanceType", val)}
+                onChange={(value) => setField("balanceType", value)}
                 placeholder="اختر النوع"
               />
             </div>
+
             <div>
               <label className="mb-1 block text-xs font-medium text-ink-400">
-                العملة <span className="text-negative">*</span>
+                العملة
               </label>
+
               <CompactSelect
                 options={currencyOptions}
                 value={form.currency}
-                onChange={(val) => setField("currency", val)}
+                onChange={(value) => setField("currency", value)}
                 placeholder="اختر العملة"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* =================================================
+              Amount + Exchange Rate
+          ================================================= */}
+
+          <div
+            className={form.currency !== "EGP" ? "grid grid-cols-2 gap-3" : ""}
+          >
             <div>
               <label className="mb-1 block text-xs font-medium text-ink-400">
-                المبلغ <span className="text-negative">*</span>
+                المبلغ
               </label>
+
               <NumericInput
                 value={form.amount}
                 decimals
@@ -242,6 +268,7 @@ export default function PartnerOpeningBalanceModal({
                     (اختياري - تلقائي لو فاضي)
                   </span>
                 </label>
+
                 <NumericInput
                   value={form.exchangeRate}
                   decimals
@@ -251,10 +278,15 @@ export default function PartnerOpeningBalanceModal({
             )}
           </div>
 
+          {/* =================================================
+              Notes
+          ================================================= */}
+
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-400">
               ملاحظات
             </label>
+
             <textarea
               rows={2}
               maxLength={1000}
@@ -263,6 +295,10 @@ export default function PartnerOpeningBalanceModal({
               className="w-full resize-none rounded-lg border border-ink-400/15 px-3 py-2 text-sm outline-none focus:border-primary-500"
             />
           </div>
+
+          {/* =================================================
+              Actions
+          ================================================= */}
 
           <div className="flex items-center gap-2 pt-2">
             <button
@@ -275,8 +311,10 @@ export default function PartnerOpeningBalanceModal({
               ) : (
                 <Save size={16} />
               )}
-              حفظ
+
+              {isSaving ? "جاري الحفظ..." : "حفظ"}
             </button>
+
             <button
               type="button"
               onClick={onClose}

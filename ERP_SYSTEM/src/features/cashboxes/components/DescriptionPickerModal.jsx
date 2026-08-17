@@ -1,5 +1,3 @@
-// features/cashboxes/components/DescriptionPickerModal.jsx
-
 import { useState, useEffect, useMemo } from "react";
 
 import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
@@ -26,28 +24,6 @@ const PARTY_TYPES = [
   },
 ];
 
-/**
- * @param {{
- *   isOpen: boolean,
- *   onClose: () => void,
- *   onConfirm: (payload: {
- *     cashMovementType: {
- *       value: number,
- *       label: string,
- *       direction: "Receipt" | "Payment"
- *     },
- *     direction: "Receipt" | "Payment",
- *     partyType: string,
- *     businessPartner: {value, label} | null,
- *     driver: {value, label} | null,
- *     externalPartyName: string,
- *   }) => void,
- *   partyOptions: Array<{id, name}>,
- *   driverOptions: Array<{id, name}>,
- *   initialValue?: Object,
- * }}
- */
-
 export default function DescriptionPickerModal({
   isOpen,
   onClose,
@@ -62,9 +38,6 @@ export default function DescriptionPickerModal({
   const [driverId, setDriverId] = useState("");
   const [externalPartyName, setExternalPartyName] = useState("");
 
-  /*
-   * Initialize values when modal opens
-   */
   useEffect(() => {
     if (!isOpen) return;
 
@@ -87,29 +60,18 @@ export default function DescriptionPickerModal({
     setExternalPartyName(initialValue?.externalPartyName || "");
   }, [isOpen, initialValue]);
 
-  /*
-   * Determine whether movement types should be
-   * filtered for partners.
-   */
-  const forPartner = useMemo(() => {
-    return PARTY_TYPES.find((p) => p.value === partyType)?.value === "Partner";
-  }, [partyType]);
+  const forPartner = useMemo(() => partyType === "Partner", [partyType]);
 
-  /*
-   * Cash Movement Types
-   */
   const { data: movementTypeOptions = [], isFetching: loadingTypes } =
     useGetCashMovementTypeOptionsQuery(
-      { forPartner },
+      {
+        forPartner,
+      },
       {
         skip: !isOpen,
       },
     );
 
-  /*
-   * If selected movement type is no longer available
-   * after changing party type, clear it.
-   */
   useEffect(() => {
     if (!movementTypeId) return;
 
@@ -122,9 +84,6 @@ export default function DescriptionPickerModal({
     }
   }, [movementTypeOptions, movementTypeId]);
 
-  /*
-   * Convert API options to CompactSelect options
-   */
   const movementOptions = useMemo(() => {
     return movementTypeOptions.map((type) => ({
       value: String(type.id),
@@ -132,23 +91,24 @@ export default function DescriptionPickerModal({
     }));
   }, [movementTypeOptions]);
 
-  const partnerOptions = useMemo(() => {
-    return partyOptions.map((party) => ({
-      value: String(party.id),
-      label: party.name,
-    }));
-  }, [partyOptions]);
+  const partnerOptions = useMemo(
+    () =>
+      partyOptions.map((party) => ({
+        value: String(party.id),
+        label: party.name,
+      })),
+    [partyOptions],
+  );
 
-  const driverSelectOptions = useMemo(() => {
-    return driverOptions.map((driver) => ({
-      value: String(driver.id),
-      label: driver.name,
-    }));
-  }, [driverOptions]);
+  const driverSelectOptions = useMemo(
+    () =>
+      driverOptions.map((driver) => ({
+        value: String(driver.id),
+        label: driver.name,
+      })),
+    [driverOptions],
+  );
 
-  /*
-   * Confirm
-   */
   function handleConfirm() {
     const movementType = movementTypeOptions.find(
       (type) => String(type.id) === String(movementTypeId),
@@ -199,9 +159,6 @@ export default function DescriptionPickerModal({
     onClose();
   }
 
-  /*
-   * Validation
-   */
   const canConfirm =
     Boolean(movementTypeId) &&
     (partyType !== "Partner" || Boolean(businessPartnerId)) &&
@@ -213,7 +170,7 @@ export default function DescriptionPickerModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="توصيف الحركة">
       <div className="space-y-5">
-        {/* Party Type */}
+        {/* نوع الطرف */}
         <div>
           <label className="mb-2 block text-sm font-medium text-ink">
             نوع الطرف
@@ -226,7 +183,6 @@ export default function DescriptionPickerModal({
                 type="button"
                 onClick={() => {
                   setPartyType(party.value);
-
                   setBusinessPartnerId("");
                   setDriverId("");
                   setExternalPartyName("");
@@ -244,7 +200,7 @@ export default function DescriptionPickerModal({
           </div>
         </div>
 
-        {/* Movement Type */}
+        {/* نوع الحركة */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink">
             نوع الحركة
@@ -268,7 +224,7 @@ export default function DescriptionPickerModal({
           )}
         </div>
 
-        {/* Partner */}
+        {/* العميل / المورد */}
         {partyType === "Partner" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">
@@ -284,7 +240,7 @@ export default function DescriptionPickerModal({
           </div>
         )}
 
-        {/* Driver */}
+        {/* السائق */}
         {partyType === "Driver" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">
@@ -300,7 +256,7 @@ export default function DescriptionPickerModal({
           </div>
         )}
 
-        {/* Other */}
+        {/* طرف آخر */}
         {partyType === "Other" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">

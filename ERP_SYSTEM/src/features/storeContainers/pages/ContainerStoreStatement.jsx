@@ -10,6 +10,11 @@ import {
   Settings2,
   Square,
   Trash2,
+  RefreshCw,
+  Warehouse,
+  FileText,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,6 +43,10 @@ import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
 
+/* =========================================================
+   Constants
+========================================================= */
+
 const emptyFilters = {
   Search: "",
   FromDate: "",
@@ -62,19 +71,79 @@ const badges = {
   PurchaseReturn: "bg-sky-500/10 text-sky-600",
 };
 
-const fmt = (v) =>
+const directionLabels = {
+  Outgoing: "خروج",
+  Incoming: "دخول",
+};
+
+const directionBadges = {
+  Outgoing: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+  Incoming: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+};
+
+/* =========================================================
+   Helpers
+========================================================= */
+
+const fmt = (value) =>
   new Intl.NumberFormat("ar-EG", {
     maximumFractionDigits: 2,
-  }).format(Number(v) || 0);
+  }).format(Number(value) || 0);
 
-const fmtDate = (v) =>
-  v
-    ? new Date(v).toLocaleDateString("ar-EG", {
+const fmtDate = (value) =>
+  value
+    ? new Date(value).toLocaleDateString("ar-EG", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
       })
     : "—";
+
+/*
+ * حساب حالة الحاوية:
+ *
+ * الوارد أكبر من الصادر = له
+ * الصادر أكبر من الوارد = عليه
+ * متساوي = متساوي
+ *
+ * ملاحظة:
+ * هذا خاص بعرض حالة الفترة الحالية،
+ * بينما الرصيد الحقيقي يتم أخذه من closingUnits.
+ */
+const getContainerBalanceStatus = (container) => {
+  const incoming = Number(container?.periodIncomingUnits) || 0;
+  const outgoing = Number(container?.periodOutgoingUnits) || 0;
+
+  const difference = incoming - outgoing;
+
+  if (difference > 0) {
+    return {
+      type: "credit",
+      label: "له",
+      amount: difference,
+      className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+      dotClassName: "bg-emerald-500",
+    };
+  }
+
+  if (difference < 0) {
+    return {
+      type: "debit",
+      label: "عليه",
+      amount: Math.abs(difference),
+      className: "bg-rose-500/10 text-rose-600 border-rose-500/20",
+      dotClassName: "bg-rose-500",
+    };
+  }
+
+  return {
+    type: "equal",
+    label: "متساوي",
+    amount: 0,
+    className: "bg-ink-400/10 text-ink-500 border-ink-400/20",
+    dotClassName: "bg-ink-400",
+  };
+};
 
 /* =========================================================
    Store Modal
@@ -90,6 +159,7 @@ function StoreModal({ open, onClose, party, store, onSaved }) {
   const [description, setDescription] = useState(store?.description ?? "");
 
   const [create, { isLoading: creating }] = useCreateStoreMutation();
+
   const [update, { isLoading: updating }] = useUpdateStoreMutation();
 
   useEffect(() => {
@@ -120,7 +190,6 @@ function StoreModal({ open, onClose, party, store, onSaved }) {
         description: description.trim(),
         isContainerStore: true,
 
-        // الـ API يتطلب BusinessPartnerId في الإنشاء والتعديل
         businessPartnerId: store?.businessPartnerId ?? party.id,
       };
 
@@ -238,31 +307,19 @@ function ContainersModal({ open, onClose, storeId }) {
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
 
-  /*
-   * مزامنة العبوات المعينة من الـ API
-   */
   useEffect(() => {
     if (!open) return;
 
     setSelected(assignedIds);
   }, [open, assignedIds]);
 
-  /*
-   * هل كل العبوات الحالية محددة؟
-   */
   const allSelected =
     all.length > 0 &&
     selected.length === all.length &&
     all.every((container) => selected.includes(container.id));
 
-  /*
-   * هل هناك بعض العبوات محددة؟
-   */
   const someSelected = selected.length > 0 && selected.length < all.length;
 
-  /*
-   * تحديد / إلغاء تحديد كل العبوات
-   */
   const toggleAll = () => {
     if (allSelected) {
       setSelected([]);
@@ -272,9 +329,6 @@ function ContainersModal({ open, onClose, storeId }) {
     setSelected(all.map((container) => container.id));
   };
 
-  /*
-   * تحديد عبوة واحدة
-   */
   const toggle = (id) => {
     setSelected((current) =>
       current.includes(id)
@@ -283,9 +337,6 @@ function ContainersModal({ open, onClose, storeId }) {
     );
   };
 
-  /*
-   * حفظ التعيينات
-   */
   const save = async () => {
     if (!storeId) return;
 
@@ -311,9 +362,6 @@ function ContainersModal({ open, onClose, storeId }) {
     }
   };
 
-  /*
-   * إضافة حاوية جديدة
-   */
   const add = async (e) => {
     e.preventDefault();
 
@@ -329,6 +377,7 @@ function ContainersModal({ open, onClose, storeId }) {
       }).unwrap();
 
       const createdContainer = response?.data ?? response;
+
       const createdId = createdContainer?.id;
 
       if (createdId) {
@@ -360,13 +409,11 @@ function ContainersModal({ open, onClose, storeId }) {
       size="lg"
     >
       <div className="space-y-4">
-        {/* ================= Add Container ================= */}
-
         <form
           onSubmit={add}
-          className="rounded-xl border border-ink-400/10 p-4 space-y-3"
+          className="space-y-3 rounded-xl border border-ink-400/10 p-4"
         >
-          <div className="flex items-center gap-2 font-bold text-sm">
+          <div className="flex items-center gap-2 text-sm font-bold">
             <Plus size={16} />
             إضافة حاوية جديدة
           </div>
@@ -388,8 +435,6 @@ function ContainersModal({ open, onClose, storeId }) {
           </Button>
         </form>
 
-        {/* ================= Selection Header ================= */}
-
         <div className="rounded-xl border border-ink-400/10 bg-ink-400/[0.03] p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -397,7 +442,7 @@ function ContainersModal({ open, onClose, storeId }) {
                 تعيين العبوات
               </p>
 
-              <p className="text-xs text-ink-400 mt-1">
+              <p className="mt-1 text-xs text-ink-400">
                 محدد {selected.length} من {all.length}
               </p>
             </div>
@@ -420,8 +465,6 @@ function ContainersModal({ open, onClose, storeId }) {
           )}
         </div>
 
-        {/* ================= Containers ================= */}
-
         <div className="max-h-80 overflow-auto rounded-xl border">
           {isLoading ? (
             <div className="p-8 text-center text-sm text-ink-400">
@@ -433,12 +476,10 @@ function ContainersModal({ open, onClose, storeId }) {
             </div>
           ) : (
             <>
-              {/* Select All Row */}
-
               <button
                 type="button"
                 onClick={toggleAll}
-                className="w-full flex items-center gap-3 border-b bg-primary-50/40 p-3 text-right hover:bg-primary-50"
+                className="flex w-full items-center gap-3 border-b bg-primary-50/40 p-3 text-right hover:bg-primary-50"
               >
                 {allSelected ? (
                   <CheckSquare size={18} className="text-primary-600" />
@@ -447,21 +488,19 @@ function ContainersModal({ open, onClose, storeId }) {
                 )}
 
                 <div className="flex-1">
-                  <div className="font-semibold text-sm">
+                  <div className="text-sm font-semibold">
                     {allSelected
                       ? "إلغاء تحديد كل العبوات"
                       : "تحديد كل العبوات"}
                   </div>
 
-                  <div className="text-xs text-ink-400 mt-0.5">
+                  <div className="mt-0.5 text-xs text-ink-400">
                     سيتم تعيين جميع العبوات لهذا المخزن
                   </div>
                 </div>
 
                 <span className="text-xs text-ink-400">{all.length}</span>
               </button>
-
-              {/* Containers */}
 
               {all.map((container) => {
                 const isSelected = selected.includes(container.id);
@@ -492,12 +531,12 @@ function ContainersModal({ open, onClose, storeId }) {
                       onClick={() => toggle(container.id)}
                       className="flex-1 text-right"
                     >
-                      <div className="font-medium text-sm">
+                      <div className="text-sm font-medium">
                         {container.name}
                       </div>
 
                       {container.code && (
-                        <div className="text-xs text-ink-400 mt-0.5">
+                        <div className="mt-0.5 text-xs text-ink-400">
                           {container.code}
                         </div>
                       )}
@@ -515,7 +554,7 @@ function ContainersModal({ open, onClose, storeId }) {
                         type="button"
                         title="إزالة من المخزن"
                         onClick={() => toggle(container.id)}
-                        className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"
+                        className="rounded-lg p-2 text-rose-500 hover:bg-rose-500/10"
                       >
                         <Trash2 size={15} />
                       </button>
@@ -526,8 +565,6 @@ function ContainersModal({ open, onClose, storeId }) {
             </>
           )}
         </div>
-
-        {/* ================= Actions ================= */}
 
         <div className="flex justify-between gap-2 pt-2">
           <Button variant="secondary" onClick={onClose} disabled={saving}>
@@ -563,11 +600,22 @@ export default function ContainerStoreStatementPage() {
   const [storeModal, setStoreModal] = useState(false);
   const [containersModal, setContainersModal] = useState(false);
 
-  const { data: partner } = useGetPartyByIdQuery(partnerId, {
-    skip: !partnerId,
-  });
+  /* =========================================================
+     Partner
+  ========================================================= */
 
-  const { data, isLoading, isFetching, isError, refetch } =
+  const { data: partner, isLoading: partnerLoading } = useGetPartyByIdQuery(
+    partnerId,
+    {
+      skip: !partnerId,
+    },
+  );
+
+  /* =========================================================
+     Store Statement
+  ========================================================= */
+
+  const { data, isLoading, isFetching, isError, error, refetch } =
     useGetContainerStoreStatementQuery(
       {
         BusinessPartnerId: partnerId,
@@ -581,6 +629,19 @@ export default function ContainerStoreStatementPage() {
     );
 
   const currentStore = store ?? data?.containerStore ?? null;
+
+  const isStoreNotFound =
+    isError &&
+    (error?.status === 404 ||
+      error?.data?.statusCode === 404 ||
+      error?.data?.status === 404);
+
+  const shouldShowCreateStore =
+    partner && !currentStore && !isLoading && (!isError || isStoreNotFound);
+
+  /* =========================================================
+     Filter Helpers
+  ========================================================= */
 
   const search = () => {
     setFilters((current) => ({
@@ -602,6 +663,85 @@ export default function ContainerStoreStatementPage() {
     setPage(1);
   };
 
+  /*
+   * اختيار عبوة مباشرة من جدول الملخص.
+   *
+   * يتم تعديل draft + applied معًا لأن المستخدم
+   * ضغط مباشرة على العبوة ويريد مشاهدة حركاتها.
+   */
+  const filterByContainer = (containerId) => {
+    if (!containerId) return;
+
+    const value = String(containerId);
+
+    setFilters((current) => ({
+      draft: {
+        ...current.draft,
+        ContainerId: value,
+      },
+      applied: {
+        ...current.applied,
+        ContainerId: value,
+      },
+    }));
+
+    setPage(1);
+  };
+
+  /*
+   * إلغاء فلتر العبوة فقط مع الاحتفاظ بباقي الفلاتر.
+   */
+  const clearContainerFilter = () => {
+    setFilters((current) => ({
+      draft: {
+        ...current.draft,
+        ContainerId: "",
+      },
+      applied: {
+        ...current.applied,
+        ContainerId: "",
+      },
+    }));
+
+    setPage(1);
+  };
+
+  /*
+   * معرفة العبوة المختارة حاليًا.
+   */
+  const selectedContainerId =
+    filters.applied.ContainerId || filters.draft.ContainerId || "";
+
+  const selectedContainer = useMemo(() => {
+    if (!selectedContainerId) return null;
+
+    return (
+      data?.containers?.find(
+        (container) =>
+          String(container.containerId) === String(selectedContainerId),
+      ) ?? null
+    );
+  }, [data?.containers, selectedContainerId]);
+
+  /* =========================================================
+     Invoice Navigation
+  ========================================================= */
+
+  const openInvoice = (invoiceId) => {
+    if (!invoiceId) {
+      toast.error(
+        "لا يمكن فتح تفاصيل الفاتورة لأن رقم تعريف الفاتورة غير موجود",
+      );
+      return;
+    }
+
+    navigate(`/dashboard/sales/${invoiceId}`);
+  };
+
+  /* =========================================================
+     Pagination
+  ========================================================= */
+
   const onPageChange = (newPage) => {
     setPage(newPage);
   };
@@ -611,14 +751,39 @@ export default function ContainerStoreStatementPage() {
     setPage(1);
   };
 
+  /* =========================================================
+     Store Saved
+  ========================================================= */
+
+  const handleStoreSaved = async (savedStore) => {
+    if (savedStore) {
+      setStore(savedStore);
+    }
+
+    setStoreModal(false);
+
+    try {
+      await refetch();
+    } catch {
+      // المخزن تم إنشاؤه بالفعل
+    }
+  };
+
+  /* =========================================================
+     Render
+  ========================================================= */
+
   return (
     <div className="animate-fadeUp">
-      {/* ================= Header ================= */}
+      {/* =====================================================
+          Header
+      ===================================================== */}
 
       <div className="mb-6 flex items-center gap-3">
         <button
           onClick={() => navigate(-1)}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-400/10 bg-white hover:bg-ink-400/5"
+          title="رجوع"
         >
           <ArrowRight size={16} />
         </button>
@@ -630,12 +795,12 @@ export default function ContainerStoreStatementPage() {
           </h2>
 
           <p className="mt-1 text-sm text-ink-400">
-            إدارة المخزن والحاويات والحركات.
+            إدارة مخزن العبوات والحاويات والحركات.
           </p>
         </div>
 
         {currentStore && (
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={() => setStoreModal(true)}>
               <Pencil size={15} />
               تعديل المخزن
@@ -652,16 +817,24 @@ export default function ContainerStoreStatementPage() {
         )}
       </div>
 
-      {/* ================= No Store ================= */}
+      {/* =====================================================
+          No Store
+      ===================================================== */}
 
-      {partner && !currentStore && !isLoading && !isError && (
-        <div className="mb-5 flex items-center justify-between rounded-2xl border border-primary-200 bg-primary-50/60 p-5">
-          <div>
-            <b>لا يوجد مخزن عبوات لهذا الشريك</b>
+      {shouldShowCreateStore && (
+        <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-primary-200 bg-primary-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600">
+              <Warehouse size={20} />
+            </div>
 
-            <p className="mt-1 text-sm text-ink-500">
-              أنشئ مخزنًا ثم اربط به الحاويات.
-            </p>
+            <div>
+              <b className="text-sm">لا يوجد مخزن عبوات لهذا الشريك</b>
+
+              <p className="mt-1 text-sm text-ink-500">
+                لم يتم العثور على مخزن عبوات مرتبط بهذا العميل أو المورد.
+              </p>
+            </div>
           </div>
 
           <Button onClick={() => setStoreModal(true)}>
@@ -671,7 +844,9 @@ export default function ContainerStoreStatementPage() {
         </div>
       )}
 
-      {/* ================= Filters ================= */}
+      {/* =====================================================
+          Filters
+      ===================================================== */}
 
       <ContainerStoreFilters
         draft={filters.draft}
@@ -686,7 +861,47 @@ export default function ContainerStoreStatementPage() {
         onReset={reset}
       />
 
-      {/* ================= Loading ================= */}
+      {/* =====================================================
+          Active Container Filter
+      ===================================================== */}
+
+      {selectedContainerId && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary-200 bg-primary-50/60 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Boxes size={16} className="text-primary-600" />
+
+            <div>
+              <span className="text-xs text-ink-400">
+                يتم عرض حركات العبوة:
+              </span>
+
+              <span className="mr-2 text-sm font-bold text-primary-700">
+                {selectedContainer?.containerName ||
+                  `عبوة رقم ${selectedContainerId}`}
+              </span>
+
+              {selectedContainer?.containerCode && (
+                <span className="mr-2 text-xs text-ink-400">
+                  ({selectedContainer.containerCode})
+                </span>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={clearContainerFilter}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-500/10"
+          >
+            <X size={14} />
+            إلغاء فلتر العبوة
+          </button>
+        </div>
+      )}
+
+      {/* =====================================================
+          Loading
+      ===================================================== */}
 
       {isLoading && (
         <div className="py-16 text-center text-ink-400">
@@ -694,214 +909,520 @@ export default function ContainerStoreStatementPage() {
         </div>
       )}
 
-      {/* ================= Error ================= */}
+      {/* =====================================================
+          Error
+      ===================================================== */}
 
-      {isError && (
-        <div className="p-4 text-rose-600">
-          حدث خطأ أثناء تحميل التفاصيل.
-          <button onClick={refetch} className="mr-2 underline">
+      {isError && !isStoreNotFound && (
+        <div className="mb-5 flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-600">
+          <div>
+            <div className="font-semibold">
+              حدث خطأ أثناء تحميل تفاصيل مخزن العبوات.
+            </div>
+
+            <div className="mt-1 text-sm">حاول تحديث البيانات مرة أخرى.</div>
+          </div>
+
+          <Button
+            variant="secondary"
+            onClick={refetch}
+            className="text-rose-600"
+          >
+            <RefreshCw size={15} />
             إعادة المحاولة
-          </button>
+          </Button>
         </div>
       )}
 
-      {/* ================= Store ================= */}
+      {/* =====================================================
+          Store
+      ===================================================== */}
 
       {currentStore && data && (
         <>
-          {/* Store Summary */}
+          {/* =================================================
+              Store Summary
+          ================================================= */}
 
           <div className="mb-4 rounded-2xl border bg-white p-4 shadow-card">
-            <div className="mb-3 flex items-center gap-2 font-bold">
-              <Boxes size={16} />
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 font-bold">
+                <Boxes size={16} />
 
-              {currentStore.name}
+                <span>{currentStore.name}</span>
 
-              {currentStore.code && (
-                <span className="text-xs text-ink-400">
-                  ({currentStore.code})
-                </span>
-              )}
+                {currentStore.code && (
+                  <span className="text-xs font-normal text-ink-400">
+                    ({currentStore.code})
+                  </span>
+                )}
+              </div>
+
+              <span className="rounded-full bg-primary-500/10 px-3 py-1 text-xs font-semibold text-primary-600">
+                مخزن عبوات
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
               {[
-                ["رصيد افتتاحي", data.summary.openingUnits],
-                ["إجمالي الصادر", data.summary.totalOutgoingUnits],
-                ["إجمالي الوارد", data.summary.totalIncomingUnits],
-                ["صافي الحركة", data.summary.netUnits],
-                ["الرصيد الختامي", data.summary.closingUnits],
-                ["عدد الحركات", data.summary.movementCount],
-              ].map(([label, value]) => (
+                ["رصيد افتتاحي", data.summary?.openingUnits, "text-ink-900"],
+                [
+                  "إجمالي الصادر",
+                  data.summary?.totalOutgoingUnits,
+                  "text-rose-600",
+                ],
+                [
+                  "إجمالي الوارد",
+                  data.summary?.totalIncomingUnits,
+                  "text-emerald-600",
+                ],
+                [
+                  "صافي الحركة",
+                  data.summary?.netUnits,
+                  Number(data.summary?.netUnits) > 0
+                    ? "text-emerald-600"
+                    : Number(data.summary?.netUnits) < 0
+                      ? "text-rose-600"
+                      : "text-ink-500",
+                ],
+                [
+                  "الرصيد الختامي",
+                  data.summary?.closingUnits,
+                  "text-primary-600",
+                ],
+                ["عدد الحركات", data.summary?.movementCount, "text-ink-900"],
+              ].map(([label, value, valueClass]) => (
                 <div key={label} className="rounded-xl bg-ink-400/5 px-4 py-3">
                   <div className="text-xs text-ink-400">{label}</div>
 
-                  <div className="mt-1 text-lg font-bold">{fmt(value)}</div>
+                  <div className={`mt-1 text-lg font-bold ${valueClass}`}>
+                    {fmt(value)}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ================= Containers Summary ================= */}
+          {/* =================================================
+              Containers Summary
+          ================================================= */}
 
-          <div className="mb-4 overflow-x-auto rounded-2xl border bg-white shadow-card">
-            <div className="flex items-center justify-between border-b px-4 py-2">
-              <b>ملخص العبوات</b>
+          <div className="mb-4 overflow-hidden rounded-2xl border bg-white shadow-card">
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+              <div>
+                <b className="text-sm">ملخص العبوات</b>
+
+                <p className="mt-0.5 text-xs text-ink-400">
+                  اضغط على أي عبوة لعرض جميع حركاتها وفواتيرها
+                </p>
+              </div>
 
               <button
                 onClick={() => setContainersModal(true)}
-                className="text-xs text-primary-600"
+                className="rounded-lg px-3 py-2 text-xs font-semibold text-primary-600 hover:bg-primary-500/10"
               >
                 إدارة الحاويات
               </button>
             </div>
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-ink-400/5 text-ink-400">
-                  {[
-                    "العبوة",
-                    "افتتاحي",
-                    "صادر",
-                    "وارد",
-                    "صافي",
-                    "ختامي",
-                    "الحالة",
-                  ].map((label) => (
-                    <th key={label} className="px-3 py-2 text-right">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {data.containers.map((container) => (
-                  <tr key={container.containerId} className="border-t">
-                    <td className="px-3 py-2">
-                      <b>{container.containerName}</b>
-
-                      <div className="text-xs text-ink-400">
-                        {container.containerCode}
-                      </div>
-                    </td>
-
-                    <td>{fmt(container.openingUnits)}</td>
-
-                    <td className="text-rose-600">
-                      {fmt(container.periodOutgoingUnits)}
-                    </td>
-
-                    <td className="text-primary-500">
-                      {fmt(container.periodIncomingUnits)}
-                    </td>
-
-                    <td>{fmt(container.periodNetUnits)}</td>
-
-                    <td className="font-bold">{fmt(container.closingUnits)}</td>
-
-                    <td>
-                      {container.isCurrentlyAssignedToStore
-                        ? "معينة بالمخزن"
-                        : "غير معينة"}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-sm">
+                <thead>
+                  <tr className="bg-ink-400/5 text-ink-400">
+                    {[
+                      "العبوة",
+                      "افتتاحي",
+                      "صادر",
+                      "وارد",
+                      "صافي",
+                      "ختامي",
+                      "له / عليه",
+                      "الإجراء",
+                    ].map((label) => (
+                      <th
+                        key={label}
+                        className="px-3 py-3 text-right font-semibold"
+                      >
+                        {label}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
 
-          {/* ================= Movements ================= */}
+                <tbody>
+                  {data.containers?.length > 0 ? (
+                    data.containers.map((container) => {
+                      const status = getContainerBalanceStatus(container);
 
-          <div className="overflow-x-auto rounded-2xl border bg-white shadow-card">
-            <h3 className="border-b px-4 py-2 font-bold">
-              حركات العبوات ({fmt(data.totalCount)})
-            </h3>
+                      const isSelected =
+                        String(selectedContainerId) ===
+                        String(container.containerId);
 
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-ink-400/5 text-ink-400">
-                  {[
-                    "التاريخ",
-                    "الفاتورة",
-                    "النوع",
-                    "العبوة",
-                    "صادر",
-                    "وارد",
-                    "الرصيد الجاري",
-                    "الوصف",
-                  ].map((label) => (
-                    <th key={label} className="px-3 py-2 text-right">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {data.items.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="p-10 text-center text-ink-400">
-                      لا توجد حركات مطابقة للفلاتر
-                    </td>
-                  </tr>
-                ) : (
-                  data.items.map((item) => (
-                    <tr key={item.movementId} className="border-t">
-                      <td className="px-3 py-2">
-                        {fmtDate(item.movementDate)}
-                      </td>
-
-                      <td className="px-3 py-2">
-                        <b>{item.invoiceNumber}</b>
-
-                        {item.partnerInvoiceNumber && (
-                          <div className="text-xs text-ink-400">
-                            فاتورة العميل: {item.partnerInvoiceNumber}
-                          </div>
-                        )}
-                      </td>
-
-                      <td>
-                        <span
-                          className={`rounded px-2 py-0.5 text-xs ${
-                            badges[item.invoiceType] ?? "bg-ink-400/10"
+                      return (
+                        <tr
+                          key={container.containerId}
+                          className={`border-t transition ${
+                            isSelected
+                              ? "bg-primary-50/50"
+                              : "hover:bg-ink-400/[0.02]"
                           }`}
                         >
-                          {labels[item.invoiceType] ?? item.invoiceType}
-                        </span>
-                      </td>
+                          {/* Container */}
 
-                      <td>
-                        {item.containerName}
+                          <td className="px-3 py-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                filterByContainer(container.containerId)
+                              }
+                              className="group text-right"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`font-semibold transition group-hover:text-primary-600 ${
+                                    isSelected
+                                      ? "text-primary-700"
+                                      : "text-ink-900"
+                                  }`}
+                                >
+                                  {container.containerName}
+                                </div>
 
-                        <div className="text-xs text-ink-400">
-                          {item.containerCode}
-                        </div>
-                      </td>
+                                <Boxes
+                                  size={14}
+                                  className="text-ink-300 transition group-hover:text-primary-500"
+                                />
+                              </div>
 
-                      <td className="text-rose-600">
-                        {item.outgoingUnits ? fmt(item.outgoingUnits) : "—"}
-                      </td>
+                              {container.containerCode && (
+                                <div className="mt-0.5 text-xs text-ink-400">
+                                  {container.containerCode}
+                                </div>
+                              )}
+                            </button>
+                          </td>
 
-                      <td className="text-primary-500">
-                        {item.incomingUnits ? fmt(item.incomingUnits) : "—"}
-                      </td>
+                          {/* Opening */}
 
-                      <td className="font-bold">
-                        {fmt(item.runningBalanceUnits)}
-                      </td>
+                          <td className="px-3 py-3 text-ink-600">
+                            {fmt(container.openingUnits)}
+                          </td>
 
-                      <td className="text-ink-400">
-                        {item.movementDescription}
+                          {/* Outgoing */}
+
+                          <td className="px-3 py-3">
+                            <span className="font-semibold text-rose-600">
+                              {fmt(container.periodOutgoingUnits)}
+                            </span>
+                          </td>
+
+                          {/* Incoming */}
+
+                          <td className="px-3 py-3">
+                            <span className="font-semibold text-emerald-600">
+                              {fmt(container.periodIncomingUnits)}
+                            </span>
+                          </td>
+
+                          {/* Net */}
+
+                          <td className="px-3 py-3">
+                            <span
+                              className={`font-bold ${
+                                Number(container.periodNetUnits) > 0
+                                  ? "text-emerald-600"
+                                  : Number(container.periodNetUnits) < 0
+                                    ? "text-rose-600"
+                                    : "text-ink-400"
+                              }`}
+                            >
+                              {fmt(container.periodNetUnits)}
+                            </span>
+                          </td>
+
+                          {/* Closing */}
+
+                          <td className="px-3 py-3">
+                            <span className="font-bold text-primary-600">
+                              {fmt(container.closingUnits)}
+                            </span>
+                          </td>
+
+                          {/* Balance */}
+
+                          <td className="px-3 py-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold ${status.className}`}
+                            >
+                              <span
+                                className={`h-2 w-2 rounded-full ${status.dotClassName}`}
+                              />
+
+                              {status.label}
+
+                              {status.amount > 0 && (
+                                <span>{fmt(status.amount)}</span>
+                              )}
+                            </span>
+                          </td>
+
+                          {/* Action */}
+
+                          <td className="px-3 py-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                filterByContainer(container.containerId)
+                              }
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                                isSelected
+                                  ? "bg-primary-500 text-white"
+                                  : "bg-primary-500/10 text-primary-600 hover:bg-primary-500/20"
+                              }`}
+                            >
+                              <FileText size={14} />
+
+                              {isSelected ? "الحركات المعروضة" : "عرض الحركات"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={8} className="p-10 text-center text-ink-400">
+                        لا توجد بيانات حاويات متاحة.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-            {/* ================= Pagination ================= */}
+          {/* =================================================
+              Movements
+          ================================================= */}
+
+          <div className="overflow-hidden rounded-2xl border bg-white shadow-card">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div>
+                <h3 className="font-bold">
+                  {selectedContainerId
+                    ? `حركات العبوة ${selectedContainer?.containerName ?? ""}`
+                    : "حركات العبوات"}
+                </h3>
+
+                <p className="mt-0.5 text-xs text-ink-400">
+                  إجمالي الحركات: {fmt(data.totalCount)}
+                </p>
+              </div>
+
+              {selectedContainerId && (
+                <button
+                  type="button"
+                  onClick={clearContainerFilter}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-500/10"
+                >
+                  <X size={14} />
+                  إلغاء فلتر العبوة
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1200px] text-sm">
+                <thead>
+                  <tr className="bg-ink-400/5 text-ink-400">
+                    {[
+                      "التاريخ",
+                      "الفاتورة",
+                      "نوع الفاتورة",
+                      "الحركة",
+                      "العبوة",
+                      "صادر",
+                      "وارد",
+                      "صافي الحركة",
+                      "الرصيد الجاري",
+                      "الوصف",
+                    ].map((label) => (
+                      <th
+                        key={label}
+                        className="px-3 py-3 text-right font-semibold"
+                      >
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {data.items?.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={10}
+                        className="p-10 text-center text-ink-400"
+                      >
+                        لا توجد حركات مطابقة للفلاتر
+                      </td>
+                    </tr>
+                  ) : (
+                    data.items?.map((item) => {
+                      const direction =
+                        item.outgoingUnits > 0
+                          ? "Outgoing"
+                          : item.incomingUnits > 0
+                            ? "Incoming"
+                            : "";
+
+                      return (
+                        <tr
+                          key={item.movementId}
+                          className="border-t transition hover:bg-ink-400/[0.02]"
+                        >
+                          {/* Date */}
+
+                          <td className="whitespace-nowrap px-3 py-3">
+                            {fmtDate(item.movementDate)}
+                          </td>
+
+                          {/* Invoice */}
+
+                          <td className="px-3 py-3">
+                            {item.invoiceId ? (
+                              <button
+                                type="button"
+                                onClick={() => openInvoice(item.invoiceId)}
+                                className="group inline-flex items-center gap-1.5 text-right"
+                                title="فتح تفاصيل الفاتورة"
+                              >
+                                <span className="font-bold text-primary-600 underline-offset-2 group-hover:underline">
+                                  {item.invoiceNumber || "بدون رقم"}
+                                </span>
+
+                                <ExternalLink
+                                  size={13}
+                                  className="text-primary-400 transition group-hover:text-primary-600"
+                                />
+                              </button>
+                            ) : (
+                              <span className="font-bold text-ink-500">
+                                {item.invoiceNumber || "بدون رقم"}
+                              </span>
+                            )}
+
+                            {item.partnerInvoiceNumber && (
+                              <div className="mt-1 text-xs text-ink-400">
+                                فاتورة العميل: {item.partnerInvoiceNumber}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Invoice Type */}
+
+                          <td className="px-3 py-3">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                badges[item.invoiceType] ??
+                                "bg-ink-400/10 text-ink-500"
+                              }`}
+                            >
+                              {labels[item.invoiceType] ??
+                                item.invoiceType ??
+                                "—"}
+                            </span>
+                          </td>
+
+                          {/* Direction */}
+
+                          <td className="px-3 py-3">
+                            {direction ? (
+                              <span
+                                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                                  directionBadges[direction]
+                                }`}
+                              >
+                                {directionLabels[direction]}
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+
+                          {/* Container */}
+
+                          <td className="px-3 py-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                filterByContainer(item.containerId)
+                              }
+                              className="text-right"
+                            >
+                              <div className="font-medium hover:text-primary-600">
+                                {item.containerName}
+                              </div>
+
+                              {item.containerCode && (
+                                <div className="mt-0.5 text-xs text-ink-400">
+                                  {item.containerCode}
+                                </div>
+                              )}
+                            </button>
+                          </td>
+
+                          {/* Outgoing */}
+
+                          <td className="px-3 py-3 font-semibold text-rose-600">
+                            {item.outgoingUnits ? fmt(item.outgoingUnits) : "—"}
+                          </td>
+
+                          {/* Incoming */}
+
+                          <td className="px-3 py-3 font-semibold text-emerald-600">
+                            {item.incomingUnits ? fmt(item.incomingUnits) : "—"}
+                          </td>
+
+                          {/* Net */}
+
+                          <td className="px-3 py-3">
+                            <span
+                              className={`font-bold ${
+                                Number(item.netUnits) > 0
+                                  ? "text-emerald-600"
+                                  : Number(item.netUnits) < 0
+                                    ? "text-rose-600"
+                                    : "text-ink-400"
+                              }`}
+                            >
+                              {fmt(item.netUnits)}
+                            </span>
+                          </td>
+
+                          {/* Running Balance */}
+
+                          <td className="px-3 py-3">
+                            <span className="font-bold text-primary-600">
+                              {fmt(item.runningBalanceUnits)}
+                            </span>
+                          </td>
+
+                          {/* Description */}
+
+                          <td className="px-3 py-3 text-ink-400">
+                            {item.movementDescription || "—"}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* =================================================
+                Pagination
+            ================================================= */}
 
             {data?.totalCount > 0 && (
               <Pagination
@@ -915,7 +1436,8 @@ export default function ContainerStoreStatementPage() {
             )}
 
             {isFetching && (
-              <div className="border-t px-4 py-2 text-center text-xs text-ink-400">
+              <div className="flex items-center justify-center gap-2 border-t px-4 py-3 text-xs text-ink-400">
+                <RefreshCw size={13} className="animate-spin" />
                 جاري تحديث البيانات...
               </div>
             )}
@@ -923,7 +1445,9 @@ export default function ContainerStoreStatementPage() {
         </>
       )}
 
-      {/* ================= Store Modal ================= */}
+      {/* =====================================================
+          Store Modal
+      ===================================================== */}
 
       {partner && (
         <StoreModal
@@ -931,15 +1455,13 @@ export default function ContainerStoreStatementPage() {
           onClose={() => setStoreModal(false)}
           party={partner}
           store={currentStore}
-          onSaved={async (savedStore) => {
-            setStore(savedStore);
-            setStoreModal(false);
-            await refetch();
-          }}
+          onSaved={handleStoreSaved}
         />
       )}
 
-      {/* ================= Containers Modal ================= */}
+      {/* =====================================================
+          Containers Modal
+      ===================================================== */}
 
       {currentStore && (
         <ContainersModal

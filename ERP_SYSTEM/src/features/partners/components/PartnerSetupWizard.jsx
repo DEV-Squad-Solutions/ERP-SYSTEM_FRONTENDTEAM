@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
@@ -94,6 +95,12 @@ export default function PartnerSetupWizard({
   const [selectedContainerIds, setSelectedContainerIds] = useState([]);
   const [showAddContainer, setShowAddContainer] = useState(false);
 
+  // وضع التنفيذ التلقائي: بعد إنشاء العميل مباشرة بيتعمل مخزن العبوات وتحديد
+  // كل الحاويات من غير ما المستخدم يتفاعل مع خطوة 2 و3 يدويًا. لو أي خطوة
+  // فشلت، بنطفي autoMode ونسيب الفورم اليدوي المقابل ظاهر عشان يصلح ويكمل.
+  const [autoMode, setAutoMode] = useState(false);
+  const [autoStage, setAutoStage] = useState(null); // "store" | "containers" | null
+
   const [createParty, { isLoading: isSavingPartner }] =
     useCreatePartyMutation();
 
@@ -159,6 +166,8 @@ export default function PartnerSetupWizard({
     setStore(null);
     setSelectedContainerIds([]);
     setShowAddContainer(false);
+    setAutoMode(false);
+    setAutoStage(null);
 
     resetPartner(PARTNER_DEFAULTS);
     resetStore(STORE_DEFAULTS);
@@ -223,7 +232,9 @@ export default function PartnerSetupWizard({
       toast.success(`تم إنشاء ${partnerLabel} بنجاح`);
 
       if (data.usesReturnableContainers) {
-        setStep(STEP.STORE);
+        // تشغيل السلسلة التلقائية: إنشاء مخزن العبوات ثم تحديد كل الحاويات،
+        // من غير ما نستنى المستخدم يدوس على أي زرار وسط الطريق.
+        runAutoSetup(partnerData);
       } else {
         selectPartnerAndClose(createdPartner);
       }
@@ -237,7 +248,98 @@ export default function PartnerSetupWizard({
   };
 
   /* =========================================================
-     Step 2: Create Container Store
+     التنفيذ التلقائي: مخزن العبوات + تحديد كل الحاويات
+     ========================================================= */
+
+  const runAutoSetup = async (partnerData) => {
+    setAutoMode(true);
+    setStep(STEP.STORE);
+    setAutoStage("store");
+
+    // 1) إنشاء مخزن العبوات بإسم افتراضي
+    let createdStoreData;
+    try {
+      const storeName = `${partnerData.name} Container Store`;
+
+      const createdStore = await createStore({
+        name: storeName,
+        isContainerStore: true,
+        address: partnerData.address ?? "",
+        businessPartnerId: partnerData.id,
+      }).unwrap();
+
+      createdStoreData = createdStore?.data ?? createdStore;
+
+      setStore({
+        name: storeName,
+        isContainerStore: true,
+        address: partnerData.address ?? "",
+        ...createdStoreData,
+        id: createdStoreData.id,
+      });
+    } catch (error) {
+      // فشل إنشاء المخزن -> نرجع للخطوة اليدوية عشان يصلح ويكمل بنفسه
+      setAutoMode(false);
+      setAutoStage(null);
+      toast.error(
+        error?.data?.message ||
+          error?.data?.title ||
+          "تعذر إنشاء مخزن الحاويات تلقائيًا — كمّل الخطوة يدويًا",
+      );
+      return;
+    }
+
+    // 2) تحديد كل الحاويات المتاحة تلقائيًا
+    setStep(STEP.CONTAINERS);
+    setAutoStage("containers");
+
+    let containerList = containers;
+    if (containerList.length === 0) {
+      try {
+        const fresh = await refetchContainers().unwrap();
+        containerList = fresh ?? [];
+      } catch {
+        // لو فشل الجلب، هنكمل بالقائمة الفاضية وخليه يحدد يدويًا تحت
+      }
+    }
+
+    const allIds = containerList.map((c) => c.id);
+    setSelectedContainerIds(allIds);
+
+    if (allIds.length === 0) {
+      // مفيش حاويات أصلًا للتحديد - نوقف الوضع التلقائي ونسيبه يضيف يدويًا
+      setAutoMode(false);
+      setAutoStage(null);
+      toast.warning("لا توجد حاويات متاحة للتحديد التلقائي — أضف حاوية يدويًا");
+      return;
+    }
+
+    try {
+      await upsertStoreContainers({
+        storeId: createdStoreData.id,
+        containerIds: allIds,
+      }).unwrap();
+
+      toast.success(
+        `تم إنشاء مخزن الحاويات وتحديد ${allIds.length} حاوية تلقائيًا`,
+      );
+
+      setAutoMode(false);
+      setAutoStage(null);
+      setStep(STEP.COMPLETE);
+    } catch (error) {
+      setAutoMode(false);
+      setAutoStage(null);
+      toast.error(
+        error?.data?.message ||
+          error?.data?.title ||
+          "تعذر حفظ الحاويات تلقائيًا — راجع التحديد وكمّل يدويًا",
+      );
+    }
+  };
+
+  /* =========================================================
+     Step 2: Create Container Store (يدوي - fallback لو التلقائي فشل)
      ========================================================= */
 
   const submitStore = async (data) => {
@@ -277,7 +379,7 @@ export default function PartnerSetupWizard({
   };
 
   /* =========================================================
-     Step 3: Containers
+     Step 3: Containers (يدوي - fallback لو التلقائي فشل)
      ========================================================= */
 
   const toggleContainer = (containerId) => {
@@ -433,8 +535,9 @@ export default function PartnerSetupWizard({
           </label>
 
           <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-3 text-xs text-ink-600">
-            إذا تم تفعيل الخيار، سيتم الانتقال لإنشاء مخزن حاويات خاص بـ{" "}
-            {partnerLabelShort}، ويمكن تخطي إنشاء المخزن واستكماله لاحقًا.
+            {usesReturnableContainers
+              ? `هيتم تلقائيًا إنشاء مخزن حاويات خاص بـ${partnerLabelShort} وتحديد كل الحاويات المتاحة له، من غير أي خطوات إضافية.`
+              : `إذا تم تفعيل الخيار، هيتم تلقائيًا إنشاء مخزن حاويات وتحديد كل الحاويات لـ${partnerLabelShort}.`}
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -458,44 +561,65 @@ export default function PartnerSetupWizard({
       )}
 
       {/* =====================================================
-          Step 2
+          Step 2 — بيظهر بس لو الوضع التلقائي فشل في إنشاء المخزن
+          (autoMode بيبقى false في الحالة دي) أو وقت التنفيذ التلقائي
+          بيبان progress indicator بدل الفورم
       ====================================================== */}
 
       {step === STEP.STORE && (
-        <form onSubmit={handleSubmitStore(submitStore)} className="space-y-4">
-          <Input
-            label="اسم مخزن الحاويات"
-            {...registerStore("name")}
-            error={storeErrors.name?.message}
-          />
-
-          <Input
-            label="العنوان"
-            {...registerStore("address")}
-            error={storeErrors.address?.message}
-          />
-
-          <div className="text-xs text-ink-500 flex items-center gap-1.5">
-            <InfoDot />
-            يمكن تخطي إنشاء مخزن الحاويات واستكماله لاحقًا.
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={skipStoreSetup}
-              disabled={isSavingStore}
-              className="flex-1"
+        <>
+          {autoMode && autoStage === "store" ? (
+            <AutoProgress
+              label={`جاري إنشاء مخزن الحاويات لـ${partnerLabelShort} تلقائيًا...`}
+            />
+          ) : (
+            <form
+              onSubmit={handleSubmitStore(submitStore)}
+              className="space-y-4"
             >
-              تخطي الآن
-            </Button>
+              <div className="rounded-xl border border-gold-200 bg-gold-50 p-3 text-xs text-gold-700">
+                التنفيذ التلقائي محتاج مراجعة — كمّل إنشاء المخزن يدويًا.
+              </div>
 
-            <Button type="submit" disabled={isSavingStore} className="flex-1">
-              {isSavingStore ? "جاري الحفظ..." : "إنشاء المخزن والمتابعة"}
-            </Button>
-          </div>
-        </form>
+              <Input
+                label="اسم مخزن الحاويات"
+                {...registerStore("name")}
+                error={storeErrors.name?.message}
+              />
+
+              <Input
+                label="العنوان"
+                {...registerStore("address")}
+                error={storeErrors.address?.message}
+              />
+
+              <div className="text-xs text-ink-500 flex items-center gap-1.5">
+                <InfoDot />
+                يمكن تخطي إنشاء مخزن الحاويات واستكماله لاحقًا.
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={skipStoreSetup}
+                  disabled={isSavingStore}
+                  className="flex-1"
+                >
+                  تخطي الآن
+                </Button>
+
+                <Button
+                  type="submit"
+                  disabled={isSavingStore}
+                  className="flex-1"
+                >
+                  {isSavingStore ? "جاري الحفظ..." : "إنشاء المخزن والمتابعة"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </>
       )}
 
       {/* =====================================================
@@ -504,83 +628,91 @@ export default function PartnerSetupWizard({
 
       {step === STEP.CONTAINERS && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-ink-700">
-              اختر الحاويات المسموح بها لـ {partnerLabel}.
-            </p>
+          {autoMode && autoStage === "containers" ? (
+            <AutoProgress label="جاري تحديد كل الحاويات المتاحة تلقائيًا..." />
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-ink-700">
+                  اختر الحاويات المسموح بها لـ {partnerLabel}.
+                </p>
 
-            {isAdmin && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowAddContainer(true)}
-              >
-                + إضافة حاوية
-              </Button>
-            )}
-          </div>
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setShowAddContainer(true)}
+                  >
+                    + إضافة حاوية
+                  </Button>
+                )}
+              </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-ink-400/10 bg-ink-900/[0.02] px-3 py-2">
-            <span className="text-xs text-ink-500">
-              محدد: {selectedContainerIds.length} من {containers.length}
-            </span>
+              <div className="flex items-center justify-between rounded-xl border border-ink-400/10 bg-ink-900/[0.02] px-3 py-2">
+                <span className="text-xs text-ink-500">
+                  محدد: {selectedContainerIds.length} من {containers.length}
+                </span>
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={toggleAllContainers}
-              disabled={isLoadingContainers || containers.length === 0}
-              className="h-8 px-3 text-xs"
-            >
-              {allContainersSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
-            </Button>
-          </div>
-
-          <div className="border rounded-xl divide-y max-h-72 overflow-y-auto">
-            {isLoadingContainers ? (
-              <p className="p-4 text-sm text-ink-500">جاري تحميل الحاويات...</p>
-            ) : containers.length === 0 ? (
-              <p className="p-4 text-sm text-ink-500 text-center">
-                لا توجد حاويات متاحة حاليًا.
-              </p>
-            ) : (
-              containers.map((container) => (
-                <label
-                  key={container.id}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-ink-900/[0.02]"
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={toggleAllContainers}
+                  disabled={isLoadingContainers || containers.length === 0}
+                  className="h-8 px-3 text-xs"
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedContainerIds.includes(container.id)}
-                    onChange={() => toggleContainer(container.id)}
-                  />
+                  {allContainersSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                </Button>
+              </div>
 
-                  {container.name}
-                </label>
-              ))
-            )}
-          </div>
+              <div className="border rounded-xl divide-y max-h-72 overflow-y-auto">
+                {isLoadingContainers ? (
+                  <p className="p-4 text-sm text-ink-500">
+                    جاري تحميل الحاويات...
+                  </p>
+                ) : containers.length === 0 ? (
+                  <p className="p-4 text-sm text-ink-500 text-center">
+                    لا توجد حاويات متاحة حاليًا.
+                  </p>
+                ) : (
+                  containers.map((container) => (
+                    <label
+                      key={container.id}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer hover:bg-ink-900/[0.02]"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedContainerIds.includes(container.id)}
+                        onChange={() => toggleContainer(container.id)}
+                      />
 
-          <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setStep(STEP.STORE)}
-              disabled={isFinishing}
-              className="flex-1"
-            >
-              رجوع
-            </Button>
+                      {container.name}
+                    </label>
+                  ))
+                )}
+              </div>
 
-            <Button
-              type="button"
-              onClick={finishSetup}
-              disabled={isFinishing}
-              className="flex-1"
-            >
-              {finishLabel}
-            </Button>
-          </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setStep(STEP.STORE)}
+                  disabled={isFinishing}
+                  className="flex-1"
+                >
+                  رجوع
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={finishSetup}
+                  disabled={isFinishing}
+                  className="flex-1"
+                >
+                  {finishLabel}
+                </Button>
+              </div>
+            </>
+          )}
 
           {/* Add Container Modal */}
 
@@ -638,9 +770,11 @@ export default function PartnerSetupWizard({
         <div className="space-y-4">
           <CompleteRow label={`تم إنشاء ${partnerLabel}`} />
 
-          <CompleteRow label="تم إنشاء مخزن الحاويات" />
+          <CompleteRow label="تم إنشاء مخزن الحاويات تلقائيًا" />
 
-          <CompleteRow label={`تم ربط ${selectedContainerIds.length} حاوية`} />
+          <CompleteRow
+            label={`تم تحديد ${selectedContainerIds.length} حاوية تلقائيًا`}
+          />
 
           <Button
             type="button"
@@ -675,6 +809,16 @@ function CompleteRow({ label }) {
       </span>
 
       {label}
+    </div>
+  );
+}
+
+function AutoProgress({ label }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+      <Loader2 size={28} className="animate-spin text-primary-500" />
+      <p className="text-sm text-ink-700">{label}</p>
+      <p className="text-xs text-ink-400">من فضلك استنى لحظات...</p>
     </div>
   );
 }

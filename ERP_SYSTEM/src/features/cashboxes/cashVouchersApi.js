@@ -2,27 +2,62 @@ import { baseApi } from "../../lib/baseApi";
 
 export const cashVouchersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // ==================== List ====================
-
+    // =========================================================
+    // GET /CashVouchers
+    // =========================================================
     getCashVouchers: builder.query({
-      query: ({ pageNumber = 1, pageSize = 20, ...filters } = {}) => ({
+      query: ({
+        pageNumber = 1,
+        pageSize = 20,
+        cashboxId,
+        Search,
+        VoucherNumber,
+        Direction,
+        CashMovementTypeId,
+        PartyType,
+        BusinessPartnerId,
+        DriverId,
+        DriverTripId,
+        IsDraft,
+        FromDate,
+        ToDate,
+      } = {}) => ({
         url: "CashVouchers",
+        method: "GET",
         params: {
           PageNumber: pageNumber,
           PageSize: pageSize,
 
-          Search: filters.search || undefined,
-          VoucherNumber: filters.voucherNumber || undefined,
-          Direction: filters.direction || undefined,
-          CashboxId: filters.cashboxId || undefined,
-          CashMovementTypeId: filters.cashMovementTypeId || undefined,
-          PartyType: filters.partyType || undefined,
-          BusinessPartnerId: filters.businessPartnerId || undefined,
-          DriverId: filters.driverId || undefined,
-          DriverTripId: filters.driverTripId || undefined,
-          IsDraft: filters.isDraft ?? undefined,
-          FromDate: filters.fromDate || undefined,
-          ToDate: filters.toDate || undefined,
+          ...(cashboxId && { CashboxId: cashboxId }),
+
+          ...(Search?.trim() && { Search: Search.trim() }),
+
+          ...(VoucherNumber?.trim() && { VoucherNumber: VoucherNumber.trim() }),
+
+          ...(Direction && { Direction }),
+
+          ...(CashMovementTypeId && { CashMovementTypeId }),
+
+          ...(PartyType && { PartyType }),
+
+          ...(BusinessPartnerId && { BusinessPartnerId }),
+
+          ...(DriverId && { DriverId }),
+
+          ...(DriverTripId && { DriverTripId }),
+
+          ...(IsDraft !== undefined &&
+            IsDraft !== null &&
+            IsDraft !== "" && {
+              IsDraft:
+                typeof IsDraft === "string"
+                  ? IsDraft === "true"
+                  : Boolean(IsDraft),
+            }),
+
+          ...(FromDate && { FromDate }),
+
+          ...(ToDate && { ToDate }),
         },
       }),
 
@@ -36,37 +71,52 @@ export const cashVouchersApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // ==================== Details ====================
-
+    // =========================================================
+    // GET /CashVouchers/{id}
+    // =========================================================
     getCashVoucherById: builder.query({
-      query: (id) => `CashVouchers/${id}`,
+      query: (id) => ({
+        url: `CashVouchers/${id}`,
+        method: "GET",
+      }),
 
       providesTags: (result, error, id) => [{ type: "CashVoucher", id }],
     }),
 
-    // ==================== Create ====================
-
+    // =========================================================
+    // POST /CashVouchers
+    //
+    // ينشئ Draft فقط: voucherDate, direction, cashboxId, amount, description
+    // مفيش exchangeRate — السيرفر بيديها القيمة الافتراضية 1 تلقائيًا
+    // =========================================================
     createCashVoucher: builder.mutation({
-      query: (data) => ({
+      query: ({ voucherDate, direction, cashboxId, amount, description }) => ({
         url: "CashVouchers",
         method: "POST",
-        body: data,
+        body: {
+          voucherDate,
+          direction,
+          cashboxId,
+          amount,
+          ...(description?.trim() && {
+            description: description.trim(),
+          }),
+        },
       }),
 
       invalidatesTags: [
         { type: "CashVoucher", id: "LIST" },
+        { type: "Cashbox", id: "LIST" },
+        { type: "Cashbox", id: "OPTIONS" },
         "Cashbox",
-        "Party",
-        "PartyStatement",
-        "Statement",
-        "Driver",
-        "DriverStatement",
-        "DriverTripCost",
       ],
     }),
 
-    // ==================== Update ====================
-
+    // =========================================================
+    // PUT /CashVouchers/{id}
+    //
+    // id في الـ URL فقط، مش في الـ body
+    // =========================================================
     updateCashVoucher: builder.mutation({
       query: ({ id, ...data }) => ({
         url: `CashVouchers/${id}`,
@@ -79,24 +129,26 @@ export const cashVouchersApi = baseApi.injectEndpoints({
         { type: "CashVoucher", id: "LIST" },
 
         "Cashbox",
+        { type: "Cashbox", id: "LIST" },
+
         "Party",
         "PartyStatement",
         "Statement",
+
         "Driver",
         "DriverStatement",
         "DriverTripCost",
       ],
     }),
 
-    // ==================== Delete ====================
-
+    // =========================================================
+    // DELETE /CashVouchers/{id}
+    // =========================================================
     deleteCashVoucher: builder.mutation({
       query: ({ id, rowVersion }) => ({
         url: `CashVouchers/${id}`,
         method: "DELETE",
-        params: {
-          rowVersion,
-        },
+        params: { rowVersion },
       }),
 
       invalidatesTags: (result, error, { id }) => [
@@ -104,15 +156,20 @@ export const cashVouchersApi = baseApi.injectEndpoints({
         { type: "CashVoucher", id: "LIST" },
 
         "Cashbox",
+        { type: "Cashbox", id: "LIST" },
+
         "Party",
         "PartyStatement",
         "Statement",
+
         "Driver",
         "DriverStatement",
         "DriverTripCost",
       ],
     }),
   }),
+
+  overrideExisting: false,
 });
 
 export const {
