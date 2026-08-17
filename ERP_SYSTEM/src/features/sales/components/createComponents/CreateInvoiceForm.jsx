@@ -24,7 +24,7 @@ import {
 import { useGetDriversSelectQuery } from "../../../drivers/driversApi";
 import { useGetStoresSelectQuery } from "../../../stores/storesApi";
 import { useGetCountriesSelectQuery } from "../../../countries/countriesApi";
-import QuickAddCustomerModal from "../QuickAddCustomerModal";
+import PartnerSetupWizard from "../../../partners/components/PartnerSetupWizard";
 import QuickAddDriverModal from "../../../drivers/components/QuickAddDriverModal";
 import PackagingDrawer from "../PackagingDrawer";
 import { useCreateInvoiceMutation } from "../../../invoices/invoicesApi";
@@ -138,7 +138,7 @@ function CurrencyChip({ currency }) {
 }
 
 export default function CreateInvoiceForm({ onSuccess }) {
-  const { data: parties } = useGetPartiesSelectQuery();
+  const { data: parties, refetch: refetchParties } = useGetPartiesSelectQuery();
   const { data: drivers } = useGetDriversSelectQuery();
   const { data: stores } = useGetStoresSelectQuery();
   const { data: countries } = useGetCountriesSelectQuery();
@@ -334,15 +334,30 @@ export default function CreateInvoiceForm({ onSuccess }) {
   );
 
   const handleCustomerCreated = useCallback(
-    (newParty) => {
+    async (newParty) => {
+      if (!newParty?.id) return;
+
+      // حدّث قائمة العملاء أولاً حتى يظهر العميل الجديد داخل الـ Select
+      // ثم حدده تلقائيًا.
+      try {
+        await refetchParties();
+      } catch {
+        // حتى لو فشل الـ refetch، ما نوقفش اختيار العميل الجديد.
+      }
+
       setHeaderField("partyId", newParty.id);
-      setHeaderField("partyName", newParty.name);
+      setHeaderField("partyName", newParty.name || "");
 
       if (newParty.currency) {
         setHeaderField("currency", newParty.currency);
       }
+
+      // رجّع التركيز لقائمة العملاء بعد الإضافة.
+      requestAnimationFrame(() => {
+        partySelectRef.current?.focus?.();
+      });
     },
-    [setHeaderField],
+    [refetchParties, setHeaderField],
   );
 
   const handleDriverChange = useCallback(
@@ -1154,7 +1169,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         </Button>
       </div>
 
-      <QuickAddCustomerModal
+      <PartnerSetupWizard
         isOpen={showAddCustomer}
         onClose={() => setShowAddCustomer(false)}
         onCreated={handleCustomerCreated}

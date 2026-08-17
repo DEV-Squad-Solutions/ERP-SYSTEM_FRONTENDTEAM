@@ -8,14 +8,16 @@ export const containerStoreStatementApi = baseApi.injectEndpoints({
         method: "GET",
         params,
       }),
+
       providesTags: (result, error, params) => [
         {
           type: "ContainerStoreStatement",
-          id: params.BusinessPartnerId ?? "LIST",
+          id: params?.BusinessPartnerId ?? "LIST",
         },
       ],
     }),
   }),
+
   overrideExisting: false,
 });
 

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, memo } from "react";
 import { Trash2, AlertCircle, PenLine, Plus, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
 import { useGetItemUnitsSelectQuery } from "../../../units/itemUnitsApi";
 import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
 
@@ -11,22 +10,33 @@ import NumericInput from "../../../../shared/components/ui/NumericInput";
 import Input from "../../../../shared/components/ui/Input";
 import QuickAddItemModal from "../../../inventory/components/QuickAddItemModal";
 
+const round2 = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.round((number + Number.EPSILON) * 100) / 100;
+};
+
+const toNumber = (value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
 function InvoiceLineRow({
   line,
   index,
   storeId,
   invoiceDate,
+  items,
+  itemOptions,
+  isLoadingItems,
+  isItemsError,
   onChange,
   onRemove,
 }) {
   const [showAddItem, setShowAddItem] = useState(false);
   const isReturnLine = Boolean(line.isReturnLine);
-
-  const {
-    data: items,
-    isLoading: isLoadingItems,
-    isError: isItemsError,
-  } = useGetItemsSelectQuery(undefined, { skip: isReturnLine });
 
   const { data: balanceData, isLoading: isLoadingBalance } =
     useGetItemBalanceQuery(
@@ -51,7 +61,7 @@ function InvoiceLineRow({
     });
 
   const set = (key, value) => {
-    onChange({
+    onChange(index, {
       ...line,
       [key]: value,
     });
@@ -71,7 +81,7 @@ function InvoiceLineRow({
       isFirstItemRender.current = false;
       prevItemIdRef.current = line.itemId;
 
-      onChange({
+      onChange(index, {
         ...line,
         itemId: selected.id,
         itemName: selected.name,
@@ -84,7 +94,7 @@ function InvoiceLineRow({
     if (line.itemId !== prevItemIdRef.current) {
       prevItemIdRef.current = line.itemId;
 
-      onChange({
+      onChange(index, {
         ...line,
         itemId: selected.id,
         itemName: selected.name,
@@ -111,7 +121,7 @@ function InvoiceLineRow({
 
     if (unit.name === line.itemUnitName) return;
 
-    onChange({
+    onChange(index, {
       ...line,
       itemUnitId: unit.id,
       itemUnitName: unit.name,
@@ -119,60 +129,92 @@ function InvoiceLineRow({
   }, [line.itemUnitId, itemUnits]);
 
   const handleCountChange = (count) => {
-    const weight = Number(line.weight) || 0;
+    if (count === "") {
+      onChange(index, { ...line, count: "" });
+      return;
+    }
 
-    onChange({
+    onChange(index, { ...line, count });
+
+    if (count.endsWith(".")) return;
+
+    const countNumber = toNumber(count);
+    const weightNumber = toNumber(line.weight);
+
+    if (countNumber === null || weightNumber === null) return;
+
+    onChange(index, {
       ...line,
       count,
-      quantity:
-        count === "" || !weight ? line.quantity : Number(count) * weight,
+      quantity: round2(countNumber * weightNumber),
     });
   };
 
   const handleWeightChange = (weight) => {
-    const count = Number(line.count) || 0;
+    if (weight === "") {
+      onChange(index, { ...line, weight: "" });
+      return;
+    }
 
-    onChange({
+    onChange(index, { ...line, weight });
+
+    if (weight.endsWith(".")) return;
+
+    const weightNumber = toNumber(weight);
+    const countNumber = toNumber(line.count);
+
+    if (weightNumber === null || countNumber === null) return;
+
+    onChange(index, {
       ...line,
       weight,
-      quantity:
-        weight === "" || !count ? line.quantity : count * Number(weight),
+      quantity: round2(countNumber * weightNumber),
     });
   };
 
   const handleQuantityChange = (quantity) => {
     if (quantity === "") {
-      onChange({ ...line, quantity: null });
+      onChange(index, { ...line, quantity: "" });
       return;
     }
 
-    let qty = Number(quantity);
+    // لا نحول القيمة أثناء الكتابة حتى تظل 12. قابلة للاستكمال إلى 12.5.
+    onChange(index, { ...line, quantity });
+
+    if (quantity.endsWith(".")) return;
+
+    const qty = toNumber(quantity);
+    if (qty === null) return;
 
     if (isReturnLine && line.maxReturnQuantity != null) {
-      if (qty > line.maxReturnQuantity) {
-        qty = line.maxReturnQuantity;
+      const maxReturnQuantity = toNumber(line.maxReturnQuantity);
+
+      if (maxReturnQuantity !== null && qty > maxReturnQuantity) {
+        const limitedQuantity = round2(maxReturnQuantity);
+
         toast.warning("الكمية محدودة بالمتاح للإرجاع", {
-          description: `أقصى كمية: ${line.maxReturnQuantity}`,
+          description: `أقصى كمية: ${limitedQuantity}`,
         });
+
+        onChange(index, { ...line, quantity: limitedQuantity });
+        return;
       }
     }
 
-    const count = Number(line.count) || 0;
+    const count = toNumber(line.count);
 
-    if (count > 0 && !isReturnLine) {
-      onChange({
+    if (count !== null && count > 0 && !isReturnLine) {
+      onChange(index, {
         ...line,
-        quantity: qty,
-        weight: qty / count,
+        quantity,
+        weight: round2(qty / count),
       });
-    } else {
-      onChange({ ...line, quantity: qty });
     }
   };
 
   const handleToggleTemporaryItem = () => {
     if (isReturnLine) return;
-    onChange({
+    onChange(index, {
       ...line,
       isTemporaryItem: !line.isTemporaryItem,
       itemId: null,
@@ -187,7 +229,7 @@ function InvoiceLineRow({
   };
 
   const handleItemCreated = (newItem) => {
-    onChange({
+    onChange(index, {
       ...line,
       isTemporaryItem: false,
       itemId: newItem.id,
@@ -203,20 +245,15 @@ function InvoiceLineRow({
   };
 
   const handleRemove = () => {
-    onRemove();
+    onRemove(index);
 
     toast.success("تم حذف الصنف من الفاتورة", {
       description: line.itemName || "صنف بدون اسم",
     });
   };
 
-  const total = (Number(line.quantity) || 0) * (Number(line.price) || 0);
-
-  const itemOptions =
-    items?.map((item) => ({
-      value: item.id,
-      label: item.name,
-    })) || [];
+  const total =
+    round2((toNumber(line.quantity) ?? 0) * (toNumber(line.price) ?? 0)) ?? 0;
 
   const unitOptions =
     itemUnits?.map((unit) => ({
@@ -304,7 +341,7 @@ function InvoiceLineRow({
         >
           {isReturnLine ? (
             <span className="font-medium">
-              متاح: {line.maxReturnQuantity ?? "-"}
+              متاح: {round2(line.maxReturnQuantity) ?? "-"}
             </span>
           ) : line.isTemporaryItem || !line.itemId ? (
             <span>-</span>
@@ -313,11 +350,16 @@ function InvoiceLineRow({
           ) : (
             <>
               <span className="font-medium">
-                {Number(balanceData?.balance ?? 0).toLocaleString("ar-EG")}
+                {(round2(balanceData?.balance) ?? 0).toLocaleString("ar-EG", {
+                  maximumFractionDigits: 2,
+                })}
               </span>
               <span className="text-[10px] text-ink-400">
                 متوسط التكلفة:{" "}
-                {Number(balanceData?.averageCost ?? 0).toLocaleString("ar-EG")}
+                {(round2(balanceData?.averageCost) ?? 0).toLocaleString(
+                  "ar-EG",
+                  { maximumFractionDigits: 2 },
+                )}
               </span>
             </>
           )}
@@ -350,8 +392,9 @@ function InvoiceLineRow({
           <div className={readonlyCls}>—</div>
         ) : (
           <NumericInput
-            value={line.count}
+            value={line.count ?? ""}
             decimals={true}
+            maxDecimals={2}
             placeholder="العدد"
             onChange={handleCountChange}
           />
@@ -363,8 +406,9 @@ function InvoiceLineRow({
           <div className={readonlyCls}>—</div>
         ) : (
           <NumericInput
-            value={line.weight}
+            value={line.weight ?? ""}
             decimals={true}
+            maxDecimals={2}
             placeholder="الوزن"
             onChange={handleWeightChange}
           />
@@ -373,8 +417,9 @@ function InvoiceLineRow({
 
       <td className="p-2 w-[110px]">
         <NumericInput
-          value={line.quantity}
+          value={line.quantity ?? ""}
           decimals={true}
+          maxDecimals={2}
           placeholder="الكمية"
           onChange={handleQuantityChange}
         />
@@ -382,8 +427,9 @@ function InvoiceLineRow({
 
       <td className="p-2 w-[120px]">
         <NumericInput
-          value={line.price}
+          value={line.price ?? ""}
           decimals={true}
+          maxDecimals={2}
           placeholder="السعر"
           disabled={isReturnLine}
           onChange={(value) => set("price", value === "" ? null : value)}

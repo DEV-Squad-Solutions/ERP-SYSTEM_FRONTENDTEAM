@@ -11,7 +11,7 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <Provider store={store}>
       <App />
-      <Toaster richColors position="top-center" />
+      <Toaster richColors position="top-left" />
     </Provider>
   </StrictMode>,
 );

@@ -3,8 +3,8 @@ import { Boxes, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
-import QuickAddCustomerModal from "../../partners/components/QuickAddPartyModal";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import PartnerSetupWizard from "../../partners/components/PartnerSetupWizard";
 
 /**
  * @param {{
@@ -73,7 +73,7 @@ export default function PartnerSelectHeader({ partnerId, onChange }) {
         </Link>
       </div>
 
-      <QuickAddCustomerModal
+      <PartnerSetupWizard
         isOpen={showAdd}
         onClose={() => setShowAdd(false)}
         onCreated={handleCreated}

@@ -8,24 +8,51 @@ const NumericInput = forwardRef(
       placeholder = "",
       className = "",
       decimals = true,
+      maxDecimals = 2,
       ...props
     },
     ref,
   ) => {
     const handleChange = (e) => {
-      const val = e.target.value;
+      let val = e.target.value;
 
+      // السماح بمسح القيمة بالكامل
       if (val === "") {
         onChange?.("");
         return;
       }
 
-      const regex = decimals ? /^\d*\.?\d*$/ : /^\d*$/;
+      // أرقام صحيحة فقط
+      if (!decimals) {
+        if (!/^\d*$/.test(val)) return;
+        onChange?.(val);
+        return;
+      }
 
-      if (!regex.test(val)) return;
+      // دعم 12,5 و 12.5
+      val = val.replace(",", ".");
 
-      onChange?.(val); // ✅ رجع String
+      // السماح أثناء الكتابة بـ 12. و .5
+      if (!/^\d*\.?\d*$/.test(val)) return;
+
+      const decimalIndex = val.indexOf(".");
+
+      // منع أكثر من علامة عشرية
+      if (decimalIndex !== -1 && val.indexOf(".", decimalIndex + 1) !== -1) {
+        return;
+      }
+
+      // حد أقصى منزلتين عشريتين
+      if (decimalIndex !== -1) {
+        const decimalPart = val.slice(decimalIndex + 1);
+
+        if (decimalPart.length > maxDecimals) return;
+      }
+
+      // لا نحول إلى Number هنا؛ الحفاظ على String مهم لكتابة 12.
+      onChange?.(val);
     };
+
     return (
       <input
         ref={ref}
