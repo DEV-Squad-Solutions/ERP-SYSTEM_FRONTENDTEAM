@@ -211,7 +211,45 @@ export const navigationItems = [
     path: "/dashboard/financial-position",
     icon: PieChart,
   },
-  { label: "التقارير", path: "/dashboard/reports", icon: FileBarChart },
+  {
+    label: "التقارير",
+    icon: FileBarChart,
+    children: [
+      {
+        label: "تقرير المبيعات والمشتريات",
+        path: "/dashboard/reports/sales",
+        icon: ShoppingCart,
+      },
+      {
+        label: "تقرير حركة المخزون",
+        path: "/dashboard/reports/inventory",
+        icon: Boxes,
+      },
+      {
+        label: "تقرير الحسابات",
+        path: "/dashboard/reports/accounts",
+        icon: FileText,
+      },
+      {
+        label: "تقارير الربحية",
+        icon: TrendingUp,
+        children: [
+          {
+            label: "ربحية الفواتير",
+            path: "/dashboard/reports/profitability/invoices",
+            icon: Receipt,
+            end: true,
+          },
+          {
+            label: "ربحية الأصناف",
+            path: "/dashboard/reports/profitability/items",
+            icon: Boxes,
+            end: true,
+          },
+        ],
+      },
+    ],
+  },
   {
     label: "الصلاحيات",
     path: "/dashboard/permissions",
