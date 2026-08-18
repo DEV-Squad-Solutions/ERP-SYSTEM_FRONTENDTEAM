@@ -13,10 +13,24 @@ import { toast } from "sonner";
 import {
   useGetCashMovementTypesQuery,
   useDeleteCashMovementTypeMutation,
-} from "../cashMovementTypesApi";
+} from "../../cashboxes/cashMovementTypesApi";
 import CashMovementTypeFormModal from "../components/CashMovementTypeFormModal";
-import Modal from "../../../shared/components/ui/Modal"; // عدّل المسار حسب مكانك
-import Pagination from "../../../shared/components/ui/Pagination"; // عدّل المسار حسب مكانك
+import Modal from "../../../shared/components/ui/Modal";
+import Pagination from "../../../shared/components/ui/Pagination";
+
+const CLASSIFICATION_LABELS = {
+  PartnerSettlement: "تسوية عميل/مورد",
+  Expense: "مصروفات",
+  Revenue: "إيرادات",
+  Other: "أخرى",
+};
+
+const CLASSIFICATION_TONES = {
+  PartnerSettlement: "bg-primary-50 text-primary-700",
+  Expense: "bg-red-50 text-red-700",
+  Revenue: "bg-emerald-50 text-emerald-800",
+  Other: "bg-ink/5 text-ink/60",
+};
 
 function accountingEffect(type) {
   if (!type.forPartner)
@@ -24,6 +38,18 @@ function accountingEffect(type) {
   if (type.direction === "Receipt")
     return { text: "دائن للعميل/المورد", tone: "credit" };
   return { text: "مدين على العميل/المورد", tone: "debit" };
+}
+
+function ClassificationBadge({ classification }) {
+  return (
+    <span
+      className={`inline-flex w-fit items-center rounded-full px-2 py-1 text-xs font-medium ${
+        CLASSIFICATION_TONES[classification] || "bg-ink/5 text-ink/60"
+      }`}
+    >
+      {CLASSIFICATION_LABELS[classification] || classification || "—"}
+    </span>
+  );
 }
 
 function DefaultBadges({ type }) {
@@ -54,12 +80,11 @@ export default function CashMovementTypesListPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // البحث بيتكتب في state منفصل ويتبعت للـ query بعد debounce، عشان
-  // مننادّيش الـ API مع كل حرف بيتكتب (تحسين أداء).
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
   const [direction, setDirection] = useState("");
+  const [classification, setClassification] = useState("");
   const [forPartner, setForPartner] = useState("");
   const [isActive, setIsActive] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -81,6 +106,7 @@ export default function CashMovementTypesListPage() {
     pageSize,
     search: search || undefined,
     direction: direction || undefined,
+    classification: classification || undefined,
     forPartner: forPartner === "" ? undefined : forPartner === "true",
     isActive: isActive === "" ? undefined : isActive === "true",
   });
@@ -123,12 +149,14 @@ export default function CashMovementTypesListPage() {
     setSearchInput("");
     setSearch("");
     setDirection("");
+    setClassification("");
     setForPartner("");
     setIsActive("");
     setPageNumber(1);
   };
 
-  const hasActiveFilters = search || direction || forPartner || isActive;
+  const hasActiveFilters =
+    search || direction || classification || forPartner || isActive;
   const items = data?.items ?? [];
 
   return (
@@ -137,12 +165,12 @@ export default function CashMovementTypesListPage() {
         <div>
           <h1 className="text-xl font-bold text-ink">أنواع حركات الخزنة</h1>
           <p className="mt-1 text-sm text-ink/60">
-            تصنيفات سندات القبض والصرف، وربطها كافتراضي لفواتير البيع والشراء
+            تصنيفات سندات القبض والصرف (تسوية عميل/مورد، مصروفات، إيرادات)،
+            وربطها كافتراضي لفواتير البيع والشراء
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* فلاتر - Dropdown بدل الصف الثابت */}
           <div className="relative">
             <button
               onClick={() => setShowFilters((s) => !s)}
@@ -174,6 +202,26 @@ export default function CashMovementTypesListPage() {
                       className="w-full rounded-xl border border-gold/30 bg-white py-2 pe-9 ps-3 text-sm outline-none transition-colors focus:border-emerald-600"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs text-ink/50">
+                    التصنيف
+                  </label>
+                  <select
+                    value={classification}
+                    onChange={(e) => {
+                      setClassification(e.target.value);
+                      setPageNumber(1);
+                    }}
+                    className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-emerald-600"
+                  >
+                    <option value="">كل التصنيفات</option>
+                    <option value="PartnerSettlement">تسوية عميل/مورد</option>
+                    <option value="Expense">مصروفات</option>
+                    <option value="Revenue">إيرادات</option>
+                    <option value="Other">أخرى</option>
+                  </select>
                 </div>
 
                 <div>
@@ -253,7 +301,6 @@ export default function CashMovementTypesListPage() {
         </div>
       </div>
 
-      {/* الجدول */}
       <div
         className={`overflow-hidden rounded-2xl border border-gold/20 bg-white shadow-sm transition-opacity duration-200 ${
           isFetching ? "opacity-60" : "opacity-100"
@@ -264,6 +311,9 @@ export default function CashMovementTypesListPage() {
             <tr>
               <th className="px-4 py-3 text-start text-xs font-medium">
                 الاسم
+              </th>
+              <th className="px-4 py-3 text-start text-xs font-medium">
+                التصنيف
               </th>
               <th className="px-4 py-3 text-start text-xs font-medium">
                 الاتجاه
@@ -286,14 +336,14 @@ export default function CashMovementTypesListPage() {
             {isLoading ? (
               [...Array(5)].map((_, i) => (
                 <tr key={i}>
-                  <td colSpan={6} className="px-4 py-3">
+                  <td colSpan={7} className="px-4 py-3">
                     <div className="h-8 animate-pulse rounded-lg bg-ink/5" />
                   </td>
                 </tr>
               ))
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-14 text-center">
+                <td colSpan={7} className="px-4 py-14 text-center">
                   <p className="mb-3 text-sm text-ink/50">
                     {hasActiveFilters
                       ? "مفيش أنواع حركات مطابقة، جرّب تغيّر الفلاتر"
@@ -323,6 +373,11 @@ export default function CashMovementTypesListPage() {
                           عام
                         </span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ClassificationBadge
+                        classification={type.classification}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       {type.direction === "Receipt" ? (

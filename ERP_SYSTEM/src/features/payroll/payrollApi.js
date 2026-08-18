@@ -40,7 +40,7 @@ export const payrollApi = baseApi.injectEndpoints({
 
     createEmployee: builder.mutation({
       query: (data) => ({
-        url: "Employees/Create",
+        url: "Employees",
         method: "POST",
         body: data,
       }),

@@ -5,9 +5,9 @@ import { z } from "zod";
 import {
   useCreateCashMovementTypeMutation,
   useUpdateCashMovementTypeMutation,
-} from "../cashMovementTypesApi";
+} from "../../cashboxes/cashMovementTypesApi";
 import { toast } from "sonner";
-import Modal from "../../../shared/components/ui/Modal"; // عدّل المسار حسب مكانك
+import Modal from "../../../shared/components/ui/Modal";
 
 const DEFAULT_FLAG_DIRECTION = {
   isDefaultForSales: "Receipt",
@@ -15,6 +15,13 @@ const DEFAULT_FLAG_DIRECTION = {
   isDefaultForPurchase: "Payment",
   isDefaultForSalesReturn: "Payment",
 };
+
+const CLASSIFICATION_OPTIONS = [
+  { value: "PartnerSettlement", label: "تسوية عميل/مورد" },
+  { value: "Expense", label: "مصروفات" },
+  { value: "Revenue", label: "إيرادات" },
+  { value: "Other", label: "أخرى" },
+];
 
 const schema = z
   .object({
@@ -26,6 +33,12 @@ const schema = z
     direction: z.enum(["Receipt", "Payment"], {
       errorMap: () => ({ message: "اختر اتجاه الحركة" }),
     }),
+    classification: z.enum(
+      ["PartnerSettlement", "Expense", "Revenue", "Other"],
+      {
+        errorMap: () => ({ message: "اختر تصنيف النوع" }),
+      },
+    ),
     forPartner: z.boolean(),
     isActive: z.boolean(),
     isDefaultForSales: z.boolean(),
@@ -39,7 +52,16 @@ const schema = z
       .or(z.literal("")),
   })
   .superRefine((data, ctx) => {
-    // أي default flag متفعّل لازم يطابق الاتجاه المسموح بيه، ويكون النوع نشط ومرتبط بعميل/مورد
+    // تسوية عميل/مورد لازم forPartner = true
+    if (data.classification === "PartnerSettlement" && !data.forPartner) {
+      ctx.addIssue({
+        code: z.custom,
+        path: ["forPartner"],
+        message: 'تصنيف "تسوية عميل/مورد" لازم يكون مرتبط بعميل/مورد',
+      });
+    }
+
+    // أي default flag متفعّل لازم يطابق الاتجاه المسموح بيه
     for (const [flag, requiredDirection] of Object.entries(
       DEFAULT_FLAG_DIRECTION,
     )) {
@@ -51,18 +73,22 @@ const schema = z
         });
       }
     }
+
     const anyDefault =
       data.isDefaultForSales ||
       data.isDefaultForPurchase ||
       data.isDefaultForSalesReturn ||
       data.isDefaultForPurchaseReturn;
-    if (anyDefault && !data.forPartner) {
+
+    // الافتراضي للفواتير محصور في تصنيف تسوية عميل/مورد فقط
+    if (anyDefault && data.classification !== "PartnerSettlement") {
       ctx.addIssue({
         code: z.custom,
-        path: ["forPartner"],
-        message: "لازم يكون النوع مرتبط بعميل/مورد عشان يبقى افتراضي لفاتورة",
+        path: ["isDefaultForSales"],
+        message: 'الافتراضي للفواتير متاح بس لتصنيف "تسوية عميل/مورد"',
       });
     }
+
     if (anyDefault && !data.isActive) {
       ctx.addIssue({
         code: z.custom,
@@ -75,6 +101,7 @@ const schema = z
 const DEFAULT_VALUES = {
   name: "",
   direction: "Receipt",
+  classification: "PartnerSettlement",
   forPartner: true,
   isActive: true,
   isDefaultForSales: false,
@@ -133,6 +160,8 @@ export default function CashMovementTypeFormModal({
   });
 
   const direction = watch("direction");
+  const classification = watch("classification");
+  const forPartner = watch("forPartner");
 
   useEffect(() => {
     if (open) {
@@ -141,6 +170,7 @@ export default function CashMovementTypeFormModal({
           ? {
               name: editingType.name,
               direction: editingType.direction,
+              classification: editingType.classification || "PartnerSettlement",
               forPartner: editingType.forPartner,
               isActive: editingType.isActive,
               isDefaultForSales: editingType.isDefaultForSales,
@@ -155,6 +185,22 @@ export default function CashMovementTypeFormModal({
     }
   }, [open, editingType, reset]);
 
+  // لما التصنيف يبقى "تسوية عميل/مورد" — forPartner لازم true إجباري
+  useEffect(() => {
+    if (classification === "PartnerSettlement" && !forPartner) {
+      setValue("forPartner", true, { shouldValidate: true });
+    }
+  }, [classification, forPartner, setValue]);
+
+  // لما التصنيف يخرج من "تسوية عميل/مورد" — نلغي كل الـ Default flags بتاعة الفواتير
+  useEffect(() => {
+    if (classification !== "PartnerSettlement") {
+      for (const flag of Object.keys(DEFAULT_FLAG_DIRECTION)) {
+        setValue(flag, false, { shouldValidate: true });
+      }
+    }
+  }, [classification, setValue]);
+
   // لما يتغيّر الاتجاه، أي default flag مش متوافق معاه يتلغى تلقائي
   useEffect(() => {
     for (const [flag, requiredDirection] of Object.entries(
@@ -167,12 +213,13 @@ export default function CashMovementTypeFormModal({
   }, [direction, setValue]);
 
   const accentEffect = useMemo(() => {
-    const forPartner = watch("forPartner");
     if (!forPartner) return "بدون تأثير على حساب عميل/مورد";
     return direction === "Receipt"
       ? "دائن (Credit) على حساب العميل/المورد"
       : "مدين (Debit) على حساب العميل/المورد";
-  }, [direction, watch]);
+  }, [direction, forPartner]);
+
+  const canEditDefaults = classification === "PartnerSettlement";
 
   const onSubmit = async (values) => {
     const payload = { ...values, notes: values.notes || undefined };
@@ -220,6 +267,39 @@ export default function CashMovementTypeFormModal({
           )}
         </div>
 
+        {/* التصنيف */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-ink">
+            التصنيف
+          </label>
+          <Controller
+            control={control}
+            name="classification"
+            render={({ field }) => (
+              <div className="grid grid-cols-2 gap-2">
+                {CLASSIFICATION_OPTIONS.map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.value}
+                    onClick={() => field.onChange(opt.value)}
+                    className={`rounded-xl border px-3 py-2 text-sm transition ${
+                      field.value === opt.value
+                        ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
+                        : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          />
+          <p className="mt-1 text-xs text-ink/50">
+            مصروفات/إيرادات مستقلة عن الاتجاه ويمكن ربطها بعميل/مورد اختياريًا.
+            تسوية عميل/مورد لازم تكون مرتبطة بطرف.
+          </p>
+        </div>
+
         {/* الاتجاه */}
         <div>
           <label className="mb-1 block text-sm font-medium text-ink">
@@ -253,12 +333,24 @@ export default function CashMovementTypeFormModal({
         </div>
 
         {/* مرتبط بعميل/مورد */}
-        <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gold/20 bg-white px-3 py-2">
+        <label
+          className={`flex items-center justify-between rounded-xl border px-3 py-2 ${
+            classification === "PartnerSettlement"
+              ? "cursor-not-allowed border-gold/10 bg-ink/5"
+              : "cursor-pointer border-gold/20 bg-white"
+          }`}
+        >
           <span className="text-sm text-ink">
             مرتبط بعميل/مورد (forPartner)
+            {classification === "PartnerSettlement" && (
+              <span className="mr-1 text-xs text-ink/40">
+                — إجباري لهذا التصنيف
+              </span>
+            )}
           </span>
           <input
             type="checkbox"
+            disabled={classification === "PartnerSettlement"}
             {...register("forPartner")}
             className="h-4 w-4 accent-emerald-700"
           />
@@ -267,7 +359,7 @@ export default function CashMovementTypeFormModal({
           <p className="text-xs text-red-600">{errors.forPartner.message}</p>
         )}
 
-        {/* الأثر المحاسبي المشتق - للعرض فقط */}
+        {/* الأثر المحاسبي المشتق */}
         <div className="rounded-xl bg-ink/5 px-3 py-2 text-xs text-ink/70">
           الأثر المحاسبي التلقائي:{" "}
           <span className="font-medium text-ink">{accentEffect}</span>
@@ -283,14 +375,19 @@ export default function CashMovementTypeFormModal({
           />
         </label>
 
-        {/* افتراضي للفواتير */}
+        {/* افتراضي للفواتير — محصور في تسوية عميل/مورد */}
         <div>
           <p className="mb-2 text-sm font-medium text-ink">
             افتراضي لأنواع الفواتير
+            {!canEditDefaults && (
+              <span className="mr-1 text-xs text-ink/40">
+                — متاح بس لتصنيف "تسوية عميل/مورد"
+              </span>
+            )}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {DEFAULT_FLAG_LABELS.map(({ key, label, direction: reqDir }) => {
-              const disabled = direction !== reqDir;
+              const disabled = !canEditDefaults || direction !== reqDir;
               return (
                 <label
                   key={key}
@@ -300,9 +397,11 @@ export default function CashMovementTypeFormModal({
                       : "cursor-pointer border-gold/20 bg-white text-ink"
                   }`}
                   title={
-                    disabled
-                      ? `يتطلب اتجاه ${reqDir === "Receipt" ? "قبض" : "صرف"}`
-                      : ""
+                    !canEditDefaults
+                      ? "متاح بس لتصنيف تسوية عميل/مورد"
+                      : disabled
+                        ? `يتطلب اتجاه ${reqDir === "Receipt" ? "قبض" : "صرف"}`
+                        : ""
                   }
                 >
                   <span>{label}</span>

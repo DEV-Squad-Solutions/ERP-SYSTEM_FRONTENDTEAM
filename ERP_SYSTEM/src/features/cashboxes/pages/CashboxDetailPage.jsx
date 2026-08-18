@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-
 import { useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -14,19 +13,22 @@ import {
 
 import { AnimatePresence, motion } from "framer-motion";
 
+import { useSelector } from "react-redux";
+
 import { useGetCashboxByIdQuery } from "../cashboxesApi";
 
 import {
   useGetCashVouchersQuery,
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
+  useDeleteCashVoucherMutation,
 } from "../cashVouchersApi";
 
 import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
 
 import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
-
 import { useGetDriversSelectQuery } from "../../drivers/driversApi";
+import { useGetEmployeesSelectQuery } from "../../payroll/payrollApi";
 
 import CashboxLedgerTable from "../components/CashboxLedgerTable";
 
@@ -37,6 +39,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import { useCashboxLedgerPrint } from "../../../shared/hooks/useCashboxLedgerPrint";
 
 import CashboxLedgerPrintTemplate from "../../../shared/components/print/CashboxLedgerPrintTemplate";
+import { selectIsAdmin } from "../../auth/authSlice";
 
 const currencySymbols = {
   EGP: "ج.م",
@@ -81,8 +84,17 @@ const draftOptions = [
 
 export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
-
   const navigate = useNavigate();
+
+  // =========================================================
+  // Auth / Role
+  // =========================================================
+
+  const isAdmin = useSelector(selectIsAdmin);
+
+  // =========================================================
+  // State
+  // =========================================================
 
   const [filters, setFilters] = useState({
     draft: { ...emptyFilters },
@@ -92,23 +104,18 @@ export default function CashboxDetailPage() {
   const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [page, setPage] = useState(1);
-
   const [pageSize, setPageSize] = useState(25);
 
-  /*
-   * ---------------------------------------------------------
-   * Cashbox
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Cashbox
+  // =========================================================
 
   const { data: cashbox, isFetching: isFetchingCashbox } =
     useGetCashboxByIdQuery(cashboxId);
 
-  /*
-   * ---------------------------------------------------------
-   * Select data
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Select data
+  // =========================================================
 
   const { data: parties, isLoading: isLoadingParties } =
     useGetPartiesSelectQuery();
@@ -116,7 +123,9 @@ export default function CashboxDetailPage() {
   const { data: drivers, isLoading: isLoadingDrivers } =
     useGetDriversSelectQuery();
 
-  // نوع الحركة — لاستخدامه كفلتر في الجدول
+  const { data: employees, isLoading: isLoadingEmployees } =
+    useGetEmployeesSelectQuery();
+
   const {
     data: movementTypesForFilter,
     isLoading: isLoadingMovementTypesFilter,
@@ -134,21 +143,17 @@ export default function CashboxDetailPage() {
     [movementTypesForFilter],
   );
 
-  /*
-   * ---------------------------------------------------------
-   * Mutations
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Mutations
+  // =========================================================
 
   const [createVoucher] = useCreateCashVoucherMutation();
-
   const [updateVoucher] = useUpdateCashVoucherMutation();
+  const [deleteVoucher] = useDeleteCashVoucherMutation();
 
-  /*
-   * ---------------------------------------------------------
-   * Query params
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Query params
+  // =========================================================
 
   const queryParams = useMemo(() => {
     const activeFilters = Object.fromEntries(
@@ -168,26 +173,23 @@ export default function CashboxDetailPage() {
   const { data, isLoading, isFetching, isError, refetch } =
     useGetCashVouchersQuery(queryParams);
 
-  /*
-   * ---------------------------------------------------------
-   * Currency
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Currency
+  // =========================================================
 
   const cashboxCurrency = cashbox?.currency || "EGP";
-
   const cashboxBaseCurrency = cashbox?.baseCurrency || "EGP";
 
   const isForeignCashbox = cashboxCurrency !== cashboxBaseCurrency;
 
   const fmt = (n) =>
-    Number(n ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
+    Number(n ?? 0).toLocaleString("ar-EG", {
+      maximumFractionDigits: 2,
+    });
 
-  /*
-   * ---------------------------------------------------------
-   * Select Options
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Select options
+  // =========================================================
 
   const partyOptions = useMemo(
     () =>
@@ -207,23 +209,26 @@ export default function CashboxDetailPage() {
     [drivers],
   );
 
-  /*
-   * ---------------------------------------------------------
-   * Filters
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Filters
+  // =========================================================
 
   const setFilter = (key, value) => {
     setFilters((prev) => ({
       ...prev,
-      draft: { ...prev.draft, [key]: value },
+      draft: {
+        ...prev.draft,
+        [key]: value,
+      },
     }));
   };
 
   const handleSearch = () => {
     setFilters((prev) => ({
       ...prev,
-      applied: { ...prev.draft },
+      applied: {
+        ...prev.draft,
+      },
     }));
 
     setPage(1);
@@ -232,7 +237,10 @@ export default function CashboxDetailPage() {
   const handleReset = () => {
     const reset = { ...emptyFilters };
 
-    setFilters({ draft: reset, applied: reset });
+    setFilters({
+      draft: reset,
+      applied: reset,
+    });
 
     setPage(1);
   };
@@ -251,19 +259,20 @@ export default function CashboxDetailPage() {
       draft: {
         ...prev.draft,
         PartyType: value,
+
         BusinessPartnerId:
           value === "Partner" ? prev.draft.BusinessPartnerId : "",
+
         DriverId: value === "Driver" ? prev.draft.DriverId : "",
+
         DriverTripId: value === "Driver" ? prev.draft.DriverTripId : "",
       },
     }));
   };
 
-  /*
-   * ---------------------------------------------------------
-   * Voucher handlers
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Voucher handlers
+  // =========================================================
 
   async function handleAddVoucher(payload) {
     await createVoucher({
@@ -279,6 +288,22 @@ export default function CashboxDetailPage() {
     }).unwrap();
   }
 
+  async function handleDeleteVoucher({ id, rowVersion }) {
+    if (!isAdmin) {
+      throw new Error("ليس لديك صلاحية حذف السند");
+    }
+
+    await deleteVoucher({
+      id,
+      rowVersion,
+      cashboxId,
+    }).unwrap();
+  }
+
+  // =========================================================
+  // Pagination
+  // =========================================================
+
   const handlePageChange = (newPage) => {
     setPage(newPage);
   };
@@ -288,11 +313,9 @@ export default function CashboxDetailPage() {
     setPage(1);
   };
 
-  /*
-   * ---------------------------------------------------------
-   * Printing
-   * ---------------------------------------------------------
-   */
+  // =========================================================
+  // Printing
+  // =========================================================
 
   const { printList, printRef } = useCashboxLedgerPrint({
     title: `كشف حركة ${cashbox?.name || "الخزنة"}`,
@@ -301,6 +324,7 @@ export default function CashboxDetailPage() {
   return (
     <div className="animate-fadeUp space-y-6">
       {/* Back */}
+
       <button
         onClick={() => navigate(-1)}
         className="inline-flex items-center gap-2 text-sm text-ink-500 transition hover:text-primary-600"
@@ -310,6 +334,7 @@ export default function CashboxDetailPage() {
       </button>
 
       {/* Header */}
+
       <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -392,6 +417,7 @@ export default function CashboxDetailPage() {
       </div>
 
       {/* Filters */}
+
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <button
           type="button"
@@ -412,7 +438,11 @@ export default function CashboxDetailPage() {
             </div>
           </div>
 
-          <motion.div animate={{ rotate: filtersOpen ? 180 : 0 }}>
+          <motion.div
+            animate={{
+              rotate: filtersOpen ? 180 : 0,
+            }}
+          >
             <ChevronDown size={20} />
           </motion.div>
         </button>
@@ -424,10 +454,21 @@ export default function CashboxDetailPage() {
                 e.preventDefault();
                 handleSearch();
               }}
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              initial={{
+                height: 0,
+                opacity: 0,
+              }}
+              animate={{
+                height: "auto",
+                opacity: 1,
+              }}
+              exit={{
+                height: 0,
+                opacity: 0,
+              }}
+              transition={{
+                duration: 0.25,
+              }}
             >
               <div className="border-t p-5">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -582,6 +623,7 @@ export default function CashboxDetailPage() {
       </div>
 
       {/* Ledger */}
+
       <div className="overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card">
         <CashboxLedgerTable
           cashboxId={cashboxId}
@@ -594,8 +636,10 @@ export default function CashboxDetailPage() {
           refetch={refetch}
           partyOptions={parties || []}
           driverOptions={drivers || []}
+          employeeOptions={employees || []}
           onAddVoucher={handleAddVoucher}
           onUpdateVoucher={handleUpdateVoucher}
+          onDeleteVoucher={isAdmin ? handleDeleteVoucher : undefined}
           page={page}
           pageSize={pageSize}
           totalCount={data?.totalCount || 0}
@@ -605,6 +649,7 @@ export default function CashboxDetailPage() {
       </div>
 
       {/* Print */}
+
       <div className="hidden">
         <div ref={printRef}>
           <CashboxLedgerPrintTemplate

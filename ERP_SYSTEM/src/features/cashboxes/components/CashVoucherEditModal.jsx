@@ -13,12 +13,24 @@ const PARTY_TYPES = [
   { value: "None", label: "بدون طرف" },
   { value: "Partner", label: "عميل / مورد" },
   { value: "Driver", label: "سائق" },
+  { value: "Employee", label: "موظف" },
   { value: "Other", label: "طرف آخر" },
 ];
 
+const CLASSIFICATION_OPTIONS = [
+  { value: "PartnerSettlement", label: "تسوية عميل/مورد" },
+  { value: "Expense", label: "مصروفات" },
+  { value: "Revenue", label: "إيرادات" },
+  { value: "Other", label: "أخرى" },
+];
+
 /**
- * مودال تعديل سند كامل — يعدّل: المبلغ، الاتجاه، التاريخ، التوصيف (نوع الحركة + الطرف)،
- * البيان، الملاحظات، وسعر الصرف عند الحاجة. يبعت rowVersion دايمًا.
+ * مودال تعديل سند كامل — يعدّل: المبلغ، الاتجاه، التاريخ، التصنيف والتوصيف
+ * (نوع الحركة + الطرف: عميل/مورد، سائق، موظف، طرف آخر)، البيان، الملاحظات،
+ * وسعر الصرف عند الحاجة. يبعت rowVersion دايمًا.
+ *
+ * ملحوظة: classification خاصية على cashMovementType نفسه (مش على السند)،
+ * فبتُستخدم هنا كفلتر بس لتضييق قائمة "نوع الحركة" — مش بتتبعت في الـ PUT.
  *
  * @param {{
  *   isOpen: boolean,
@@ -30,6 +42,7 @@ const PARTY_TYPES = [
  *   baseCurrency: string,
  *   partyOptions: Array<{id: string|number, name: string}>,
  *   driverOptions: Array<{id: string|number, name: string}>,
+ *   employeeOptions: Array<{id: string|number, name: string}>,
  * }} props
  */
 export default function CashVoucherEditModal({
@@ -42,6 +55,7 @@ export default function CashVoucherEditModal({
   baseCurrency,
   partyOptions = [],
   driverOptions = [],
+  employeeOptions = [],
 }) {
   const [saving, setSaving] = useState(false);
 
@@ -50,10 +64,13 @@ export default function CashVoucherEditModal({
     direction: "Receipt",
     amount: "",
     exchangeRate: "1",
+    classification: "PartnerSettlement",
     partyType: "None",
     movementTypeId: "",
     businessPartnerId: "",
     driverId: "",
+    driverTripId: "",
+    employeeId: "",
     externalPartyName: "",
     description: "",
     notes: "",
@@ -68,6 +85,8 @@ export default function CashVoucherEditModal({
       direction: voucher.direction || "Receipt",
       amount: voucher.amount ?? "",
       exchangeRate: String(voucher.exchangeRate ?? voucher.rate ?? 1),
+      classification:
+        voucher.cashMovementTypeClassification || "PartnerSettlement",
       partyType: voucher.partyType || "None",
       movementTypeId: voucher.cashMovementTypeId
         ? String(voucher.cashMovementTypeId)
@@ -76,6 +95,8 @@ export default function CashVoucherEditModal({
         ? String(voucher.businessPartnerId)
         : "",
       driverId: voucher.driverId ? String(voucher.driverId) : "",
+      driverTripId: voucher.driverTripId ? String(voucher.driverTripId) : "",
+      employeeId: voucher.employeeId ? String(voucher.employeeId) : "",
       externalPartyName: voucher.externalPartyName || "",
       description: voucher.description || "",
       notes: voucher.notes || "",
@@ -92,11 +113,15 @@ export default function CashVoucherEditModal({
 
   const { data: movementTypeOptions = [], isFetching: loadingTypes } =
     useGetCashMovementTypeOptionsQuery(
-      { direction: form.direction, forPartner },
+      {
+        direction: form.direction,
+        classification: form.classification,
+        forPartner,
+      },
       { skip: !isOpen },
     );
 
-  // لو نوع الحركة الحالي مش موجود في القائمة الجديدة (بعد تغيير الاتجاه/الطرف) نصفّره
+  // لو نوع الحركة الحالي مش موجود في القائمة الجديدة (بعد تغيير الاتجاه/التصنيف/الطرف) نصفّره
   useEffect(() => {
     if (!form.movementTypeId) return;
 
@@ -129,21 +154,42 @@ export default function CashVoucherEditModal({
     [driverOptions],
   );
 
+  const employeeSelectOptions = useMemo(
+    () =>
+      employeeOptions.map((emp) => ({
+        value: String(emp.id),
+        label: emp.name,
+      })),
+    [employeeOptions],
+  );
+
+  const handleClassificationChange = (value) => {
+    setForm((f) => ({
+      ...f,
+      classification: value,
+      movementTypeId: "",
+    }));
+  };
+
   const handlePartyTypeChange = (value) => {
     setForm((f) => ({
       ...f,
       partyType: value,
       businessPartnerId: "",
       driverId: "",
+      driverTripId: "",
+      employeeId: "",
       externalPartyName: "",
     }));
   };
 
   const canSave =
     Number(form.amount) > 0 &&
+    Boolean(form.movementTypeId) &&
     (!isForeign || Number(form.exchangeRate) > 0) &&
     (form.partyType !== "Partner" || Boolean(form.businessPartnerId)) &&
     (form.partyType !== "Driver" || Boolean(form.driverId)) &&
+    (form.partyType !== "Employee" || Boolean(form.employeeId)) &&
     (form.partyType !== "Other" || Boolean(form.externalPartyName.trim()));
 
   async function handleSubmit(e) {
@@ -158,11 +204,16 @@ export default function CashVoucherEditModal({
         direction: form.direction,
         amount: Number(form.amount),
         ...(isForeign && { exchangeRate: Number(form.exchangeRate) }),
-        cashMovementTypeId: form.movementTypeId || null,
+        cashMovementTypeId: form.movementTypeId,
         partyType: form.partyType,
         businessPartnerId:
           form.partyType === "Partner" ? form.businessPartnerId : null,
         driverId: form.partyType === "Driver" ? form.driverId : null,
+        driverTripId:
+          form.partyType === "Driver" && form.driverTripId
+            ? form.driverTripId
+            : null,
+        employeeId: form.partyType === "Employee" ? form.employeeId : null,
         externalPartyName:
           form.partyType === "Other" ? form.externalPartyName.trim() : null,
         description: form.description?.trim() || undefined,
@@ -244,17 +295,45 @@ export default function CashVoucherEditModal({
               onChange={(e) => set("exchangeRate", e.target.value)}
             />
             <p className="mt-1 text-xs text-ink-400">
-              المقابل بالمصري بيتحسب في السيرفر وقت الحفظ.
+              اتركه فاضي أو 0 لاستخدام سعر الصرف المسجّل للتاريخ ده تلقائيًا في
+              السيرفر.
             </p>
           </div>
         )}
+
+        {/* التصنيف */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-ink-900">
+            التصنيف
+          </label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {CLASSIFICATION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleClassificationChange(opt.value)}
+                className={`rounded-xl border px-3 py-2.5 text-sm transition ${
+                  form.classification === opt.value
+                    ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
+                    : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-ink-400">
+            التصنيف بيضيّق قائمة "نوع الحركة" تحت — تسوية عميل/مورد، مصروفات،
+            إيرادات، أو أخرى.
+          </p>
+        </div>
 
         {/* نوع الطرف */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink-900">
             نوع الطرف
           </label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {PARTY_TYPES.map((party) => (
               <button
                 key={party.value}
@@ -282,11 +361,28 @@ export default function CashVoucherEditModal({
         )}
 
         {form.partyType === "Driver" && (
+          <div className="space-y-3">
+            <CompactSelect
+              options={driverSelectOptions}
+              value={form.driverId}
+              onChange={(v) => set("driverId", v || "")}
+              placeholder="اختر السائق"
+            />
+            <Input
+              label="رقم الرحلة (اختياري)"
+              type="number"
+              value={form.driverTripId}
+              onChange={(e) => set("driverTripId", e.target.value)}
+            />
+          </div>
+        )}
+
+        {form.partyType === "Employee" && (
           <CompactSelect
-            options={driverSelectOptions}
-            value={form.driverId}
-            onChange={(v) => set("driverId", v || "")}
-            placeholder="اختر السائق"
+            options={employeeSelectOptions}
+            value={form.employeeId}
+            onChange={(v) => set("employeeId", v || "")}
+            placeholder="اختر الموظف"
           />
         )}
 
@@ -298,10 +394,10 @@ export default function CashVoucherEditModal({
           />
         )}
 
-        {/* التوصيف */}
+        {/* التوصيف (نوع الحركة) */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink-900">
-            نوع الحركة (التوصيف)
+            نوع الحركة (التوصيف) <span className="text-negative">*</span>
           </label>
           <CompactSelect
             options={movementSelectOptions}
@@ -310,9 +406,15 @@ export default function CashVoucherEditModal({
             isLoading={loadingTypes}
             isDisabled={loadingTypes}
             placeholder={
-              loadingTypes ? "جاري تحميل أنواع الحركة..." : "بدون توصيف"
+              loadingTypes ? "جاري تحميل أنواع الحركة..." : "اختر نوع الحركة"
             }
           />
+          {!loadingTypes && movementSelectOptions.length === 0 && (
+            <p className="mt-1.5 text-xs text-negative">
+              مفيش أنواع حركة متاحة لهذا التصنيف/الاتجاه/الطرف — لازم تضيف نوع
+              الأول من شاشة "أنواع حركات الخزنة".
+            </p>
+          )}
         </div>
 
         <div>
