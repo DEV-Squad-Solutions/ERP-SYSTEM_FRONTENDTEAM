@@ -1,85 +1,183 @@
 // features/payroll/payroll.constants.js
-//
-// TODO INTEGRATION: القيم دي بس المؤكدة من الـJSON اللي بعتها. الباقي (المعلّم
-// بـ "?") تخمين منطقي وممكن يحتاج تعديل لما تتأكد من enum الفعلي في الباك إند.
+
+// ============================================================
+// Employee Types
+// ============================================================
 
 export const EMPLOYEE_TYPE = {
   Daily: "يومي",
-  Monthly: "شهري", // "?" غير مؤكد من الـAPI
+  Monthly: "شهري",
 };
 
 export const employeeTypeOptions = Object.entries(EMPLOYEE_TYPE).map(
-  ([value, label]) => ({ value, label }),
+  ([value, label]) => ({
+    value,
+    label,
+  }),
 );
+
+// ============================================================
+// Attendance Status
+// ============================================================
+// EmployeeAttendances API:
+// Present = 0
+// Absent  = 1
+//
+// مهم:
+// الـ API الحالي لا يدعم Late أو Vacation كـ status.
+// التأخير يتم التعامل معه من خلال أوقات الحضور أو
+// workOverTimeRatio / workDaysDeductionRatio حسب الـ backend.
+// ============================================================
 
 export const ATTENDANCE_STATUS = {
   Present: "حاضر",
-  Absent: "غائب", // "?"
-  Late: "متأخر", // "?"
-  Vacation: "إجازة", // "?"
+  Absent: "غائب",
 };
 
 export const attendanceStatusOptions = Object.entries(ATTENDANCE_STATUS).map(
-  ([value, label]) => ({ value, label }),
+  ([value, label]) => ({
+    value,
+    label,
+  }),
 );
 
 export const attendanceStatusBadge = {
   Present: "text-positive bg-positive/10",
   Absent: "text-negative bg-negative/10",
-  Late: "text-amber-600 bg-amber-50",
-  Vacation: "text-ink-400 bg-ink-400/10",
 };
 
-// TODO INTEGRATION: القيم الكاملة لـ workDayRatio / workOverTimeRatio /
-// workDaysDeductionRatio غير مؤكدة، معروف بس "QuarterDay"
+// ============================================================
+// Day Ratios
+// ============================================================
+//
+// القيم الظاهرة في EmployeeAttendances response:
+//
+// FullDay
+//
+// وهناك QuarterDay مؤكد حسب التكامل الحالي.
+// باقي القيم مستخدمة في الواجهة كـ enum متوقع.
+// ============================================================
+
 export const DAY_RATIO = {
   QuarterDay: "ربع يوم",
-  HalfDay: "نص يوم", // "?"
-  ThreeQuarterDay: "ثلاثة أرباع يوم", // "?"
-  FullDay: "يوم كامل", // "?"
+  HalfDay: "نصف يوم",
+  ThreeQuarterDay: "ثلاثة أرباع يوم",
+  FullDay: "يوم كامل",
+  None: "بدون",
 };
 
 export const dayRatioOptions = Object.entries(DAY_RATIO).map(
-  ([value, label]) => ({ value, label }),
+  ([value, label]) => ({
+    value,
+    label,
+  }),
 );
 
-// TODO INTEGRATION: Debit/Credit مؤكدين، لكن التصنيف الفرعي (سلفة/خصم/إضافي/بدل)
-// محتاج حقل category حقيقي من الباك إند. الوسيط ده مؤقت لحد ما يتوفر.
+// ============================================================
+// Transaction Type
+// ============================================================
+
 export const TRANSACTION_TYPE = {
   Debit: "خصم",
   Credit: "إضافة",
 };
 
 export const transactionTypeOptions = Object.entries(TRANSACTION_TYPE).map(
-  ([value, label]) => ({ value, label }),
+  ([value, label]) => ({
+    value,
+    label,
+  }),
 );
 
 // ============================================================
-// MOCK: تصنيف فرعي لـ EmployeeTransactions
+// Employee Transaction Categories
 // ============================================================
-// الـbackend حاليًا مش بيرجع غير type: Debit/Credit. لحد ما يتوفر حقل
-// "category" حقيقي، بنعمل mock عن طريق ترميز التصنيف جوه حقل notes بصيغة
-// "[CATEGORY] نص الملاحظة الحقيقي". دي حل مؤقت بحت عشان تقدر تشتغل على
-// الواجهة (سلف/خصومات/إضافي وبدلات) وهي متفرقة عن بعض، وسهل شيله لما ييجي
-// حقل category حقيقي من الباك إند (غيّر بس encodeCategory/parseCategory).
+//
+// مؤقت إلى أن يوفر الـ backend category حقيقي.
+// ============================================================
 
 export const TRANSACTION_CATEGORY = {
-  Overtime: { label: "ساعات إضافية", type: "Credit" },
-  TransportAllowance: { label: "بدل انتقال", type: "Credit" },
-  HousingAllowance: { label: "بدل سكن", type: "Credit" },
-  MealAllowance: { label: "بدل وجبة", type: "Credit" },
-  Bonus: { label: "مكافأة", type: "Credit" },
-  Incentive: { label: "حافز", type: "Credit" },
-  OtherAddition: { label: "أخرى (إضافة)", type: "Credit" },
+  // ----------------------------------------------------------
+  // Credit
+  // ----------------------------------------------------------
 
-  AbsenceDeduction: { label: "خصم غياب", type: "Debit" },
-  LatenessDeduction: { label: "خصم تأخير", type: "Debit" },
-  Penalty: { label: "جزاء", type: "Debit" },
-  AdminDeduction: { label: "خصم إداري", type: "Debit" },
-  OtherDeduction: { label: "أخرى (خصم)", type: "Debit" },
+  Overtime: {
+    label: "ساعات إضافية",
+    type: "Credit",
+  },
 
-  Advance: { label: "سلفة", type: "Debit" },
+  TransportAllowance: {
+    label: "بدل انتقال",
+    type: "Credit",
+  },
+
+  HousingAllowance: {
+    label: "بدل سكن",
+    type: "Credit",
+  },
+
+  MealAllowance: {
+    label: "بدل وجبة",
+    type: "Credit",
+  },
+
+  Bonus: {
+    label: "مكافأة",
+    type: "Credit",
+  },
+
+  Incentive: {
+    label: "حافز",
+    type: "Credit",
+  },
+
+  OtherAddition: {
+    label: "أخرى (إضافة)",
+    type: "Credit",
+  },
+
+  // ----------------------------------------------------------
+  // Debit
+  // ----------------------------------------------------------
+
+  AbsenceDeduction: {
+    label: "خصم غياب",
+    type: "Debit",
+  },
+
+  LatenessDeduction: {
+    label: "خصم تأخير",
+    type: "Debit",
+  },
+
+  Penalty: {
+    label: "جزاء",
+    type: "Debit",
+  },
+
+  AdminDeduction: {
+    label: "خصم إداري",
+    type: "Debit",
+  },
+
+  OtherDeduction: {
+    label: "أخرى (خصم)",
+    type: "Debit",
+  },
+
+  // ----------------------------------------------------------
+  // Advance
+  // ----------------------------------------------------------
+
+  Advance: {
+    label: "سلفة",
+    type: "Debit",
+  },
 };
+
+// ============================================================
+// Category Groups
+// ============================================================
 
 export const overtimeAllowanceCategories = [
   "Overtime",
@@ -101,29 +199,67 @@ export const deductionCategories = [
 
 export const advanceCategories = ["Advance"];
 
-export function categoryOptionsFor(categoryKeys) {
-  return categoryKeys.map((key) => ({
-    value: key,
-    label: TRANSACTION_CATEGORY[key].label,
-  }));
+// ============================================================
+// Category Helpers
+// ============================================================
+
+export function categoryOptionsFor(categoryKeys = []) {
+  return categoryKeys
+    .filter((key) => TRANSACTION_CATEGORY[key])
+    .map((key) => ({
+      value: key,
+      label: TRANSACTION_CATEGORY[key].label,
+    }));
 }
 
+// ============================================================
+// Temporary Category Encoding
+// ============================================================
+//
+// مؤقت فقط إلى أن يضيف الـ backend حقل category حقيقي.
+// ============================================================
+
 export function encodeCategory(category, notes) {
-  return `[${category}] ${notes || ""}`.trim();
+  if (!category) {
+    return notes || "";
+  }
+
+  const cleanNotes = String(notes || "").trim();
+
+  return cleanNotes ? `[${category}] ${cleanNotes}` : `[${category}]`;
 }
 
 export function parseCategory(notes) {
-  const match = /^\[([A-Za-z]+)\]\s*(.*)$/.exec(notes || "");
-  if (!match) return { category: null, cleanNotes: notes || "" };
-  return { category: match[1], cleanNotes: match[2] };
+  const value = String(notes || "");
+
+  const match = /^\[([A-Za-z][A-Za-z0-9]*)\]\s*(.*)$/.exec(value);
+
+  if (!match) {
+    return {
+      category: null,
+      cleanNotes: value,
+    };
+  }
+
+  return {
+    category: match[1],
+    cleanNotes: match[2],
+  };
 }
 
 export function categoryLabel(category) {
   return TRANSACTION_CATEGORY[category]?.label || "—";
 }
 
-// حالات المرتب - افتراض منطقي بناءً على الـSpec (لسه مش موجودة في الـJSON المبعوت)
-// TODO INTEGRATION: تأكيد من PayrollEntries الفعلي هل فيه حقل status
+// ============================================================
+// Payroll Status
+// ============================================================
+//
+// TODO INTEGRATION:
+// يتم الإبقاء عليها لأن هذه حالات Payroll وليست Attendance.
+// يجب تأكيدها من PayrollEntries API.
+// ============================================================
+
 export const PAYROLL_STATUS = {
   Draft: "مسودة",
   UnderReview: "تحت المراجعة",
@@ -133,9 +269,16 @@ export const PAYROLL_STATUS = {
 
 export const payrollStatusBadge = {
   Draft: "text-ink-400 bg-ink-400/10",
+
   UnderReview: "text-amber-600 bg-amber-50",
+
   Approved: "text-primary-600 bg-primary-50",
+
   Disbursed: "text-positive bg-positive/10",
 };
 
-export const fmtMoney = (v) => Number(v || 0).toLocaleString("ar-EG");
+// ============================================================
+// Money Formatter
+// ============================================================
+
+export const fmtMoney = (value) => Number(value || 0).toLocaleString("ar-EG");

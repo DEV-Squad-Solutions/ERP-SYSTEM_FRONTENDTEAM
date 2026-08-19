@@ -159,15 +159,16 @@ export const navigationItems = [
         icon: Users,
       },
       {
-        label: "المرتبات",
-        path: "/dashboard/payroll/salaries",
-        icon: WalletCardsIcon,
-      },
-      {
         label: "الحضور والانصراف",
         path: "/dashboard/payroll/attendance",
         icon: Clock,
       },
+      {
+        label: "المرتبات",
+        path: "/dashboard/payroll/salaries",
+        icon: WalletCardsIcon,
+      },
+
       {
         label: "الإضافي والبدلات",
         path: "/dashboard/payroll/overtime",

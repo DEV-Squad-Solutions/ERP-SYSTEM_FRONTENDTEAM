@@ -118,6 +118,16 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
+    bulkCreateEmployeeAttendances: builder.mutation({
+      query: (body) => ({
+        url: "EmployeeAttendances/bulk",
+        method: "POST",
+        body,
+      }),
+
+      invalidatesTags: [{ type: "Attendance", id: "LIST" }],
+    }),
+
     deleteEmployeeAttendance: builder.mutation({
       query: (id) => ({
         url: `EmployeeAttendances/${id}`,
@@ -215,9 +225,10 @@ export const payrollApi = baseApi.injectEndpoints({
       providesTags: (result, error, id) => [{ type: "PayrollEntry", id }],
     }),
 
-    generatePayrollEntries: builder.mutation({
+    // POST /api/v1/PayrollEntries
+    createPayrollEntry: builder.mutation({
       query: (data) => ({
-        url: "PayrollEntries/generate",
+        url: "PayrollEntries",
         method: "POST",
         body: data,
       }),
@@ -225,22 +236,25 @@ export const payrollApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "PayrollEntry", id: "LIST" }],
     }),
 
-    approvePayrollEntry: builder.mutation({
-      query: (id) => ({
-        url: `PayrollEntries/${id}/approve`,
-        method: "PATCH",
+    // POST /api/v1/PayrollEntries/{id}/pay
+    payPayrollEntry: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `PayrollEntries/${id}/pay`,
+        method: "POST",
+        body: data,
       }),
 
-      invalidatesTags: (result, error, id) => [
+      invalidatesTags: (result, error, { id }) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },
       ],
     }),
 
-    disbursePayrollEntry: builder.mutation({
+    // DELETE /api/v1/PayrollEntries/{id}
+    deletePayrollEntry: builder.mutation({
       query: (id) => ({
-        url: `PayrollEntries/${id}/disburse`,
-        method: "PATCH",
+        url: `PayrollEntries/${id}`,
+        method: "DELETE",
       }),
 
       invalidatesTags: (result, error, id) => [
@@ -264,6 +278,7 @@ export const {
   useGetEmployeeAttendancesQuery,
   useCreateEmployeeAttendanceMutation,
   useUpdateEmployeeAttendanceMutation,
+  useBulkCreateEmployeeAttendancesMutation,
   useDeleteEmployeeAttendanceMutation,
 
   // Transactions
@@ -275,7 +290,7 @@ export const {
   // Payroll
   useGetPayrollEntriesQuery,
   useGetPayrollEntryByIdQuery,
-  useGeneratePayrollEntriesMutation,
-  useApprovePayrollEntryMutation,
-  useDisbursePayrollEntryMutation,
+  useCreatePayrollEntryMutation,
+  usePayPayrollEntryMutation,
+  useDeletePayrollEntryMutation,
 } = payrollApi;
