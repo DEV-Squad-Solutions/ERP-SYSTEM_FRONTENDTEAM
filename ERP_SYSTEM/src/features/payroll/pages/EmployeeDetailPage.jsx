@@ -28,7 +28,7 @@ const TABS = [
 ];
 
 export default function EmployeeDetailPage() {
-  const { employeeCode } = useParams();
+  const { employeeId } = useParams();
   const navigate = useNavigate();
   const [showFormModal, setShowFormModal] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
@@ -37,7 +37,7 @@ export default function EmployeeDetailPage() {
     data: employee,
     isLoading,
     isError,
-  } = useGetEmployeeByIdQuery(employeeCode);
+  } = useGetEmployeeByIdQuery(employeeId);
   const [deleteEmployee] = useDeleteEmployeeMutation();
 
   const handleDelete = () => {
@@ -48,9 +48,9 @@ export default function EmployeeDetailPage() {
         label: "تأكيد الحذف",
         onClick: async () => {
           try {
-            await deleteEmployee(employee.code).unwrap();
+            await deleteEmployee(employee.id).unwrap();
             toast.success("تم الحذف بنجاح");
-            navigate("/payroll/employees");
+            navigate("/dashboard/payroll/employees");
           } catch {
             toast.error("حصل خطأ أثناء الحذف، حاول تاني");
           }
@@ -68,7 +68,7 @@ export default function EmployeeDetailPage() {
   return (
     <div className="animate-fadeUp space-y-6">
       <button
-        onClick={() => navigate("/payroll/employees")}
+        onClick={() => navigate("/dashboard/payroll/employees")}
         className="flex items-center gap-1.5 text-sm text-emerald-700 hover:underline"
       >
         <ArrowRight size={14} />
@@ -125,13 +125,13 @@ export default function EmployeeDetailPage() {
 
         {activeTab === "basic" && <BasicInfoTab employee={employee} />}
         {activeTab === "attendance" && (
-          <AttendanceTab employeeId={employee.code} />
+          <AttendanceTab employeeId={employee.id} />
         )}
         {activeTab === "transactions" && (
-          <TransactionsTab employeeId={employee.code} />
+          <TransactionsTab employeeId={employee.id} />
         )}
         {activeTab === "history" && (
-          <PayrollHistoryTab employeeId={employee.code} />
+          <PayrollHistoryTab employeeId={employee.id} />
         )}
       </div>
 

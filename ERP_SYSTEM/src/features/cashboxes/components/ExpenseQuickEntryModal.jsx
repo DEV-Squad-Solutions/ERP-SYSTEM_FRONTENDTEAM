@@ -1,301 +1,280 @@
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Loader2, Receipt } from "lucide-react";
+// src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
 
-import {
-  useCreateCashVoucherMutation,
-  useUpdateCashVoucherMutation,
-} from "../cashVouchersApi";
-
-import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
+import { useState, useEffect, useMemo } from "react";
 
 import { useGetCashboxesQuery } from "../cashboxesApi";
+import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
+import { useCreateCashVoucherMutation } from "../cashVouchersApi";
+import { useGetPartiesSelectQuery } from "../../partners/partiesApi";
+import { useGetDriversSelectQuery } from "../../drivers/driversApi";
+import { useGetEmployeesSelectQuery } from "../../payroll/payrollApi";
 
 import Modal from "../../../shared/components/ui/Modal";
-import Input from "../../../shared/components/ui/Input";
-import Button from "../../../shared/components/ui/Button";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
-function emptyForm() {
-  return {
-    voucherDate: new Date().toISOString().slice(0, 10),
-    cashboxId: "",
-    cashMovementTypeId: "",
-    amount: "",
-    description: "",
-    notes: "",
-  };
-}
+const PARTY_TYPES = [
+  { value: "None", label: "بدون طرف" },
+  { value: "Partner", label: "عميل / مورد" },
+  { value: "Driver", label: "سائق" },
+  { value: "Employee", label: "موظف" },
+  { value: "Other", label: "طرف آخر" },
+];
 
-/**
- * تسجيل مصروف سريع
- *
- * الحالات:
- *
- * 1. cashboxId موجود:
- *    الخزنة محددة مسبقًا ولا يظهر Select الخزينة.
- *
- * 2. cashboxId غير موجود:
- *    يظهر Select للخزائن النشطة.
- *
- * المصروف:
- * Direction      = Payment
- * Classification = Expense
- * ForPartner     = false
- * PartyType      = None
- */
-export default function ExpenseQuickEntryModal({
-  isOpen,
-  onClose,
-  cashboxId = null,
-  onSaved,
-}) {
-  const [createVoucher] = useCreateCashVoucherMutation();
-  const [updateVoucher] = useUpdateCashVoucherMutation();
+const emptyForm = {
+  voucherDate: new Date().toISOString().slice(0, 10),
+  cashboxId: "",
+  cashMovementTypeId: "",
+  partyType: "None",
+  businessPartnerId: "",
+  driverId: "",
+  employeeId: "",
+  externalPartyName: "",
+  amount: "",
+  referenceNumber: "",
+  description: "",
+  notes: "",
+  exchangeRate: "",
+};
 
-  const [form, setForm] = useState(emptyForm());
-  const [saving, setSaving] = useState(false);
+export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    if (isOpen) setForm(emptyForm);
+  }, [isOpen]);
+
+  function setField(name, value) {
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
 
   // =========================================================
-  // Cashboxes
-  // GET /api/v1/Cashboxes/select
+  // مصادر البيانات
   // =========================================================
 
-  const { data: cashboxesData = [], isFetching: loadingCashboxes } =
-    useGetCashboxesQuery(undefined, {
-      skip: !isOpen || Boolean(cashboxId),
-    });
+  const { data: cashboxesData } = useGetCashboxesQuery(undefined, {
+    skip: !isOpen,
+  });
 
   const cashboxes = Array.isArray(cashboxesData)
     ? cashboxesData
     : (cashboxesData?.items ?? []);
 
-  const cashboxOptions = cashboxes.map((cashbox) => ({
-    value: String(cashbox.id),
-    label: `${cashbox.name} — ${cashbox.currency}`,
-  }));
+  const selectedCashbox = useMemo(
+    () => cashboxes.find((c) => String(c.id) === String(form.cashboxId)),
+    [cashboxes, form.cashboxId],
+  );
 
-  // =========================================================
-  // Expense Types
-  //
-  // GET /api/v1/CashMovementTypes/select
-  //
-  // Direction      = Payment
-  // Classification = Expense
-  // ForPartner     = false
-  // =========================================================
+  const isForeignCurrency =
+    selectedCashbox &&
+    selectedCashbox.currency !== selectedCashbox.baseCurrency;
 
-  const { data: expenseTypes = [], isFetching: loadingTypes } =
-    useGetCashMovementTypeOptionsQuery(
-      {
-        direction: "Payment",
-        classification: "Expense",
-        forPartner: false,
-      },
-      {
-        skip: !isOpen,
-      },
-    );
+  const forPartner = form.partyType === "Partner";
 
-  const expenseTypeOptions = expenseTypes.map((type) => ({
-    value: String(type.id),
-    label: type.name,
-  }));
+  const { data: rawMovementTypeOptions = [], isFetching: loadingTypes } =
+    useGetCashMovementTypeOptionsQuery({ forPartner }, { skip: !isOpen });
 
-  // =========================================================
-  // Reset / initialize
-  // =========================================================
+  // مصروفات فقط (Payment)
+  const movementTypeOptions = useMemo(
+    () => rawMovementTypeOptions.filter((t) => t.direction === "Payment"),
+    [rawMovementTypeOptions],
+  );
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const { data: partnersData } = useGetPartiesSelectQuery(undefined, {
+    skip: !isOpen || form.partyType !== "Partner",
+  });
 
-    setForm({
-      ...emptyForm(),
-      cashboxId: cashboxId ? String(cashboxId) : "",
-    });
-  }, [isOpen, cashboxId]);
+  const { data: driversData } = useGetDriversSelectQuery(undefined, {
+    skip: !isOpen || form.partyType !== "Driver",
+  });
 
-  // =========================================================
-  // Helpers
-  // =========================================================
+  const { data: employeesData } = useGetEmployeesSelectQuery(undefined, {
+    skip: !isOpen || form.partyType !== "Employee",
+  });
 
-  const set = (key, value) => {
-    setForm((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
+  const partnerOptions = useMemo(() => {
+    const list = Array.isArray(partnersData)
+      ? partnersData
+      : (partnersData?.items ?? []);
+    return list.map((p) => ({ value: String(p.id), label: p.name }));
+  }, [partnersData]);
 
-  const selectedCashboxId = cashboxId || form.cashboxId;
+  const driverOptions = useMemo(() => {
+    const list = Array.isArray(driversData)
+      ? driversData
+      : (driversData?.items ?? []);
+    return list.map((d) => ({ value: String(d.id), label: d.name }));
+  }, [driversData]);
 
-  const canSave =
-    Boolean(selectedCashboxId) &&
-    Boolean(form.cashMovementTypeId) &&
-    Number(form.amount) > 0;
+  const employeeOptions = useMemo(() => {
+    const list = Array.isArray(employeesData)
+      ? employeesData
+      : (employeesData?.items ?? []);
+    return list.map((e) => ({ value: String(e.id), label: e.name }));
+  }, [employeesData]);
+
+  const movementOptions = useMemo(
+    () =>
+      movementTypeOptions.map((t) => ({ value: String(t.id), label: t.name })),
+    [movementTypeOptions],
+  );
+
+  const cashboxOptions = useMemo(
+    () => cashboxes.map((c) => ({ value: String(c.id), label: c.name })),
+    [cashboxes],
+  );
 
   // =========================================================
   // Submit
   // =========================================================
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const [createCashVoucher, { isLoading: isSaving }] =
+    useCreateCashVoucherMutation();
 
-    if (!selectedCashboxId) {
-      toast.error("اختر الخزنة أولًا");
-      return;
+  const canSubmit =
+    Boolean(form.cashboxId) &&
+    Boolean(form.cashMovementTypeId) &&
+    Number(form.amount) > 0 &&
+    (form.partyType !== "Partner" || Boolean(form.businessPartnerId)) &&
+    (form.partyType !== "Driver" || Boolean(form.driverId)) &&
+    (form.partyType !== "Employee" || Boolean(form.employeeId)) &&
+    (form.partyType !== "Other" || Boolean(form.externalPartyName.trim()));
+
+  async function handleSubmit() {
+    if (!canSubmit) return;
+
+    const payload = {
+      voucherDate: form.voucherDate,
+      direction: "Payment",
+      cashboxId: Number(form.cashboxId),
+      cashMovementTypeId: Number(form.cashMovementTypeId),
+      partyType: form.partyType,
+      amount: Number(form.amount),
+      referenceNumber: form.referenceNumber || "",
+      description: form.description || "",
+      notes: form.notes || "",
+    };
+
+    if (isForeignCurrency && form.exchangeRate) {
+      payload.exchangeRate = Number(form.exchangeRate);
     }
 
-    if (!form.cashMovementTypeId) {
-      toast.error("اختر نوع المصروف");
-      return;
+    switch (form.partyType) {
+      case "Partner":
+        payload.businessPartnerId = Number(form.businessPartnerId);
+        break;
+      case "Driver":
+        payload.driverId = Number(form.driverId);
+        break;
+      case "Employee":
+        payload.employeeId = Number(form.employeeId);
+        break;
+      case "Other":
+        payload.externalPartyName = form.externalPartyName.trim();
+        break;
+      default:
+        break;
     }
-
-    if (Number(form.amount) <= 0) {
-      toast.error("أدخل مبلغ أكبر من صفر");
-      return;
-    }
-
-    setSaving(true);
 
     try {
-      // =====================================================
-      // 1) إنشاء السند كـ Draft
-      // =====================================================
-
-      const created = await createVoucher({
-        cashboxId: selectedCashboxId,
-
-        voucherDate: form.voucherDate,
-
-        direction: "Payment",
-
-        amount: Number(form.amount),
-
-        description: form.description || undefined,
-      }).unwrap();
-
-      // =====================================================
-      // 2) توصيف السند كمصروف
-      // =====================================================
-
-      await updateVoucher({
-        id: created.id,
-
-        cashboxId: selectedCashboxId,
-
-        rowVersion: created.rowVersion,
-
-        voucherDate: form.voucherDate,
-
-        direction: "Payment",
-
-        amount: Number(form.amount),
-
-        cashMovementTypeId: form.cashMovementTypeId,
-
-        // المصروف المباشر ليس مرتبطًا بطرف
-        partyType: "None",
-
-        businessPartnerId: null,
-
-        driverId: null,
-
-        externalPartyName: null,
-
-        description: form.description || undefined,
-
-        notes: form.notes || undefined,
-      }).unwrap();
-
-      // =====================================================
-      // Success
-      // =====================================================
-
-      toast.success("تم تسجيل المصروف بنجاح");
-
-      setForm({
-        ...emptyForm(),
-        cashboxId: cashboxId ? String(cashboxId) : "",
-      });
-
+      await createCashVoucher(payload).unwrap();
       onSaved?.();
-
       onClose();
     } catch (err) {
-      const code = err?.data?.errorCode;
-
-      if (code === "CashVouchers.Concurrency") {
-        toast.error(
-          "السند تم تعديله من مستخدم آخر. أعد تحميل البيانات وحاول مرة أخرى.",
-        );
-      } else {
-        toast.error(
-          err?.data?.detail ||
-            err?.data?.message ||
-            "حدث خطأ أثناء تسجيل المصروف",
-        );
-      }
-    } finally {
-      setSaving(false);
+      console.error("فشل تسجيل المصروف", err);
     }
-  };
+  }
+
+  if (!isOpen) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="تسجيل مصروف">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* ===================================================
-            Cashbox
-        =================================================== */}
-
-        {!cashboxId && (
+      <div className="space-y-5">
+        {/* الخزينة والتاريخ */}
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-900">
-              الخزنة
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              الخزينة
             </label>
-
             <CompactSelect
               options={cashboxOptions}
               value={form.cashboxId}
-              onChange={(value) => set("cashboxId", value || "")}
-              isLoading={loadingCashboxes}
-              isDisabled={loadingCashboxes}
-              placeholder={
-                loadingCashboxes ? "جاري تحميل الخزائن..." : "اختر الخزنة"
-              }
+              onChange={(value) => setField("cashboxId", value || "")}
+              placeholder="اختر الخزينة"
             />
+          </div>
 
-            {!loadingCashboxes && cashboxOptions.length === 0 && (
-              <p className="mt-1.5 text-xs text-negative">
-                لا توجد خزائن نشطة متاحة.
-              </p>
-            )}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              التاريخ
+            </label>
+            <input
+              type="date"
+              value={form.voucherDate}
+              onChange={(e) => setField("voucherDate", e.target.value)}
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+            />
+          </div>
+        </div>
+
+        {isForeignCurrency && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              سعر الصرف (اختياري - يستخدم السعر المسجل لو فاضي)
+            </label>
+            <input
+              type="number"
+              value={form.exchangeRate}
+              onChange={(e) => setField("exchangeRate", e.target.value)}
+              placeholder="سعر الصرف"
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+            />
           </div>
         )}
 
-        {/* ===================================================
-            Date
-        =================================================== */}
-
-        <Input
-          label="التاريخ"
-          type="date"
-          value={form.voucherDate}
-          onChange={(e) => set("voucherDate", e.target.value)}
-        />
-
-        {/* ===================================================
-            Expense Type
-        =================================================== */}
-
+        {/* نوع الطرف */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
+          <label className="mb-2 block text-sm font-medium text-ink">
+            نوع الطرف
+          </label>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {PARTY_TYPES.map((party) => (
+              <button
+                key={party.value}
+                type="button"
+                onClick={() => {
+                  setForm((prev) => ({
+                    ...prev,
+                    partyType: party.value,
+                    businessPartnerId: "",
+                    driverId: "",
+                    employeeId: "",
+                    externalPartyName: "",
+                    cashMovementTypeId: "",
+                  }));
+                }}
+                className={`rounded-xl border px-3 py-2.5 text-sm transition ${
+                  form.partyType === party.value
+                    ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
+                    : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
+                }`}
+              >
+                {party.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* نوع المصروف */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
             نوع المصروف
           </label>
 
           <CompactSelect
-            options={expenseTypeOptions}
+            options={movementOptions}
             value={form.cashMovementTypeId}
-            onChange={(value) => set("cashMovementTypeId", value || "")}
+            onChange={(value) => setField("cashMovementTypeId", value || "")}
             isLoading={loadingTypes}
             isDisabled={loadingTypes}
             placeholder={
@@ -304,86 +283,138 @@ export default function ExpenseQuickEntryModal({
                 : "اختر نوع المصروف"
             }
           />
-
-          {!loadingTypes && expenseTypeOptions.length === 0 && (
-            <p className="mt-1.5 text-xs text-ink-400">
-              لا توجد أنواع مصروفات معرفة.
-              <br />
-              أضف نوع حركة بتصنيف "مصروفات" من شاشة أنواع حركات الخزنة.
-            </p>
-          )}
         </div>
 
-        {/* ===================================================
-            Amount
-        =================================================== */}
+        {form.partyType === "Partner" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              العميل / المورد
+            </label>
+            <CompactSelect
+              options={partnerOptions}
+              value={form.businessPartnerId}
+              onChange={(value) => setField("businessPartnerId", value || "")}
+              placeholder="اختر العميل / المورد"
+            />
+          </div>
+        )}
 
-        <Input
-          label="المبلغ"
-          type="number"
-          min="0"
-          step="0.01"
-          value={form.amount}
-          onChange={(e) => set("amount", e.target.value)}
-          placeholder="0.00"
-        />
+        {form.partyType === "Driver" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              السائق
+            </label>
+            <CompactSelect
+              options={driverOptions}
+              value={form.driverId}
+              onChange={(value) => setField("driverId", value || "")}
+              placeholder="اختر السائق"
+            />
+          </div>
+        )}
 
-        {/* ===================================================
-            Description
-        =================================================== */}
+        {form.partyType === "Employee" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              الموظف
+            </label>
+            <CompactSelect
+              options={employeeOptions}
+              value={form.employeeId}
+              onChange={(value) => setField("employeeId", value || "")}
+              placeholder="اختر الموظف"
+            />
+          </div>
+        )}
 
+        {form.partyType === "Other" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              اسم الطرف
+            </label>
+            <input
+              type="text"
+              value={form.externalPartyName}
+              onChange={(e) => setField("externalPartyName", e.target.value)}
+              placeholder="اكتب اسم الطرف"
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+            />
+          </div>
+        )}
+
+        {/* المبلغ */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
-            البيان
-            <span className="mr-1 text-xs font-normal text-ink-400">
-              (اختياري)
-            </span>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            المبلغ
           </label>
-
-          <textarea
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            rows={2}
-            placeholder="مثال: شراء أدوات مكتبية"
-            className="w-full rounded-xl border border-ink-400/15 bg-white px-3.5 py-2.5 text-sm transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/10"
+          <input
+            type="number"
+            value={form.amount}
+            onChange={(e) => setField("amount", e.target.value)}
+            placeholder="0.00"
+            className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
           />
         </div>
 
-        {/* ===================================================
-            Notes
-        =================================================== */}
+        {/* الوصف والملاحظات */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              رقم مرجعي
+            </label>
+            <input
+              type="text"
+              value={form.referenceNumber}
+              onChange={(e) => setField("referenceNumber", e.target.value)}
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              الوصف
+            </label>
+            <input
+              type="text"
+              value={form.description}
+              onChange={(e) => setField("description", e.target.value)}
+              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+            />
+          </div>
+        </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
+          <label className="mb-1.5 block text-sm font-medium text-ink">
             ملاحظات
-            <span className="mr-1 text-xs font-normal text-ink-400">
-              (اختياري)
-            </span>
           </label>
-
           <textarea
             value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
+            onChange={(e) => setField("notes", e.target.value)}
             rows={2}
-            placeholder="ملاحظات إضافية..."
-            className="w-full rounded-xl border border-ink-400/15 bg-white px-3.5 py-2.5 text-sm transition focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/10"
+            className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
           />
         </div>
 
-        {/* ===================================================
-            Submit
-        =================================================== */}
+        {/* Actions */}
+        <div className="flex justify-end gap-2 border-t border-gold/20 pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-gold/30 px-4 py-2 text-sm text-ink transition hover:bg-ink/5"
+          >
+            إلغاء
+          </button>
 
-        <Button type="submit" disabled={!canSave || saving} className="w-full">
-          {saving ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Receipt size={16} />
-          )}
-
-          {saving ? "جاري التسجيل..." : "تسجيل المصروف"}
-        </Button>
-      </form>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit || isSaving}
+            className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSaving ? "جاري الحفظ..." : "حفظ المصروف"}
+          </button>
+        </div>
+      </div>
     </Modal>
   );
 }

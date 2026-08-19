@@ -19,7 +19,7 @@ export const payrollApi = baseApi.injectEndpoints({
           ? [
               ...result.employees.map((employee) => ({
                 type: "Employee",
-                id: employee.id ?? employee.code,
+                id: employee.id,
               })),
               { type: "Employee", id: "LIST" },
             ]

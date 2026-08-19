@@ -1,4 +1,14 @@
- 
+// features/payroll/components/EmployeeFormModal.jsx
+//
+// TODO INTEGRATION: بيفترض وجود Modal.jsx في shared/components/ui/Modal
+// بنفس نمط Button/Input/CompactSelect (مش متأكد من الـprops بتاعته بالظبط،
+// اتبنى على افتراض isOpen/onClose/title/children - عدّل الاستيراد والـprops
+// لو مختلفة عندك).
+//
+// ملحوظة مهمة (متوافقة مع Swagger فعلي): الـcode بيتولّد تلقائيًا من
+// السيرفر ومش موجود في الفورم خالص. حقل النوع اسمه "type" في الـrequest
+// (مش employeeType)، لكن استجابة GET بترجعه "employeeType" - فبنعمل mapping
+// بينهم عند فتح فورم التعديل.
 
 import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -67,7 +77,8 @@ export default function EmployeeFormModal({
     defaultValues,
   });
 
-   const wasOpenRef = { current: false };
+  // reset فقط عند closed -> open (نفس pattern الحفاظ على تعديلات المستخدم أثناء SignalR refetch)
+  const wasOpenRef = { current: false };
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       reset(
@@ -78,7 +89,7 @@ export default function EmployeeFormModal({
               phoneNumber: employee.phoneNumber || "",
               email: employee.email || "",
               address: employee.address || "",
-              type: employee.employeeType,  
+              type: employee.employeeType, // mapping من اسم الحقل في الـresponse
               salary: employee.salary,
               requiredWorkingDaysPerMonth:
                 employee.requiredWorkingDaysPerMonth || 0,
@@ -94,7 +105,7 @@ export default function EmployeeFormModal({
   const onSubmit = async (data) => {
     try {
       if (isEdit) {
-        await updateEmployee({ id: employee.code, ...data }).unwrap();
+        await updateEmployee({ id: employee.id, ...data }).unwrap();
         toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
         await createEmployee(data).unwrap();

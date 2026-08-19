@@ -52,7 +52,7 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
     useGetEmployeeAttendancesQuery({
       FromDate: date,
       ToDate: date,
-      PageSize: 500,
+      PageSize: 100,
     });
 
   const [createAttendance] = useCreateEmployeeAttendanceMutation();

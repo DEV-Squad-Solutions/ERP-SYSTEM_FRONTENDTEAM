@@ -296,50 +296,21 @@ export const router = createBrowserRouter([
       // ========================================================
       // Payroll
       // ========================================================
+
+      { path: "payroll", element: <PayrollDashboardPage /> },
+      { path: "payroll/employees", element: <EmployeesPage /> },
       {
-        path: "payroll",
-        element: <PayrollDashboardPage />,
-      },
-      {
-        path: "payroll/employees",
-        element: <EmployeesPage />,
-      },
-      {
-        path: "payroll/employees/:employeeCode",
+        path: "payroll/employees/:employeeId",
         element: <EmployeeDetailPage />,
       },
-      {
-        path: "payroll/salaries",
-        element: <SalariesPage />,
-      },
-      {
-        path: "payroll/salaries/:salaryId",
-        element: <SalaryDetailPage />,
-      },
-      {
-        path: "payroll/attendance",
-        element: <AttendancePage />,
-      },
-      {
-        path: "payroll/overtime",
-        element: <OvertimePage />,
-      },
-      {
-        path: "payroll/deductions",
-        element: <DeductionsPage />,
-      },
-      {
-        path: "payroll/advances",
-        element: <AdvancesPage />,
-      },
-      {
-        path: "payroll/advances/:advanceId",
-        element: <AdvanceDetailPage />,
-      },
-      {
-        path: "payroll/reports",
-        element: <ReportsPage />,
-      },
+      { path: "payroll/salaries", element: <SalariesPage /> },
+      { path: "payroll/salaries/:salaryId", element: <SalaryDetailPage /> },
+      { path: "payroll/attendance", element: <AttendancePage /> },
+      { path: "payroll/overtime", element: <OvertimePage /> },
+      { path: "payroll/deductions", element: <DeductionsPage /> },
+      { path: "payroll/advances", element: <AdvancesPage /> },
+      { path: "payroll/advances/:advanceId", element: <AdvanceDetailPage /> },
+      { path: "payroll/reports", element: <ReportsPage /> },
 
       // ========================================================
       // Profitability Reports

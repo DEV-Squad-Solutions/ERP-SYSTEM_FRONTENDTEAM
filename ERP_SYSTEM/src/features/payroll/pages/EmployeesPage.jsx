@@ -25,14 +25,10 @@ import Pagination from "../../../shared/components/ui/Pagination";
 const emptyFilters = {
   search: "",
   employeeType: "",
-  isActive: "",
 };
-
-const activeOptions = [
-  { value: "", label: "الكل" },
-  { value: "true", label: "نشط" },
-  { value: "false", label: "غير نشط" },
-];
+// ملحوظة: فلتر "الحالة" (نشط/غير نشط) اتشال لأن GET /Employees مفيهوش
+// IsActive في الفلاتر المتاحة فعليًا (Search, Name, Code, JobTitle,
+// MinSalary, MaxSalary, Type بس). الحالة لسه بتتعرض كعمود في الجدول عادي.
 
 export default function EmployeesPage() {
   const navigate = useNavigate();
@@ -48,9 +44,7 @@ export default function EmployeesPage() {
       PageNumber: page,
       PageSize: pageSize,
       Search: applied.search || undefined,
-      EmployeeType: applied.employeeType || undefined,
-      IsActive:
-        applied.isActive === "" ? undefined : applied.isActive === "true",
+      Type: applied.employeeType || undefined,
     });
 
   const [deleteEmployee] = useDeleteEmployeeMutation();
@@ -85,7 +79,7 @@ export default function EmployeesPage() {
         label: "تأكيد الحذف",
         onClick: async () => {
           try {
-            await deleteEmployee(employee.code).unwrap();
+            await deleteEmployee(employee.id).unwrap();
             toast.success("تم الحذف بنجاح");
           } catch {
             toast.error("حصل خطأ أثناء الحذف، حاول تاني");
@@ -157,16 +151,6 @@ export default function EmployeesPage() {
               value={draft.employeeType}
               onChange={(val) => setField("employeeType", val)}
               placeholder="الكل"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
-              الحالة
-            </label>
-            <CompactSelect
-              options={activeOptions}
-              value={draft.isActive}
-              onChange={(val) => setField("isActive", val)}
             />
           </div>
           <div className="flex items-end gap-2">
@@ -268,7 +252,7 @@ export default function EmployeesPage() {
               <tbody>
                 {employees.map((emp, idx) => (
                   <tr
-                    key={emp.code}
+                    key={emp.id}
                     className="border-b border-ink-400/5 last:border-0 hover:bg-primary-50/30 transition-colors animate-fadeUp"
                     style={{ animationDelay: `${Math.min(idx, 12) * 25}ms` }}
                   >
@@ -309,7 +293,7 @@ export default function EmployeesPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() =>
-                            navigate(`/dashboard/payroll/employees/${emp.code}`)
+                            navigate(`/dashboard/payroll/employees/${emp.id}`)
                           }
                           className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
                           title="عرض"
