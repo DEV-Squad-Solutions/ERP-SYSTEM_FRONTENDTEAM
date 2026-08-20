@@ -22,6 +22,8 @@ import {
   ChevronsUpDown,
   CircleCheck,
   CircleDashed,
+  CircleDollarSign,
+  Clock3,
 } from "lucide-react";
 
 import { useDeleteInvoiceMutation } from "../../invoices/invoicesApi";
@@ -39,6 +41,12 @@ const typeLabels = {
 const paymentLabels = {
   Cash: "نقدي",
   Credit: "آجل",
+};
+
+const paymentStatusLabels = {
+  Paid: "مدفوعة",
+  PartiallyPaid: "مدفوعة جزئيًا",
+  Unpaid: "غير مدفوعة",
 };
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
@@ -60,20 +68,60 @@ function TruncatedText({
   );
 }
 
+// =========================================================
+// Pricing Status
+// =========================================================
+
 function PricingStatusBadge({ invoice }) {
-  const isPriced = Number(invoice.total ?? 0) > 0;
+  const hasMissingPrice = Number(invoice.HasMissingPrice) === 1;
+  const allItemsPriced = Number(invoice.AllItemsPriced) === 2;
+
+  const isPriced = allItemsPriced && !hasMissingPrice;
 
   return isPriced ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-positive/10 px-2 py-0.5 text-[11px] font-medium text-positive">
       <CircleCheck size={11} />
-      مسعّرة
+      متسعّرة
     </span>
   ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-ink-400/10 px-2 py-0.5 text-[11px] font-medium text-ink-400">
+    <span className="inline-flex items-center gap-1 rounded-full bg-negative/10 px-2 py-0.5 text-[11px] font-medium text-negative">
       <CircleDashed size={11} />
-      مؤجلة
+      غير مسعّرة
     </span>
   );
+}
+
+// =========================================================
+// Payment Status
+// =========================================================
+
+function PaymentStatusBadge({ status }) {
+  switch (status) {
+    case "Paid":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-positive/10 px-2 py-0.5 text-[11px] font-medium text-positive whitespace-nowrap">
+          <CircleCheck size={11} />
+          مدفوعة
+        </span>
+      );
+
+    case "PartiallyPaid":
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning whitespace-nowrap">
+          <Clock3 size={11} />
+          مدفوعة جزئيًا
+        </span>
+      );
+
+    case "Unpaid":
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-negative/10 px-2 py-0.5 text-[11px] font-medium text-negative whitespace-nowrap">
+          <CircleDollarSign size={11} />
+          غير مدفوعة
+        </span>
+      );
+  }
 }
 
 const columnHelper = createColumnHelper();
@@ -91,6 +139,7 @@ const columnHelper = createColumnHelper();
  *   onPageSizeChange: (size: number) => void,
  * }} props
  */
+
 export default function SalesInvoicesTable({
   data,
   isLoading,
@@ -107,11 +156,14 @@ export default function SalesInvoicesTable({
   const [deleteInvoice] = useDeleteInvoiceMutation();
 
   const [openMenuId, setOpenMenuId] = useState(null);
+
   const [sorting, setSorting] = useState([]);
 
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
-  // ==================== Delete ====================
+  // =========================================================
+  // Delete
+  // =========================================================
 
   const handleDelete = async (invoice) => {
     setOpenMenuId(null);
@@ -122,18 +174,22 @@ export default function SalesInvoicesTable({
         rowVersion: invoice.rowVersion,
       }).unwrap();
 
-      // تظهر فقط في حالة نجاح الـ API
       toast.success("تم حذف الفاتورة");
     } catch (error) {
-      // لا تظهر أي رسالة عند الخطأ
       console.error("Delete invoice failed:", error);
     }
   };
 
-  // ==================== Columns ====================
+  // =========================================================
+  // Columns
+  // =========================================================
 
   const columns = useMemo(
     () => [
+      // =====================================================
+      // Invoice Number
+      // =====================================================
+
       columnHelper.accessor("invoiceNumber", {
         header: "رقم الفاتورة",
 
@@ -143,6 +199,10 @@ export default function SalesInvoicesTable({
           </span>
         ),
       }),
+
+      // =====================================================
+      // Date
+      // =====================================================
 
       columnHelper.accessor("invoiceDate", {
         header: "التاريخ",
@@ -154,8 +214,13 @@ export default function SalesInvoicesTable({
         ),
       }),
 
+      // =====================================================
+      // Type
+      // =====================================================
+
       columnHelper.accessor("invoiceType", {
         header: "النوع",
+
         enableSorting: false,
 
         cell: (info) => (
@@ -164,6 +229,10 @@ export default function SalesInvoicesTable({
           </span>
         ),
       }),
+
+      // =====================================================
+      // Customer
+      // =====================================================
 
       columnHelper.accessor("businessPartnerName", {
         header: "العميل",
@@ -177,21 +246,13 @@ export default function SalesInvoicesTable({
         ),
       }),
 
-      columnHelper.accessor("storeName", {
-        header: "المخزن",
-        enableSorting: false,
-
-        cell: (info) => (
-          <TruncatedText
-            text={info.getValue()}
-            className="text-xs text-ink-600"
-            maxWidthClass="max-w-[110px]"
-          />
-        ),
-      }),
+      // =====================================================
+      // Payment Term
+      // =====================================================
 
       columnHelper.accessor("paymentTerm", {
         header: "الدفع",
+
         enableSorting: false,
 
         cell: (info) => (
@@ -200,6 +261,22 @@ export default function SalesInvoicesTable({
           </span>
         ),
       }),
+
+      // =====================================================
+      // Payment Status
+      // =====================================================
+
+      columnHelper.accessor("paymentStatus", {
+        header: "حالة الدفع",
+
+        enableSorting: false,
+
+        cell: (info) => <PaymentStatusBadge status={info.getValue()} />,
+      }),
+
+      // =====================================================
+      // Total
+      // =====================================================
 
       columnHelper.accessor("total", {
         header: "الإجمالي",
@@ -211,6 +288,10 @@ export default function SalesInvoicesTable({
         ),
       }),
 
+      // =====================================================
+      // Paid Amount
+      // =====================================================
+
       columnHelper.accessor("paidAmount", {
         header: "المدفوع",
 
@@ -220,6 +301,10 @@ export default function SalesInvoicesTable({
           </span>
         ),
       }),
+
+      // =====================================================
+      // Remaining Amount
+      // =====================================================
 
       columnHelper.accessor("remainingAmount", {
         header: "المتبقي",
@@ -235,18 +320,27 @@ export default function SalesInvoicesTable({
         ),
       }),
 
-      columnHelper.accessor("total", {
+      // =====================================================
+      // Pricing Status
+      // =====================================================
+
+      columnHelper.display({
         id: "pricingStatus",
-        header: "الحالة",
+
+        header: "حالة التسعير",
+
         enableSorting: false,
 
         cell: (info) => <PricingStatusBadge invoice={info.row.original} />,
       }),
 
-      // ==================== Actions ====================
+      // =====================================================
+      // Actions
+      // =====================================================
 
       columnHelper.display({
         id: "actions",
+
         header: "إجراءات",
 
         cell: (info) => {
@@ -255,6 +349,7 @@ export default function SalesInvoicesTable({
           return (
             <div className="relative flex items-center gap-0.5">
               {/* View */}
+
               <button
                 onClick={() => navigate(`/dashboard/sales/${inv.id}`)}
                 className="rounded-lg p-1.5 text-primary-500 hover:bg-primary-50"
@@ -264,6 +359,7 @@ export default function SalesInvoicesTable({
               </button>
 
               {/* Edit */}
+
               <button
                 onClick={() => navigate(`/dashboard/sales/${inv.id}/edit`)}
                 className="rounded-lg p-1.5 text-primary-500 hover:bg-primary-50"
@@ -273,6 +369,7 @@ export default function SalesInvoicesTable({
               </button>
 
               {/* Print */}
+
               <button
                 onClick={() => printInvoice(inv)}
                 className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-400/5"
@@ -282,6 +379,7 @@ export default function SalesInvoicesTable({
               </button>
 
               {/* More */}
+
               <button
                 onClick={() =>
                   setOpenMenuId(openMenuId === inv.id ? null : inv.id)
@@ -295,10 +393,13 @@ export default function SalesInvoicesTable({
               {openMenuId === inv.id && (
                 <>
                   {/* Close menu */}
+
                   <div
                     onClick={() => setOpenMenuId(null)}
                     className="fixed inset-0 z-10"
                   />
+
+                  {/* Menu */}
 
                   <div className="absolute left-0 top-full z-20 mt-1 w-40 animate-fadeUp rounded-xl border border-ink-400/10 bg-white py-1 shadow-card">
                     <button
@@ -319,10 +420,13 @@ export default function SalesInvoicesTable({
     [openMenuId, navigate, printInvoice],
   );
 
-  // ==================== Table ====================
+  // =========================================================
+  // Table
+  // =========================================================
 
   const table = useReactTable({
     data: data?.items || [],
+
     columns,
 
     state: {
@@ -332,12 +436,15 @@ export default function SalesInvoicesTable({
     onSortingChange: setSorting,
 
     getCoreRowModel: getCoreRowModel(),
+
     getSortedRowModel: getSortedRowModel(),
 
     manualPagination: true,
   });
 
-  // ==================== Loading ====================
+  // =========================================================
+  // Loading
+  // =========================================================
 
   if (isLoading) {
     return (
@@ -348,11 +455,19 @@ export default function SalesInvoicesTable({
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-3 py-3">
               <div className="h-3.5 w-16 animate-pulse rounded bg-ink-400/10" />
+
               <div className="h-3.5 w-20 animate-pulse rounded bg-ink-400/10" />
+
               <div className="h-3.5 w-14 animate-pulse rounded bg-ink-400/10" />
+
               <div className="h-3.5 max-w-[150px] flex-1 animate-pulse rounded bg-ink-400/10" />
+
               <div className="h-3.5 w-24 animate-pulse rounded bg-ink-400/10" />
+
+              <div className="h-3.5 w-20 animate-pulse rounded bg-ink-400/10" />
+
               <div className="h-3.5 w-16 animate-pulse rounded bg-ink-400/10" />
+
               <div className="h-3.5 w-20 animate-pulse rounded bg-ink-400/10" />
             </div>
           ))}
@@ -361,7 +476,9 @@ export default function SalesInvoicesTable({
     );
   }
 
-  // ==================== Error ====================
+  // =========================================================
+  // Error
+  // =========================================================
 
   if (isError) {
     return (
@@ -389,7 +506,9 @@ export default function SalesInvoicesTable({
 
   const invoices = data?.items || [];
 
-  // ==================== Empty ====================
+  // =========================================================
+  // Empty
+  // =========================================================
 
   if (!isFetching && invoices.length === 0) {
     return (
@@ -407,7 +526,9 @@ export default function SalesInvoicesTable({
     );
   }
 
-  // ==================== Render ====================
+  // =========================================================
+  // Render
+  // =========================================================
 
   return (
     <>
@@ -416,7 +537,7 @@ export default function SalesInvoicesTable({
           isFetching ? "opacity-60" : ""
         }`}
       >
-        <table className="w-full min-w-[1150px] border-collapse text-right">
+        <table className="w-full min-w-[1100px] border-collapse text-right">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr
@@ -425,6 +546,7 @@ export default function SalesInvoicesTable({
               >
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort();
+
                   const sortDir = header.column.getIsSorted();
 
                   return (

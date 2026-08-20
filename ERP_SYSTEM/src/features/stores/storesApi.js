@@ -157,37 +157,6 @@ export const storesApi = baseApi.injectEndpoints({
         { type: "InventoryCostReport", id: `${storeId}-${itemId}` },
       ],
     }),
-
-    // ---------- Store Detail Page: Transfers tab ----------
-    // GET /api/v1/StockTransfers
-    getStockTransfers: builder.query({
-      query: ({
-        storeId,
-        pageNumber = 1,
-        pageSize = 20,
-        fromDate,
-        toDate,
-        status,
-      } = {}) => ({
-        url: "/StockTransfers",
-        method: "GET",
-        params: {
-          StoreId: storeId,
-          PageNumber: pageNumber,
-          PageSize: pageSize,
-          ...(fromDate && { FromDate: fromDate }),
-          ...(toDate && { ToDate: toDate }),
-          ...(status && { Status: status }),
-        },
-      }),
-      providesTags: (result) =>
-        result?.items
-          ? [
-              ...result.items.map((t) => ({ type: "StockTransfer", id: t.id })),
-              { type: "StockTransfer", id: "LIST" },
-            ]
-          : [{ type: "StockTransfer", id: "LIST" }],
-    }),
   }),
 });
 
@@ -201,5 +170,4 @@ export const {
   useDeleteStoreMutation,
   useGetStoreStockReportQuery,
   useGetInventoryCostReportQuery,
-  useGetStockTransfersQuery,
 } = storesApi;

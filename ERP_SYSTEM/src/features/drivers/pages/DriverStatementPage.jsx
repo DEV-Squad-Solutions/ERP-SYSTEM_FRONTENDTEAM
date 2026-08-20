@@ -1,4 +1,5 @@
 // features/drivers/pages/DriverStatementPage.jsx
+
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -9,7 +10,6 @@ import {
   RotateCcw,
   SlidersHorizontal,
   ChevronDown,
-  User,
   Wallet,
   TrendingUp,
   TrendingDown,
@@ -17,17 +17,20 @@ import {
   UserPlus,
   Printer,
 } from "lucide-react";
+
 import {
   useGetDriverStatementQuery,
   useGetDriversSelectQuery,
 } from "../driversApi";
+
 import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
-import QuickAddDriverModal from "../components/QuickAddDriverModal"; // عدّل المسار حسب مكانه عندك
+import QuickAddDriverModal from "../components/QuickAddDriverModal";
+
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
-import { useNavigate } from "react-router-dom";
+
 const directionOptions = [
   { value: "Receipt", label: "وارد" },
   { value: "Payment", label: "صادر" },
@@ -56,9 +59,10 @@ const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 function BalanceBadge({ description }) {
   const isOwedByDriver = description?.includes("مطلوب من السائق");
   const isOwedToDriver = description?.includes("مطلوب دفعه");
+
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
+      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${
         isOwedByDriver
           ? "text-positive bg-positive/10"
           : isOwedToDriver
@@ -81,17 +85,18 @@ function SummaryCard({
 }) {
   return (
     <div
-      className={`group relative rounded-2xl border p-3.5 overflow-hidden transition-all duration-300 hover:-translate-y-0.5 hover:shadow-card ${
+      className={`group relative rounded-xl border px-3 py-2.5 overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card ${
         highlight
           ? "border-primary-200 bg-gradient-to-br from-primary-500/[0.06] to-primary-500/[0.02]"
           : "border-ink-400/10 bg-white"
       }`}
     >
-      <div className="flex items-start justify-between mb-1.5">
-        <p className="text-xs text-ink-400">{label}</p>
+      <div className="flex items-center justify-between gap-2 mb-0.5">
+        <p className="text-[11px] text-ink-400 truncate">{label}</p>
+
         {Icon && (
           <div
-            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-colors ${
+            className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center ${
               tone === "negative"
                 ? "bg-negative/10 text-negative"
                 : tone === "positive"
@@ -99,12 +104,13 @@ function SummaryCard({
                   : "bg-ink-900/[0.05] text-ink-400"
             }`}
           >
-            <Icon size={13} />
+            <Icon size={12} />
           </div>
         )}
       </div>
+
       <p
-        className={`text-base font-bold num ${
+        className={`text-[15px] font-bold num leading-5 ${
           tone === "negative"
             ? "text-negative"
             : tone === "positive"
@@ -114,9 +120,10 @@ function SummaryCard({
       >
         {value}
       </p>
+
       {description && (
         <p
-          className="text-[11px] text-ink-400 mt-0.5 truncate"
+          className="text-[10px] text-ink-400 mt-0.5 truncate leading-4"
           title={description}
         >
           {description}
@@ -134,7 +141,7 @@ export default function DriverStatementPage() {
   const [pageSize, setPageSize] = useState(20);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
-  const navigate = useNavigate();
+
   const {
     data: drivers,
     isLoading: isLoadingDrivers,
@@ -166,10 +173,17 @@ export default function DriverStatementPage() {
         HasCost:
           applied.hasCost === "" ? undefined : applied.hasCost === "true",
       },
-      { skip: !driverId },
+      {
+        skip: !driverId,
+      },
     );
 
-  const setField = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
+  const setField = (key, value) => {
+    setDraft((d) => ({
+      ...d,
+      [key]: value,
+    }));
+  };
 
   const handleDriverChange = (id) => {
     setDriverId(id);
@@ -202,7 +216,10 @@ export default function DriverStatementPage() {
   const activeFiltersCount = useMemo(
     () =>
       Object.entries(applied).filter(([key, value]) => {
-        if (key === "transactionsWithoutTrip") return value === true;
+        if (key === "transactionsWithoutTrip") {
+          return value === true;
+        }
+
         return value !== "" && value !== undefined && value !== null;
       }).length,
     [applied],
@@ -211,48 +228,41 @@ export default function DriverStatementPage() {
   const rows = data?.items || [];
   const summary = data?.summary;
 
-  return (
-    <div className="animate-fadeUp space-y-4">
-      <div className="flex items-center justify-between print:hidden">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-ink-900">
-            كشف حساب السائقين
-          </h2>
-          <p className="text-sm text-ink-400 mt-1">
-            المدفوع والمستلم من السائق وتكاليف الرحلات في كشف واحد
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={refetch}
-            disabled={!driverId || isFetching}
-          >
-            <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
-            تحديث
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handlePrint}
-            disabled={!driverId || rows.length === 0}
-          >
-            <Printer size={16} />
-            طباعة
-          </Button>
-        </div>
-      </div>
+  const selectedDriverName =
+    drivers?.find((d) => d.id === driverId)?.name || "";
 
-      {/* اختيار السائق */}
-      <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 transition-shadow hover:shadow-md print:hidden">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary-50 text-primary-500 flex items-center justify-center shrink-0">
-            <User size={18} />
+  return (
+    <div className="animate-fadeUp space-y-3">
+      {/* ================= HEADER ================= */}
+
+      <div className="flex flex-col xl:flex-row xl:items-center gap-3 print:hidden">
+        <div className="flex items-center gap-2.5 min-w-0 xl:flex-1">
+          <div className="w-9 h-9 shrink-0 rounded-xl bg-primary-50 text-primary-500 flex items-center justify-center">
+            <Truck size={17} />
           </div>
-          <div className="flex-1  ">
+
+          <div className="min-w-0">
+            <h2 className="font-display text-xl font-bold text-ink-900 leading-6">
+              كشف حساب السائقين
+            </h2>
+
+            <p className="text-[11px] text-ink-400 mt-0.5 truncate">
+              المدفوع والمستلم وتكاليف الرحلات
+            </p>
+          </div>
+        </div>
+
+        {/* اختيار السائق */}
+
+        <div className="flex items-center gap-2 flex-1 xl:max-w-[420px]">
+          <div className="flex-1 min-w-0">
             <CompactSelect
               label="السائق"
               options={
-                drivers?.map((d) => ({ value: d.id, label: d.name })) || []
+                drivers?.map((d) => ({
+                  value: d.id,
+                  label: d.name,
+                })) || []
               }
               value={driverId}
               onChange={handleDriverChange}
@@ -266,67 +276,100 @@ export default function DriverStatementPage() {
                     : "اختر السائق"
               }
             />
-            {isDriversError && (
-              <button
-                type="button"
-                onClick={refetchDrivers}
-                className="inline-flex items-center gap-1 text-[11px] text-negative hover:underline mt-1"
-              >
-                <AlertCircle size={11} />
-                تعذر تحميل قائمة السائقين، أعد المحاولة
-              </button>
-            )}
           </div>
+
           <button
             type="button"
             onClick={() => setShowAddDriver(true)}
-            className="shrink-0 p-2.5 rounded-xl text-primary-500 hover:bg-primary-50 transition-colors"
+            className="shrink-0 w-9 h-9 rounded-lg text-primary-500 hover:bg-primary-50 transition-colors flex items-center justify-center"
             title="إضافة سائق جديد"
           >
-            <UserPlus size={18} />
+            <UserPlus size={17} />
           </button>
+        </div>
+
+        {/* Actions */}
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            onClick={refetch}
+            disabled={!driverId || isFetching}
+            className="h-9 px-3"
+          >
+            <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+            تحديث
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handlePrint}
+            disabled={!driverId || rows.length === 0}
+            className="h-9 px-3"
+          >
+            <Printer size={14} />
+            طباعة
+          </Button>
         </div>
       </div>
 
+      {isDriversError && (
+        <button
+          type="button"
+          onClick={refetchDrivers}
+          className="inline-flex items-center gap-1 text-[11px] text-negative hover:underline print:hidden"
+        >
+          <AlertCircle size={11} />
+          تعذر تحميل قائمة السائقين، أعد المحاولة
+        </button>
+      )}
+
       {!driverId ? (
-        <div className="text-center py-20 border border-dashed border-ink-400/20 rounded-2xl animate-fadeUp">
-          <div className="w-14 h-14 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
-            <Truck size={24} className="text-ink-400/50" strokeWidth={1.6} />
+        <div className="text-center py-14 border border-dashed border-ink-400/20 rounded-2xl animate-fadeUp">
+          <div className="w-12 h-12 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-2.5">
+            <Truck size={21} className="text-ink-400/50" strokeWidth={1.6} />
           </div>
-          <p className="text-ink-400">اختر سائق لعرض كشف حسابه</p>
+
+          <p className="text-sm text-ink-400">اختر سائق لعرض كشف حسابه</p>
         </div>
       ) : (
         <>
-          {/* رأس التقرير - يظهر بس عند الطباعة */}
+          {/* ================= PRINT HEADER ================= */}
+
           <div className="hidden print:block mb-2">
             <h2 className="text-xl font-bold text-ink-900">
-              كشف حساب — {drivers?.find((d) => d.id === driverId)?.name}
+              كشف حساب — {selectedDriverName}
             </h2>
+
             <p className="text-xs text-ink-400">
               {applied.fromDate || "—"} إلى {applied.toDate || "—"}
             </p>
           </div>
 
-          {/* زرار فتح الفلاتر */}
-          <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card overflow-hidden transition-shadow hover:shadow-md print:hidden">
+          {/* ================= FILTERS ================= */}
+
+          <div className="bg-white rounded-xl border border-ink-400/10 shadow-card overflow-hidden print:hidden">
             <button
               type="button"
               onClick={() => setFiltersOpen((o) => !o)}
-              className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-ink-900/[0.015]"
+              className="w-full flex items-center justify-between px-3.5 py-2.5 transition-colors hover:bg-ink-900/[0.015]"
             >
               <div className="flex items-center gap-2">
-                <SlidersHorizontal size={15} className="text-ink-400" />
-                <span className="text-sm font-medium text-ink-900">
+                <SlidersHorizontal size={14} className="text-ink-400" />
+
+                <span className="text-xs font-medium text-ink-900">
                   الفلاتر
                 </span>
+
                 {activeFiltersCount > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary-500 text-white text-[10px] font-semibold">
+                  <span className="inline-flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full bg-primary-500 text-white text-[9px] font-semibold">
                     {activeFiltersCount}
                   </span>
                 )}
               </div>
+
               <ChevronDown
-                size={16}
+                size={15}
                 className={`text-ink-400 transition-transform duration-300 ${
                   filtersOpen ? "rotate-180" : ""
                 }`}
@@ -339,30 +382,34 @@ export default function DriverStatementPage() {
               }`}
             >
               <div className="overflow-hidden">
-                <div className="px-4 pb-4 pt-1 border-t border-ink-400/10">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+                <div className="px-3.5 pb-3 pt-1 border-t border-ink-400/10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-2.5 mt-2.5">
                     <Input
                       label="بحث"
                       value={draft.search}
                       onChange={(e) => setField("search", e.target.value)}
                       placeholder="ابحث..."
                     />
+
                     <Input
                       label="من تاريخ"
                       type="date"
                       value={draft.fromDate}
                       onChange={(e) => setField("fromDate", e.target.value)}
                     />
+
                     <Input
                       label="إلى تاريخ"
                       type="date"
                       value={draft.toDate}
                       onChange={(e) => setField("toDate", e.target.value)}
                     />
+
                     <div>
-                      <label className="block text-xs font-medium text-ink-400 mb-1">
+                      <label className="block text-[11px] font-medium text-ink-400 mb-1">
                         اتجاه الحركة
                       </label>
+
                       <CompactSelect
                         options={directionOptions}
                         value={draft.direction}
@@ -370,10 +417,12 @@ export default function DriverStatementPage() {
                         placeholder="الكل"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-xs font-medium text-ink-400 mb-1">
+                      <label className="block text-[11px] font-medium text-ink-400 mb-1">
                         نوع الحركة
                       </label>
+
                       <CompactSelect
                         options={
                           movementTypeOptions?.map((t) => ({
@@ -393,23 +442,26 @@ export default function DriverStatementPage() {
                               : "الكل"
                         }
                       />
+
                       {isMovementTypesError && (
                         <button
                           type="button"
                           onClick={refetchMovementTypes}
-                          className="inline-flex items-center gap-1 text-[11px] text-negative hover:underline mt-1"
+                          className="inline-flex items-center gap-1 text-[10px] text-negative hover:underline mt-1"
                         >
-                          <AlertCircle size={11} />
-                          تعذر تحميل الأنواع، أعد المحاولة
+                          <AlertCircle size={10} />
+                          أعد المحاولة
                         </button>
                       )}
                     </div>
+
                     <Input
                       label="رقم الرحلة"
                       type="number"
                       value={draft.driverTripId}
                       onChange={(e) => setField("driverTripId", e.target.value)}
                     />
+
                     <Input
                       label="رقم الفاتورة"
                       value={draft.invoiceNumber}
@@ -417,10 +469,12 @@ export default function DriverStatementPage() {
                         setField("invoiceNumber", e.target.value)
                       }
                     />
+
                     <div>
-                      <label className="block text-xs font-medium text-ink-400 mb-1">
+                      <label className="block text-[11px] font-medium text-ink-400 mb-1">
                         تكلفة الرحلة
                       </label>
+
                       <CompactSelect
                         options={hasCostOptions}
                         value={draft.hasCost}
@@ -429,8 +483,8 @@ export default function DriverStatementPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-400/10">
-                    <label className="flex items-center gap-2 text-sm text-ink-700 cursor-pointer select-none">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2.5 pt-2.5 border-t border-ink-400/10">
+                    <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={draft.transactionsWithoutTrip}
@@ -441,17 +495,19 @@ export default function DriverStatementPage() {
                       />
                       سندات عامة بدون رحلة فقط
                     </label>
+
                     <div className="flex gap-2">
-                      <Button onClick={handleSearch} className="h-9">
-                        <Search size={14} />
+                      <Button onClick={handleSearch} className="h-8 px-3">
+                        <Search size={13} />
                         بحث
                       </Button>
+
                       <Button
                         variant="outline"
                         onClick={handleReset}
-                        className="h-9"
+                        className="h-8 px-3"
                       >
-                        <RotateCcw size={14} />
+                        <RotateCcw size={13} />
                         تصفير
                       </Button>
                     </div>
@@ -461,43 +517,50 @@ export default function DriverStatementPage() {
             </div>
           </div>
 
-          {/* ملخص الرصيد */}
+          {/* ================= SUMMARY ================= */}
+
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
               {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
-                  className="h-[74px] rounded-2xl bg-ink-400/5 animate-pulse"
-                  style={{ animationDelay: `${i * 60}ms` }}
+                  className="h-[68px] rounded-xl bg-ink-400/5 animate-pulse"
+                  style={{
+                    animationDelay: `${i * 60}ms`,
+                  }}
                 />
               ))}
             </div>
           ) : (
             summary && (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 animate-fadeUp">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 animate-fadeUp">
                 <SummaryCard
                   label="رصيد أول المدة"
                   value={fmt(summary.openingBalanceAmount)}
                   description={summary.openingBalanceDescription}
                   icon={Wallet}
                 />
+
                 <SummaryCard
                   label="إجمالي المدفوع للسائق"
                   value={fmt(summary.totalPaidToDriver)}
                   tone="negative"
                   icon={TrendingDown}
                 />
+
                 <SummaryCard
                   label="إجمالي المستلم منه"
                   value={fmt(summary.totalReceivedFromDriver)}
                   tone="positive"
                   icon={TrendingUp}
                 />
+
                 <SummaryCard
                   label="إجمالي تكلفة الرحلات"
                   value={fmt(summary.totalTripCost)}
                   icon={Truck}
                 />
+
                 <SummaryCard
                   label="رصيد آخر المدة"
                   value={fmt(summary.closingBalanceAmount)}
@@ -509,113 +572,138 @@ export default function DriverStatementPage() {
             )
           )}
 
-          {/* الجدول */}
+          {/* ================= TABLE ================= */}
+
           {isLoading ? (
-            <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card overflow-hidden">
-              <div className="h-10 bg-ink-900/[0.03] border-b border-ink-400/10" />
+            <div className="rounded-xl border border-ink-400/10 bg-white shadow-card overflow-hidden">
+              <div className="h-9 bg-ink-900/[0.03] border-b border-ink-400/10" />
+
               <div className="divide-y divide-ink-400/5">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-4 px-3 py-3"
-                    style={{ animationDelay: `${i * 60}ms` }}
+                    className="flex items-center gap-2 px-2.5 py-2"
+                    style={{
+                      animationDelay: `${i * 60}ms`,
+                    }}
                   >
-                    <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
-                    <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
-                    <div className="h-3.5 w-14 rounded bg-ink-400/10 animate-pulse" />
-                    <div className="h-3.5 flex-1 max-w-[150px] rounded bg-ink-400/10 animate-pulse" />
-                    <div className="h-3.5 w-24 rounded bg-ink-400/10 animate-pulse" />
-                    <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
-                    <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 w-14 rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 w-16 rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 w-28 rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 w-14 rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 flex-1 max-w-[160px] rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 w-16 rounded bg-ink-400/10 animate-pulse" />
+                    <div className="h-3 w-14 rounded bg-ink-400/10 animate-pulse" />
                   </div>
                 ))}
               </div>
             </div>
           ) : isError ? (
-            <div className="text-center py-14 border border-dashed border-negative/25 bg-negative/[0.02] rounded-2xl animate-fadeUp">
+            <div className="text-center py-12 border border-dashed border-negative/25 bg-negative/[0.02] rounded-xl animate-fadeUp">
               <AlertCircle
-                size={32}
-                className="mx-auto text-negative/70 mb-3"
+                size={29}
+                className="mx-auto text-negative/70 mb-2.5"
                 strokeWidth={1.6}
               />
+
               <p className="text-ink-900 font-medium text-sm mb-1">
                 حدث خطأ في تحميل الكشف
               </p>
+
               <button
                 onClick={refetch}
-                className="inline-flex items-center gap-2 text-xs font-medium text-primary-500 hover:text-primary-600 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-lg transition-colors mt-2"
+                className="inline-flex items-center gap-2 text-xs font-medium text-primary-500 hover:text-primary-600 bg-primary-50 hover:bg-primary-100 px-3.5 py-1.5 rounded-lg transition-colors mt-2"
               >
-                <RefreshCw size={13} />
+                <RefreshCw size={12} />
                 إعادة المحاولة
               </button>
             </div>
           ) : rows.length === 0 ? (
-            <div className="text-center py-16 border border-dashed border-ink-400/20 rounded-2xl animate-fadeUp">
+            <div className="text-center py-12 border border-dashed border-ink-400/20 rounded-xl animate-fadeUp">
               <FileSearch
-                size={22}
-                className="mx-auto text-ink-400/50 mb-3"
+                size={21}
+                className="mx-auto text-ink-400/50 mb-2.5"
                 strokeWidth={1.6}
               />
+
               <p className="text-ink-900 font-medium text-sm mb-1">
                 لا توجد حركات مطابقة
               </p>
+
               <p className="text-xs text-ink-400">جرّب تعديل الفلاتر</p>
             </div>
           ) : (
             <>
               <div
-                className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 print:overflow-visible print:border-0 print:shadow-none ${isFetching ? "opacity-60" : ""}`}
+                className={`overflow-x-auto custom-scroll rounded-xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 print:overflow-visible print:border-0 print:shadow-none ${
+                  isFetching ? "opacity-60" : ""
+                }`}
               >
-                <table className="w-full text-right border-collapse min-w-[1200px] print:min-w-0">
+                <table className="w-full text-right border-collapse min-w-[1180px] print:min-w-0">
                   <thead>
-                    <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px] print:bg-transparent print:text-ink-600">
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        التاريخ
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        المستند
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        العميل
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        الحركة
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        البيان
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        رقم الرحلة
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        رقم الفاتورة
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5 text-negative">
-                        مدفوع للسائق
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5 text-positive">
-                        مستلم منه
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
-                        تكلفة الرحلة
-                      </th>
-
-                      <th className="p-2.5 font-medium border-l border-ink-400/5">
+                    <tr className="bg-ink-900/[0.03] text-ink-400 text-[10px] print:bg-transparent print:text-ink-600">
+                      {/* الرصيد */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
                         الرصيد
                       </th>
 
-                      <th className="p-2.5 font-medium">الخزنة</th>
+                      {/* المدفوع للسائق */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 text-negative whitespace-nowrap">
+                        مدفوع للسائق
+                      </th>
+
+                      {/* المستلم منه */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 text-positive whitespace-nowrap">
+                        مستلم منه
+                      </th>
+
+                      {/* البلد */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        البلد
+                      </th>
+
+                      {/* الخزنة */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        الخزنة
+                      </th>
+
+                      {/* البيان */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 min-w-[180px]">
+                        البيان
+                      </th>
+
+                      {/* الرحلة */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        الرحلة
+                      </th>
+
+                      {/* الفاتورة */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        الفاتورة
+                      </th>
+
+                      {/* العميل */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 min-w-[120px]">
+                        العميل
+                      </th>
+
+                      {/* الحركة */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        الحركة
+                      </th>
+
+                      {/* المستند */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        المستند
+                      </th>
+
+                      {/* التاريخ */}
+                      <th className="px-2 py-2 font-medium whitespace-nowrap">
+                        التاريخ
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {rows.map((row, idx) => (
                       <tr
@@ -625,45 +713,55 @@ export default function DriverStatementPage() {
                           animationDelay: `${Math.min(idx, 12) * 25}ms`,
                         }}
                       >
-                        {/* التاريخ */}
-                        <td className="p-2.5 num text-ink-600 text-[13px] whitespace-nowrap border-l border-ink-400/5">
-                          {row.date || "—"}
+                        {/* الرصيد */}
+                        <td className="px-2 py-2 border-l border-ink-400/5">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="num font-semibold text-[12px] text-ink-900">
+                              {fmt(row.balanceAmount)}
+                            </span>
+
+                            {row.balanceDescription && (
+                              <BalanceBadge
+                                description={row.balanceDescription}
+                              />
+                            )}
+                          </div>
                         </td>
 
-                        {/* المستند */}
-                        <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5">
-                          {row.documentNumber || "—"}
+                        {/* المدفوع للسائق */}
+                        <td className="px-2 py-2 num text-negative text-[12px] border-l border-ink-400/5 whitespace-nowrap">
+                          {row.amountPaidToDriver > 0
+                            ? fmt(row.amountPaidToDriver)
+                            : "—"}
                         </td>
 
-                        {/* العميل */}
-                        <td className="p-2.5 text-xs border-l border-ink-400/5">
-                          {row.businessPartnerId && row.businessPartnerName ? (
-                            <Link
-                              to={`/dashboard/partners/${row.businessPartnerId}`}
-                              className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
-                            >
-                              {row.businessPartnerName}
-                            </Link>
-                          ) : (
-                            <span className="text-ink-400">—</span>
-                          )}
+                        {/* المستلم منه */}
+                        <td className="px-2 py-2 num text-positive text-[12px] border-l border-ink-400/5 whitespace-nowrap">
+                          {row.amountReceivedFromDriver > 0
+                            ? fmt(row.amountReceivedFromDriver)
+                            : "—"}
                         </td>
 
-                        {/* الحركة */}
-                        <td className="p-2.5 text-ink-600 text-xs border-l border-ink-400/5">
-                          {row.movementName || "—"}
+                        {/* البلد */}
+                        <td className="px-2 py-2 text-[11px] text-ink-600 border-l border-ink-400/5 whitespace-nowrap">
+                          {row.countryName || "—"}
+                        </td>
+
+                        {/* الخزنة */}
+                        <td className="px-2 py-2 text-ink-600 text-[11px] border-l border-ink-400/5 whitespace-nowrap">
+                          {row.cashboxName || "—"}
                         </td>
 
                         {/* البيان */}
                         <td
-                          className="p-2.5 text-ink-700 text-xs max-w-[180px] truncate border-l border-ink-400/5"
+                          className="px-2 py-2 text-ink-700 text-[11px] max-w-[220px] truncate border-l border-ink-400/5"
                           title={row.description}
                         >
                           {row.description || "—"}
                         </td>
 
-                        {/* رقم الرحلة */}
-                        <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                        {/* الرحلة */}
+                        <td className="px-2 py-2 num text-[12px] border-l border-ink-400/5 whitespace-nowrap">
                           {row.driverTripNumber ? (
                             <Link
                               to={`/dashboard/drivers/trip-costs?driverId=${driverId}&tripNumber=${row.driverTripNumber}`}
@@ -677,48 +775,38 @@ export default function DriverStatementPage() {
                           )}
                         </td>
 
-                        {/* رقم الفاتورة */}
-                        <td className="p-2.5 text-sm font-medium num border-l border-ink-400/5">
+                        {/* الفاتورة */}
+                        <td className="px-2 py-2 text-[12px] font-medium num border-l border-ink-400/5 whitespace-nowrap">
                           {row.invoiceNumber || "—"}
                         </td>
 
-                        {/* مدفوع للسائق */}
-                        <td className="p-2.5 num text-negative text-[13px] border-l border-ink-400/5">
-                          {row.amountPaidToDriver > 0
-                            ? fmt(row.amountPaidToDriver)
-                            : "—"}
+                        {/* العميل */}
+                        <td className="px-2 py-2 text-[11px] border-l border-ink-400/5">
+                          {row.businessPartnerId && row.businessPartnerName ? (
+                            <Link
+                              to={`/dashboard/partners/${row.businessPartnerId}`}
+                              className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
+                            >
+                              {row.businessPartnerName}
+                            </Link>
+                          ) : (
+                            <span className="text-ink-400">—</span>
+                          )}
                         </td>
 
-                        {/* مستلم منه */}
-                        <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">
-                          {row.amountReceivedFromDriver > 0
-                            ? fmt(row.amountReceivedFromDriver)
-                            : "—"}
+                        {/* الحركة */}
+                        <td className="px-2 py-2 text-ink-600 text-[11px] border-l border-ink-400/5 whitespace-nowrap">
+                          {row.movementName || "—"}
                         </td>
 
-                        {/* تكلفة الرحلة */}
-                        <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5">
-                          {row.tripCost > 0 ? fmt(row.tripCost) : "—"}
+                        {/* المستند */}
+                        <td className="px-2 py-2 num text-ink-900 text-[12px] border-l border-ink-400/5 whitespace-nowrap">
+                          {row.documentNumber || "—"}
                         </td>
 
-                        {/* الرصيد */}
-                        <td className="p-2.5 border-l border-ink-400/5">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="num font-semibold text-[13px] text-ink-900">
-                              {fmt(row.balanceAmount)}
-                            </span>
-
-                            {row.balanceDescription && (
-                              <BalanceBadge
-                                description={row.balanceDescription}
-                              />
-                            )}
-                          </div>
-                        </td>
-
-                        {/* الخزنة */}
-                        <td className="p-2.5 text-ink-600 text-xs">
-                          {row.cashboxName || "—"}
+                        {/* التاريخ */}
+                        <td className="px-2 py-2 num text-ink-600 text-[12px] whitespace-nowrap">
+                          {row.date || "—"}
                         </td>
                       </tr>
                     ))}

@@ -32,13 +32,18 @@ export default function QuickAddDriverModal({
   driver = null,
 }) {
   const isEdit = Boolean(driver);
+
   const [form, setForm] = useState(emptyForm);
+
   const [createDriver, { isLoading: isCreating }] = useCreateDriverMutation();
+
   const [updateDriver, { isLoading: isUpdating }] = useUpdateDriverMutation();
+
   const isLoading = isCreating || isUpdating;
 
   useEffect(() => {
     if (!isOpen) return;
+
     setForm(
       driver
         ? {
@@ -49,27 +54,41 @@ export default function QuickAddDriverModal({
             licenseExpiryDate: driver.licenseExpiryDate ?? "",
             isActive: driver.isActive ?? true,
           }
-        : emptyForm,
+        : { ...emptyForm },
     );
   }, [driver, isOpen]);
 
   const handleChange = (key) => (e) => {
     const value =
       e.target.type === "checkbox" ? e.target.checked : e.target.value;
-    setForm((f) => ({ ...f, [key]: value }));
+
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isLoading) return;
+
     try {
       const saved = isEdit
-        ? await updateDriver({ id: driver.id, ...form }).unwrap()
+        ? await updateDriver({
+            id: driver.id,
+            ...form,
+          }).unwrap()
         : await createDriver(form).unwrap();
 
       toast.success(
         isEdit ? "تم تحديث بيانات السائق" : "تم إضافة السائق بنجاح",
       );
+
+      // مهم:
+      // الأب يستخدم onSaved وليس onCreated
       onSaved?.(saved);
+
       onClose();
     } catch {
       toast.error(isEdit ? "فشل تحديث السائق" : "فشل إضافة السائق");
@@ -87,27 +106,36 @@ export default function QuickAddDriverModal({
           label="اسم السائق"
           value={form.name}
           onChange={handleChange("name")}
+          disabled={isLoading}
         />
+
         <Input
           label="رقم الهاتف"
           value={form.phoneNumber}
           onChange={handleChange("phoneNumber")}
+          disabled={isLoading}
         />
+
         <Input
           label="الرقم القومي"
           value={form.nationalId}
           onChange={handleChange("nationalId")}
+          disabled={isLoading}
         />
+
         <Input
           label="رقم الرخصة"
           value={form.licenseNumber}
           onChange={handleChange("licenseNumber")}
+          disabled={isLoading}
         />
+
         <Input
           label="تاريخ انتهاء الرخصة"
           type="date"
           value={form.licenseExpiryDate}
           onChange={handleChange("licenseExpiryDate")}
+          disabled={isLoading}
         />
 
         {isEdit && (
@@ -116,6 +144,7 @@ export default function QuickAddDriverModal({
               type="checkbox"
               checked={form.isActive}
               onChange={handleChange("isActive")}
+              disabled={isLoading}
               className="rounded border-ink-400/30"
             />
             نشط

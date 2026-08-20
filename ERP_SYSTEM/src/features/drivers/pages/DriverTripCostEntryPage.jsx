@@ -224,32 +224,42 @@ export default function DriverTripCostEntryPage() {
       ) : (
         <>
           <div
-            className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${isFetching ? "opacity-60" : ""}`}
+            className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
+              isFetching ? "opacity-60" : ""
+            }`}
           >
-            <table className="w-full text-right border-collapse min-w-[900px]">
+            <table className="w-full text-right border-collapse min-w-[850px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     رقم الرحلة
                   </th>
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     التاريخ
                   </th>
+
+                  {/* العميل + البلد */}
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    السائق
+                    العميل / البلد
                   </th>
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     رقم الفاتورة
                   </th>
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     التكلفة
                   </th>
+
                   <th className="p-2.5 font-medium">ملاحظات</th>
                 </tr>
               </thead>
+
               <tbody>
                 {rows.map((row) => {
                   const edited = edits[row.driverTripId];
+
                   return (
                     <tr
                       key={row.driverTripId}
@@ -257,26 +267,51 @@ export default function DriverTripCostEntryPage() {
                         edited ? "bg-gold-50/40" : "hover:bg-ink-900/[0.01]"
                       }`}
                     >
-                      <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5">
+                      {/* رقم الرحلة */}
+                      <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5 whitespace-nowrap">
                         {row.tripNumber}
                       </td>
-                      <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5">
+
+                      {/* التاريخ */}
+                      <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5 whitespace-nowrap">
                         {row.tripDate}
                       </td>
-                      <td className="p-2.5 text-ink-700 text-[13px] border-l border-ink-400/5">
-                        {row.driverName}
+
+                      {/* العميل + البلد */}
+                      <td className="p-2.5 border-l border-ink-400/5 min-w-[180px]">
+                        <div className="flex flex-col min-w-0">
+                          <span
+                            className="text-[12px] font-medium text-ink-800 truncate"
+                            title={row.businessPartnerName}
+                          >
+                            {row.businessPartnerName || "—"}
+                          </span>
+
+                          <span
+                            className="text-[10px] text-ink-400 mt-0.5 truncate"
+                            title={row.countryName}
+                          >
+                            {row.countryName || "—"}
+                          </span>
+                        </div>
                       </td>
-                      <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5">
+
+                      {/* رقم الفاتورة */}
+                      <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5 whitespace-nowrap">
                         {row.invoiceNumber || "—"}
                       </td>
+
+                      {/* التكلفة */}
                       <td className="p-1.5 border-l border-ink-400/5 w-[120px]">
                         <input
                           type="number"
                           value={edited?.cost ?? row.cost ?? ""}
                           onChange={(e) => setEdit(row, "cost", e.target.value)}
-                          className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num"
+                          className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/10"
                         />
                       </td>
+
+                      {/* ملاحظات */}
                       <td className="p-1.5 w-[220px]">
                         <input
                           type="text"
@@ -284,7 +319,7 @@ export default function DriverTripCostEntryPage() {
                           onChange={(e) =>
                             setEdit(row, "notes", e.target.value)
                           }
-                          className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5"
+                          className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/10"
                         />
                       </td>
                     </tr>

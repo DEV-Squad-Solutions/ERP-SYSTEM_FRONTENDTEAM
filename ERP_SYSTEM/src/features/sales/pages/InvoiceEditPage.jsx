@@ -21,12 +21,16 @@ import { useGetCountriesSelectQuery } from "../../countries/countriesApi";
 import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
 import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
 
-// ⚠️ افتراض اسم الـ hook ده، لازم تتأكد منه لو مختلف
 import { useGetItemsCategoriesSelectQuery } from "../../itemsCategories/itemsCategoriesApi";
+
+// مهم:
+// جلب الأصناف لأن السطر ممكن يكون صنف موجود أو صنف يدوي
+import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+
 import InvoiceLineRow from "../components/createComponents/NewInvoiceLineRow";
 import ContainerLineRow from "../components/editComponents/ContainerLineRow";
 
@@ -56,23 +60,39 @@ const paymentStatusLabels = {
 const currencyLabels = {
   EGP: "جنيه مصري",
   USD: "دولار أمريكي",
+  EUR: "يورو",
+  GBP: "جنيه إسترليني",
+  SAR: "ريال سعودي",
+  AED: "درهم إماراتي",
+  KWD: "دينار كويتي",
 };
 
 const emptyLine = () => ({
+  id: null,
+  sourceInvoiceLineId: null,
+
   itemId: null,
   itemName: "",
-  isTemporaryItem: false,
   itemCode: "",
+
+  // true معناها السطر يدوي وليس مربوطًا بصنف من المخزون
+  isTemporaryItem: true,
+
   itemUnitId: null,
   itemUnitName: "",
+
   count: 0,
   weight: 0,
   quantity: 0,
   price: 0,
+
   notes: "",
+
+  returnUnitCost: null,
 });
 
 const emptyContainerLine = () => ({
+  id: null,
   containerId: null,
   containerName: "",
   outgoingUnits: 0,
@@ -101,22 +121,78 @@ export default function InvoiceEditPage() {
   const { data: countries, isLoading: isLoadingCountries } =
     useGetCountriesSelectQuery();
 
-  // السائق الأساسي فقط ما زال Select
   const { data: drivers, isLoading: isLoadingDrivers } =
     useGetDriversSelectQuery();
 
   const { data: itemsCategories, isLoading: isLoadingCategories } =
     useGetItemsCategoriesSelectQuery();
 
+  // =========================================================
+  // الأصناف
+  // =========================================================
+
+  const {
+    data: itemsResponse,
+    isLoading: isLoadingItems,
+    isFetching: isFetchingItems,
+    isError: isItemsError,
+  } = useGetItemsSelectQuery();
+
+  /**
+   * الـ API ممكن يرجع:
+   *
+   * [
+   *   { id, name, code }
+   * ]
+   *
+   * أو:
+   *
+   * {
+   *   items: [...]
+   * }
+   *
+   * لذلك بنوحّد الشكل هنا.
+   */
+  const items = useMemo(() => {
+    if (Array.isArray(itemsResponse)) {
+      return itemsResponse;
+    }
+
+    if (Array.isArray(itemsResponse?.items)) {
+      return itemsResponse.items;
+    }
+
+    if (Array.isArray(itemsResponse?.data)) {
+      return itemsResponse.data;
+    }
+
+    return [];
+  }, [itemsResponse]);
+
+  const itemOptions = useMemo(() => {
+    return items.map((item) => ({
+      value: item.id,
+      label: item.code ? `${item.name} - ${item.code}` : item.name,
+    }));
+  }, [items]);
+
   const [form, setForm] = useState(null);
+
   const [lines, setLines] = useState([]);
+
   const [containerLines, setContainerLines] = useState([]);
+
   const [rowVersion, setRowVersion] = useState(null);
+
   const [containerStoreName, setContainerStoreName] = useState("");
 
   const prevPartyIdRef = useRef(null);
 
   const hasPayment = Number(form?.paidAmount) > 0;
+
+  // =========================================================
+  // الخزائن
+  // =========================================================
 
   const { data: cashboxes } = useGetCashboxOptionsQuery(undefined, {
     skip: !hasPayment,
@@ -129,7 +205,10 @@ export default function InvoiceEditPage() {
     },
   );
 
-  // بيانات مخزن العبوات بتاع العميل الحالي
+  // =========================================================
+  // مخزن العبوات الخاص بالعميل
+  // =========================================================
+
   const {
     data: partyContainerStoreData,
     isFetching: isLoadingPartyContainerStore,
@@ -137,83 +216,142 @@ export default function InvoiceEditPage() {
     skip: !form?.businessPartnerId,
   });
 
-  // تعبئة الفورم أول ما الفاتورة تتحمّل
+  // =========================================================
+  // تعبئة الفورم من الفاتورة
+  // =========================================================
+
   useEffect(() => {
     if (!invoice) return;
 
     setForm({
       invoiceType: invoice.invoiceType,
+
       paymentTerm: invoice.paymentTerm,
+
       contentType: invoice.contentType,
+
       invoiceDate: invoice.invoiceDate,
+
       dueDate: invoice.dueDate,
 
       businessPartnerId: invoice.businessPartnerId,
 
       storeId: invoice.storeId,
+
       containerStoreId: invoice.containerStoreId,
+
       countryId: invoice.countryId,
 
       driverId: invoice.driverId,
 
-      // السائق الفعلي أصبح String
       actualDriverName: invoice.actualDriverName || "",
 
       vehicleNumber: invoice.vehicleNumber || "",
+
       exportInvoiceCode: invoice.exportInvoiceCode || "",
+
       partnerInvoiceNo: invoice.partnerInvoiceNo || "",
 
       itemsCategoryId: invoice.itemsCategoryId || "",
 
-      exchangeRate: invoice.exchangeRate || "",
+      exchangeRate: invoice.exchangeRate ?? "",
 
-      discountAmount: invoice.discountAmount || 0,
-      paidAmount: invoice.paidAmount || 0,
+      discountAmount: invoice.discountAmount ?? 0,
 
-      cashboxId: invoice.cashboxId || "",
+      paidAmount: invoice.paidAmount ?? 0,
+
+      cashboxId: invoice.cashboxId ?? "",
+
       cashboxName: invoice.cashboxName || "",
 
-      cashMovementTypeId: invoice.cashMovementTypeId || "",
+      cashMovementTypeId: invoice.cashMovementTypeId ?? "",
+
       cashMovementTypeName: invoice.cashMovementTypeName || "",
 
-      cashboxExchangeRate: invoice.cashboxExchangeRate || "",
+      cashboxExchangeRate: invoice.cashboxExchangeRate ?? "",
 
       notes: invoice.notes || "",
 
-      wbWeight: invoice.wbWeight || "",
-      wbScaleDifference: invoice.wbScaleDifference || "",
-      wbDiscount: invoice.wbDiscount || "",
+      wbWeight: invoice.wbWeight ?? "",
+
+      wbScaleDifference: invoice.wbScaleDifference ?? "",
+
+      wbDiscount: invoice.wbDiscount ?? "",
     });
+
+    // =======================================================
+    // مهم جدًا:
+    //
+    // itemId ممكن يكون null
+    //
+    // لو itemId موجود => صنف من المخزون
+    //
+    // لو itemId null => صنف يدوي
+    // =======================================================
 
     setLines(
       invoice.lines?.length
         ? invoice.lines.map((l) => ({
-            itemId: l.itemId,
-            itemName: l.itemName,
-            itemCode: l.itemCode,
-            isTemporaryItem: false,
-            itemUnitId: l.itemUnitId,
-            itemUnitName: l.itemUnitName,
-            count: l.count,
-            weight: l.weight,
-            quantity: l.quantity,
-            price: l.price,
+            id: l.id,
+
+            sourceInvoiceLineId: l.sourceInvoiceLineId ?? null,
+
+            itemId: l.itemId ?? null,
+
+            itemName: l.itemName || "",
+
+            itemCode: l.itemCode || "",
+
+            // أهم تعديل:
+            // الصنف اليدوي يتحدد من عدم وجود itemId
+            isTemporaryItem: l.itemId == null,
+
+            itemUnitId: l.itemUnitId ?? null,
+
+            itemUnitName: l.itemUnitName || "",
+
+            count: l.count ?? 0,
+
+            weight: l.weight ?? 0,
+
+            quantity: l.quantity ?? 0,
+
+            price: l.price ?? 0,
+
             notes: l.notes || "",
-            sourceInvoiceLineId: l.sourceInvoiceLineId,
-            returnUnitCost: l.returnUnitCost,
+
+            returnUnitCost: l.returnUnitCost ?? null,
           }))
         : Array.from({ length: 10 }, () => emptyLine()),
     );
 
-    setContainerLines(invoice.containerLines || []);
+    setContainerLines(
+      invoice.containerLines?.length
+        ? invoice.containerLines.map((c) => ({
+            id: c.id,
+
+            containerId: c.containerId ?? null,
+
+            containerName: c.containerName || "",
+
+            outgoingUnits: c.outgoingUnits ?? 0,
+
+            incomingUnits: c.incomingUnits ?? 0,
+          }))
+        : [],
+    );
+
     setContainerStoreName(invoice.containerStoreName || "");
+
     setRowVersion(invoice.rowVersion);
 
     prevPartyIdRef.current = invoice.businessPartnerId;
   }, [invoice]);
 
-  // لما المستخدم يغيّر العميل يدويًا،
-  // نجيب مخزن العبوات بتاعه من الـ endpoint
+  // =========================================================
+  // تغيير العميل
+  // =========================================================
+
   useEffect(() => {
     if (!form) return;
 
@@ -221,7 +359,9 @@ export default function InvoiceEditPage() {
       return;
     }
 
-    if (!partyContainerStoreData) return;
+    if (!partyContainerStoreData) {
+      return;
+    }
 
     prevPartyIdRef.current = form.businessPartnerId;
 
@@ -248,23 +388,33 @@ export default function InvoiceEditPage() {
     }
   }, [partyContainerStoreData, form?.businessPartnerId]);
 
-  // لو المدفوع رجع صفر، صفّر الخزنة ونوع الحركة
+  // =========================================================
+  // لو المدفوع رجع صفر
+  // =========================================================
+
   useEffect(() => {
     if (!form) return;
 
     if (!hasPayment && (form.cashboxId || form.cashMovementTypeId)) {
       setForm((prev) => ({
         ...prev,
+
         cashboxId: "",
         cashboxName: "",
+
         cashMovementTypeId: "",
         cashMovementTypeName: "",
+
         cashboxExchangeRate: "",
       }));
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPayment]);
+
+  // =========================================================
+  // Helpers
+  // =========================================================
 
   const setField = (key, value) => {
     setForm((prev) => ({
@@ -277,6 +427,7 @@ export default function InvoiceEditPage() {
     const cashbox = cashboxes?.find((c) => String(c.id) === String(cashboxId));
 
     setField("cashboxId", cashboxId);
+
     setField("cashboxName", cashbox?.name || "");
   };
 
@@ -286,11 +437,18 @@ export default function InvoiceEditPage() {
     );
 
     setField("cashMovementTypeId", typeId);
+
     setField("cashMovementTypeName", type?.name || "");
   };
 
+  // =========================================================
+  // Invoice Lines
+  // =========================================================
+
   const updateLine = (index, updatedLine) => {
-    setLines((prev) => prev.map((l, i) => (i === index ? updatedLine : l)));
+    setLines((prev) =>
+      prev.map((line, i) => (i === index ? updatedLine : line)),
+    );
   };
 
   const addLine = () => {
@@ -301,9 +459,13 @@ export default function InvoiceEditPage() {
     setLines((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // =========================================================
+  // Container Lines
+  // =========================================================
+
   const updateContainerLine = (index, updated) => {
     setContainerLines((prev) =>
-      prev.map((c, i) => (i === index ? updated : c)),
+      prev.map((line, i) => (i === index ? updated : line)),
     );
   };
 
@@ -315,12 +477,15 @@ export default function InvoiceEditPage() {
     setContainerLines((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // حسابات عرض فقط
-  // السيرفر هو المتحكم في القيم الفعلية بعد الحفظ
+  // =========================================================
+  // حسابات العرض فقط
+  // =========================================================
+
   const displaySubtotal = useMemo(
     () =>
       lines.reduce(
-        (sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.price) || 0),
+        (sum, line) =>
+          sum + (Number(line.quantity) || 0) * (Number(line.price) || 0),
         0,
       ),
     [lines],
@@ -345,26 +510,50 @@ export default function InvoiceEditPage() {
     form?.invoiceType === "SalesReturn" ||
     form?.invoiceType === "PurchaseReturn";
 
+  // =========================================================
+  // حفظ التعديل
+  // =========================================================
+
   const handleSubmit = async () => {
     if (!form) return;
 
-    const hasTemporaryLine = lines.some(
-      (l) => l.isTemporaryItem && Number(l.quantity) > 0,
-    );
+    // =====================================================
+    // مهم:
+    //
+    // ممنوع نمنع itemId === null
+    //
+    // لأن الـ API بالفعل يسمح بسطر يدوي:
+    //
+    // itemId: null
+    // itemName: "lohvhfg"
+    //
+    // وبالتالي التحقق يكون على البيانات الأساسية فقط.
+    // =====================================================
 
-    if (hasTemporaryLine) {
-      toast.error("مفيش دعم لصنف يدوي حاليًا", {
-        description: "شيل الأصناف اليدوية واختار صنف موجود بالفعل قبل الحفظ",
-      });
+    const hasInvalidLine = lines.some((line) => {
+      const hasAnyData =
+        line.itemId ||
+        String(line.itemName || "").trim() ||
+        Number(line.count) > 0 ||
+        Number(line.weight) > 0 ||
+        Number(line.quantity) > 0;
+
+      if (!hasAnyData) {
+        return false;
+      }
+
+      return Number(line.count) <= 0 || Number(line.weight) <= 0;
+    });
+
+    if (hasInvalidLine) {
+      toast.error("كل سطر مستخدم لازم يكون له عدد ووزن أكبر من صفر");
 
       return;
     }
 
-    if (lines.some((l) => l.itemId && !(Number(l.quantity) > 0))) {
-      toast.error("كل الأصناف المختارة لازم تكون ليها كمية أكبر من صفر");
-
-      return;
-    }
+    // =====================================================
+    // الفاتورة النقدية
+    // =====================================================
 
     if (
       form.paymentTerm === "Cash" &&
@@ -377,11 +566,25 @@ export default function InvoiceEditPage() {
       return;
     }
 
+    // =====================================================
+    // المدفوع يحتاج خزنة ونوع حركة
+    // =====================================================
+
     if (
       Number(form.paidAmount) > 0 &&
       (!form.cashboxId || !form.cashMovementTypeId)
     ) {
       toast.error("اختر الخزنة ونوع الحركة أولاً لإن فيه مبلغ مدفوع");
+
+      return;
+    }
+
+    // =====================================================
+    // rowVersion
+    // =====================================================
+
+    if (!rowVersion) {
+      toast.error("رقم إصدار الفاتورة مفقود، أعد تحميل الفاتورة");
 
       return;
     }
@@ -410,10 +613,16 @@ export default function InvoiceEditPage() {
 
         refetch();
       } else {
-        toast.error(err?.message || "حصل خطأ أثناء حفظ التعديلات");
+        toast.error(
+          err?.data?.message || err?.message || "حصل خطأ أثناء حفظ التعديلات",
+        );
       }
     }
   };
+
+  // =========================================================
+  // Loading
+  // =========================================================
 
   if (isLoading || !form) {
     return (
@@ -426,6 +635,10 @@ export default function InvoiceEditPage() {
       </div>
     );
   }
+
+  // =========================================================
+  // Error
+  // =========================================================
 
   if (isError) {
     return (
@@ -441,9 +654,16 @@ export default function InvoiceEditPage() {
     );
   }
 
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
-    <div className="animate-fadeUp pb-24">
-      {/* Header */}
+    <div className="animate-fadeUp pb-24" dir="rtl">
+      {/* =====================================================
+          Header
+      ====================================================== */}
+
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <button
@@ -480,7 +700,10 @@ export default function InvoiceEditPage() {
         </Button>
       </div>
 
-      {/* بيانات الفاتورة الأساسية */}
+      {/* =====================================================
+          بيانات الفاتورة الأساسية
+      ====================================================== */}
+
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {/* نوع الفاتورة */}
@@ -620,18 +843,13 @@ export default function InvoiceEditPage() {
             />
           </div>
 
-          {/* السائق الفعلي - String */}
-          <div>
-            <label className="block mb-1.5 text-sm font-medium text-ink-900">
-              السائق الفعلي
-            </label>
-
-            <Input
-              value={form.actualDriverName}
-              onChange={(e) => setField("actualDriverName", e.target.value)}
-              placeholder="اسم السائق الفعلي"
-            />
-          </div>
+          {/* السائق الفعلي */}
+          <Input
+            label="السائق الفعلي"
+            value={form.actualDriverName}
+            onChange={(e) => setField("actualDriverName", e.target.value)}
+            placeholder="اسم السائق الفعلي"
+          />
 
           {/* رقم السيارة */}
           <Input
@@ -760,7 +978,7 @@ export default function InvoiceEditPage() {
           </div>
         )}
 
-        {/* ملاحظات عامة */}
+        {/* الملاحظات */}
         <div className="mt-3">
           <Input
             label="ملاحظات عامة"
@@ -794,22 +1012,32 @@ export default function InvoiceEditPage() {
 
           <div>
             <label className="block mb-1.5 text-sm font-medium text-ink-900">
-              الاجمالي
+              الإجمالي
             </label>
 
             <div className="w-full rounded-lg border border-ink-400/10 px-3 py-2 text-sm num bg-ink-400/5 text-ink-700 min-h-[38px] flex items-center">
               {displayWbTotal.toLocaleString("ar-EG")}
             </div>
 
-            <p className="text-[11px] text-ink-400 mt-1">يتحسب تلقائيًا</p>
+            <p className="text-[11px] text-ink-400 mt-1">بيتحسب تلقائيًا</p>
           </div>
         </div>
       </div>
 
-      {/* أصناف الفاتورة */}
+      {/* =====================================================
+          أصناف الفاتورة
+      ====================================================== */}
+
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-display font-bold text-ink-900">الأصناف</h3>
+          <div>
+            <h3 className="font-display font-bold text-ink-900">الأصناف</h3>
+
+            <p className="text-[11px] text-ink-400 mt-1">
+              يمكن أن يكون السطر مرتبطًا بصنف من المخزون أو صنفًا يدويًا غير
+              موجود بالمخزون.
+            </p>
+          </div>
 
           <Button variant="outline" onClick={addLine}>
             <Plus size={15} />
@@ -848,12 +1076,30 @@ export default function InvoiceEditPage() {
             <tbody>
               {lines.map((line, index) => (
                 <InvoiceLineRow
-                  key={line.id ?? index}
+                  key={line.sourceInvoiceLineId ?? line.id ?? index}
+
                   index={index}
+
                   line={line}
+
                   storeId={form.storeId}
+
                   invoiceDate={form.invoiceDate}
+
+                  // =================================================
+                  // دول مهمين جدًا
+                  // =================================================
+
+                  items={items}
+
+                  itemOptions={itemOptions}
+
+                  isLoadingItems={isLoadingItems || isFetchingItems}
+
+                  isItemsError={isItemsError}
+
                   onChange={(newLine) => updateLine(index, newLine)}
+
                   onRemove={() => removeLine(index)}
                 />
               ))}
@@ -863,13 +1109,16 @@ export default function InvoiceEditPage() {
 
         {isReturnInvoice && (
           <p className="text-xs text-gold-600 bg-gold-50 rounded-lg px-3 py-2 mt-3">
-            فاتورة مرتجع — كل سطر محتاج يتربط بسطر الفاتورة الأصلي (مفيش واجهة
-            لده حاليًا، محتاج نضيفها).
+            فاتورة مرتجع — كل سطر محتاج يتربط بسطر الفاتورة الأصلي لو كان
+            مرتجعًا من فاتورة سابقة.
           </p>
         )}
       </div>
 
-      {/* العبوات */}
+      {/* =====================================================
+          العبوات
+      ====================================================== */}
+
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-display font-bold text-ink-900">العبوات</h3>
@@ -893,17 +1142,21 @@ export default function InvoiceEditPage() {
 
                   <th className="p-2.5 font-medium">وارد</th>
 
-                  <th className="p-2.5 font-medium"></th>
+                  <th className="p-2.5"></th>
                 </tr>
               </thead>
 
               <tbody>
                 {containerLines.map((line, index) => (
                   <ContainerLineRow
-                    key={index}
+                    key={line.id ?? index}
+
                     index={index}
+
                     line={line}
+
                     onChange={(updated) => updateContainerLine(index, updated)}
+
                     onRemove={() => removeContainerLine(index)}
                   />
                 ))}
@@ -913,7 +1166,10 @@ export default function InvoiceEditPage() {
         )}
       </div>
 
-      {/* الملخص المالي */}
+      {/* =====================================================
+          الملخص المالي
+      ====================================================== */}
+
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
         <h3 className="font-display font-bold text-ink-900 mb-3">
           الملخص المالي
@@ -964,8 +1220,8 @@ export default function InvoiceEditPage() {
         </div>
 
         <p className="text-[11px] text-ink-400 mt-2">
-          القيم دي تقديرية للعرض بس — القيم الفعلية (زي المخزون والتكاليف)
-          بيحسبها السيرفر بعد الحفظ.
+          القيم دي تقديرية للعرض بس — القيم الفعلية زي المخزون والتكاليف بيحسبها
+          السيرفر بعد الحفظ.
         </p>
       </div>
     </div>

@@ -3,7 +3,6 @@ import {
   ShoppingCart,
   TrendingUp,
   Wallet,
-  Landmark,
   Boxes,
   Users,
   Truck,
@@ -13,11 +12,10 @@ import {
   BookOpen,
   Scale,
   FileBarChart,
-  Repeat,
   PieChart,
-  PersonStandingIcon,
-  WalletCardsIcon,
-  DollarSignIcon,
+  ShieldCheck,
+  WalletCards,
+  DollarSign,
   Van,
   History,
   FileText,
@@ -30,21 +28,40 @@ import {
   Clock,
   Timer,
   ArrowLeftRight,
+  ChartNoAxesCombined,
 } from "lucide-react";
 
 export const navigationItems = [
-  { label: "الرئيسية", path: "/dashboard", icon: LayoutDashboard },
+  // =========================================================
+  // الرئيسية
+  // =========================================================
   {
-    label: " المبيعات و المشتريات",
-    path: "/dashboard/sales",
-    icon: TrendingUp,
+    label: "الرئيسية",
+    path: "/dashboard",
+    icon: LayoutDashboard,
+    end: true,
   },
+
+  // =========================================================
+  // التشغيل
+  // =========================================================
   {
-    label: "العملاء/الموردين",
+    type: "section",
+    label: "التشغيل",
+  },
+
+  {
+    label: "المبيعات والمشتريات",
+    path: "/dashboard/sales",
+    icon: ShoppingCart,
+  },
+
+  {
+    label: "العملاء والموردين",
     icon: Users,
     children: [
       {
-        label: "قائمة العملاء/الموردين",
+        label: "قائمة العملاء والموردين",
         path: "/dashboard/partners",
         icon: Users,
         end: true,
@@ -66,9 +83,48 @@ export const navigationItems = [
       },
     ],
   },
+
+  {
+    label: "المخازن",
+    icon: Boxes,
+    children: [
+      {
+        label: "قائمة المخازن",
+        path: "/dashboard/stores",
+        icon: Building,
+        end: true,
+      },
+      {
+        label: "التحويلات المخزنية",
+        path: "/dashboard/inventory/stock-transfers",
+        icon: ArrowLeftRight,
+      },
+      {
+        label: "تسويات المخزون",
+        path: "/dashboard/inventory/adjustments",
+        icon: SlidersHorizontal,
+      },
+      {
+        label: "أرصدة افتتاحية مخزنية",
+        path: "/dashboard/inventory/opening-balances",
+        icon: History,
+      },
+      {
+        label: "العبوات",
+        path: "/dashboard/inventory/containers",
+        icon: PackageOpen,
+      },
+      {
+        label: "وحدات القياس",
+        path: "/dashboard/inventory/units",
+        icon: Ruler,
+      },
+    ],
+  },
+
   {
     label: "السائقين",
-    icon: Van,
+    icon: Truck,
     children: [
       {
         label: "قائمة السائقين",
@@ -77,19 +133,28 @@ export const navigationItems = [
         end: true,
       },
       {
-        label: "مصاريف الرحلات",
-        path: "/dashboard/drivers/trip-costs",
-        icon: Receipt,
-      },
-      {
         label: "كشف حساب سائق",
         path: "/dashboard/drivers/statement",
         icon: FileText,
       },
+      {
+        label: "مصاريف الرحلات",
+        path: "/dashboard/drivers/trip-costs",
+        icon: Receipt,
+      },
     ],
   },
+
+  // =========================================================
+  // المالية
+  // =========================================================
   {
-    label: "الخزائن/البنك",
+    type: "section",
+    label: "المالية",
+  },
+
+  {
+    label: "الخزائن والبنوك",
     icon: Wallet,
     children: [
       {
@@ -110,42 +175,24 @@ export const navigationItems = [
       },
     ],
   },
+
   {
-    label: "المخازن",
-    icon: Boxes,
-    children: [
-      {
-        label: "قائمة المخازن",
-        path: "/dashboard/stores",
-        icon: Building,
-      },
-      {
-        label: "وحدات القياس",
-        path: "/dashboard/inventory/units",
-        icon: Ruler,
-      },
-      {
-        label: "العبوات",
-        path: "/dashboard/inventory/containers",
-        icon: PackageOpen,
-      },
-      {
-        label: "أرصدة افتتاحية مخزنية",
-        path: "/dashboard/inventory/opening-balances",
-        icon: History,
-      },
-      {
-        label: "تسويات مخزون",
-        path: "/dashboard/inventory/adjustments",
-        icon: SlidersHorizontal,
-      },
-    ],
+    label: "المصاريف",
+    path: "/dashboard/expenses",
+    icon: Receipt,
   },
-  { label: "المصاريف", path: "/dashboard/expenses", icon: Receipt },
+
+  // =========================================================
+  // الموارد البشرية
+  // =========================================================
+  {
+    type: "section",
+    label: "الموارد البشرية",
+  },
 
   {
     label: "الأجور والمرتبات",
-    icon: DollarSignIcon,
+    icon: DollarSign,
     children: [
       {
         label: "لوحة التحكم",
@@ -166,9 +213,8 @@ export const navigationItems = [
       {
         label: "المرتبات",
         path: "/dashboard/payroll/salaries",
-        icon: WalletCardsIcon,
+        icon: WalletCards,
       },
-
       {
         label: "الإضافي والبدلات",
         path: "/dashboard/payroll/overtime",
@@ -185,33 +231,59 @@ export const navigationItems = [
         icon: CreditCard,
       },
       {
-        label: "التقارير",
+        label: "تقارير المرتبات",
         path: "/dashboard/payroll/reports",
         icon: FileBarChart,
       },
     ],
   },
+
+  // =========================================================
+  // المحاسبة
+  // =========================================================
   {
-    label: " ميزان المراجعة",
+    type: "section",
+    label: "المحاسبة",
+  },
+
+  {
+    label: "قيود اليومية",
+    path: "/dashboard/journal-entries",
+    icon: BookOpen,
+  },
+
+  {
+    label: "ميزان المراجعة",
     path: "/dashboard/reconciliation",
     icon: ClipboardList,
   },
-  { label: "قيود اليومية", path: "/dashboard/journal-entries", icon: BookOpen },
+
   {
     label: "ميزان بعد التسوية",
     path: "/dashboard/adjusted-trial-balance",
     icon: Scale,
   },
+
   {
-    label: "  الدخل",
+    label: "قائمة الدخل",
     path: "/dashboard/income",
-    icon: Repeat,
+    icon: ChartNoAxesCombined,
   },
+
   {
-    label: "تقارير المركز المالي",
+    label: "المركز المالي",
     path: "/dashboard/financial-position",
     icon: PieChart,
   },
+
+  // =========================================================
+  // التقارير
+  // =========================================================
+  {
+    type: "section",
+    label: "التقارير",
+  },
+
   {
     label: "التقارير",
     icon: FileBarChart,
@@ -251,9 +323,18 @@ export const navigationItems = [
       },
     ],
   },
+
+  // =========================================================
+  // الإدارة
+  // =========================================================
+  {
+    type: "section",
+    label: "الإدارة",
+  },
+
   {
     label: "الصلاحيات",
     path: "/dashboard/permissions",
-    icon: PersonStandingIcon,
+    icon: ShieldCheck,
   },
 ];

@@ -66,6 +66,7 @@ import ExpensesPage from "../features/expenses/pages/ExpensesPage";
 import ItemProfitabilityPage from "../features/reports/pages/ItemProfitabilityPage";
 import InvoiceProfitabilityDetailsPage from "../features/reports/pages/InvoiceProfitabilityDetailsPage";
 import InvoiceProfitabilityPage from "../features/reports/pages/InvoiceProfitabilityPage";
+import StockTransfersPage from "../features/inventory/pages/StockTransfersPage";
 
 // ============================================================
 // Coming Soon
@@ -283,6 +284,10 @@ export const router = createBrowserRouter([
       {
         path: "inventory/containers",
         element: <PackagingUnitsPage />,
+      },
+      {
+        path: "inventory/stock-transfers",
+        element: <StockTransfersPage />,
       },
 
       // ========================================================

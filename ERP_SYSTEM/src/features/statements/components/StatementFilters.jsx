@@ -35,7 +35,7 @@ export default function StatementFilters({
   onSearch,
   onReset,
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   const set = (key, value) =>
     onChange({

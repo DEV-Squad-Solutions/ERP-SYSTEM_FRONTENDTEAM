@@ -1,14 +1,24 @@
-import { useEffect, useRef, useState, memo } from "react";
+import { useEffect, useRef, useState, useMemo, memo, useCallback } from "react";
+
 import { Trash2, AlertCircle, PenLine, Plus, Undo2 } from "lucide-react";
+
 import { toast } from "sonner";
 
 import { useGetItemUnitsSelectQuery } from "../../../units/itemUnitsApi";
 
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
+
 import NumericInput from "../../../../shared/components/ui/NumericInput";
+
 import Input from "../../../../shared/components/ui/Input";
+
 import QuickAddItemModal from "../../../inventory/components/QuickAddItemModal";
+
 import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
+
+/* =========================================================
+   Helpers
+========================================================= */
 
 const round2 = (value) => {
   if (value === "" || value === null || value === undefined) {
@@ -34,16 +44,19 @@ const toNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+/* =========================================================
+   Component
+========================================================= */
+
 function InvoiceLineRow({
   line,
   index,
   storeId,
   invoiceDate,
 
-  // =========================================================
   // الأصناف تأتي من CreateInvoiceForm
-  // =========================================================
   items,
+  itemOptions: itemOptionsProp,
   isLoadingItems,
   isItemsError,
 
@@ -54,9 +67,17 @@ function InvoiceLineRow({
 
   const isReturnLine = Boolean(line.isReturnLine);
 
-  // =========================================================
-  // رصيد الصنف
-  // =========================================================
+  /* =========================================================
+     Refs
+  ========================================================= */
+
+  const isFirstItemRender = useRef(true);
+
+  const prevItemIdRef = useRef(line.itemId);
+
+  /* =========================================================
+     رصيد الصنف
+  ========================================================= */
 
   const { data: balanceData, isLoading: isLoadingBalance } =
     useGetItemBalanceQuery(
@@ -75,42 +96,62 @@ function InvoiceLineRow({
       },
     );
 
-  // =========================================================
-  // وحدات الصنف
-  // =========================================================
+  /* =========================================================
+     وحدات الصنف
+  ========================================================= */
 
   const { data: itemUnits, isLoading: isLoadingUnits } =
     useGetItemUnitsSelectQuery(line.itemId, {
       skip: !line.itemId || line.isTemporaryItem || isReturnLine,
     });
 
-  // =========================================================
-  // خيارات الأصناف
-  // =========================================================
+  /* =========================================================
+     خيارات الأصناف
+  ========================================================= */
 
-  const itemOptions =
-    items?.map((item) => ({
-      value: item.id,
-      label: item.name,
-    })) || [];
+  const itemOptions = useMemo(() => {
+    if (itemOptionsProp) {
+      return itemOptionsProp;
+    }
 
-  // =========================================================
-  // Helper
-  // =========================================================
+    return (
+      items?.map((item) => ({
+        value: item.id,
+        label: item.name,
+      })) ?? []
+    );
+  }, [itemOptionsProp, items]);
 
-  const set = (key, value) => {
-    onChange({
-      ...line,
-      [key]: value,
-    });
-  };
+  /* =========================================================
+     خيارات الوحدات
+  ========================================================= */
 
-  // =========================================================
-  // تحديث بيانات الصنف عند اختياره
-  // =========================================================
+  const unitOptions = useMemo(
+    () =>
+      itemUnits?.map((unit) => ({
+        value: unit.id,
+        label: unit.name,
+      })) || [],
+    [itemUnits],
+  );
 
-  const isFirstItemRender = useRef(true);
-  const prevItemIdRef = useRef(line.itemId);
+  /* =========================================================
+     Helper لتحديث السطر
+  ========================================================= */
+
+  const set = useCallback(
+    (key, value) => {
+      onChange({
+        ...line,
+        [key]: value,
+      });
+    },
+    [line, onChange],
+  );
+
+  /* =========================================================
+     تحديث بيانات الصنف عند اختياره
+  ========================================================= */
 
   useEffect(() => {
     if (!items || !line.itemId || line.isTemporaryItem || isReturnLine) {
@@ -121,11 +162,22 @@ function InvoiceLineRow({
       (item) => String(item.id) === String(line.itemId),
     );
 
-    if (!selected) return;
+    if (!selected) {
+      return;
+    }
+
+    /* =====================================================
+       أول Render
+    ===================================================== */
 
     if (isFirstItemRender.current) {
       isFirstItemRender.current = false;
+
       prevItemIdRef.current = line.itemId;
+
+      if (line.itemName === selected.name && line.itemCode === selected.code) {
+        return;
+      }
 
       onChange({
         ...line,
@@ -137,11 +189,16 @@ function InvoiceLineRow({
       return;
     }
 
+    /* =====================================================
+       الصنف تغير
+    ===================================================== */
+
     if (String(line.itemId) !== String(prevItemIdRef.current)) {
       prevItemIdRef.current = line.itemId;
 
       onChange({
         ...line,
+
         itemId: selected.id,
         itemName: selected.name,
         itemCode: selected.code,
@@ -158,9 +215,9 @@ function InvoiceLineRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemId, items]);
 
-  // =========================================================
-  // تحديث اسم الوحدة
-  // =========================================================
+  /* =========================================================
+     تحديث اسم الوحدة
+  ========================================================= */
 
   useEffect(() => {
     if (!itemUnits || !line.itemUnitId || isReturnLine) {
@@ -171,9 +228,13 @@ function InvoiceLineRow({
       (u) => String(u.id) === String(line.itemUnitId),
     );
 
-    if (!unit) return;
+    if (!unit) {
+      return;
+    }
 
-    if (unit.name === line.itemUnitName) return;
+    if (unit.name === line.itemUnitName) {
+      return;
+    }
 
     onChange({
       ...line,
@@ -184,166 +245,386 @@ function InvoiceLineRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemUnitId, itemUnits]);
 
-  // =========================================================
-  // العدد
-  // =========================================================
+  /* =========================================================
+     العدد
 
-  const handleCountChange = (count) => {
-    if (count === "") {
-      onChange({
-        ...line,
-        count: "",
-      });
+     لو الكمية موجودة قبل التغيير:
+       Weight = Quantity ÷ Count
 
-      return;
-    }
+     وإلا لو الوزن موجود:
+       Quantity = Count × Weight
 
-    if (count.endsWith(".")) {
-      onChange({
-        ...line,
-        count,
-      });
+     وإلا نخزن العدد فقط.
+  ========================================================= */
 
-      return;
-    }
-
-    const countNumber = toNumber(count);
-    const weightNumber = toNumber(line.weight);
-
-    if (countNumber === null || weightNumber === null) {
-      onChange({
-        ...line,
-        count,
-      });
-
-      return;
-    }
-
-    onChange({
-      ...line,
-      count,
-      quantity: round2(countNumber * weightNumber),
-    });
-  };
-
-  // =========================================================
-  // وزن الوحدة
-  // =========================================================
-
-  const handleWeightChange = (weight) => {
-    if (weight === "") {
-      onChange({
-        ...line,
-        weight: "",
-      });
-
-      return;
-    }
-
-    if (weight.endsWith(".")) {
-      onChange({
-        ...line,
-        weight,
-      });
-
-      return;
-    }
-
-    const weightNumber = toNumber(weight);
-    const countNumber = toNumber(line.count);
-
-    if (weightNumber === null || countNumber === null) {
-      onChange({
-        ...line,
-        weight,
-      });
-
-      return;
-    }
-
-    onChange({
-      ...line,
-      weight,
-      quantity: round2(countNumber * weightNumber),
-    });
-  };
-
-  // =========================================================
-  // الكمية
-  // =========================================================
-
-  const handleQuantityChange = (quantity) => {
-    if (quantity === "") {
-      onChange({
-        ...line,
-        quantity: "",
-      });
-
-      return;
-    }
-
-    if (quantity.endsWith(".")) {
-      onChange({
-        ...line,
-        quantity,
-      });
-
-      return;
-    }
-
-    const qty = toNumber(quantity);
-
-    if (qty === null) {
-      onChange({
-        ...line,
-        quantity,
-      });
-
-      return;
-    }
-
-    // المرتجع
-    if (isReturnLine && line.maxReturnQuantity != null) {
-      const maxReturnQuantity = toNumber(line.maxReturnQuantity);
-
-      if (maxReturnQuantity !== null && qty > maxReturnQuantity) {
-        const limitedQuantity = round2(maxReturnQuantity);
-
-        toast.warning("الكمية محدودة بالمتاح للإرجاع", {
-          description: `أقصى كمية: ${limitedQuantity}`,
-        });
-
+  const handleCountChange = useCallback(
+    (count) => {
+      if (count === "") {
         onChange({
           ...line,
-          quantity: limitedQuantity,
+          count: "",
         });
 
         return;
       }
+
+      if (count.endsWith(".")) {
+        onChange({
+          ...line,
+          count,
+        });
+
+        return;
+      }
+
+      const countNumber = toNumber(count);
+
+      if (countNumber === null) {
+        onChange({
+          ...line,
+          count,
+        });
+
+        return;
+      }
+
+      const quantityNumber = toNumber(line.quantity);
+
+      const weightNumber = toNumber(line.weight);
+
+      /* =========================================
+           العدد = صفر
+        ========================================= */
+
+      if (countNumber === 0) {
+        onChange({
+          ...line,
+
+          count,
+
+          ...(quantityNumber !== null
+            ? {
+                weight: null,
+              }
+            : weightNumber !== null
+              ? {
+                  quantity: 0,
+                }
+              : {}),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           الكمية موجودة
+
+           Weight = Quantity ÷ Count
+        ========================================= */
+
+      if (quantityNumber !== null) {
+        onChange({
+          ...line,
+
+          count,
+
+          weight: round2(quantityNumber / countNumber),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           الكمية غير موجودة
+           لكن الوزن موجود
+
+           Quantity = Count × Weight
+        ========================================= */
+
+      if (weightNumber !== null) {
+        onChange({
+          ...line,
+
+          count,
+
+          quantity: round2(countNumber * weightNumber),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           لا توجد كمية ولا وزن
+        ========================================= */
+
+      onChange({
+        ...line,
+        count,
+      });
+    },
+    [line, onChange],
+  );
+
+  /* =========================================================
+     وزن الوحدة
+
+     لو العدد موجود:
+       Quantity = Count × Weight
+
+     وإلا لو الكمية موجودة:
+       Count = Quantity ÷ Weight
+
+     وإلا نخزن الوزن فقط.
+  ========================================================= */
+
+  const handleWeightChange = useCallback(
+    (weight) => {
+      if (weight === "") {
+        onChange({
+          ...line,
+          weight: "",
+        });
+
+        return;
+      }
+
+      if (weight.endsWith(".")) {
+        onChange({
+          ...line,
+          weight,
+        });
+
+        return;
+      }
+
+      const weightNumber = toNumber(weight);
+
+      if (weightNumber === null) {
+        onChange({
+          ...line,
+          weight,
+        });
+
+        return;
+      }
+
+      const countNumber = toNumber(line.count);
+
+      const quantityNumber = toNumber(line.quantity);
+
+      /* =========================================
+           الوزن = صفر
+        ========================================= */
+
+      if (weightNumber === 0) {
+        onChange({
+          ...line,
+
+          weight,
+
+          ...(countNumber !== null
+            ? {
+                quantity: 0,
+              }
+            : {}),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           العدد موجود
+
+           Quantity = Count × Weight
+        ========================================= */
+
+      if (countNumber !== null && countNumber > 0) {
+        onChange({
+          ...line,
+
+          weight,
+
+          quantity: round2(countNumber * weightNumber),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           العدد غير موجود
+           والكمية موجودة
+
+           Count = Quantity ÷ Weight
+        ========================================= */
+
+      if (quantityNumber !== null && weightNumber > 0) {
+        onChange({
+          ...line,
+
+          weight,
+
+          count: round2(quantityNumber / weightNumber),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           لا يوجد عدد ولا كمية
+        ========================================= */
+
+      onChange({
+        ...line,
+        weight,
+      });
+    },
+    [line, onChange],
+  );
+
+  /* =========================================================
+     الكمية
+
+     لو العدد موجود:
+       Weight = Quantity ÷ Count
+
+     وإلا لو الوزن موجود:
+       Count = Quantity ÷ Weight
+
+     وإلا نخزن الكمية فقط.
+  ========================================================= */
+
+  const handleQuantityChange = useCallback(
+    (quantity) => {
+      if (quantity === "") {
+        onChange({
+          ...line,
+          quantity: "",
+        });
+
+        return;
+      }
+
+      if (quantity.endsWith(".")) {
+        onChange({
+          ...line,
+          quantity,
+        });
+
+        return;
+      }
+
+      const qty = toNumber(quantity);
+
+      if (qty === null) {
+        onChange({
+          ...line,
+          quantity,
+        });
+
+        return;
+      }
+
+      /* =========================================
+           المرتجع
+        ========================================= */
+
+      if (isReturnLine && line.maxReturnQuantity != null) {
+        const maxReturnQuantity = toNumber(line.maxReturnQuantity);
+
+        if (maxReturnQuantity !== null && qty > maxReturnQuantity) {
+          const limitedQuantity = round2(maxReturnQuantity);
+
+          toast.warning("الكمية محدودة بالمتاح للإرجاع", {
+            description: `أقصى كمية: ${limitedQuantity}`,
+          });
+
+          const countNumber = toNumber(line.count);
+
+          if (countNumber !== null && countNumber > 0) {
+            onChange({
+              ...line,
+
+              quantity: limitedQuantity,
+
+              weight: round2(limitedQuantity / countNumber),
+            });
+          } else {
+            onChange({
+              ...line,
+
+              quantity: limitedQuantity,
+            });
+          }
+
+          return;
+        }
+      }
+
+      const countNumber = toNumber(line.count);
+
+      const weightNumber = toNumber(line.weight);
+
+      /* =========================================
+           العدد موجود
+
+           Weight = Quantity ÷ Count
+        ========================================= */
+
+      if (countNumber !== null && countNumber > 0) {
+        onChange({
+          ...line,
+
+          quantity,
+
+          weight: round2(qty / countNumber),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           العدد غير موجود
+           والوزن موجود
+
+           Count = Quantity ÷ Weight
+        ========================================= */
+
+      if (weightNumber !== null && weightNumber > 0) {
+        onChange({
+          ...line,
+
+          quantity,
+
+          count: round2(qty / weightNumber),
+        });
+
+        return;
+      }
+
+      /* =========================================
+           لا يوجد عدد ولا وزن
+        ========================================= */
+
+      onChange({
+        ...line,
+        quantity,
+      });
+    },
+    [line, onChange, isReturnLine],
+  );
+
+  /* =========================================================
+     صنف يدوي
+  ========================================================= */
+
+  const handleToggleTemporaryItem = useCallback(() => {
+    if (isReturnLine) {
+      return;
     }
 
-    const count = toNumber(line.count);
-
     onChange({
       ...line,
-      quantity,
-      ...(count !== null && count > 0 && !isReturnLine
-        ? {
-            weight: round2(qty / count),
-          }
-        : {}),
-    });
-  };
 
-  // =========================================================
-  // صنف يدوي
-  // =========================================================
-
-  const handleToggleTemporaryItem = () => {
-    if (isReturnLine) return;
-
-    onChange({
-      ...line,
       isTemporaryItem: !line.isTemporaryItem,
 
       itemId: null,
@@ -357,64 +638,78 @@ function InvoiceLineRow({
       count: null,
       quantity: null,
     });
-  };
+  }, [line, onChange, isReturnLine]);
 
-  // =========================================================
-  // إضافة صنف جديد
-  // =========================================================
+  /* =========================================================
+     إضافة صنف جديد
+  ========================================================= */
 
-  const handleItemCreated = (newItem) => {
-    onChange({
-      ...line,
+  const handleItemCreated = useCallback(
+    (newItem) => {
+      if (!newItem?.id) {
+        toast.error("تم إنشاء الصنف ولكن لم يتم استلام بياناته");
 
-      isTemporaryItem: false,
+        return;
+      }
 
-      itemId: newItem.id,
-      itemName: newItem.name,
-      itemCode: newItem.code,
+      onChange({
+        ...line,
 
-      itemUnitId: null,
-      itemUnitName: "",
+        isTemporaryItem: false,
 
-      weight: null,
-      count: null,
-      quantity: null,
-    });
+        itemId: newItem.id,
 
-    setShowAddItem(false);
-  };
+        itemName: newItem.name ?? "",
 
-  // =========================================================
-  // حذف
-  // =========================================================
+        itemCode: newItem.code ?? "",
 
-  const handleRemove = () => {
+        itemUnitId: newItem.itemUnitId ?? null,
+
+        itemUnitName: newItem.itemUnitName ?? "",
+
+        weight: null,
+        count: null,
+        quantity: null,
+      });
+
+      setShowAddItem(false);
+
+      toast.success(`تم إضافة الصنف "${newItem.name}" واختياره`);
+    },
+    [line, onChange],
+  );
+
+  /* =========================================================
+     حذف
+  ========================================================= */
+
+  const handleRemove = useCallback(() => {
     onRemove();
 
     toast.success("تم حذف الصنف من الفاتورة", {
       description: line.itemName || "صنف بدون اسم",
     });
-  };
+  }, [line.itemName, onRemove]);
 
-  // =========================================================
-  // الإجمالي
-  // =========================================================
+  /* =========================================================
+     الإجمالي
+
+     Total = Quantity × Price
+  ========================================================= */
 
   const total =
     round2((toNumber(line.quantity) ?? 0) * (toNumber(line.price) ?? 0)) ?? 0;
 
-  // =========================================================
-  // خيارات الوحدات
-  // =========================================================
-
-  const unitOptions =
-    itemUnits?.map((unit) => ({
-      value: unit.id,
-      label: unit.name,
-    })) || [];
+  /* =========================================================
+     CSS
+  ========================================================= */
 
   const readonlyCls =
     "w-full rounded-lg border border-ink-400/10 px-2.5 py-2 text-sm num text-center bg-ink-400/5 text-ink-600";
+
+  /* =========================================================
+     Render
+  ========================================================= */
 
   return (
     <tr
@@ -452,7 +747,7 @@ function InvoiceLineRow({
             {line.isTemporaryItem ? (
               <input
                 type="text"
-                value={line.itemName}
+                value={line.itemName ?? ""}
                 onChange={(e) => set("itemName", e.target.value)}
                 placeholder="اكتب اسم الصنف"
                 className="flex-1 min-w-0 rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm outline-none focus:border-primary-500"
@@ -474,8 +769,6 @@ function InvoiceLineRow({
               </div>
             )}
 
-            {/* صنف يدوي */}
-
             <button
               type="button"
               onClick={handleToggleTemporaryItem}
@@ -488,8 +781,6 @@ function InvoiceLineRow({
             >
               <PenLine size={15} />
             </button>
-
-            {/* إضافة صنف جديد */}
 
             <button
               type="button"
@@ -663,6 +954,7 @@ function InvoiceLineRow({
           type="button"
           onClick={handleRemove}
           className="p-2 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition"
+          title="حذف الصنف"
         >
           <Trash2 size={15} />
         </button>

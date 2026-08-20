@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useGetStockTransfersQuery } from "../storesApi";
 import Pagination from "../../../shared/components/ui/Pagination"; // عدّل المسار حسب مكانك
+import { useGetStockTransfersQuery } from "../../inventory/stockTransfersApi";
 
 // ملاحظة: تأكد من الأسماء الفعلية لفلاتر GET /StockTransfers في الـ Swagger
 // (مثلاً FromStoreId / ToStoreId / StoreId) وعدّل الـ params تحت لو مختلفة.

@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-
 import Modal from "../../../shared/components/ui/Modal";
 import Button from "../../../shared/components/ui/Button";
 import {
@@ -35,10 +34,16 @@ const countrySchema = z.object({
  * @param {{
  *   isOpen: boolean,
  *   onClose: () => void,
- *   country?: object|null
+ *   onSaved?: (country: Object) => void,
+ *   country?: Object | null
  * }} props
  */
-export default function CountryFormModal({ isOpen, onClose, country }) {
+export default function CountryFormModal({
+  isOpen,
+  onClose,
+  onSaved,
+  country = null,
+}) {
   const isEditing = Boolean(country);
 
   const [createCountry, { isLoading: isCreating }] = useCreateCountryMutation();
@@ -52,13 +57,14 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(countrySchema),
-
     defaultValues: {
       name: "",
       englishName: "",
       isActive: true,
     },
   });
+
+  const isLoading = isCreating || isUpdating;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -86,18 +92,24 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
         isActive: values.isActive,
       };
 
+      let savedCountry;
+
       if (isEditing) {
-        await updateCountry({
+        savedCountry = await updateCountry({
           id: country.id,
           ...payload,
         }).unwrap();
 
         toast.success("تم تحديث الدولة بنجاح");
       } else {
-        await createCountry(payload).unwrap();
+        savedCountry = await createCountry(payload).unwrap();
 
         toast.success("تم إضافة الدولة بنجاح");
       }
+
+      // مهم جدًا:
+      // إرسال الدولة التي تم إنشاؤها/تعديلها إلى الأب
+      onSaved?.(savedCountry);
 
       onClose();
     } catch (err) {
@@ -120,25 +132,25 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" dir="rtl">
         {/* الاسم بالعربي */}
         <div>
-          <label className="block text-xs text-ink-400 mb-1.5">
+          <label className="mb-1.5 block text-xs text-ink-400">
             الاسم بالعربي
           </label>
 
           <input
             type="text"
             placeholder="مثال: مصر"
-            className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+            className="w-full rounded-xl border border-ink-400/15 px-3 py-2 text-sm focus:border-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-700/10"
             {...register("name")}
           />
 
           {errors.name && (
-            <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
+            <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>
           )}
         </div>
 
         {/* الاسم بالإنجليزي */}
         <div>
-          <label className="block text-xs text-ink-400 mb-1.5">
+          <label className="mb-1.5 block text-xs text-ink-400">
             الاسم بالإنجليزي
           </label>
 
@@ -146,12 +158,12 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
             type="text"
             dir="ltr"
             placeholder="Example: Egypt"
-            className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+            className="w-full rounded-xl border border-ink-400/15 px-3 py-2 text-sm focus:border-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-700/10"
             {...register("englishName")}
           />
 
           {errors.englishName && (
-            <p className="text-xs text-red-500 mt-1">
+            <p className="mt-1 text-xs text-red-500">
               {errors.englishName.message}
             </p>
           )}
@@ -159,26 +171,30 @@ export default function CountryFormModal({ isOpen, onClose, country }) {
 
         {/* الحالة */}
         <div>
-          <label className="block text-xs text-ink-400 mb-1.5">الحالة</label>
+          <label className="mb-1.5 block text-xs text-ink-400">الحالة</label>
 
           <select
-            className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+            className="w-full rounded-xl border border-ink-400/15 px-3 py-2 text-sm focus:border-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-700/10"
             {...register("isActive")}
           >
             <option value="true">نشطة</option>
-
             <option value="false">غير نشطة</option>
           </select>
         </div>
 
         {/* الأزرار */}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             إلغاء
           </Button>
 
-          <Button type="submit" disabled={isCreating || isUpdating}>
-            {isCreating || isUpdating
+          <Button type="submit" disabled={isLoading}>
+            {isLoading
               ? "جاري الحفظ..."
               : isEditing
                 ? "حفظ التعديلات"

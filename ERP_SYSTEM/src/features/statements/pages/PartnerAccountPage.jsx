@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FileText, Receipt, StoreIcon } from "lucide-react";
 
 import { useGetPartnerStatementQuery } from "../statementsApi";
-import { useGetInvoicesQuery } from "../../invoices/invoicesApi";
 import { useGetPartyByIdQuery } from "../../partners/partiesApi";
 
 import PartnerSelectHeader from "../components/PartnerSelectHeader";
@@ -15,9 +14,13 @@ import SalesFiltersCard from "../../sales/components/SalesFiltersCard";
 
 import { usePersistentTab } from "../../../shared/hooks/usePersistentTab";
 
+// =========================================================
+// Constants
+// =========================================================
+
 const TABS = ["statement", "invoices", "items"];
 
-const emptyStatementFilters = {
+const EMPTY_STATEMENT_FILTERS = {
   Search: "",
   FromDate: "",
   ToDate: "",
@@ -26,7 +29,7 @@ const emptyStatementFilters = {
   CashMovementTypeId: "",
 };
 
-const emptyInvoiceFilters = {
+const EMPTY_INVOICE_FILTERS = {
   invoiceNumber: "",
   movementType: "",
   fromDate: "",
@@ -40,6 +43,10 @@ const emptyInvoiceFilters = {
   country: "",
 };
 
+// =========================================================
+// Component
+// =========================================================
+
 export default function PartnerAccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -47,77 +54,97 @@ export default function PartnerAccountPage() {
 
   const [activeTab, setActiveTab] = usePersistentTab("statement", TABS);
 
-  const [filters, setFilters] = useState({
-    statement: {
-      draft: emptyStatementFilters,
-      applied: emptyStatementFilters,
-    },
-    invoices: {
-      draft: emptyInvoiceFilters,
-      applied: emptyInvoiceFilters,
-    },
-  });
+  // -------------------------------------------------------
+  // Filters
+  // -------------------------------------------------------
+
+  const initialFilters = useMemo(
+    () => ({
+      statement: {
+        draft: { ...EMPTY_STATEMENT_FILTERS },
+        applied: { ...EMPTY_STATEMENT_FILTERS },
+      },
+      invoices: {
+        draft: { ...EMPTY_INVOICE_FILTERS },
+        applied: { ...EMPTY_INVOICE_FILTERS },
+      },
+    }),
+    [],
+  );
+
+  const [filters, setFilters] = useState(initialFilters);
+
+  // -------------------------------------------------------
+  // Pagination
+  // -------------------------------------------------------
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  // -------------------------------------------------------
+  // Statement Query
+  // -------------------------------------------------------
+
+  const statementParams = useMemo(
+    () => ({
+      BusinessPartnerId: partnerId,
+      PageNumber: page,
+      PageSize: pageSize,
+      ...filters.statement.applied,
+    }),
+    [partnerId, page, pageSize, filters.statement.applied],
+  );
+
   const { data, isLoading, isFetching, isError, refetch } =
-    useGetPartnerStatementQuery(
-      {
-        BusinessPartnerId: partnerId,
-        PageNumber: page,
-        PageSize: pageSize,
-        ...filters.statement.applied,
-      },
-      {
-        skip: !partnerId,
-      },
-    );
+    useGetPartnerStatementQuery(statementParams, {
+      skip: !partnerId,
+    });
+
+  // -------------------------------------------------------
+  // Partner
+  // -------------------------------------------------------
 
   const { data: partner } = useGetPartyByIdQuery(partnerId, {
     skip: !partnerId,
   });
 
-  useGetInvoicesQuery(
-    {
-      businessPartnerId: partnerId,
-      pageSize: 100,
+  // =======================================================
+  // Handlers
+  // =======================================================
+
+  const handlePartnerChange = useCallback(
+    (id) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+
+        if (id) {
+          next.set("partnerId", id);
+        } else {
+          next.delete("partnerId");
+        }
+
+        next.set("tab", "statement");
+
+        return next;
+      });
+
+      setPage(1);
+
+      setFilters({
+        statement: {
+          draft: { ...EMPTY_STATEMENT_FILTERS },
+          applied: { ...EMPTY_STATEMENT_FILTERS },
+        },
+        invoices: {
+          draft: { ...EMPTY_INVOICE_FILTERS },
+          applied: { ...EMPTY_INVOICE_FILTERS },
+        },
+      });
     },
-    {
-      skip: !partnerId,
-    },
+    [setSearchParams],
   );
 
-  const handlePartnerChange = (id) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-
-      if (id) {
-        next.set("partnerId", id);
-      } else {
-        next.delete("partnerId");
-      }
-
-      next.set("tab", "statement");
-
-      return next;
-    });
-
-    setPage(1);
-
-    setFilters({
-      statement: {
-        draft: emptyStatementFilters,
-        applied: emptyStatementFilters,
-      },
-      invoices: {
-        draft: emptyInvoiceFilters,
-        applied: emptyInvoiceFilters,
-      },
-    });
-  };
-
-  const handleFilterChange = (tab, value) => {
+  const handleFilterChange = useCallback((tab, value) => {
     setFilters((prev) => ({
       ...prev,
       [tab]: {
@@ -125,9 +152,9 @@ export default function PartnerAccountPage() {
         draft: value,
       },
     }));
-  };
+  }, []);
 
-  const handleSearch = (tab) => {
+  const handleSearch = useCallback((tab) => {
     setFilters((prev) => ({
       ...prev,
       [tab]: {
@@ -139,90 +166,146 @@ export default function PartnerAccountPage() {
     if (tab === "statement") {
       setPage(1);
     }
-  };
+  }, []);
 
-  const handleReset = (tab) => {
+  const handleReset = useCallback((tab) => {
     const empty =
-      tab === "statement" ? emptyStatementFilters : emptyInvoiceFilters;
+      tab === "statement" ? EMPTY_STATEMENT_FILTERS : EMPTY_INVOICE_FILTERS;
 
     setFilters((prev) => ({
       ...prev,
       [tab]: {
-        draft: empty,
-        applied: empty,
+        draft: { ...empty },
+        applied: { ...empty },
       },
     }));
 
     if (tab === "statement") {
       setPage(1);
     }
-  };
+  }, []);
+
+  const handlePageSizeChange = useCallback((size) => {
+    setPageSize(size);
+    setPage(1);
+  }, []);
+
+  // =======================================================
+  // Tabs
+  // =======================================================
+
+  const tabs = useMemo(
+    () => [
+      {
+        id: "statement",
+        label: "كشف الحساب",
+        icon: Receipt,
+      },
+      {
+        id: "invoices",
+        label: "الفواتير",
+        icon: FileText,
+      },
+      {
+        id: "items",
+        label: "الأصناف",
+        icon: StoreIcon,
+      },
+    ],
+    [],
+  );
+
+  // =======================================================
+  // Render
+  // =======================================================
 
   return (
-    <div className="animate-fadeUp">
-      <div className="mb-6">
-        <h2 className="font-display text-2xl font-bold text-ink-900">
-          العملاء والموردين
-        </h2>
+    <div className="min-w-0 animate-fadeUp">
+      {/* ===================================================
+          Page Header
+      =================================================== */}
 
-        <p className="mt-1 text-sm text-ink-400">
-          كشف حساب متكامل مع سجل الفواتير الخاصة بكل عميل أو مورد
-        </p>
-      </div>
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between   ">
+        <div className="min-w-0">
+          <h2 className="font-display text-xl font-bold text-ink-900 sm:text-2xl">
+            العملاء والموردين
+          </h2>
 
-      <PartnerSelectHeader
-        partnerId={partnerId}
-        onChange={handlePartnerChange}
-      />
-
-      {!partnerId ? (
-        <div className="rounded-2xl border border-dashed border-ink-400/20 py-20 text-center">
-          <p className="text-ink-400">
-            اختر عميل أو مورد من الأعلى لعرض بياناته
+          <p className="mt-0.5 text-xs text-ink-400 sm:text-sm">
+            كشف حساب متكامل مع سجل الفواتير والأصناف
           </p>
         </div>
+
+        {/* Partner selector */}
+        <div className=" flex-1  ">
+          <PartnerSelectHeader
+            partnerId={partnerId}
+            onChange={handlePartnerChange}
+          />
+        </div>
+      </div>
+
+      {/* ===================================================
+          Empty State
+      =================================================== */}
+
+      {!partnerId ? (
+        <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-ink-400/20 bg-white/40 px-6 text-center">
+          <div>
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10">
+              <Receipt size={20} className="text-primary-500" />
+            </div>
+
+            <p className="text-sm font-medium text-ink-700">
+              اختر عميل أو مورد
+            </p>
+
+            <p className="mt-1 text-xs text-ink-400">
+              لعرض كشف الحساب والفواتير والأصناف
+            </p>
+          </div>
+        </div>
       ) : (
-        <>
-          <div className="mb-4 inline-flex rounded-xl bg-ink-400/5 p-1">
-            <button
-              onClick={() => setActiveTab("statement")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                activeTab === "statement"
-                  ? "bg-white font-medium text-primary-500 shadow-sm"
-                  : "text-ink-400 hover:text-ink-900"
-              }`}
-            >
-              <Receipt size={14} />
-              كشف الحساب
-            </button>
+        <div className="min-w-0">
+          {/* =================================================
+              Tabs
+          ================================================= */}
 
-            <button
-              onClick={() => setActiveTab("invoices")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                activeTab === "invoices"
-                  ? "bg-white font-medium text-primary-500 shadow-sm"
-                  : "text-ink-400 hover:text-ink-900"
-              }`}
-            >
-              <FileText size={14} />
-              الفواتير
-            </button>
+          <div className="mb-3 flex w-full overflow-x-auto rounded-xl bg-ink-400/5 p-1 sm:w-fit">
+            <div className="flex min-w-max gap-0.5">
+              {tabs.map(({ id, label, icon: Icon }) => {
+                const active = activeTab === id;
 
-            <button
-              onClick={() => setActiveTab("items")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                activeTab === "items"
-                  ? "bg-white font-medium text-primary-500 shadow-sm"
-                  : "text-ink-400 hover:text-ink-900"
-              }`}
-            >
-              <StoreIcon size={14} />
-              الأصناف
-            </button>
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveTab(id)}
+                    className={[
+                      "inline-flex h-8 items-center gap-1.5",
+                      "rounded-lg px-3 text-xs sm:px-4 sm:text-sm",
+                      "transition-all duration-200",
+                      "whitespace-nowrap",
+                      active
+                        ? "bg-white font-medium text-primary-500 shadow-sm"
+                        : "text-ink-400 hover:bg-white/60 hover:text-ink-900",
+                    ].join(" ")}
+                  >
+                    <Icon size={14} />
+
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
+          {/* =================================================
+              Statement
+          ================================================= */}
+
           {activeTab === "statement" && (
-            <>
+            <div className="min-w-0 space-y-3">
               <StatementFilters
                 draft={filters.statement.draft}
                 onChange={(value) => handleFilterChange("statement", value)}
@@ -230,25 +313,28 @@ export default function PartnerAccountPage() {
                 onReset={() => handleReset("statement")}
               />
 
-              <StatementTable
-                data={data}
-                isLoading={isLoading}
-                isFetching={isFetching}
-                isError={isError}
-                refetch={refetch}
-                page={page}
-                pageSize={pageSize}
-                onPageChange={setPage}
-                onPageSizeChange={(size) => {
-                  setPageSize(size);
-                  setPage(1);
-                }}
-              />
-            </>
+              <div className="min-w-0 overflow-hidden rounded-2xl">
+                <StatementTable
+                  data={data}
+                  isLoading={isLoading}
+                  isFetching={isFetching}
+                  isError={isError}
+                  refetch={refetch}
+                  page={page}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </div>
+            </div>
           )}
 
+          {/* =================================================
+              Invoices
+          ================================================= */}
+
           {activeTab === "invoices" && (
-            <>
+            <div className="min-w-0 space-y-3">
               <SalesFiltersCard
                 draft={filters.invoices.draft}
                 onChange={(value) => handleFilterChange("invoices", value)}
@@ -256,16 +342,26 @@ export default function PartnerAccountPage() {
                 onReset={() => handleReset("invoices")}
               />
 
-              <PartnerInvoicesTab
-                partner={partner}
-                partnerId={partnerId}
-                filters={filters.invoices.applied}
-              />
-            </>
+              <div className="min-w-0 overflow-hidden rounded-2xl">
+                <PartnerInvoicesTab
+                  partner={partner}
+                  partnerId={partnerId}
+                  filters={filters.invoices.applied}
+                />
+              </div>
+            </div>
           )}
 
-          {activeTab === "items" && <PartnerItemsTab partnerId={partnerId} />}
-        </>
+          {/* =================================================
+              Items
+          ================================================= */}
+
+          {activeTab === "items" && (
+            <div className="min-w-0 overflow-hidden rounded-2xl">
+              <PartnerItemsTab partnerId={partnerId} />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

@@ -5,41 +5,30 @@ import { z } from "zod";
 import { toast } from "sonner";
 
 import { useCreateItemMutation, useUpdateItemMutation } from "../inventoryApi";
+
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+
 import { useGetItemUnitsSelectQuery } from "../../units/itemUnitsApi";
 
 const schema = z.object({
   itemUnitId: z.coerce.number().min(1, "اختر الوحدة"),
-  code: z.string().min(1, "كود الصنف مطلوب"),
+
   name: z.string().min(2, "اسم الصنف مطلوب"),
+
   description: z.string().optional(),
+
   isActive: z.boolean(),
 });
 
 const emptyDefaults = {
   itemUnitId: "",
-  code: "",
   name: "",
   description: "",
   isActive: true,
 };
 
-/**
- * مودال إضافة/تعديل صنف.
- * - وضع الإضافة (الافتراضي): متبعتش `item` -> بيستخدم createItem.
- * - وضع التعديل: ابعت `item` (لازم يحتوي على الأقل id) -> بيستخدم updateItem
- *   ويعبّي الفورم تلقائيًا ببياناته.
- *
- * @param {{
- *   isOpen: boolean,
- *   onClose: () => void,
- *   item?: { id: number, itemUnitId: number, code: string, name: string, description?: string, isActive: boolean },
- *   onCreated?: (item: object) => void,
- *   onUpdated?: (item: object) => void,
- * }} props
- */
 export default function QuickAddItemModal({
   isOpen,
   onClose,
@@ -50,7 +39,9 @@ export default function QuickAddItemModal({
   const isEditMode = Boolean(item?.id);
 
   const [createItem, { isLoading: isCreating }] = useCreateItemMutation();
+
   const [updateItem, { isLoading: isUpdating }] = useUpdateItemMutation();
+
   const isLoading = isCreating || isUpdating;
 
   const { data: itemUnits } = useGetItemUnitsSelectQuery();
@@ -65,15 +56,15 @@ export default function QuickAddItemModal({
     defaultValues: emptyDefaults,
   });
 
-  // كل ما يتفتح المودال (أو يتغير الصنف الممرر) نعبّي الفورم صح:
-  // بيانات الصنف في وضع التعديل، أو حقول فاضية في وضع الإضافة.
+  // =========================================================
+  // Fill form
+  // =========================================================
   useEffect(() => {
     if (!isOpen) return;
 
     if (isEditMode) {
       reset({
         itemUnitId: item.itemUnitId ?? "",
-        code: item.code ?? "",
         name: item.name ?? "",
         description: item.description ?? "",
         isActive: item.isActive ?? true,
@@ -83,20 +74,51 @@ export default function QuickAddItemModal({
     }
   }, [isOpen, isEditMode, item, reset]);
 
+  // =========================================================
+  // Submit
+  // =========================================================
   const onSubmit = async (data) => {
     try {
       if (isEditMode) {
-        const updated = await updateItem({ id: item.id, ...data }).unwrap();
+        const updated = await updateItem({
+          id: item.id,
+          ...data,
+        }).unwrap();
+
         toast.success("تم تحديث الصنف بنجاح");
+
         onUpdated?.(updated);
-      } else {
-        const created = await createItem(data).unwrap();
-        toast.success("تم إضافة الصنف بنجاح");
-        reset(emptyDefaults);
-        onCreated?.(created);
+
+        onClose();
+
+        return;
       }
+
+      // =====================================================
+      // Create
+      // =====================================================
+      const created = await createItem(data).unwrap();
+
+      toast.success("تم إضافة الصنف بنجاح");
+
+      /*
+       * مهم جدًا:
+       * نرجع الصنف الجديد للصفحة الأب.
+       *
+       * الصفحة الأب هتعمل:
+       *
+       * 1. تحديث الليست.
+       * 2. إضافة الصنف الجديد للسطر.
+       * 3. اختياره تلقائيًا.
+       */
+      onCreated?.(created);
+
+      reset(emptyDefaults);
+
       onClose();
-    } catch {
+    } catch (error) {
+      console.error("Item save error:", error);
+
       toast.error(isEditMode ? "فشل تحديث الصنف" : "فشل إضافة الصنف");
     }
   };
@@ -108,6 +130,7 @@ export default function QuickAddItemModal({
       title={isEditMode ? "تعديل بيانات الصنف" : "إضافة صنف جديد"}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* الوحدة */}
         <div>
           <label className="block mb-1.5 text-sm font-medium text-ink-900">
             الوحدة
@@ -134,13 +157,7 @@ export default function QuickAddItemModal({
           )}
         </div>
 
-        <Input
-          label="كود الصنف"
-          disabled={isLoading}
-          {...register("code")}
-          error={errors.code?.message}
-        />
-
+        {/* اسم الصنف */}
         <Input
           label="اسم الصنف"
           disabled={isLoading}
@@ -148,6 +165,7 @@ export default function QuickAddItemModal({
           error={errors.name?.message}
         />
 
+        {/* الوصف */}
         <Input
           label="الوصف"
           disabled={isLoading}
@@ -155,6 +173,7 @@ export default function QuickAddItemModal({
           error={errors.description?.message}
         />
 
+        {/* الحالة */}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -164,6 +183,7 @@ export default function QuickAddItemModal({
           الصنف نشط
         </label>
 
+        {/* Submit */}
         <Button type="submit" disabled={isLoading} className="w-full">
           {isLoading
             ? isEditMode

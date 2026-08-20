@@ -16,27 +16,22 @@ import {
   StoreIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-
 import {
   useGetPartiesSelectQuery,
+  useGetPartyByIdQuery,
   useGetPartyContainerStoreQuery,
 } from "../../../partners/partiesApi";
-
 import { useGetDriversSelectQuery } from "../../../drivers/driversApi";
 import { useGetStoresSelectQuery } from "../../../stores/storesApi";
+import StoreFormModal from "../../../stores/components/StoreFormModal";
 import { useGetCountriesSelectQuery } from "../../../countries/countriesApi";
-
-import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
-
-import PartnerSetupWizard from "../../../partners/components/PartnerSetupWizard";
+import CountryFormModal from "../../../countries/components/CountryFormModal";
+import QuickAddCustomerModal from "../../../partners/components/PartnerSetupWizard";
 import QuickAddDriverModal from "../../../drivers/components/QuickAddDriverModal";
 import PackagingDrawer from "../PackagingDrawer";
-
 import { useCreateInvoiceMutation } from "../../../invoices/invoicesApi";
 import { buildCreateInvoiceRequest } from "../../../invoices/components/buildInvoicePayload";
-
 import { generateInvoiceNumber } from "../../../../mocks/data/sales";
-
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
@@ -47,29 +42,28 @@ import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 import { useInvoicePrint } from "../../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePrintTemplate";
 import NumericInput from "../../../../shared/components/ui/NumericInput";
-
 import { useGetCashboxOptionsQuery } from "../../../cashboxes/cashboxesApi";
+import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
+import {
+  readDraft,
+  useAutosaveDraft,
+} from "../../../../shared/hooks/useDraftPersistence";
 
 const emptyLine = () => ({
   itemId: null,
   itemName: "",
   itemCode: "",
   isTemporaryItem: false,
-
   itemUnitId: null,
   itemUnitName: "",
-
   count: null,
   weight: null,
   quantity: null,
   price: null,
-
   notes: "",
-
   sourceInvoiceLineId: null,
   sourceInvoiceId: null,
   sourceInvoiceNumber: null,
-
   isReturnLine: false,
   maxReturnQuantity: null,
 });
@@ -93,10 +87,79 @@ const invoiceContentTypeOptions = [
   { value: "containers", label: "عبوات" },
 ];
 
-const currencyLabels = {
-  EGP: "جنيه مصري",
-  USD: "دولار أمريكي",
-};
+const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
+
+const INVOICE_DRAFT_KEY = "invoiceFormDraft";
+
+// ==== الحالة الافتراضية لبيانات الفاتورة ====
+// دالة واحدة بيتم النداء عليها من مكانين: أول تحميل للفورم، وزرار
+// "مسح البيانات والبدء من جديد" - عشان الاتنين يفضلوا متزامنين لو
+// اتضافت حقول جديدة مستقبلًا.
+const getDefaultHeader = () => ({
+  invoiceNumber: "INVS-" + generateInvoiceNumber(),
+  movementType: "sale",
+  date: new Date().toISOString().slice(0, 10),
+  dueDate: new Date().toISOString().slice(0, 10),
+  partyId: "",
+  partyName: "",
+  currency: "EGP",
+  driverId: "",
+  actualDriverName: "",
+  driverName: "",
+  storeId: "",
+  countryId: "",
+  carNumber: "",
+  exportInvoiceCode: "",
+  partnerInvoiceNo: "",
+  paymentMethod: "credit",
+  cashboxId: "",
+  cashboxName: "",
+  cashboxExchangeRate: "",
+  discount: "",
+  paid: "",
+  exchangeRate: 1,
+  invoiceContentType: "items",
+  generalNotes: "",
+  WBWeight: "",
+  WBScaleDifference: "",
+  WBDiscount: "",
+});
+
+// ==== تحقق أساسي قبل الإرسال ====
+// الهدف منع أخطاء واضحة ورخيصة الاكتشاف (فاتورة من غير عميل، من غير
+// مخزن، من غير أصناف) قبل ما توصل للباك أصلًا، مش استبدال لأي تحقق
+// موجود هناك. بيرجع أول رسالة خطأ لاقاها، أو null لو كل حاجة سليمة.
+function validateInvoiceForm({ header, lines, isReturnInvoice }) {
+  if (!header.storeId) {
+    return "لازم تختار المخزن الأول";
+  }
+
+  if (!header.partyId && !header.partyName?.trim()) {
+    return "لازم تختار العميل أو المورد";
+  }
+
+  if (isReturnInvoice) {
+    const hasReturnLines = lines.some((l) => l.isReturnLine);
+    if (!hasReturnLines) {
+      return "اختار أصناف المرتجع من الفاتورة الأصلية الأول";
+    }
+  } else {
+    const validLines = lines.filter(
+      (l) =>
+        (l.itemId || (l.isTemporaryItem && l.itemName?.trim())) &&
+        Number(l.quantity) > 0,
+    );
+    if (validLines.length === 0) {
+      return "لازم صنف واحد على الأقل بكمية أكبر من صفر";
+    }
+  }
+
+  if (header.paymentMethod === "cash" && !header.cashboxId) {
+    return "لازم تختار الخزنة لأن الدفع نقدي";
+  }
+
+  return null;
+}
 
 function CurrencyChip({ currency }) {
   const [renderedCurrency, setRenderedCurrency] = useState(currency);
@@ -109,30 +172,23 @@ function CurrencyChip({ currency }) {
     if (currency) {
       if (renderedCurrency && renderedCurrency !== currency) {
         setVisible(false);
-
         hideTimer = setTimeout(() => {
           setRenderedCurrency(currency);
-
           requestAnimationFrame(() => setVisible(true));
         }, 160);
       } else {
         setRenderedCurrency(currency);
-
         showTimer = setTimeout(() => setVisible(true), 10);
       }
     } else {
       setVisible(false);
-
-      hideTimer = setTimeout(() => {
-        setRenderedCurrency(null);
-      }, 160);
+      hideTimer = setTimeout(() => setRenderedCurrency(null), 160);
     }
 
     return () => {
       clearTimeout(hideTimer);
       clearTimeout(showTimer);
     };
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currency]);
 
@@ -160,246 +216,212 @@ function CurrencyChip({ currency }) {
   );
 }
 
+// ==== شريط خطأ صغير قابل لإعادة المحاولة ====
+// بيستخدم لما query زي العملاء/السائقين/المخازن يفشل، عشان المستخدم
+// يعرف السبب بدل ما يواجه select فاضي من غير تفسير.
+function InlineErrorRetry({ message, onRetry }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-t border-negative/10 bg-negative/5 px-3 py-1.5 text-xs text-negative animate-[fadeIn_0.15s_ease-out]">
+      <span>{message}</span>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 font-medium underline-offset-2 hover:underline"
+      >
+        إعادة المحاولة
+      </button>
+    </div>
+  );
+}
+
 export default function CreateInvoiceForm({ onSuccess }) {
-  // =========================================================
-  // Select Data
-  // =========================================================
+  const {
+    data: parties,
+    refetch: refetchParties,
+    isError: isPartiesError,
+  } = useGetPartiesSelectQuery();
+  const {
+    data: drivers,
+    refetch: refetchDrivers,
+    isError: isDriversError,
+  } = useGetDriversSelectQuery();
+  const {
+    data: stores,
+    refetch: refetchStores,
+    isError: isStoresError,
+  } = useGetStoresSelectQuery();
+  const {
+    data: countries,
+    refetch: refetchCountries,
+    isError: isCountriesError,
+  } = useGetCountriesSelectQuery();
 
-  const { data: parties, refetch: refetchParties } = useGetPartiesSelectQuery();
-
-  const { data: drivers } = useGetDriversSelectQuery();
-
-  const { data: stores } = useGetStoresSelectQuery();
-
-  const { data: countries } = useGetCountriesSelectQuery();
-
-  // =========================================================
-  // جلب الأصناف مرة واحدة للفورم كله
-  // =========================================================
-
+  // ==== الأصناف (لكل سطور الفاتورة) ====
   const {
     data: items,
     isLoading: isLoadingItems,
     isError: isItemsError,
   } = useGetItemsSelectQuery();
 
-  // =========================================================
-  // Mutations
-  // =========================================================
+  const itemOptions = useMemo(
+    () => items?.map((item) => ({ value: item.id, label: item.name })) || [],
+    [items],
+  );
+
+  const partyOptions = useMemo(
+    () => parties?.map((p) => ({ value: p.id, label: p.name })) || [],
+    [parties],
+  );
+  const driverOptions = useMemo(
+    () => drivers?.map((d) => ({ value: d.id, label: d.name })) || [],
+    [drivers],
+  );
+  const storeOptions = useMemo(
+    () => stores?.map((s) => ({ value: s.id, label: s.name })) || [],
+    [stores],
+  );
+  const countryOptions = useMemo(
+    () => countries?.map((c) => ({ value: c.id, label: c.name })) || [],
+    [countries],
+  );
 
   const [createInvoice, { isLoading }] = useCreateInvoiceMutation();
-
-  // =========================================================
-  // UI State
-  // =========================================================
-
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);
+  const [showAddStore, setShowAddStore] = useState(false);
+  const [showAddCountry, setShowAddCountry] = useState(false);
   const [showPackaging, setShowPackaging] = useState(false);
-
   const [containersMovement, setContainersMovement] = useState({
     containerStoreId: null,
     items: [],
   });
-
   const [itemsLocked, setItemsLocked] = useState(true);
-
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
-
   const [fullReturnState, setFullReturnState] = useState(null);
 
-  // =========================================================
-  // Header
-  // =========================================================
+  // مسودة الفورم المحفوظة (لو موجودة) - بتتقرا مرة واحدة بس، بشكل
+  // sync، عشان نقدر نستخدمها في الـ initializers اللي تحت مباشرة.
+  const draft = useRef(readDraft(INVOICE_DRAFT_KEY)).current;
 
-  const [header, setHeader] = useState({
-    invoiceNumber: "INVS-" + generateInvoiceNumber(),
-
-    movementType: "sale",
-
-    date: new Date().toISOString().slice(0, 10),
-
-    dueDate: new Date().toISOString().slice(0, 10),
-
-    partyId: "",
-    partyName: "",
-
-    currency: "EGP",
-
-    driverId: "",
-    actualDriverName: "",
-    driverName: "",
-
-    storeId: "",
-    countryId: "",
-
-    carNumber: "",
-
-    exportInvoiceCode: "",
-    partnerInvoiceNo: "",
-
-    paymentMethod: "credit",
-
-    cashboxId: "",
-    cashboxName: "",
-    cashboxExchangeRate: "",
-
-    discount: "",
-    paid: "",
-
-    exchangeRate: 1,
-
-    invoiceContentType: "items",
-
-    generalNotes: "",
-
-    WBWeight: "",
-    WBScaleDifference: "",
-    WBDiscount: "",
-  });
-
-  // =========================================================
-  // Lines
-  // =========================================================
+  const [header, setHeader] = useState(() => ({
+    ...getDefaultHeader(),
+    ...(draft?.header || {}),
+    // رقم الفاتورة بيفضل جديد دايمًا حتى لو فيه مسودة قديمة
+    invoiceNumber:
+      draft?.header?.invoiceNumber || "INVS-" + generateInvoiceNumber(),
+  }));
 
   const [lines, setLines] = useState(() =>
-    Array.from({ length: 10 }, () => emptyLine()),
+    draft?.lines?.length
+      ? draft.lines
+      : Array.from({ length: 10 }, () => emptyLine()),
+  );
+
+  // ملاحظة: containersMovement فوق بيتعمله init بـ useState عادي (مش
+  // لازيّ)، فبنسترجع المسودة بتاعته هنا مرة واحدة وقت أول mount.
+  useEffect(() => {
+    if (draft?.containersMovement) {
+      setContainersMovement(draft.containersMovement);
+    }
+    if (typeof draft?.isTemporaryDriver === "boolean") {
+      setIsTemporaryDriver(draft.isTemporaryDriver);
+    }
+    if (draft) {
+      toast.info("تم استرجاع بيانات فاتورة لم تُحفظ", {
+        description: "كملت من آخر نقطة وصلتلها",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ==== حفظ المسودة تلقائيًا (debounced) مع أي تغيير حقيقي في القيم ====
+  const clearDraft = useAutosaveDraft(
+    INVOICE_DRAFT_KEY,
+    () => ({ header, lines, containersMovement, isTemporaryDriver }),
+    [header, lines, containersMovement, isTemporaryDriver],
   );
 
   const partySelectRef = useRef(null);
 
-  // =========================================================
-  // Packaging Breakdown
-  // =========================================================
-
   const packagingBreakdown = useMemo(() => {
     const totals = {};
-
-    lines.forEach((line) => {
-      const count = Number(line.count) || 0;
-
-      if (!line.itemUnitName || !count) return;
-
-      totals[line.itemUnitName] = (totals[line.itemUnitName] || 0) + count;
+    lines.forEach((l) => {
+      const count = Number(l.count) || 0;
+      if (!l.itemUnitName || !count) return;
+      totals[l.itemUnitName] = (totals[l.itemUnitName] || 0) + count;
     });
-
     return Object.entries(totals).map(([unitName, count]) => ({
       unitName,
       count,
     }));
   }, [lines]);
 
-  // =========================================================
-  // Derived State
-  // =========================================================
-
   const isSalesInvoice = header.movementType === "sale";
-
   const isReturnInvoice = RETURN_TYPES.has(header.movementType);
-
   const isCashPayment = header.paymentMethod === "cash";
 
   const returnLines = useMemo(
-    () => lines.filter((line) => line.isReturnLine),
+    () => lines.filter((l) => l.isReturnLine),
     [lines],
   );
-
   const activeSourceInvoiceId = returnLines[0]?.sourceInvoiceId ?? null;
 
-  // =========================================================
-  // Header Helpers
-  // =========================================================
-
-  const setHeaderField = useCallback((key, value) => {
-    setHeader((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  }, []);
-
-  // =========================================================
-  // Lock Items Until Store Selected
-  // =========================================================
+  const setHeaderField = useCallback(
+    (key, value) => setHeader((h) => ({ ...h, [key]: value })),
+    [],
+  );
 
   useEffect(() => {
     setItemsLocked(!header.storeId);
   }, [header.storeId]);
 
-  // =========================================================
-  // Movement Type Change
-  // =========================================================
-
+  // ==== التحويل بين نوع الفاتورة العادي والمرتجع ====
   const prevMovementTypeRef = useRef(header.movementType);
-
   useEffect(() => {
     const prev = prevMovementTypeRef.current;
     const cur = header.movementType;
-
     if (prev === cur) return;
 
     const goingToReturn = RETURN_TYPES.has(cur);
     const cameFromReturn = RETURN_TYPES.has(prev);
 
     if (goingToReturn) {
-      setLines((currentLines) =>
-        currentLines.filter((line) => line.isReturnLine),
-      );
-
+      setLines((ls) => ls.filter((l) => l.isReturnLine));
       setFullReturnState(null);
-
       setHeaderField("discount", 0);
     } else if (cameFromReturn) {
-      setLines((currentLines) => {
-        const kept = currentLines.filter(
-          (line) => line.itemId || line.isTemporaryItem,
-        );
-
+      setLines((ls) => {
+        const kept = ls.filter((l) => l.itemId || l.isTemporaryItem);
         return kept.length > 0 ? kept : Array.from({ length: 10 }, emptyLine);
       });
-
       setFullReturnState(null);
     }
 
     prevMovementTypeRef.current = cur;
   }, [header.movementType, setHeaderField]);
 
-  // =========================================================
-  // Full Return State
-  // =========================================================
-
+  // لو "مرتجع كامل" واتعدلت الكمية/اتحذف سطر يدويًا، ارجع لحالة "جزئي" وصفّر الخصم
   useEffect(() => {
     if (!fullReturnState) return;
 
-    const currentReturnLines = lines.filter((line) => line.isReturnLine);
-
+    const currentReturnLines = lines.filter((l) => l.isReturnLine);
     const stillFull =
       currentReturnLines.length === fullReturnState.lineCount &&
       currentReturnLines.every(
-        (line) => Number(line.quantity) === Number(line.maxReturnQuantity),
+        (l) => Number(l.quantity) === Number(l.maxReturnQuantity),
       );
 
     if (!stillFull) {
       setFullReturnState(null);
       setHeaderField("discount", 0);
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines]);
 
-  // =========================================================
-  // Party Container Store
-  // =========================================================
-
   const { data: partyContainerStoreData } = useGetPartyContainerStoreQuery(
     header.partyId,
-    {
-      skip: !header.partyId || !isSalesInvoice,
-    },
+    { skip: !header.partyId || !isSalesInvoice },
   );
-
-  // =========================================================
-  // Payment
-  // =========================================================
 
   const hasPayment = Number(header.paid) > 0;
 
@@ -410,9 +432,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const handleCashboxChange = useCallback(
     (cashboxId) => {
       const cashbox = cashboxes?.find(
-        (cashbox) => String(cashbox.id) === String(cashboxId),
+        (c) => String(c.id) === String(cashboxId),
       );
-
       setHeaderField("cashboxId", cashboxId);
       setHeaderField("cashboxName", cashbox?.name || "");
     },
@@ -421,31 +442,23 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   useEffect(() => {
     if (!hasPayment && header.cashboxId) {
-      setHeader((prev) => ({
-        ...prev,
+      setHeader((h) => ({
+        ...h,
         cashboxId: "",
         cashboxName: "",
         cashboxExchangeRate: "",
       }));
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPayment]);
 
-  // =========================================================
-  // Container Store
-  // =========================================================
-
   useEffect(() => {
     if (!isSalesInvoice) return;
-
     const store = partyContainerStoreData?.containerStore;
-
     setContainersMovement((prev) => ({
       ...prev,
       containerStoreId: store?.id || null,
     }));
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partyContainerStoreData, isSalesInvoice]);
 
@@ -455,23 +468,14 @@ export default function CreateInvoiceForm({ onSuccess }) {
       (containersMovement.items.length > 0 ||
         containersMovement.containerStoreId)
     ) {
-      setContainersMovement({
-        containerStoreId: null,
-        items: [],
-      });
+      setContainersMovement({ containerStoreId: null, items: [] });
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSalesInvoice]);
-
-  // =========================================================
-  // Party
-  // =========================================================
 
   const handlePartyChange = useCallback(
     (id) => {
       const party = parties?.find((p) => p.id === id);
-
       setHeaderField("partyId", id);
       setHeaderField("partyName", party?.name || "");
 
@@ -486,10 +490,14 @@ export default function CreateInvoiceForm({ onSuccess }) {
     async (newParty) => {
       if (!newParty?.id) return;
 
+      // حدّث قائمة العملاء أولاً حتى يظهر العميل الجديد داخل الـ Select
+      // ثم حدده تلقائيًا.
       try {
         await refetchParties();
       } catch {
-        // لا نوقف العملية لو فشل التحديث
+        toast.warning("تمت إضافة العميل لكن تعذر تحديث القائمة", {
+          description: "لو مش ظاهر في القائمة، حدّث الصفحة",
+        });
       }
 
       setHeaderField("partyId", newParty.id);
@@ -499,6 +507,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         setHeaderField("currency", newParty.currency);
       }
 
+      // رجّع التركيز لقائمة العملاء بعد الإضافة.
       requestAnimationFrame(() => {
         partySelectRef.current?.focus?.();
       });
@@ -506,59 +515,91 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [refetchParties, setHeaderField],
   );
 
-  // =========================================================
-  // Driver
-  // =========================================================
+  const handleStoreCreated = useCallback(
+    async (createdStore) => {
+      const store = createdStore?.data ?? createdStore;
+      if (!store?.id) return;
+
+      try {
+        await refetchStores();
+      } catch {
+        toast.warning("تمت إضافة المخزن لكن تعذر تحديث القائمة", {
+          description: "لو مش ظاهر في القائمة، حدّث الصفحة",
+        });
+      }
+
+      setHeaderField("storeId", store.id);
+      setShowAddStore(false);
+    },
+    [refetchStores, setHeaderField],
+  );
+
+  const handleCountryCreated = useCallback(
+    async (createdCountry) => {
+      const country = createdCountry?.data ?? createdCountry;
+
+      if (!country?.id) return;
+
+      try {
+        await refetchCountries();
+      } catch {
+        toast.warning("تمت إضافة الدولة لكن تعذر تحديث القائمة", {
+          description: "لو مش ظاهرة في القائمة، حدّث الصفحة",
+        });
+      }
+
+      setHeaderField("countryId", country.id);
+      setShowAddCountry(false);
+    },
+    [refetchCountries, setHeaderField],
+  );
 
   const handleDriverChange = useCallback(
     (driverId) => {
-      const driver = drivers?.find((driver) => driver.id === driverId);
-
+      const driver = drivers?.find((d) => d.id === driverId);
       setHeaderField("driverId", driverId);
       setHeaderField("driverName", driver?.name || "");
     },
     [drivers, setHeaderField],
   );
 
-  const handleDriverCreated = useCallback(
-    (newDriver) => {
-      setHeaderField("driverId", newDriver.id);
-      setHeaderField("driverName", newDriver.name);
-    },
-    [setHeaderField],
-  );
+  const handleDriverCreated = useCallback((createdDriver) => {
+    const driver = createdDriver?.data ?? createdDriver;
 
-  // =========================================================
-  // Lines
-  // =========================================================
-
-  const updateLine = useCallback((index, newLine) => {
-    setLines((prev) => prev.map((line, i) => (i === index ? newLine : line)));
-  }, []);
-
-  const removeLine = useCallback((index) => {
-    setLines((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const addLine = useCallback(() => {
-    if (itemsLocked || isReturnInvoice) {
+    if (!driver?.id) {
+      toast.error("تم إنشاء السائق لكن لم يتم استلام بياناته");
       return;
     }
 
+    setHeader((prev) => ({
+      ...prev,
+      driverId: driver.id,
+      driverName: driver.name || "",
+    }));
+
+    setShowAddDriver(false);
+  }, []);
+
+  const updateLine = useCallback(
+    (index, newLine) =>
+      setLines((prev) => prev.map((l, i) => (i === index ? newLine : l))),
+    [],
+  );
+  const removeLine = useCallback(
+    (index) => setLines((prev) => prev.filter((_, i) => i !== index)),
+    [],
+  );
+  const addLine = useCallback(() => {
+    if (itemsLocked || isReturnInvoice) return;
     setLines((prev) => [...prev, emptyLine()]);
   }, [itemsLocked, isReturnInvoice]);
-
-  // =========================================================
-  // Return Lines
-  // =========================================================
 
   const handleAddReturnLines = useCallback(
     (newLines, meta) => {
       let rejected = false;
 
       setLines((prev) => {
-        const existingReturnLines = prev.filter((line) => line.isReturnLine);
-
+        const existingReturnLines = prev.filter((l) => l.isReturnLine);
         if (
           existingReturnLines.length > 0 &&
           existingReturnLines[0].sourceInvoiceId !== meta.sourceInvoiceId
@@ -566,11 +607,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           rejected = true;
           return prev;
         }
-
-        const nonEmpty = prev.filter(
-          (line) => line.itemId || line.isTemporaryItem,
-        );
-
+        const nonEmpty = prev.filter((l) => l.itemId || l.isTemporaryItem);
         return [...nonEmpty, ...newLines];
       });
 
@@ -579,13 +616,11 @@ export default function CreateInvoiceForm({ onSuccess }) {
           description:
             "شيل الأصناف الحالية الأول لو عايز ترجع من فاتورة مختلفة",
         });
-
         return;
       }
 
       if (meta.isFullReturn) {
         setHeaderField("discount", meta.discountAmount);
-
         setFullReturnState({
           sourceInvoiceId: meta.sourceInvoiceId,
           discountAmount: meta.discountAmount,
@@ -599,32 +634,28 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [setHeaderField],
   );
 
-  // =========================================================
-  // Financial Summary
-  // =========================================================
-
+  // ==== الملخص المالي (عرض بس - أي تحقق/رفض بقى مسؤولية الباك) ====
   const totalQuantity = useMemo(
-    () => lines.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0),
+    () => lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0),
     [lines],
   );
 
   const pricedLines = useMemo(
-    () => lines.filter((line) => Number(line.price) > 0),
+    () => lines.filter((l) => Number(l.price) > 0),
     [lines],
   );
 
   const invoiceTotal = useMemo(
     () =>
       pricedLines.reduce(
-        (sum, line) => sum + (Number(line.quantity) || 0) * Number(line.price),
+        (sum, l) => sum + (Number(l.quantity) || 0) * Number(l.price),
         0,
       ),
     [pricedLines],
   );
 
   const unpricedCount = useMemo(
-    () =>
-      lines.filter((line) => line.itemId && !(Number(line.price) > 0)).length,
+    () => lines.filter((l) => l.itemId && !(Number(l.price) > 0)).length,
     [lines],
   );
 
@@ -634,21 +665,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const netTotal = Math.max(invoiceTotal - discount, 0);
   const remaining = Math.max(netTotal - paid, 0);
 
-  // =========================================================
-  // Cash Payment
-  // =========================================================
-
+  // ==== نقدي = مدفوع بيتساوى تلقائيًا بالصافي (تعبئة تلقائية للراحة، مش validation) ====
   useEffect(() => {
     if (isCashPayment) {
       setHeaderField("paid", netTotal > 0 ? String(netTotal) : "");
     }
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCashPayment, netTotal]);
-
-  // =========================================================
-  // Weighbridge
-  // =========================================================
 
   const wbTotal = useMemo(
     () =>
@@ -659,43 +682,40 @@ export default function CreateInvoiceForm({ onSuccess }) {
   );
 
   const handlePaymentMethodChange = useCallback(
-    (method) => {
-      setHeaderField("paymentMethod", method);
-    },
+    (method) => setHeaderField("paymentMethod", method),
     [setHeaderField],
   );
 
-  // =========================================================
-  // Printing
-  // =========================================================
-
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
-
-  // =========================================================
-  // Submit
-  // =========================================================
 
   const submitInvoice = useCallback(
     async (shouldPrint = false) => {
       if (isLoading) return;
 
+      const validationError = validateInvoiceForm({
+        header,
+        lines,
+        isReturnInvoice,
+      });
+
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+
       const payload = buildCreateInvoiceRequest({
         movementType: header.movementType,
-
-        header: {
-          ...header,
-          wbTotal,
-        },
-
+        header: { ...header, wbTotal },
         lines,
-
         containersMovement,
-
         isTemporaryDriver,
       });
 
       try {
         const invoice = await createInvoice(payload).unwrap();
+
+        // الفاتورة اتحفظت بنجاح، امسح المسودة عشان الفورم الجاي يبدأ فاضي
+        clearDraft();
 
         toast.success("تم حفظ الفاتورة بنجاح", {
           description: `رقم الفاتورة: ${header.invoiceNumber}`,
@@ -706,77 +726,84 @@ export default function CreateInvoiceForm({ onSuccess }) {
         if (shouldPrint) {
           printInvoice(invoice);
         }
-      } catch {
-        // الـ API / baseApi مسؤول عن عرض الخطأ
+      } catch (err) {
+        // ما نمسحش المسودة هنا عمدًا - الفاتورة فشلت فمفيش داعي المستخدم
+        // يكتب كل حاجة تاني.
+        const backendMessage =
+          err?.data?.message || err?.data?.error || err?.error;
+
+        toast.error("تعذر حفظ الفاتورة", {
+          description:
+            typeof backendMessage === "string" && backendMessage
+              ? backendMessage
+              : "تأكد من اتصال الإنترنت وحاول تاني",
+        });
       }
     },
     [
       isLoading,
       header,
-      wbTotal,
       lines,
+      isReturnInvoice,
+      wbTotal,
       containersMovement,
       isTemporaryDriver,
       createInvoice,
       onSuccess,
       printInvoice,
+      clearDraft,
     ],
   );
-
-  // =========================================================
-  // Keyboard Shortcuts
-  // =========================================================
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isModifier = e.ctrlKey || e.metaKey;
-
       if (!isModifier) return;
 
       if (e.key.toLowerCase() === "s") {
         e.preventDefault();
-
         submitInvoice(false);
-
         return;
       }
 
       if (e.key === "Enter") {
         e.preventDefault();
-
         submitInvoice(true);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [submitInvoice]);
 
-  // =========================================================
-  // Formatting
-  // =========================================================
+  const handleCancel = useCallback(() => {
+    // "إلغاء" = تراجع كامل عن الفاتورة الحالية، فبنمسح المسودة صراحة من
+    // غير ما نستنى حفظ ناجح.
+    clearDraft();
+    onSuccess?.();
+  }, [clearDraft, onSuccess]);
 
-  const fmt = useCallback((value) => (value ?? 0).toLocaleString("ar-EG"), []);
+  const handleResetForm = useCallback(() => {
+    clearDraft();
+    setHeader(getDefaultHeader());
+    setLines(Array.from({ length: 10 }, () => emptyLine()));
+    setContainersMovement({ containerStoreId: null, items: [] });
+    setIsTemporaryDriver(false);
+    setFullReturnState(null);
+    toast.success("تم مسح بيانات الفاتورة");
+  }, [clearDraft]);
 
+  const fmt = useCallback(
+    (v) => (Number.isFinite(v) ? v : 0).toLocaleString("ar-EG"),
+    [],
+  );
   const currencySymbol = header.currency === "USD" ? "$" : "ج.م";
-
   const isForeignCurrency = header.currency && header.currency !== "EGP";
-
   const exchangeRateValue = parseFloat(header.exchangeRate) || 1;
 
-  // =========================================================
-  // Render
-  // =========================================================
-
   return (
-    <div className="space-y-5 pb-2">
-      {/* =====================================================
-          القسم 1: بيانات الفاتورة الأساسية
-      ===================================================== */}
-
+    <div className="space-y-6 pb-4 animate-[fadeIn_0.15s_ease-out]">
+      {/* ============ القسم 1: بيانات الفاتورة الأساسية ============ */}
       <LedgerPanel
         title={
           <span className="flex items-center gap-2 pr-3">
@@ -791,14 +818,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.invoiceNumber}
             onChange={(e) => setHeaderField("invoiceNumber", e.target.value)}
           />
-
           <LedgerSelect
             label="نوع الفاتورة"
             options={movementOptions}
             value={header.movementType}
             onChange={(e) => setHeaderField("movementType", e.target.value)}
           />
-
           <LedgerField
             label="التاريخ"
             type="date"
@@ -806,7 +831,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             onChange={(e) => setHeaderField("date", e.target.value)}
           />
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <LedgerField
             label="تاريخ الاستحقاق"
@@ -814,7 +838,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.dueDate}
             onChange={(e) => setHeaderField("dueDate", e.target.value)}
           />
-
           <LedgerField
             label="كود فاتورة التصدير"
             value={header.exportInvoiceCode}
@@ -822,14 +845,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
               setHeaderField("exportInvoiceCode", e.target.value)
             }
           />
-
           <LedgerField
             label="رقم فاتورة الشريك"
             value={header.partnerInvoiceNo}
             onChange={(e) => setHeaderField("partnerInvoiceNo", e.target.value)}
           />
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <LedgerField
             label="سعر الصرف"
@@ -839,7 +860,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             disabled={!isForeignCurrency}
             hint={!isForeignCurrency ? "متاح فقط للعملات الأجنبية" : undefined}
           />
-
           <LedgerSelect
             label="محتوى الفاتورة"
             options={invoiceContentTypeOptions}
@@ -851,10 +871,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         </div>
       </LedgerPanel>
 
-      {/* =====================================================
-          القسم 2: العميل والمخزن والنقل
-      ===================================================== */}
-
+      {/* ============ القسم 2: العميل والمخزن والنقل ============ */}
       <LedgerPanel
         title={
           <span className="flex items-center gap-2 pr-3">
@@ -867,22 +884,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
           <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
             عميل / مورد
           </div>
-
           <CompactSelect
             ref={partySelectRef}
             label="عميل / مورد"
-            options={
-              parties?.map((party) => ({
-                value: party.id,
-                label: party.name,
-              })) || []
-            }
+            options={partyOptions}
             value={header.partyId}
             onChange={handlePartyChange}
             placeholder="اختر العميل أو المورد"
             disabled={isLoading}
           />
-
           <button
             type="button"
             onClick={() => setShowAddCustomer(true)}
@@ -893,7 +903,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
           >
             <UserPlus size={17} />
           </button>
-
           <button
             type="button"
             onClick={() =>
@@ -913,7 +922,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             aria-label="فتح مخزن العبوات"
           >
             {!isSalesInvoice ? <Lock size={17} /> : <Boxes size={17} />}
-
             {isSalesInvoice && containersMovement.items.length > 0 && (
               <Repeat2Icon
                 className="absolute top-1 left-1 text-primary-600"
@@ -922,6 +930,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
             )}
           </button>
         </div>
+
+        {isPartiesError && (
+          <InlineErrorRetry
+            message="تعذر تحميل قائمة العملاء والموردين"
+            onRetry={refetchParties}
+          />
+        )}
 
         {!isSalesInvoice && (
           <div className="border-t border-ink-400/5 bg-ink-900/[0.02] px-3 py-2 text-xs text-ink-400">
@@ -934,12 +949,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               العملة
             </div>
-
             <div className="flex flex-1 items-center gap-2 overflow-hidden px-3 py-2.5 text-sm">
               <CurrencyChip
                 currency={header.partyName ? header.currency : null}
               />
-
               {header.partyName ? (
                 <span className="whitespace-nowrap text-xs text-ink-400">
                   (تلقائي حسب العميل)
@@ -956,30 +969,39 @@ export default function CreateInvoiceForm({ onSuccess }) {
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               المخزن
             </div>
-
             <CompactSelect
               label="المخزن"
-              options={
-                stores?.map((store) => ({
-                  value: store.id,
-                  label: store.name,
-                })) || []
-              }
+              options={storeOptions}
               value={header.storeId}
-              onChange={(value) => setHeaderField("storeId", value)}
+              onChange={(val) => setHeaderField("storeId", val)}
               placeholder="اختر المخزن"
               disabled={isLoading}
             />
+            <button
+              type="button"
+              onClick={() => setShowAddStore(true)}
+              disabled={isLoading}
+              className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+              title="إضافة مخزن جديد"
+              aria-label="إضافة مخزن جديد"
+            >
+              <Plus size={17} />
+            </button>
           </div>
         </div>
 
-        {/* السائق */}
+        {isStoresError && (
+          <InlineErrorRetry
+            message="تعذر تحميل قائمة المخازن"
+            onRetry={refetchStores}
+          />
+        )}
+
         <div className="grid grid-cols-1">
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               السائق
             </div>
-
             {isTemporaryDriver ? (
               <input
                 type="text"
@@ -992,18 +1014,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             ) : (
               <CompactSelect
                 label="السائق"
-                options={
-                  drivers?.map((driver) => ({
-                    value: driver.id,
-                    label: driver.name,
-                  })) || []
-                }
+                options={driverOptions}
                 value={header.driverId}
                 onChange={handleDriverChange}
                 placeholder="اختر السائق"
               />
             )}
-
             <button
               type="button"
               onClick={() => setShowAddDriver(true)}
@@ -1013,14 +1029,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             >
               <UserPlus size={17} />
             </button>
-
             <button
               type="button"
               onClick={() => {
                 setIsTemporaryDriver((prev) => !prev);
-
-                setHeader((prev) => ({
-                  ...prev,
+                setHeader((h) => ({
+                  ...h,
                   driverId: "",
                   driverName: "",
                 }));
@@ -1039,12 +1053,18 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
 
+        {isDriversError && (
+          <InlineErrorRetry
+            message="تعذر تحميل قائمة السائقين"
+            onRetry={refetchDrivers}
+          />
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               السائق الفعلي
             </div>
-
             <input
               type="text"
               value={header.actualDriverName}
@@ -1069,27 +1089,36 @@ export default function CreateInvoiceForm({ onSuccess }) {
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               البلد
             </div>
-
             <CompactSelect
               label="البلد"
-              options={
-                countries?.map((country) => ({
-                  value: country.id,
-                  label: country.name,
-                })) || []
-              }
+              options={countryOptions}
               value={header.countryId}
-              onChange={(value) => setHeaderField("countryId", value)}
+              onChange={(val) => setHeaderField("countryId", val)}
               placeholder="اختر البلد"
+              disabled={isLoading}
             />
+            <button
+              type="button"
+              onClick={() => setShowAddCountry(true)}
+              disabled={isLoading}
+              className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+              title="إضافة دولة جديدة"
+              aria-label="إضافة دولة جديدة"
+            >
+              <Plus size={17} />
+            </button>
           </div>
         </div>
+
+        {isCountriesError && (
+          <InlineErrorRetry
+            message="تعذر تحميل قائمة الدول"
+            onRetry={refetchCountries}
+          />
+        )}
       </LedgerPanel>
 
-      {/* =====================================================
-          القسم 3: الدفع والملاحظات
-      ===================================================== */}
-
+      {/* ============ القسم 3: الدفع والملاحظات ============ */}
       <LedgerPanel
         title={
           <span className="flex items-center gap-2 pr-3">
@@ -1113,15 +1142,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 الخزنة
               </div>
-
               <CompactSelect
                 label="الخزنة"
                 options={
-                  cashboxes?.map((cashbox) => ({
-                    value: cashbox.id,
-                    label: `${cashbox.name} (${
-                      currencyLabels[cashbox.currency] || cashbox.currency
-                    })`,
+                  cashboxes?.map((c) => ({
+                    value: c.id,
+                    label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
                   })) || []
                 }
                 value={header.cashboxId}
@@ -1129,7 +1155,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 placeholder="اختر الخزنة"
               />
             </div>
-
             <LedgerField
               label="سعر صرف الخزنة"
               type="number"
@@ -1155,7 +1180,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.WBWeight}
             onChange={(e) => setHeaderField("WBWeight", e.target.value)}
           />
-
           <LedgerField
             label="فرق الميزان"
             value={header.WBScaleDifference}
@@ -1164,32 +1188,25 @@ export default function CreateInvoiceForm({ onSuccess }) {
             }
           />
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2">
           <LedgerField
             label="الخصم"
             value={header.WBDiscount}
             onChange={(e) => setHeaderField("WBDiscount", e.target.value)}
           />
-
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               الإجمالي
             </div>
-
             <div className="flex flex-1 items-center gap-1.5 bg-ink-400/5 px-3 py-2.5 text-sm num text-ink-600">
               {wbTotal.toLocaleString("ar-EG")}
-
               <span className="text-[11px] text-ink-400">(يتحسب تلقائيًا)</span>
             </div>
           </div>
         </div>
       </LedgerPanel>
 
-      {/* =====================================================
-          القسم 4: فواتير المصدر
-      ===================================================== */}
-
+      {/* ============ القسم 4: فواتير المصدر (للمرتجع فقط) ============ */}
       {isReturnInvoice && (
         <ReturnSourcePicker
           movementType={header.movementType}
@@ -1201,19 +1218,14 @@ export default function CreateInvoiceForm({ onSuccess }) {
         />
       )}
 
-      {/* =====================================================
-          القسم 5: الأصناف
-      ===================================================== */}
-
+      {/* ============ القسم 5: الأصناف ============ */}
       <LedgerPanel
         title={
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="flex items-center gap-2 pr-3">
               <StoreIcon size={15} />
-
               {isReturnInvoice ? "أصناف المرتجع" : "الأصناف"}
             </span>
-
             {unpricedCount > 0 && (
               <span className="rounded-full bg-gold-50 px-2 py-0.5 text-xs font-medium text-gold-600">
                 {unpricedCount} بدون سعر
@@ -1262,7 +1274,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                       <th className="p-2.5"></th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {lines.map((line, index) => (
                       <InvoiceLineRow
@@ -1272,6 +1283,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
                         storeId={header.storeId}
                         invoiceDate={header.date}
                         items={items}
+                        itemOptions={itemOptions}
                         isLoadingItems={isLoadingItems}
                         isItemsError={isItemsError}
                         onChange={(newLine) => updateLine(index, newLine)}
@@ -1280,7 +1292,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                     ))}
                   </tbody>
                 </table>
-
                 {!isReturnInvoice && (
                   <button
                     type="button"
@@ -1298,10 +1309,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         </div>
       </LedgerPanel>
 
-      {/* =====================================================
-          القسم 6: ملخص الفاتورة
-      ===================================================== */}
-
+      {/* ============ القسم 6: ملخص الفاتورة ============ */}
       <LedgerPanel
         title={
           <div className="mb-2 flex items-center justify-between px-1">
@@ -1316,14 +1324,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
           <div className="overflow-hidden rounded-xl border border-ink-400/10 bg-white">
             <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
               <span className="text-sm text-ink-600">عدد العبوات</span>
-
               <span className="num text-sm font-semibold text-ink-900">
                 {packagingBreakdown.length > 0
                   ? packagingBreakdown
-                      .map(
-                        (packaging) =>
-                          `${fmt(packaging.count)} ${packaging.unitName}`,
-                      )
+                      .map((p) => `${fmt(p.count)} ${p.unitName}`)
                       .join("، ")
                   : "—"}
               </span>
@@ -1331,7 +1335,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
             <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
               <span className="text-sm text-ink-600">إجمالي الكمية</span>
-
               <span className="num text-sm font-semibold text-ink-900">
                 {fmt(totalQuantity)}
               </span>
@@ -1341,7 +1344,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <span className="text-sm font-semibold text-ink-900">
                 إجمالي الفاتورة
               </span>
-
               <span className="num text-sm font-bold text-ink-900">
                 {fmt(invoiceTotal)} {currencySymbol}
               </span>
@@ -1351,7 +1353,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 الخصم
               </div>
-
               <div className="flex-1 p-2">
                 <NumericInput
                   value={header.discount ?? ""}
@@ -1359,11 +1360,9 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   disabled={isReturnInvoice}
                   onChange={(value) => {
                     if (isReturnInvoice) return;
-
                     setHeaderField("discount", value === "" ? "" : value);
                   }}
                 />
-
                 {isReturnInvoice && (
                   <p className="mt-1 text-[11px] text-ink-400">
                     {fullReturnState
@@ -1376,7 +1375,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
             <div className="flex items-center justify-between border-y border-ink-400/10 bg-ink-900/[0.02] px-3 py-2.5">
               <span className="text-sm font-semibold text-ink-900">الصافي</span>
-
               <span className="num text-sm font-bold text-ink-900">
                 {fmt(netTotal)} {currencySymbol}
               </span>
@@ -1386,7 +1384,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 المدفوع
               </div>
-
               <div className="flex-1 p-2">
                 <NumericInput
                   value={header.paid ?? ""}
@@ -1394,11 +1391,9 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   disabled={isCashPayment}
                   onChange={(value) => {
                     if (isCashPayment) return;
-
                     setHeaderField("paid", value === "" ? "" : value);
                   }}
                 />
-
                 {isCashPayment && (
                   <p className="mt-1 text-[11px] text-ink-400">
                     نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
@@ -1411,7 +1406,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <span className="text-sm font-semibold text-ink-900">
                 المتبقي
               </span>
-
               <span className="num text-sm font-bold text-ink-900">
                 {fmt(remaining)} {currencySymbol}
               </span>
@@ -1420,7 +1414,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             {isForeignCurrency && (
               <div className="flex items-center justify-between border-t border-ink-400/10 px-3 py-2 text-xs text-ink-400">
                 <span>ما يقابل الصافي بالمصري</span>
-
                 <span className="num">
                   {fmt(netTotal * exchangeRateValue)} ج.م
                 </span>
@@ -1430,10 +1423,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         </div>
       </LedgerPanel>
 
-      {/* =====================================================
-          Buttons
-      ===================================================== */}
-
+      {/* Buttons */}
       <div className="space-y-2">
         <Button
           onClick={() => submitInvoice(false)}
@@ -1463,7 +1453,18 @@ export default function CreateInvoiceForm({ onSuccess }) {
         <Button
           variant="ghost"
           type="button"
-          onClick={onSuccess}
+          onClick={handleResetForm}
+          disabled={isLoading}
+          className="h-10 w-full"
+          title="امسح كل البيانات المكتوبة وابدأ فاتورة فاضية من غير ما تسيب الصفحة"
+        >
+          مسح البيانات والبدء من جديد
+        </Button>
+
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={handleCancel}
           disabled={isLoading}
           className="h-10 w-full"
         >
@@ -1472,22 +1473,26 @@ export default function CreateInvoiceForm({ onSuccess }) {
         </Button>
       </div>
 
-      {/* =====================================================
-          Modals
-      ===================================================== */}
-
-      <PartnerSetupWizard
+      <QuickAddCustomerModal
         isOpen={showAddCustomer}
         onClose={() => setShowAddCustomer(false)}
         onCreated={handleCustomerCreated}
       />
-
       <QuickAddDriverModal
         isOpen={showAddDriver}
         onClose={() => setShowAddDriver(false)}
         onCreated={handleDriverCreated}
       />
-
+      <StoreFormModal
+        isOpen={showAddStore}
+        onClose={() => setShowAddStore(false)}
+        onSaved={handleStoreCreated}
+      />
+      <CountryFormModal
+        isOpen={showAddCountry}
+        onClose={() => setShowAddCountry(false)}
+        onSaved={handleCountryCreated}
+      />
       <PackagingDrawer
         partyId={header.partyId}
         partyName={header.partyName}
@@ -1496,16 +1501,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         initialItems={containersMovement.items}
         onSave={(data) => setContainersMovement(data)}
       />
-
-      {/* =====================================================
-          Print Template
-      ===================================================== */}
-
-      <div
-        style={{
-          display: "none",
-        }}
-      >
+      <div style={{ display: "none" }}>
         <div ref={printRef}>
           <InvoicePrintTemplate invoice={invoiceToPrint} />
         </div>
