@@ -73,8 +73,8 @@ function TruncatedText({
 // =========================================================
 
 function PricingStatusBadge({ invoice }) {
-  const hasMissingPrice = Number(invoice.HasMissingPrice) === 1;
-  const allItemsPriced = Number(invoice.AllItemsPriced) === 2;
+  const hasMissingPrice = invoice.priceStatus === "HasMissingPrice";
+  const allItemsPriced = invoice.priceStatus === "AllItemsPriced";
 
   const isPriced = allItemsPriced && !hasMissingPrice;
 

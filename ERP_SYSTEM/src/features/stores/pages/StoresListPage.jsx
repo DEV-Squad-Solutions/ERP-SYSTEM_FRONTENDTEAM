@@ -1,24 +1,36 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, SlidersHorizontal, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+
 import { useDeleteStoreMutation, useGetStoresQuery } from "../storesApi";
+
 import StoreCard from "../components/StoreCard";
 import StoreFormModal from "../components/StoreFormModal";
+
 import Button from "../../../shared/components/ui/Button";
-import { toast } from "sonner";
+import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
 
 export default function StoresListPage() {
   const navigate = useNavigate();
+
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingStore, setEditingStore] = useState(null);
+
   const [showFilters, setShowFilters] = useState(false);
   const filtersRef = useRef(null);
+
+  const [storeToDelete, setStoreToDelete] = useState(null);
 
   const [filters, setFilters] = useState({
     search: "",
     code: "",
     isActive: "",
   });
+
+  // =========================================================
+  // Query
+  // =========================================================
 
   const { data, isLoading, isError, refetch } = useGetStoresQuery({
     pageNumber: 1,
@@ -30,13 +42,61 @@ export default function StoresListPage() {
   });
 
   const stores = data?.items ?? [];
-  const [deleteStore] = useDeleteStoreMutation();
 
-  const handleChange = (key) => (e) =>
-    setFilters((f) => ({ ...f, [key]: e.target.value }));
+  // =========================================================
+  // Delete
+  // =========================================================
 
-  const resetFilters = () => setFilters({ search: "", code: "", isActive: "" });
+  const [deleteStore, { isLoading: isDeleting }] = useDeleteStoreMutation();
+
+  const handleDelete = (store) => {
+    setStoreToDelete(store);
+  };
+
+  const confirmDelete = async () => {
+    if (!storeToDelete) return;
+
+    try {
+      await deleteStore(storeToDelete.id).unwrap();
+
+      toast.success("تم حذف المخزن بنجاح");
+
+      setStoreToDelete(null);
+    } catch (err) {
+      console.error("Delete store error:", err);
+
+      toast.error(
+        err?.data?.message ||
+          err?.data?.title ||
+          "حصل خطأ أثناء حذف المخزن، حاول تاني",
+      );
+    }
+  };
+
+  // =========================================================
+  // Filters
+  // =========================================================
+
+  const handleChange = (key) => (e) => {
+    setFilters((current) => ({
+      ...current,
+      [key]: e.target.value,
+    }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      search: "",
+      code: "",
+      isActive: "",
+    });
+  };
+
   const hasActiveFilters = filters.search || filters.code || filters.isActive;
+
+  // =========================================================
+  // Create / Edit
+  // =========================================================
 
   const openCreate = () => {
     setEditingStore(null);
@@ -47,43 +107,38 @@ export default function StoresListPage() {
     setEditingStore(store);
     setShowFormModal(true);
   };
-  const handleDelete = (store) => {
-    toast(`حذف "${store.name}"؟`, {
-      description: "الإجراء ده لا يمكن التراجع عنه",
-      position: "center",
 
-      action: {
-        label: "تأكيد الحذف",
-        onClick: async () => {
-          try {
-            await deleteStore(store.id).unwrap();
-            toast.success("تم حذف المخزن بنجاح");
-          } catch (err) {
-            toast.error("حصل خطأ أثناء الحذف، حاول تاني");
-          }
-        },
-      },
-      cancel: {
-        label: "إلغاء",
-      },
-      duration: 6000,
-    });
-  };
+  // =========================================================
+  // Render
+  // =========================================================
+
   return (
     <div className="animate-fadeUp">
+      {/* =====================================================
+          Header
+      ====================================================== */}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="font-display text-2xl font-bold text-ink-900">
             المخازن
           </h2>
+
           <p className="text-sm text-ink-400 mt-1">
             اختر مخزن للدخول على بياناته وسجل حركته
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* =================================================
+              Filters
+          ================================================== */}
+
           <div className="relative" ref={filtersRef}>
-            <Button variant="outline" onClick={() => setShowFilters((s) => !s)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters((state) => !state)}
+            >
               <SlidersHorizontal size={16} />
               فلاتر
               {hasActiveFilters && (
@@ -92,60 +147,87 @@ export default function StoresListPage() {
             </Button>
 
             {showFilters && (
-              <div className="absolute left-0 mt-2 w-80 bg-white border border-ink-400/10 rounded-2xl shadow-lg p-4 z-20 space-y-3">
-                <div>
-                  <label className="block text-xs text-ink-400 mb-1.5">
-                    بحث
-                  </label>
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={handleChange("search")}
-                    placeholder="ابحث بالاسم..."
-                    className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
-                  />
-                </div>
+              <>
+                {/* Overlay */}
 
-                <div>
-                  <label className="block text-xs text-ink-400 mb-1.5">
-                    الكود
-                  </label>
-                  <input
-                    type="text"
-                    value={filters.code}
-                    onChange={handleChange("code")}
-                    placeholder="مثال: MAIN"
-                    className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
-                  />
-                </div>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowFilters(false)}
+                />
 
-                <div>
-                  <label className="block text-xs text-ink-400 mb-1.5">
-                    الحالة
-                  </label>
-                  <select
-                    value={filters.isActive}
-                    onChange={handleChange("isActive")}
-                    className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
-                  >
-                    <option value="">الكل</option>
-                    <option value="true">نشط</option>
-                    <option value="false">غير نشط</option>
-                  </select>
-                </div>
+                {/* Dropdown */}
 
-                {hasActiveFilters && (
-                  <button
-                    onClick={resetFilters}
-                    className="flex items-center gap-1.5 text-xs text-ink-400 hover:text-emerald-700 pt-1"
-                  >
-                    <RotateCcw size={12} />
-                    إعادة تعيين الفلاتر
-                  </button>
-                )}
-              </div>
+                <div className="absolute left-0 mt-2 w-80 bg-white border border-ink-400/10 rounded-2xl shadow-lg p-4 z-20 space-y-3 animate-fadeUp">
+                  {/* Search */}
+
+                  <div>
+                    <label className="block text-xs text-ink-400 mb-1.5">
+                      بحث
+                    </label>
+
+                    <input
+                      type="text"
+                      value={filters.search}
+                      onChange={handleChange("search")}
+                      placeholder="ابحث بالاسم..."
+                      className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+                    />
+                  </div>
+
+                  {/* Code */}
+
+                  <div>
+                    <label className="block text-xs text-ink-400 mb-1.5">
+                      الكود
+                    </label>
+
+                    <input
+                      type="text"
+                      value={filters.code}
+                      onChange={handleChange("code")}
+                      placeholder="مثال: MAIN"
+                      className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+                    />
+                  </div>
+
+                  {/* Status */}
+
+                  <div>
+                    <label className="block text-xs text-ink-400 mb-1.5">
+                      الحالة
+                    </label>
+
+                    <select
+                      value={filters.isActive}
+                      onChange={handleChange("isActive")}
+                      className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
+                    >
+                      <option value="">الكل</option>
+
+                      <option value="true">نشط</option>
+
+                      <option value="false">غير نشط</option>
+                    </select>
+                  </div>
+
+                  {/* Reset */}
+
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="flex items-center gap-1.5 text-xs text-ink-400 hover:text-emerald-700 pt-1"
+                    >
+                      <RotateCcw size={12} />
+                      إعادة تعيين الفلاتر
+                    </button>
+                  )}
+                </div>
+              </>
             )}
           </div>
+
+          {/* Create */}
 
           <Button onClick={openCreate}>
             <Plus size={16} />
@@ -154,35 +236,53 @@ export default function StoresListPage() {
         </div>
       </div>
 
+      {/* =====================================================
+          Loading
+      ====================================================== */}
+
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(3)].map((_, i) => (
+          {[...Array(3)].map((_, index) => (
             <div
-              key={i}
+              key={index}
               className="h-40 rounded-2xl bg-ink-400/5 animate-pulse"
             />
           ))}
         </div>
       )}
 
+      {/* =====================================================
+          Error
+      ====================================================== */}
+
       {isError && (
         <div className="text-center py-20 border border-dashed border-red-200 rounded-2xl">
           <p className="text-red-500 mb-3">حدث خطأ أثناء تحميل المخازن</p>
+
           <Button variant="outline" onClick={refetch}>
             إعادة المحاولة
           </Button>
         </div>
       )}
 
+      {/* =====================================================
+          Empty
+      ====================================================== */}
+
       {!isLoading && !isError && stores.length === 0 && (
         <div className="text-center py-20 border border-dashed border-ink-400/20 rounded-2xl">
           <p className="text-ink-400 mb-3">لا توجد مخازن مطابقة</p>
+
           <Button onClick={openCreate}>
             <Plus size={16} />
             إضافة أول مخزن
           </Button>
         </div>
       )}
+
+      {/* =====================================================
+          Stores
+      ====================================================== */}
 
       {!isLoading && !isError && stores.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -198,10 +298,28 @@ export default function StoresListPage() {
         </div>
       )}
 
+      {/* =====================================================
+          Create / Edit Modal
+      ====================================================== */}
+
       <StoreFormModal
         isOpen={showFormModal}
         onClose={() => setShowFormModal(false)}
         store={editingStore}
+      />
+
+      {/* =====================================================
+          Delete Confirmation Modal
+      ====================================================== */}
+
+      <DeleteConfirmModal
+        isOpen={!!storeToDelete}
+        onClose={() => setStoreToDelete(null)}
+        onConfirm={confirmDelete}
+        itemName={storeToDelete?.name}
+        title="حذف المخزن"
+        description="سيتم حذف المخزن نهائيًا. هذا الإجراء لا يمكن التراجع عنه."
+        isDeleting={isDeleting}
       />
     </div>
   );

@@ -67,6 +67,7 @@ import ItemProfitabilityPage from "../features/reports/pages/ItemProfitabilityPa
 import InvoiceProfitabilityDetailsPage from "../features/reports/pages/InvoiceProfitabilityDetailsPage";
 import InvoiceProfitabilityPage from "../features/reports/pages/InvoiceProfitabilityPage";
 import StockTransfersPage from "../features/inventory/pages/StockTransfersPage";
+import AttendanceTakingPage from "../features/payroll/pages/AttendanceTakingPage";
 
 // ============================================================
 // Coming Soon
@@ -310,7 +311,18 @@ export const router = createBrowserRouter([
       },
       { path: "payroll/salaries", element: <SalariesPage /> },
       { path: "payroll/salaries/:salaryId", element: <SalaryDetailPage /> },
-      { path: "payroll/attendance", element: <AttendancePage /> },
+
+      // تسجيل حضور اليوم
+      {
+        path: "payroll/attendance",
+        element: <AttendanceTakingPage />,
+      },
+
+      // سجل الحضور والانصراف
+      {
+        path: "payroll/attendance/records",
+        element: <AttendancePage />,
+      },
       { path: "payroll/overtime", element: <OvertimePage /> },
       { path: "payroll/deductions", element: <DeductionsPage /> },
       { path: "payroll/advances", element: <AdvancesPage /> },
