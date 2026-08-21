@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from "react";
-
+import { useMemo, useState } from "react";
 import {
   FileSearch,
   AlertCircle,
@@ -14,38 +13,20 @@ import {
   ChevronDown,
   Trash2,
 } from "lucide-react";
-
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
 
 import CashVoucherEditModal from "./CashVoucherEditModal";
 import ExpenseQuickEntryModal from "./ExpenseQuickEntryModal";
 import Pagination from "../../../shared/components/ui/Pagination";
+import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
 import { selectIsAdmin } from "../../auth/authSlice";
 
-const fmt = (n) =>
-  Number(n ?? 0).toLocaleString("ar-EG", {
+const fmt = (number) =>
+  Number(number ?? 0).toLocaleString("ar-EG", {
     maximumFractionDigits: 2,
   });
-
-function buildDescriptionDisplay(v) {
-  if (!v.cashMovementTypeId) return null;
-
-  const partyLabel =
-    v.partyType === "Partner"
-      ? v.businessPartnerName
-      : v.partyType === "Driver"
-        ? v.driverName
-        : v.partyType === "Employee"
-          ? v.employeeName
-          : v.partyType === "Other"
-            ? v.externalPartyName
-            : null;
-
-  return partyLabel
-    ? `${v.cashMovementTypeName} - ${partyLabel}`
-    : v.cashMovementTypeName;
-}
 
 function emptyDraft() {
   return {
@@ -57,79 +38,265 @@ function emptyDraft() {
   };
 }
 
+/**
+ * يبني مجموعات التوصيف.
+ *
+ * Partner:
+ *   العملاء والموردين
+ *
+ * Revenue:
+ *   أنواع الإيرادات
+ *
+ * Expense:
+ *   أنواع المصروفات
+ *
+ * Driver:
+ *   السائقين
+ *
+ * Employee:
+ *   الموظفين
+ *
+ * كل option يحمل metadata داخليًا.
+ */
+function buildDescriptionGroups({
+  partyOptions,
+  driverOptions,
+  employeeOptions,
+  revenueTypes,
+  expenseTypes,
+  currentVoucher,
+}) {
+  const currentMovementTypeId = currentVoucher?.cashMovementTypeId
+    ? String(currentVoucher.cashMovementTypeId)
+    : "";
+
+  const currentPartyType = currentVoucher?.partyType || "None";
+
+  const groups = [];
+
+  // =========================================================
+  // Customers / Suppliers
+  // =========================================================
+
+  if (partyOptions.length) {
+    groups.push({
+      label: "عملاء وموردين",
+      options: partyOptions.map((party) => ({
+        value: `partner:${party.id}`,
+        label: party.name,
+        meta: {
+          type: "Partner",
+          businessPartnerId: String(party.id),
+          movementTypeId:
+            currentPartyType === "Partner" ? currentMovementTypeId : "",
+          classification: "PartnerSettlement",
+          partyType: "Partner",
+        },
+      })),
+    });
+  }
+
+  // =========================================================
+  // Revenue
+  // =========================================================
+
+  if (revenueTypes.length) {
+    groups.push({
+      label: "إيرادات",
+      options: revenueTypes.map((type) => ({
+        value: `revenue:${type.id}`,
+        label: type.name,
+        meta: {
+          type: "MovementType",
+          movementTypeId: String(type.id),
+          classification: "Revenue",
+          partyType: "None",
+          businessPartnerId: null,
+          driverId: null,
+          employeeId: null,
+        },
+      })),
+    });
+  }
+
+  // =========================================================
+  // Expenses
+  // =========================================================
+
+  if (expenseTypes.length) {
+    groups.push({
+      label: "مصاريف",
+      options: expenseTypes.map((type) => ({
+        value: `expense:${type.id}`,
+        label: type.name,
+        meta: {
+          type: "MovementType",
+          movementTypeId: String(type.id),
+          classification: "Expense",
+          partyType: "None",
+          businessPartnerId: null,
+          driverId: null,
+          employeeId: null,
+        },
+      })),
+    });
+  }
+
+  // =========================================================
+  // Drivers
+  // =========================================================
+
+  if (driverOptions.length) {
+    groups.push({
+      label: "سائقين",
+      options: driverOptions.map((driver) => ({
+        value: `driver:${driver.id}`,
+        label: driver.name,
+        meta: {
+          type: "Driver",
+          driverId: String(driver.id),
+          movementTypeId:
+            currentPartyType === "Driver" ? currentMovementTypeId : "",
+          classification: "Other",
+          partyType: "Driver",
+        },
+      })),
+    });
+  }
+
+  // =========================================================
+  // Salaries
+  // =========================================================
+
+  if (employeeOptions.length) {
+    groups.push({
+      label: "رواتب وأجور",
+      options: employeeOptions.map((employee) => ({
+        value: `salary:${employee.id}`,
+        label: employee.name,
+        meta: {
+          type: "Employee",
+          employeeId: String(employee.id),
+          movementTypeId:
+            currentPartyType === "Employee" ? currentMovementTypeId : "",
+          classification: "Other",
+          partyType: "Employee",
+        },
+      })),
+    });
+  }
+
+  // =========================================================
+  // Advances
+  // =========================================================
+
+  if (employeeOptions.length) {
+    groups.push({
+      label: "سلف",
+      options: employeeOptions.map((employee) => ({
+        value: `advance:${employee.id}`,
+        label: employee.name,
+        meta: {
+          type: "Employee",
+          employeeId: String(employee.id),
+          movementTypeId:
+            currentPartyType === "Employee" ? currentMovementTypeId : "",
+          classification: "Other",
+          partyType: "Employee",
+        },
+      })),
+    });
+  }
+
+  return groups;
+}
+
+function getCurrentDescriptionValue(row) {
+  if (!row) {
+    return "";
+  }
+
+  if (row.partyType === "Partner" && row.businessPartnerId) {
+    return `partner:${row.businessPartnerId}`;
+  }
+
+  if (row.partyType === "Driver" && row.driverId) {
+    return `driver:${row.driverId}`;
+  }
+
+  if (row.partyType === "Employee" && row.employeeId) {
+    return `salary:${row.employeeId}`;
+  }
+
+  if (row.cashMovementTypeId) {
+    if (row.cashMovementTypeClassification === "Revenue") {
+      return `revenue:${row.cashMovementTypeId}`;
+    }
+
+    if (row.cashMovementTypeClassification === "Expense") {
+      return `expense:${row.cashMovementTypeId}`;
+    }
+  }
+
+  return "";
+}
+
 export default function CashboxLedgerTable({
   data,
   isLoading,
   isFetching,
   isError,
   refetch,
-
   cashboxId,
   cashboxCurrency,
   cashboxBaseCurrency,
-
   partyOptions = [],
   driverOptions = [],
   employeeOptions = [],
-
   onAddVoucher,
   onUpdateVoucher,
   onDeleteVoucher,
-
   page = 1,
   pageSize = 20,
   totalCount = 0,
-
   onPageChange,
   onPageSizeChange,
-
-  initialVoucherId = null,
 }) {
-  // =========================================================
-  // Role
-  // =========================================================
-
   const isAdmin = useSelector(selectIsAdmin);
-
-  // =========================================================
-  // State
-  // =========================================================
 
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(emptyDraft());
 
   const [editingRow, setEditingRow] = useState(null);
-
   const [updatingRowId, setUpdatingRowId] = useState(null);
   const [deletingRowId, setDeletingRowId] = useState(null);
+  const [descriptionUpdatingId, setDescriptionUpdatingId] = useState(null);
 
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
 
   const [sortKey, setSortKey] = useState("date");
   const [sortDir, setSortDir] = useState("asc");
 
-  const dateInputRef = useRef(null);
-
   const vouchers = data?.items || [];
 
   // =========================================================
-  // Open voucher from URL
+  // Movement Types
   // =========================================================
 
-  useEffect(() => {
-    if (!initialVoucherId || !data?.items?.length) {
-      return;
-    }
+  const { data: revenueTypes = [], isFetching: loadingRevenue } =
+    useGetCashMovementTypeOptionsQuery({
+      direction: undefined,
+      classification: "Revenue",
+      forPartner: false,
+    });
 
-    const voucher = data.items.find(
-      (item) => String(item.id) === String(initialVoucherId),
-    );
-
-    if (voucher) {
-      setEditingRow(voucher);
-    }
-  }, [initialVoucherId, data?.items]);
+  const { data: expenseTypes = [], isFetching: loadingExpense } =
+    useGetCashMovementTypeOptionsQuery({
+      direction: undefined,
+      classification: "Expense",
+      forPartner: false,
+    });
 
   // =========================================================
   // Currency
@@ -163,16 +330,110 @@ export default function CashboxLedgerTable({
   );
 
   // =========================================================
+  // Description Groups
+  // =========================================================
+
+  const getDescriptionGroups = (row) =>
+    buildDescriptionGroups({
+      partyOptions,
+      driverOptions,
+      employeeOptions,
+      revenueTypes,
+      expenseTypes,
+      currentVoucher: row,
+    });
+
+  // =========================================================
+  // Inline description change
+  //
+  // لا يوجد أي تأكيد أو Business Validation هنا.
+  // نرسل مباشرة للـ backend وننتظر النتيجة.
+  // =========================================================
+
+  async function handleDescriptionChange(row, selectedValue) {
+    if (!selectedValue) {
+      return;
+    }
+
+    const groups = getDescriptionGroups(row);
+
+    const selectedOption = groups
+      .flatMap((group) => group.options)
+      .find((option) => option.value === selectedValue);
+
+    if (!selectedOption) {
+      return;
+    }
+
+    const meta = selectedOption.meta || {};
+
+    const payload = {
+      id: row.id,
+      cashboxId,
+      rowVersion: row.rowVersion,
+
+      voucherDate: row.voucherDate,
+      direction: row.direction,
+      amount: Number(row.amount),
+
+      cashMovementTypeId: meta.movementTypeId || row.cashMovementTypeId || null,
+
+      partyType: meta.partyType || "None",
+
+      businessPartnerId: meta.businessPartnerId || null,
+
+      driverId: meta.driverId || null,
+
+      driverTripId: meta.type === "Driver" ? row.driverTripId || null : null,
+
+      employeeId: meta.employeeId || null,
+
+      externalPartyName: row.externalPartyName || null,
+
+      description: row.description || undefined,
+
+      notes: row.notes || undefined,
+
+      referenceNumber: row.referenceNumber || undefined,
+    };
+
+    if (isForeign) {
+      payload.exchangeRate = Number(row.exchangeRate ?? row.rate ?? 1);
+    }
+
+    setDescriptionUpdatingId(row.id);
+
+    try {
+      await onUpdateVoucher(payload);
+
+      toast.success("تم تحديث توصيف الحركة بنجاح");
+    } catch (error) {
+      const code = error?.data?.errorCode;
+
+      if (code === "CashVouchers.Concurrency") {
+        toast.error("السند تم تعديله من مستخدم آخر. أعد تحميل البيانات.");
+      } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
+        toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
+      } else {
+        toast.error(
+          error?.data?.detail ||
+            error?.data?.title ||
+            error?.error ||
+            "تعذر تحديث توصيف الحركة",
+        );
+      }
+    } finally {
+      setDescriptionUpdatingId(null);
+    }
+  }
+
+  // =========================================================
   // Add
   // =========================================================
 
   function openAddRow() {
     setDraft(emptyDraft());
     setIsAdding(true);
-
-    setTimeout(() => {
-      dateInputRef.current?.focus();
-    }, 0);
   }
 
   function closeAddRow() {
@@ -182,6 +443,7 @@ export default function CashboxLedgerTable({
 
   async function handleSave() {
     const receipt = Number(draft.receiptAmount) || 0;
+
     const payment = Number(draft.paymentAmount) || 0;
 
     if (receipt <= 0 && payment <= 0) {
@@ -210,41 +472,30 @@ export default function CashboxLedgerTable({
       toast.success("تم تسجيل الحركة كمسودة");
 
       setDraft(emptyDraft());
-
-      setTimeout(() => {
-        dateInputRef.current?.focus();
-      }, 0);
-    } catch (err) {
-      toast.error(err?.data?.detail || "حدث خطأ أثناء حفظ الحركة");
+    } catch (error) {
+      toast.error(
+        error?.data?.detail ||
+          error?.data?.title ||
+          error?.error ||
+          "حدث خطأ أثناء حفظ الحركة",
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  function handleRowKeyDown(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-
-      if (!saving) {
-        handleSave();
-      }
-    }
-
-    if (e.key === "Escape") {
-      e.preventDefault();
-
-      if (!saving) {
-        closeAddRow();
-      }
-    }
-  }
-
   // =========================================================
-  // Full edit
+  // Full Edit
+  //
+  // لا يوجد confirm.
+  // لا يوجد validation business من الفرونت.
+  // onUpdateVoucher هو المسؤول عن تنفيذ الطلب.
   // =========================================================
 
   async function handleFullEdit(payload) {
-    if (!editingRow) return;
+    if (!editingRow) {
+      return;
+    }
 
     setUpdatingRowId(editingRow.id);
 
@@ -259,8 +510,8 @@ export default function CashboxLedgerTable({
       toast.success("تم تحديث السند بنجاح");
 
       setEditingRow(null);
-    } catch (err) {
-      const code = err?.data?.errorCode;
+    } catch (error) {
+      const code = error?.data?.errorCode;
 
       if (code === "CashVouchers.Concurrency") {
         toast.error(
@@ -269,7 +520,12 @@ export default function CashboxLedgerTable({
       } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
         toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
       } else {
-        toast.error(err?.data?.detail || "تعذر تحديث السند");
+        toast.error(
+          error?.data?.detail ||
+            error?.data?.title ||
+            error?.error ||
+            "تعذر تحديث السند",
+        );
       }
     } finally {
       setUpdatingRowId(null);
@@ -277,7 +533,7 @@ export default function CashboxLedgerTable({
   }
 
   // =========================================================
-  // Delete - confirmation
+  // Delete
   // =========================================================
 
   function handleDeleteVoucher(row) {
@@ -288,10 +544,6 @@ export default function CashboxLedgerTable({
 
     if (!onDeleteVoucher) {
       toast.error("خدمة حذف السند غير متاحة");
-      return;
-    }
-
-    if (!row) {
       return;
     }
 
@@ -314,10 +566,6 @@ export default function CashboxLedgerTable({
     });
   }
 
-  // =========================================================
-  // Delete - execute
-  // =========================================================
-
   async function executeDeleteVoucher(row) {
     if (!row || deletingRowId) {
       return;
@@ -338,18 +586,13 @@ export default function CashboxLedgerTable({
       }
 
       refetch?.();
-    } catch (err) {
-      const code = err?.data?.errorCode;
-
-      if (code === "CashVouchers.Concurrency") {
-        toast.error(
-          "السند تم تعديله من مستخدم آخر. أعد تحميل البيانات ثم حاول مرة أخرى.",
-        );
-      } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
-        toast.error("السند المولد من فاتورة لا يمكن حذفه من هنا.");
-      } else {
-        toast.error(err?.data?.detail || "تعذر حذف السند");
-      }
+    } catch (error) {
+      toast.error(
+        error?.data?.detail ||
+          error?.data?.title ||
+          error?.error ||
+          "تعذر حذف السند",
+      );
     } finally {
       setDeletingRowId(null);
     }
@@ -387,8 +630,11 @@ export default function CashboxLedgerTable({
   if (isLoading) {
     return (
       <div className="space-y-1">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="h-9 animate-pulse rounded-lg bg-ink-400/5" />
+        {[1, 2, 3, 4, 5, 6].map((item) => (
+          <div
+            key={item}
+            className="h-9 animate-pulse rounded-lg bg-ink-400/5"
+          />
         ))}
       </div>
     );
@@ -412,6 +658,7 @@ export default function CashboxLedgerTable({
         </p>
 
         <button
+          type="button"
           onClick={refetch}
           className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-100"
         >
@@ -447,54 +694,45 @@ export default function CashboxLedgerTable({
   let running = openingBalance;
   let baseRunning = openingBaseBalance;
 
-  const rows = chronological.map((v) => {
-    const amount = Number(v.amount) || 0;
+  const rows = chronological.map((voucher) => {
+    const amount = Number(voucher.amount) || 0;
 
-    const exchangeRate = Number(v.exchangeRate ?? v.rate ?? 1) || 1;
+    const exchangeRate = Number(voucher.exchangeRate ?? voucher.rate ?? 1) || 1;
 
-    const baseAmount = Number(v.baseAmount ?? amount * exchangeRate);
+    const baseAmount = Number(voucher.baseAmount ?? amount * exchangeRate);
 
-    const debit = v.direction === "Receipt" ? amount : 0;
+    const debit = voucher.direction === "Receipt" ? amount : 0;
 
-    const credit = v.direction === "Payment" ? amount : 0;
+    const credit = voucher.direction === "Payment" ? amount : 0;
 
-    const baseDebit = v.direction === "Receipt" ? baseAmount : 0;
+    const baseDebit = voucher.direction === "Receipt" ? baseAmount : 0;
 
-    const baseCredit = v.direction === "Payment" ? baseAmount : 0;
+    const baseCredit = voucher.direction === "Payment" ? baseAmount : 0;
 
     running += debit - credit;
+
     baseRunning += baseDebit - baseCredit;
 
-    const isDescribed = Boolean(v.cashMovementTypeId);
+    const isDescribed = Boolean(voucher.cashMovementTypeId);
 
-    const isDraft = typeof v.isDraft === "boolean" ? v.isDraft : !isDescribed;
+    const isDraft =
+      typeof voucher.isDraft === "boolean" ? voucher.isDraft : !isDescribed;
 
     return {
-      ...v,
-
+      ...voucher,
       amount,
       exchangeRate,
       baseAmount,
-
       debit,
       credit,
-
       baseDebit,
       baseCredit,
-
       balance: running,
       baseBalance: baseRunning,
-
       isDescribed,
       isDraft,
-
-      descriptionDisplay: buildDescriptionDisplay(v),
     };
   });
-
-  // =========================================================
-  // Totals
-  // =========================================================
 
   const totalDebit = rows.reduce((sum, row) => sum + row.debit, 0);
 
@@ -529,24 +767,9 @@ export default function CashboxLedgerTable({
 
   return (
     <div>
-      <style>{`
-        @keyframes cashRowIn {
-          from {
-            opacity: 0;
-            transform: translateY(-5px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .cash-row-anim {
-          animation: cashRowIn .16s ease-out;
-        }
-      `}</style>
-
-      {/* Foreign currency info */}
+      {/* ===================================================== */}
+      {/* Foreign currency */}
+      {/* ===================================================== */}
 
       {isForeign && (
         <div className="mb-2 rounded-xl border border-primary-100 bg-primary-50/50 px-3 py-2">
@@ -564,11 +787,14 @@ export default function CashboxLedgerTable({
         </div>
       )}
 
+      {/* ===================================================== */}
       {/* Actions */}
+      {/* ===================================================== */}
 
       {!isAdding && (
         <div className="mb-2 flex gap-2">
           <button
+            type="button"
             onClick={openAddRow}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink-400/15 py-2 text-[11px] text-ink-400 transition hover:bg-primary-50/40 hover:text-primary-500"
           >
@@ -577,6 +803,7 @@ export default function CashboxLedgerTable({
           </button>
 
           <button
+            type="button"
             onClick={() => setExpenseModalOpen(true)}
             className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-red-300/40 px-3 py-2 text-[11px] text-red-500 transition hover:bg-red-50/40"
           >
@@ -586,6 +813,10 @@ export default function CashboxLedgerTable({
         </div>
       )}
 
+      {/* ===================================================== */}
+      {/* Table */}
+      {/* ===================================================== */}
+
       <div
         className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
           isFetching ? "opacity-60" : ""
@@ -593,20 +824,19 @@ export default function CashboxLedgerTable({
       >
         <div className="overflow-x-auto">
           <table
-            className="w-full min-w-[720px] border-collapse text-right"
+            className="w-full min-w-[900px] border-collapse text-right"
             dir="rtl"
           >
             <colgroup>
               <col className="w-[13%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[11%]" />
 
-              {isForeign && <col className="w-[9%]" />}
+              {isForeign && <col className="w-[8%]" />}
 
-              <col />
-
-              <col className="w-[9%]" />
-              <col className="w-[9%]" />
+              <col className="w-[27%]" />
+              <col className="w-[10%]" />
+              <col className="w-[10%]" />
             </colgroup>
 
             <thead>
@@ -630,7 +860,7 @@ export default function CashboxLedgerTable({
                 )}
 
                 <th className="border-l border-ink-400/5 px-2 py-2 font-medium">
-                  البيان / التوصيف
+                  التوصيف
                 </th>
 
                 <th className="border-l border-ink-400/5 px-2 py-2 font-medium">
@@ -658,7 +888,9 @@ export default function CashboxLedgerTable({
             </thead>
 
             <tbody>
+              {/* ================================================= */}
               {/* Empty */}
+              {/* ================================================= */}
 
               {showEmptyState && (
                 <tr>
@@ -680,10 +912,12 @@ export default function CashboxLedgerTable({
                 </tr>
               )}
 
+              {/* ================================================= */}
               {/* Add row */}
+              {/* ================================================= */}
 
               {isAdding && (
-                <tr className="cash-row-anim border-b border-ink-400/10 bg-primary-50/30 align-top">
+                <tr className="border-b border-ink-400/10 bg-primary-50/30 align-top">
                   <td className="p-1.5">
                     <div className="flex items-center gap-1">
                       <button
@@ -717,14 +951,13 @@ export default function CashboxLedgerTable({
                       step="0.01"
                       placeholder="صادر"
                       value={draft.paymentAmount}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          paymentAmount: e.target.value,
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          paymentAmount: event.target.value,
                           receiptAmount: "",
                         }))
                       }
-                      onKeyDown={handleRowKeyDown}
                       className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
                     />
                   </td>
@@ -736,14 +969,13 @@ export default function CashboxLedgerTable({
                       step="0.01"
                       placeholder="وارد"
                       value={draft.receiptAmount}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          receiptAmount: e.target.value,
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          receiptAmount: event.target.value,
                           paymentAmount: "",
                         }))
                       }
-                      onKeyDown={handleRowKeyDown}
                       className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
                     />
                   </td>
@@ -757,31 +989,28 @@ export default function CashboxLedgerTable({
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
                       type="text"
-                      placeholder="البيان — التوصيف بعد الحفظ"
+                      placeholder="يمكن توصيف الحركة بعد الحفظ"
                       value={draft.description}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          description: e.target.value,
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          description: event.target.value,
                         }))
                       }
-                      onKeyDown={handleRowKeyDown}
                       className="w-full truncate rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
                     />
                   </td>
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
-                      ref={dateInputRef}
                       type="date"
                       value={draft.voucherDate}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          voucherDate: e.target.value,
+                      onChange={(event) =>
+                        setDraft((current) => ({
+                          ...current,
+                          voucherDate: event.target.value,
                         }))
                       }
-                      onKeyDown={handleRowKeyDown}
                       className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
                     />
                   </td>
@@ -792,19 +1021,27 @@ export default function CashboxLedgerTable({
                 </tr>
               )}
 
+              {/* ================================================= */}
               {/* Rows */}
+              {/* ================================================= */}
 
               {displayRows.map((row) => {
                 const isUpdating = updatingRowId === row.id;
 
                 const isDeleting = deletingRowId === row.id;
 
+                const isDescriptionUpdating = descriptionUpdatingId === row.id;
+
                 const isInvoiceGenerated = Boolean(row.invoiceId);
+
+                const descriptionGroups = getDescriptionGroups(row);
+
+                const selectedDescription = getCurrentDescriptionValue(row);
 
                 return (
                   <tr
                     key={row.id}
-                    className="group border-b border-ink-400/5 align-top transition hover:bg-ink-900/[0.015] last:border-0"
+                    className="group border-b border-ink-400/5 align-middle transition hover:bg-ink-900/[0.015] last:border-0"
                   >
                     {/* Balance */}
 
@@ -859,44 +1096,46 @@ export default function CashboxLedgerTable({
                     {/* Description */}
 
                     <td className="min-w-0 border-l border-ink-400/5 px-2 py-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingRow(row)}
-                        disabled={isUpdating || isDeleting}
-                        className={`flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-right text-[11px] transition ${
-                          row.isDescribed
-                            ? "text-ink-700 hover:bg-ink-900/[0.05]"
-                            : "bg-gold-50 text-gold-700 hover:bg-gold-100"
-                        } disabled:opacity-50`}
-                        title={
-                          row.isDescribed
-                            ? "تعديل السند"
-                            : "اضغط لإكمال التوصيف"
-                        }
-                      >
-                        {isUpdating || isDeleting ? (
-                          <Loader2
-                            size={11}
-                            className="shrink-0 animate-spin"
-                          />
-                        ) : null}
+                      <div className="min-w-[240px]">
+                        <CompactSelect
+                          options={descriptionGroups}
+                          value={selectedDescription}
+                          onChange={(value) =>
+                            handleDescriptionChange(row, value)
+                          }
+                          isLoading={
+                            loadingRevenue ||
+                            loadingExpense ||
+                            isDescriptionUpdating
+                          }
+                          isDisabled={
+                            isDescriptionUpdating || isInvoiceGenerated
+                          }
+                          placeholder={
+                            row.isDescribed
+                              ? "تغيير الحساب / التوصيف"
+                              : "اختر الحساب أو التوصيف"
+                          }
+                        />
 
-                        <span className="min-w-0 flex-1 truncate">
-                          {row.descriptionDisplay ||
-                            "بدون توصيف — اضغط للتوصيف"}
-                        </span>
-                      </button>
+                        {row.description && (
+                          <div
+                            className="mt-1 truncate text-right text-[9px] text-ink-400"
+                            title={row.description}
+                          >
+                            {row.description}
+                          </div>
+                        )}
 
-                      {row.description && (
-                        <button
-                          type="button"
-                          onClick={() => setEditingRow(row)}
-                          className="mt-0.5 block max-w-full truncate text-right text-[9px] text-ink-400 hover:text-ink-600"
-                          title={row.description}
-                        >
-                          {row.description}
-                        </button>
-                      )}
+                        {row.externalPartyName && (
+                          <div
+                            className="mt-0.5 truncate text-right text-[9px] text-amber-600"
+                            title={row.externalPartyName}
+                          >
+                            المستفيد: {row.externalPartyName}
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Date */}
@@ -927,15 +1166,14 @@ export default function CashboxLedgerTable({
                           </span>
                         </div>
 
-                        {/* Delete - Admin only */}
-
                         {isAdmin && !isInvoiceGenerated && (
                           <button
                             type="button"
                             title="حذف السند"
                             disabled={isDeleting || isUpdating}
-                            onClick={(e) => {
-                              e.stopPropagation();
+                            onClick={(event) => {
+                              event.stopPropagation();
+
                               handleDeleteVoucher(row);
                             }}
                             className="shrink-0 rounded-md p-1 text-ink-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
@@ -948,6 +1186,16 @@ export default function CashboxLedgerTable({
                           </button>
                         )}
                       </div>
+
+                      {!isInvoiceGenerated && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingRow(row)}
+                          className="mt-1 text-[9px] text-primary-500 hover:text-primary-700"
+                        >
+                          تعديل كامل
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1000,17 +1248,14 @@ export default function CashboxLedgerTable({
           </table>
         </div>
 
-        {/* Edit Modal */}
+        {/* ===================================================== */}
+        {/* Full edit */}
+        {/* ===================================================== */}
 
         <CashVoucherEditModal
           isOpen={editingRow !== null}
           onClose={() => setEditingRow(null)}
           onSave={handleFullEdit}
-          onDelete={
-            isAdmin && onDeleteVoucher
-              ? () => handleDeleteVoucher(editingRow)
-              : undefined
-          }
           voucher={editingRow}
           isForeign={isForeign}
           currency={currency}
@@ -1018,11 +1263,11 @@ export default function CashboxLedgerTable({
           partyOptions={partyOptions}
           driverOptions={driverOptions}
           employeeOptions={employeeOptions}
-          isSaving={editingRow ? updatingRowId === editingRow.id : false}
-          isDeleting={editingRow ? deletingRowId === editingRow.id : false}
         />
 
+        {/* ===================================================== */}
         {/* Expense */}
+        {/* ===================================================== */}
 
         <ExpenseQuickEntryModal
           isOpen={expenseModalOpen}
@@ -1030,7 +1275,9 @@ export default function CashboxLedgerTable({
           cashboxId={cashboxId}
         />
 
+        {/* ===================================================== */}
         {/* Pagination */}
+        {/* ===================================================== */}
 
         {totalCount > 0 && (
           <Pagination

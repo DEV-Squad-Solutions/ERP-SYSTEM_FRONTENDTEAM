@@ -4,44 +4,117 @@ import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
 
 import Modal from "../../../shared/components/ui/Modal";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import Input from "../../../shared/components/ui/Input";
 
-const PARTY_TYPES = [
+/**
+ * نفس فئات التوصيف المستخدمة في CashVoucherEditModal — لازم تفضل متطابقة
+ * بين المودالين. لو عدّلت واحدة عدّل التانية.
+ */
+const TAWSEEF_CATEGORIES = [
   {
-    value: "None",
-    label: "بدون طرف",
+    value: "PartnerSettlement",
+    label: "عملاء وموردين",
+    accountKind: "partner",
+    partyType: "Partner",
   },
   {
-    value: "Partner",
-    label: "عميل / مورد",
+    value: "Revenue",
+    label: "إيرادات",
+    accountKind: "movementType",
+    partyType: "None",
+  },
+  {
+    value: "Expense",
+    label: "مصاريف",
+    accountKind: "movementType",
+    partyType: "None",
   },
   {
     value: "Driver",
-    label: "سائق",
+    label: "سائقين",
+    accountKind: "driver",
+    partyType: "Driver",
   },
   {
-    value: "Other",
-    label: "طرف آخر",
+    value: "Salary",
+    label: "رواتب وأجور",
+    accountKind: "employee",
+    partyType: "Employee",
+  },
+  {
+    value: "Advance",
+    label: "سلف",
+    accountKind: "employee",
+    partyType: "Employee",
   },
 ];
 
+function getCategory(value) {
+  return (
+    TAWSEEF_CATEGORIES.find((c) => c.value === value) || TAWSEEF_CATEGORIES[0]
+  );
+}
+
+// ⚠️ نفس الافتراض المستخدم في CashVoucherEditModal — عدّل اسم الفيلد لو مختلف عندك.
+function typeRequiresBeneficiary(type) {
+  if (!type) return false;
+  return Boolean(
+    type.requiresBeneficiary ||
+    type.isPersonalExpense ||
+    String(type.name || "").includes("شخصي"),
+  );
+}
+
+/**
+ * مودال توصيف الحركة — بيستخدم في تكملة سند اتسجل Draft (بدون توصيف) من
+ * قايمة كشف الخزنة. بيرجّع نفس شكل الـ payload القديم زيادة عليه employee
+ * و beneficiaryName عشان يفضل متوافق مع أي كود بيستهلك onConfirm حاليًا،
+ * لكن لازم تتأكد إن المكان اللي بيستقبل النتيجة ده بقى يقرا partyType==="Employee".
+ *
+ * @param {{
+ *   isOpen: boolean,
+ *   onClose: () => void,
+ *   onConfirm: (result: object) => void,
+ *   partyOptions: Array<{id: string|number, name: string}>,
+ *   driverOptions: Array<{id: string|number, name: string}>,
+ *   employeeOptions: Array<{id: string|number, name: string}>,
+ *   direction?: "Receipt" | "Payment",
+ *   initialValue?: object,
+ * }} props
+ */
 export default function DescriptionPickerModal({
   isOpen,
   onClose,
   onConfirm,
   partyOptions = [],
   driverOptions = [],
+  employeeOptions = [],
+  direction,
   initialValue,
 }) {
-  const [partyType, setPartyType] = useState("None");
+  const [tawseef, setTawseef] = useState("PartnerSettlement");
   const [movementTypeId, setMovementTypeId] = useState("");
   const [businessPartnerId, setBusinessPartnerId] = useState("");
   const [driverId, setDriverId] = useState("");
-  const [externalPartyName, setExternalPartyName] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [beneficiaryName, setBeneficiaryName] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
 
-    setPartyType(initialValue?.partyType || "None");
+    // لو initialValue جاي من سند اتحفظ قبل كده وعنده tawseef صريح استخدمه،
+    // وإلا حاول نستنتجه من partyType القديم كـ fallback بس.
+    if (initialValue?.tawseef) {
+      setTawseef(initialValue.tawseef);
+    } else if (initialValue?.partyType === "Employee") {
+      setTawseef("Salary");
+    } else if (initialValue?.partyType === "Driver") {
+      setTawseef("Driver");
+    } else if (initialValue?.partyType === "Partner") {
+      setTawseef("PartnerSettlement");
+    } else {
+      setTawseef("PartnerSettlement");
+    }
 
     setMovementTypeId(
       initialValue?.cashMovementTypeId
@@ -57,15 +130,21 @@ export default function DescriptionPickerModal({
 
     setDriverId(initialValue?.driverId ? String(initialValue.driverId) : "");
 
-    setExternalPartyName(initialValue?.externalPartyName || "");
+    setEmployeeId(
+      initialValue?.employeeId ? String(initialValue.employeeId) : "",
+    );
+
+    setBeneficiaryName(initialValue?.beneficiaryName || "");
   }, [isOpen, initialValue]);
 
-  const forPartner = useMemo(() => partyType === "Partner", [partyType]);
+  const category = useMemo(() => getCategory(tawseef), [tawseef]);
 
   const { data: movementTypeOptions = [], isFetching: loadingTypes } =
     useGetCashMovementTypeOptionsQuery(
       {
-        forPartner,
+        ...(direction ? { direction } : {}),
+        classification: tawseef,
+        forPartner: category.accountKind === "partner",
       },
       {
         skip: !isOpen,
@@ -84,12 +163,27 @@ export default function DescriptionPickerModal({
     }
   }, [movementTypeOptions, movementTypeId]);
 
+  const selectedMovementType = useMemo(
+    () =>
+      movementTypeOptions.find(
+        (type) => String(type.id) === String(movementTypeId),
+      ),
+    [movementTypeOptions, movementTypeId],
+  );
+
+  const isPersonalExpense =
+    category.value === "Expense" &&
+    typeRequiresBeneficiary(selectedMovementType);
+
   const movementOptions = useMemo(() => {
     return movementTypeOptions.map((type) => ({
       value: String(type.id),
-      label: `${type.name} — ${type.direction === "Receipt" ? "وارد" : "صادر"}`,
+      label:
+        category.accountKind === "movementType"
+          ? type.name
+          : `${type.name} — ${type.direction === "Receipt" ? "وارد" : "صادر"}`,
     }));
-  }, [movementTypeOptions]);
+  }, [movementTypeOptions, category.accountKind]);
 
   const partnerOptions = useMemo(
     () =>
@@ -109,6 +203,24 @@ export default function DescriptionPickerModal({
     [driverOptions],
   );
 
+  const employeeSelectOptions = useMemo(
+    () =>
+      employeeOptions.map((emp) => ({
+        value: String(emp.id),
+        label: emp.name,
+      })),
+    [employeeOptions],
+  );
+
+  function handleTawseefChange(value) {
+    setTawseef(value);
+    setBusinessPartnerId("");
+    setDriverId("");
+    setEmployeeId("");
+    setBeneficiaryName("");
+    setMovementTypeId("");
+  }
+
   function handleConfirm() {
     const movementType = movementTypeOptions.find(
       (type) => String(type.id) === String(movementTypeId),
@@ -117,18 +229,25 @@ export default function DescriptionPickerModal({
     if (!movementType) return;
 
     const businessPartner =
-      partyType === "Partner"
+      category.accountKind === "partner"
         ? partyOptions.find(
             (party) => String(party.id) === String(businessPartnerId),
           )
         : null;
 
     const driver =
-      partyType === "Driver"
+      category.accountKind === "driver"
         ? driverOptions.find((driver) => String(driver.id) === String(driverId))
         : null;
 
+    const employee =
+      category.accountKind === "employee"
+        ? employeeOptions.find((emp) => String(emp.id) === String(employeeId))
+        : null;
+
     onConfirm({
+      tawseef,
+
       cashMovementType: {
         value: movementType.id,
         label: movementType.name,
@@ -137,7 +256,7 @@ export default function DescriptionPickerModal({
 
       direction: movementType.direction,
 
-      partyType,
+      partyType: category.partyType,
 
       businessPartner: businessPartner
         ? {
@@ -153,7 +272,15 @@ export default function DescriptionPickerModal({
           }
         : null,
 
-      externalPartyName: partyType === "Other" ? externalPartyName.trim() : "",
+      employee: employee
+        ? {
+            value: employee.id,
+            label: employee.name,
+          }
+        : null,
+
+      // المستفيد بيان إضافي مستقل — مش الحساب اللي بينزل عليه القيد
+      beneficiaryName: isPersonalExpense ? beneficiaryName.trim() : "",
     });
 
     onClose();
@@ -161,40 +288,35 @@ export default function DescriptionPickerModal({
 
   const canConfirm =
     Boolean(movementTypeId) &&
-    (partyType !== "Partner" || Boolean(businessPartnerId)) &&
-    (partyType !== "Driver" || Boolean(driverId)) &&
-    (partyType !== "Other" || Boolean(externalPartyName.trim()));
+    (category.accountKind !== "partner" || Boolean(businessPartnerId)) &&
+    (category.accountKind !== "driver" || Boolean(driverId)) &&
+    (category.accountKind !== "employee" || Boolean(employeeId)) &&
+    (!isPersonalExpense || Boolean(beneficiaryName.trim()));
 
   if (!isOpen) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="توصيف الحركة">
       <div className="space-y-5">
-        {/* نوع الطرف */}
+        {/* التوصيف */}
         <div>
           <label className="mb-2 block text-sm font-medium text-ink">
-            نوع الطرف
+            التوصيف
           </label>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {PARTY_TYPES.map((party) => (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {TAWSEEF_CATEGORIES.map((opt) => (
               <button
-                key={party.value}
+                key={opt.value}
                 type="button"
-                onClick={() => {
-                  setPartyType(party.value);
-                  setBusinessPartnerId("");
-                  setDriverId("");
-                  setExternalPartyName("");
-                  setMovementTypeId("");
-                }}
+                onClick={() => handleTawseefChange(opt.value)}
                 className={`rounded-xl border px-3 py-2.5 text-sm transition ${
-                  partyType === party.value
+                  tawseef === opt.value
                     ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
                     : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
                 }`}
               >
-                {party.label}
+                {opt.label}
               </button>
             ))}
           </div>
@@ -203,7 +325,9 @@ export default function DescriptionPickerModal({
         {/* نوع الحركة */}
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink">
-            نوع الحركة
+            {category.accountKind === "movementType"
+              ? "الحساب (نوع الحركة)"
+              : "نوع الحركة"}
           </label>
 
           <CompactSelect
@@ -219,16 +343,16 @@ export default function DescriptionPickerModal({
 
           {!loadingTypes && movementTypeOptions.length === 0 && (
             <p className="mt-1.5 text-xs text-ink/50">
-              لا توجد أنواع حركة متاحة لهذا النوع من الأطراف.
+              لا توجد أنواع حركة متاحة لهذا التوصيف.
             </p>
           )}
         </div>
 
         {/* العميل / المورد */}
-        {partyType === "Partner" && (
+        {category.accountKind === "partner" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">
-              العميل / المورد
+              الحساب (عميل / مورد)
             </label>
 
             <CompactSelect
@@ -241,10 +365,10 @@ export default function DescriptionPickerModal({
         )}
 
         {/* السائق */}
-        {partyType === "Driver" && (
+        {category.accountKind === "driver" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">
-              السائق
+              الحساب (السائق)
             </label>
 
             <CompactSelect
@@ -256,20 +380,35 @@ export default function DescriptionPickerModal({
           </div>
         )}
 
-        {/* طرف آخر */}
-        {partyType === "Other" && (
+        {/* الموظف */}
+        {category.accountKind === "employee" && (
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink">
-              اسم الطرف
+              الحساب (الموظف)
             </label>
 
-            <input
-              type="text"
-              value={externalPartyName}
-              onChange={(e) => setExternalPartyName(e.target.value)}
-              placeholder="اكتب اسم الطرف"
-              className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+            <CompactSelect
+              options={employeeSelectOptions}
+              value={employeeId}
+              onChange={(value) => setEmployeeId(value || "")}
+              placeholder="اختر الموظف"
             />
+          </div>
+        )}
+
+        {/* المستفيد — بيان إضافي مستقل في حالة المصروف الشخصي */}
+        {isPersonalExpense && (
+          <div>
+            <Input
+              label="المستفيد"
+              value={beneficiaryName}
+              onChange={(e) => setBeneficiaryName(e.target.value)}
+              placeholder="اسم الشخص المستفيد من المصروف الشخصي"
+            />
+            <p className="mt-1 text-xs text-ink/50">
+              ده بيان توضيحي بس، القيد بيتسجل على "مصروف شخصي" كحساب مش على
+              الشخص ده.
+            </p>
           </div>
         )}
 

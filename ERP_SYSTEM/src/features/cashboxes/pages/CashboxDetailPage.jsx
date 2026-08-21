@@ -39,6 +39,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import { useCashboxLedgerPrint } from "../../../shared/hooks/useCashboxLedgerPrint";
 
 import CashboxLedgerPrintTemplate from "../../../shared/components/print/CashboxLedgerPrintTemplate";
+
 import { selectIsAdmin } from "../../auth/authSlice";
 
 const currencySymbols = {
@@ -66,39 +67,59 @@ const emptyFilters = {
 };
 
 const directionOptions = [
-  { value: "Receipt", label: "وارد" },
-  { value: "Payment", label: "صادر" },
+  {
+    value: "Receipt",
+    label: "وارد",
+  },
+  {
+    value: "Payment",
+    label: "صادر",
+  },
 ];
 
 const partyTypeOptions = [
-  { value: "None", label: "بدون طرف" },
-  { value: "Partner", label: "شريك" },
-  { value: "Driver", label: "سائق" },
-  { value: "Other", label: "طرف آخر" },
+  {
+    value: "None",
+    label: "بدون طرف",
+  },
+  {
+    value: "Partner",
+    label: "شريك",
+  },
+  {
+    value: "Driver",
+    label: "سائق",
+  },
+  {
+    value: "Other",
+    label: "طرف آخر",
+  },
 ];
 
 const draftOptions = [
-  { value: "true", label: "مسودة" },
-  { value: "false", label: "مرحل" },
+  {
+    value: "true",
+    label: "مسودة",
+  },
+  {
+    value: "false",
+    label: "مرحل",
+  },
 ];
 
 export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
   const navigate = useNavigate();
 
-  // =========================================================
-  // Auth / Role
-  // =========================================================
-
   const isAdmin = useSelector(selectIsAdmin);
 
-  // =========================================================
-  // State
-  // =========================================================
-
   const [filters, setFilters] = useState({
-    draft: { ...emptyFilters },
-    applied: { ...emptyFilters },
+    draft: {
+      ...emptyFilters,
+    },
+    applied: {
+      ...emptyFilters,
+    },
   });
 
   const [filtersOpen, setFiltersOpen] = useState(true);
@@ -126,19 +147,23 @@ export default function CashboxDetailPage() {
   const { data: employees, isLoading: isLoadingEmployees } =
     useGetEmployeesSelectQuery();
 
+  // =========================================================
+  // Movement types for filter
+  // =========================================================
+
   const {
     data: movementTypesForFilter,
     isLoading: isLoadingMovementTypesFilter,
   } = useGetCashMovementTypeOptionsQuery({
     direction: filters.draft.Direction || undefined,
-    forPartner: filters.draft.PartyType === "Partner",
+    forPartner: filters.draft.PartyType === "Partner" ? true : undefined,
   });
 
   const movementTypeFilterOptions = useMemo(
     () =>
-      (movementTypesForFilter || []).map((t) => ({
-        value: String(t.id),
-        label: t.name,
+      (movementTypesForFilter || []).map((type) => ({
+        value: String(type.id),
+        label: type.name,
       })),
     [movementTypesForFilter],
   );
@@ -148,7 +173,9 @@ export default function CashboxDetailPage() {
   // =========================================================
 
   const [createVoucher] = useCreateCashVoucherMutation();
+
   const [updateVoucher] = useUpdateCashVoucherMutation();
+
   const [deleteVoucher] = useDeleteCashVoucherMutation();
 
   // =========================================================
@@ -178,56 +205,37 @@ export default function CashboxDetailPage() {
   // =========================================================
 
   const cashboxCurrency = cashbox?.currency || "EGP";
+
   const cashboxBaseCurrency = cashbox?.baseCurrency || "EGP";
 
   const isForeignCashbox = cashboxCurrency !== cashboxBaseCurrency;
 
-  const fmt = (n) =>
-    Number(n ?? 0).toLocaleString("ar-EG", {
+  const fmt = (number) =>
+    Number(number ?? 0).toLocaleString("ar-EG", {
       maximumFractionDigits: 2,
     });
-
-  // =========================================================
-  // Select options
-  // =========================================================
-
-  const partyOptions = useMemo(
-    () =>
-      (parties || []).map((party) => ({
-        value: party.id,
-        label: party.name,
-      })),
-    [parties],
-  );
-
-  const driverOptions = useMemo(
-    () =>
-      (drivers || []).map((driver) => ({
-        value: driver.id,
-        label: driver.name,
-      })),
-    [drivers],
-  );
 
   // =========================================================
   // Filters
   // =========================================================
 
   const setFilter = (key, value) => {
-    setFilters((prev) => ({
-      ...prev,
+    setFilters((previous) => ({
+      ...previous,
+
       draft: {
-        ...prev.draft,
+        ...previous.draft,
         [key]: value,
       },
     }));
   };
 
   const handleSearch = () => {
-    setFilters((prev) => ({
-      ...prev,
+    setFilters((previous) => ({
+      ...previous,
+
       applied: {
-        ...prev.draft,
+        ...previous.draft,
       },
     }));
 
@@ -235,7 +243,9 @@ export default function CashboxDetailPage() {
   };
 
   const handleReset = () => {
-    const reset = { ...emptyFilters };
+    const reset = {
+      ...emptyFilters,
+    };
 
     setFilters({
       draft: reset,
@@ -254,18 +264,20 @@ export default function CashboxDetailPage() {
   );
 
   const handlePartyTypeChange = (value) => {
-    setFilters((prev) => ({
-      ...prev,
+    setFilters((previous) => ({
+      ...previous,
+
       draft: {
-        ...prev.draft,
+        ...previous.draft,
+
         PartyType: value,
 
         BusinessPartnerId:
-          value === "Partner" ? prev.draft.BusinessPartnerId : "",
+          value === "Partner" ? previous.draft.BusinessPartnerId : "",
 
-        DriverId: value === "Driver" ? prev.draft.DriverId : "",
+        DriverId: value === "Driver" ? previous.draft.DriverId : "",
 
-        DriverTripId: value === "Driver" ? prev.draft.DriverTripId : "",
+        DriverTripId: value === "Driver" ? previous.draft.DriverTripId : "",
       },
     }));
   };
@@ -421,7 +433,7 @@ export default function CashboxDetailPage() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <button
           type="button"
-          onClick={() => setFiltersOpen((prev) => !prev)}
+          onClick={() => setFiltersOpen((previous) => !previous)}
           className="flex w-full items-center justify-between px-5 py-4 transition hover:bg-slate-50"
         >
           <div className="flex items-center gap-3">
@@ -450,8 +462,8 @@ export default function CashboxDetailPage() {
         <AnimatePresence initial={false}>
           {filtersOpen && (
             <motion.form
-              onSubmit={(e) => {
-                e.preventDefault();
+              onSubmit={(event) => {
+                event.preventDefault();
                 handleSearch();
               }}
               initial={{
@@ -476,14 +488,18 @@ export default function CashboxDetailPage() {
                     label="بحث عام"
                     placeholder="رقم السند، البيان، الطرف..."
                     value={filters.draft.Search}
-                    onChange={(e) => setFilter("Search", e.target.value)}
+                    onChange={(event) =>
+                      setFilter("Search", event.target.value)
+                    }
                   />
 
                   <Input
                     label="رقم السند"
                     placeholder="رقم السند"
                     value={filters.draft.VoucherNumber}
-                    onChange={(e) => setFilter("VoucherNumber", e.target.value)}
+                    onChange={(event) =>
+                      setFilter("VoucherNumber", event.target.value)
+                    }
                   />
 
                   <div>
@@ -501,7 +517,7 @@ export default function CashboxDetailPage() {
 
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
-                      نوع الحركة (التوصيف)
+                      نوع الحركة
                     </label>
 
                     <CompactSelect
@@ -534,7 +550,10 @@ export default function CashboxDetailPage() {
                     </label>
 
                     <CompactSelect
-                      options={partyOptions}
+                      options={(parties || []).map((party) => ({
+                        value: party.id,
+                        label: party.name,
+                      }))}
                       value={filters.draft.BusinessPartnerId}
                       onChange={(value) =>
                         setFilter("BusinessPartnerId", value)
@@ -554,7 +573,10 @@ export default function CashboxDetailPage() {
                     </label>
 
                     <CompactSelect
-                      options={driverOptions}
+                      options={(drivers || []).map((driver) => ({
+                        value: driver.id,
+                        label: driver.name,
+                      }))}
                       value={filters.draft.DriverId}
                       onChange={(value) => setFilter("DriverId", value)}
                       isLoading={isLoadingDrivers}
@@ -570,7 +592,9 @@ export default function CashboxDetailPage() {
                     label="رقم رحلة السائق"
                     placeholder="Trip ID"
                     value={filters.draft.DriverTripId}
-                    onChange={(e) => setFilter("DriverTripId", e.target.value)}
+                    onChange={(event) =>
+                      setFilter("DriverTripId", event.target.value)
+                    }
                     disabled={
                       filters.draft.PartyType !== "" &&
                       filters.draft.PartyType !== "Driver"
@@ -594,14 +618,18 @@ export default function CashboxDetailPage() {
                     type="date"
                     label="من تاريخ"
                     value={filters.draft.FromDate}
-                    onChange={(e) => setFilter("FromDate", e.target.value)}
+                    onChange={(event) =>
+                      setFilter("FromDate", event.target.value)
+                    }
                   />
 
                   <Input
                     type="date"
                     label="إلى تاريخ"
                     value={filters.draft.ToDate}
-                    onChange={(e) => setFilter("ToDate", e.target.value)}
+                    onChange={(event) =>
+                      setFilter("ToDate", event.target.value)
+                    }
                   />
                 </div>
 
