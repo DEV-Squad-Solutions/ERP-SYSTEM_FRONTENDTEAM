@@ -1,41 +1,62 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
-import { ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
-
-import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
-import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
-const PARTY_TYPES = [
-  { value: "None", label: "بدون طرف" },
-  { value: "Partner", label: "عميل / مورد" },
-  { value: "Driver", label: "سائق" },
-  { value: "Employee", label: "موظف" },
-  { value: "Other", label: "طرف آخر" },
-];
+import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
 
-const CLASSIFICATIONS = [
-  {
-    value: "PartnerSettlement",
-    label: "تسوية عميل / مورد",
-  },
-  {
-    value: "Expense",
-    label: "مصروفات",
-  },
-  {
-    value: "Revenue",
-    label: "إيرادات",
-  },
-  {
-    value: "Other",
-    label: "أخرى",
-  },
-];
+import {
+  buildDescriptionGroups,
+  getCurrentDescriptionValue,
+  buildPostingTargetPayload,
+} from "../utils/descriptionGroups";
 
+import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
+
+const schema = z.object({
+  voucherDate: z.string().min(1, "التاريخ مطلوب"),
+
+  direction: z.enum(["Receipt", "Payment"]),
+
+  descriptionValue: z.string().min(1, "اختر توصيف الحركة"),
+
+  amount: z
+    .string()
+    .min(1, "المبلغ مطلوب")
+    .refine((value) => Number(value) > 0, "المبلغ يجب أن يكون أكبر من صفر"),
+
+  exchangeRate: z.string().optional(),
+
+  referenceNumber: z.string().optional(),
+
+  description: z.string().optional(),
+
+  notes: z.string().optional(),
+});
+
+/**
+ * تعديل كامل لسند خزنة قائم.
+ *
+ * API:
+ * PUT /CashVouchers/{id}
+ *
+ * يجب إرسال هدف ترحيل واحد فقط:
+ * employeeId
+ * businessPartnerId
+ * driverId
+ * externalPartyName
+ * cashMovementTypeId
+ *
+ * يتم استخدام نفس DescriptionCascadeSelect
+ * ونفس buildPostingTargetPayload لضمان توحيد
+ * منطق هدف الترحيل.
+ */
 export default function CashVoucherEditModal({
   isOpen,
   onClose,
@@ -44,576 +65,308 @@ export default function CashVoucherEditModal({
   isForeign,
   currency,
   baseCurrency,
-  partyOptions = [],
-  driverOptions = [],
-  employeeOptions = [],
 }) {
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({
-    voucherDate: "",
-    direction: "Receipt",
-    amount: "",
-    exchangeRate: "1",
+  const { data: partySelect, isFetching: isLoadingPartySelect } =
+    useGetCashVoucherPartySelectQuery(undefined, {
+      skip: !isOpen,
+    });
 
-    partyType: "None",
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(schema),
 
-    movementTypeId: "",
-
-    businessPartnerId: "",
-    driverId: "",
-    driverTripId: "",
-    employeeId: "",
-    externalPartyName: "",
-
-    description: "",
-    notes: "",
-    referenceNumber: "",
+    defaultValues: {
+      voucherDate: new Date().toISOString().slice(0, 10),
+      direction: "Payment",
+      descriptionValue: "",
+      amount: "",
+      exchangeRate: "",
+      referenceNumber: "",
+      description: "",
+      notes: "",
+    },
   });
 
-  /* =========================================================
-     Initialize Form
-  ========================================================= */
+  const direction = watch("direction");
 
+  const groups = useMemo(
+    () =>
+      buildDescriptionGroups(partySelect, {
+        direction,
+      }),
+    [partySelect, direction],
+  );
+
+  /**
+   * تعبئة البيانات عند فتح المودال
+   * أو تغيير السند المحدد.
+   */
   useEffect(() => {
     if (!isOpen || !voucher) return;
 
-    setForm({
-      voucherDate: voucher.voucherDate || new Date().toISOString().slice(0, 10),
+    reset({
+      voucherDate: voucher.voucherDate?.slice(0, 10) || "",
 
-      direction: voucher.direction || "Receipt",
+      direction: voucher.direction || "Payment",
 
-      amount: voucher.amount ?? "",
+      descriptionValue: getCurrentDescriptionValue(voucher),
 
-      exchangeRate: String(voucher.exchangeRate ?? voucher.rate ?? 1),
+      amount: String(voucher.amount ?? ""),
 
-      partyType: voucher.partyType || "None",
+      exchangeRate:
+        voucher.exchangeRate != null ? String(voucher.exchangeRate) : "",
 
-      movementTypeId: voucher.cashMovementTypeId
-        ? String(voucher.cashMovementTypeId)
-        : "",
-
-      businessPartnerId: voucher.businessPartnerId
-        ? String(voucher.businessPartnerId)
-        : "",
-
-      driverId: voucher.driverId ? String(voucher.driverId) : "",
-
-      driverTripId: voucher.driverTripId ? String(voucher.driverTripId) : "",
-
-      employeeId: voucher.employeeId ? String(voucher.employeeId) : "",
-
-      externalPartyName: voucher.externalPartyName || "",
+      referenceNumber: voucher.referenceNumber || "",
 
       description: voucher.description || "",
 
       notes: voucher.notes || "",
-
-      referenceNumber: voucher.referenceNumber || "",
     });
-  }, [isOpen, voucher]);
+  }, [isOpen, voucher, reset]);
 
-  const set = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
+  if (!isOpen || !voucher) {
+    return null;
+  }
 
-  /* =========================================================
-     Party
-  ========================================================= */
+  const isInvoiceGenerated = Boolean(voucher.invoiceId);
 
-  const forPartner = useMemo(
-    () => form.partyType === "Partner",
-    [form.partyType],
-  );
+  async function onSubmit(values) {
+    const selectedOption = groups
+      .flatMap((group) => group.options)
+      .find((option) => option.value === values.descriptionValue);
 
-  /* =========================================================
-     Movement Types
-     
-     هنا بنجيب الأنواع الخاصة بالاتجاه والطرف.
-     
-     التصنيف نفسه هنستخدمه في الـ grouping.
-  ========================================================= */
-
-  const { data: movementTypeOptions = [], isFetching: loadingTypes } =
-    useGetCashMovementTypeOptionsQuery(
-      {
-        direction: form.direction,
-        forPartner,
-      },
-      {
-        skip: !isOpen,
-      },
-    );
-
-  /* =========================================================
-     Grouped Dropdown Options
-     
-     الشكل:
-     
-     تسوية عميل / مورد
-        تحصيل عميل
-        سداد مورد
-
-     مصروفات
-        كهرباء
-        نقل
-
-     إيرادات
-        مبيعات
-
-     أخرى
-        ...
-  ========================================================= */
-
-  const groupedMovementOptions = useMemo(() => {
-    const groups = {};
-
-    CLASSIFICATIONS.forEach((classification) => {
-      groups[classification.value] = {
-        label: classification.label,
-        options: [],
-      };
-    });
-
-    movementTypeOptions.forEach((type) => {
-      const classification =
-        type.classification || type.cashMovementTypeClassification || "Other";
-
-      if (!groups[classification]) {
-        groups[classification] = {
-          label: classification,
-          options: [],
-        };
-      }
-
-      groups[classification].options.push({
-        value: String(type.id),
-
-        label: type.name,
-
-        classification,
-
-        direction: type.direction,
-      });
-    });
-
-    return Object.values(groups).filter((group) => group.options.length > 0);
-  }, [movementTypeOptions]);
-
-  /* =========================================================
-     Selected Movement
-  ========================================================= */
-
-  const selectedMovement = useMemo(() => {
-    for (const group of groupedMovementOptions) {
-      const found = group.options.find(
-        (option) => String(option.value) === String(form.movementTypeId),
-      );
-
-      if (found) return found;
+    if (!selectedOption) {
+      toast.error("اختر توصيف صحيح للحركة");
+      return;
     }
 
-    return null;
-  }, [groupedMovementOptions, form.movementTypeId]);
+    const target = buildPostingTargetPayload(selectedOption.meta, {
+      driverTripId: voucher.driverTripId,
+    });
 
-  /* =========================================================
-     Select Options
-  ========================================================= */
+    const payload = {
+      voucherDate: values.voucherDate,
 
-  const partnerSelectOptions = useMemo(
-    () =>
-      partyOptions.map((p) => ({
-        value: String(p.id),
-        label: p.name,
-      })),
-    [partyOptions],
-  );
+      direction: values.direction,
 
-  const driverSelectOptions = useMemo(
-    () =>
-      driverOptions.map((d) => ({
-        value: String(d.id),
-        label: d.name,
-      })),
-    [driverOptions],
-  );
+      amount: Number(values.amount),
 
-  const employeeSelectOptions = useMemo(
-    () =>
-      employeeOptions.map((employee) => ({
-        value: String(employee.id),
-        label: employee.name,
-      })),
-    [employeeOptions],
-  );
+      ...target,
 
-  /* =========================================================
-     Party Type Change
-  ========================================================= */
+      referenceNumber: values.referenceNumber || undefined,
 
-  const handlePartyTypeChange = (value) => {
-    setForm((prev) => ({
-      ...prev,
+      description: values.description || undefined,
 
-      partyType: value,
+      notes: values.notes || undefined,
+    };
 
-      businessPartnerId: "",
-      driverId: "",
-      driverTripId: "",
-      employeeId: "",
-      externalPartyName: "",
-    }));
-  };
-
-  /* =========================================================
-     Validation
-  ========================================================= */
-
-  const canSave =
-    Number(form.amount) > 0 &&
-    Boolean(form.movementTypeId) &&
-    (!isForeign || Number(form.exchangeRate) > 0) &&
-    (form.partyType !== "Partner" || Boolean(form.businessPartnerId)) &&
-    (form.partyType !== "Driver" || Boolean(form.driverId)) &&
-    (form.partyType !== "Employee" || Boolean(form.employeeId)) &&
-    (form.partyType !== "Other" || Boolean(form.externalPartyName.trim()));
-
-  /* =========================================================
-     Submit
-  ========================================================= */
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    if (!canSave || !voucher) return;
+    if (isForeign) {
+      payload.exchangeRate = values.exchangeRate
+        ? Number(values.exchangeRate)
+        : undefined;
+    }
 
     setSaving(true);
 
     try {
-      await onSave({
-        voucherDate: form.voucherDate,
-
-        direction: form.direction,
-
-        amount: Number(form.amount),
-
-        ...(isForeign && {
-          exchangeRate: Number(form.exchangeRate),
-        }),
-
-        cashMovementTypeId: form.movementTypeId,
-
-        partyType: form.partyType,
-
-        businessPartnerId:
-          form.partyType === "Partner" ? form.businessPartnerId : null,
-
-        driverId: form.partyType === "Driver" ? form.driverId : null,
-
-        driverTripId:
-          form.partyType === "Driver" && form.driverTripId
-            ? form.driverTripId
-            : null,
-
-        employeeId: form.partyType === "Employee" ? form.employeeId : null,
-
-        externalPartyName:
-          form.partyType === "Other" ? form.externalPartyName.trim() : null,
-
-        description: form.description?.trim() || undefined,
-
-        notes: form.notes?.trim() || undefined,
-
-        referenceNumber: form.referenceNumber?.trim() || undefined,
-      });
-
-      onClose();
-    } catch (err) {
-      toast.error(err?.data?.detail || "فشل حفظ تعديل السند");
+      await onSave(payload);
     } finally {
       setSaving(false);
     }
   }
 
-  if (!voucher) return null;
-
-  /* =========================================================
-     Render
-  ========================================================= */
-
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`تعديل السند ${voucher.voucherNumber ?? ""}`}
-      wide
+      title={`تعديل السند ${voucher.voucherNumber || ""}`}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* =====================================================
-            Direction
-        ===================================================== */}
+      {isInvoiceGenerated ? (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700">
+            هذا السند مولد من فاتورة رقم{" "}
+            <span className="font-semibold">
+              {voucher.invoiceNumber || voucher.invoiceId}
+            </span>
+            ، ولا يمكن تعديله من هنا.
+            <br />
+            يمكن تعديله من خلال الفاتورة نفسها.
+          </div>
 
-        <div className="inline-flex w-full rounded-xl bg-ink-400/5 p-1">
-          <button
-            type="button"
-            onClick={() => set("direction", "Receipt")}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm transition-colors ${
-              form.direction === "Receipt"
-                ? "bg-white font-medium text-positive shadow-sm"
-                : "text-ink-400"
-            }`}
-          >
-            <ArrowDownCircle size={15} />
-            استلام (قبض)
-          </button>
-
-          <button
-            type="button"
-            onClick={() => set("direction", "Payment")}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm transition-colors ${
-              form.direction === "Payment"
-                ? "bg-white font-medium text-negative shadow-sm"
-                : "text-ink-400"
-            }`}
-          >
-            <ArrowUpCircle size={15} />
-            صرف (دفع)
-          </button>
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
+              إغلاق
+            </Button>
+          </div>
         </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* التاريخ + الاتجاه */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input
+              type="date"
+              label="تاريخ السند"
+              {...register("voucherDate")}
+              error={errors.voucherDate?.message}
+            />
 
-        {/* =====================================================
-            Date / Amount
-        ===================================================== */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink-900">
+                الاتجاه
+              </label>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Input
-            label="التاريخ"
-            type="date"
-            value={form.voucherDate}
-            onChange={(e) => set("voucherDate", e.target.value)}
-          />
+              <Controller
+                control={control}
+                name="direction"
+                render={({ field }) => (
+                  <div className="flex overflow-hidden rounded-lg border border-ink-400/15">
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("Receipt")}
+                      className={`flex-1 py-2 text-xs font-medium transition ${
+                        field.value === "Receipt"
+                          ? "bg-positive/15 text-positive"
+                          : "text-ink-400 hover:bg-ink-900/5"
+                      }`}
+                    >
+                      وارد
+                    </button>
 
-          <Input
-            label={`المبلغ (${currency})`}
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.amount}
-            onChange={(e) => set("amount", e.target.value)}
-          />
-        </div>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("Payment")}
+                      className={`flex-1 border-r border-ink-400/15 py-2 text-xs font-medium transition ${
+                        field.value === "Payment"
+                          ? "bg-negative/15 text-negative"
+                          : "text-ink-400 hover:bg-ink-900/5"
+                      }`}
+                    >
+                      صادر
+                    </button>
+                  </div>
+                )}
+              />
+            </div>
+          </div>
 
-        {/* =====================================================
-            Exchange Rate
-        ===================================================== */}
-
-        {isForeign && (
+          {/* التوصيف */}
           <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-900">
+              التوصيف
+            </label>
+
+            <Controller
+              control={control}
+              name="descriptionValue"
+              render={({ field }) => (
+                <DescriptionCascadeSelect
+                  groups={groups}
+                  value={field.value}
+                  onChange={field.onChange}
+                  isLoading={isLoadingPartySelect}
+                  placeholder="اختر الحساب أو التوصيف"
+                />
+              )}
+            />
+
+            {errors.descriptionValue && (
+              <p className="mt-1 text-xs text-negative">
+                {errors.descriptionValue.message}
+              </p>
+            )}
+          </div>
+
+          {/* المبلغ + سعر الصرف */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
-              label={`سعر الصرف مقابل ${baseCurrency}`}
               type="number"
-              min="0"
-              step="0.0001"
-              value={form.exchangeRate}
-              onChange={(e) => set("exchangeRate", e.target.value)}
+              step="0.01"
+              label={`المبلغ (${currency || "EGP"})`}
+              {...register("amount")}
+              error={errors.amount?.message}
             />
 
-            <p className="mt-1 text-xs text-ink-400">
-              سعر الصرف المستخدم في السند.
-            </p>
+            {isForeign && (
+              <Input
+                type="number"
+                step="0.0001"
+                label={`سعر الصرف (${baseCurrency || "EGP"})`}
+                placeholder="سعر يوم السند تلقائيًا إن ترك فارغًا"
+                {...register("exchangeRate")}
+                error={errors.exchangeRate?.message}
+              />
+            )}
           </div>
-        )}
 
-        {/* =====================================================
-            Party Type
-        ===================================================== */}
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
-            نوع الطرف
-          </label>
-
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {PARTY_TYPES.map((party) => (
-              <button
-                key={party.value}
-                type="button"
-                onClick={() => handlePartyTypeChange(party.value)}
-                className={`rounded-xl border px-3 py-2.5 text-sm transition ${
-                  form.partyType === party.value
-                    ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800"
-                    : "border-gold/30 bg-white text-ink/70 hover:border-gold/50"
-                }`}
-              >
-                {party.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* =====================================================
-            Partner
-        ===================================================== */}
-
-        {form.partyType === "Partner" && (
-          <CompactSelect
-            options={partnerSelectOptions}
-            value={form.businessPartnerId}
-            onChange={(value) => set("businessPartnerId", value || "")}
-            placeholder="اختر العميل / المورد"
-          />
-        )}
-
-        {/* =====================================================
-            Driver
-        ===================================================== */}
-
-        {form.partyType === "Driver" && (
-          <div className="space-y-3">
-            <CompactSelect
-              options={driverSelectOptions}
-              value={form.driverId}
-              onChange={(value) => set("driverId", value || "")}
-              placeholder="اختر السائق"
-            />
-
-            <Input
-              label="رقم الرحلة (اختياري)"
-              type="number"
-              value={form.driverTripId}
-              onChange={(e) => set("driverTripId", e.target.value)}
-            />
-          </div>
-        )}
-
-        {/* =====================================================
-            Employee
-        ===================================================== */}
-
-        {form.partyType === "Employee" && (
-          <CompactSelect
-            options={employeeSelectOptions}
-            value={form.employeeId}
-            onChange={(value) => set("employeeId", value || "")}
-            placeholder="اختر الموظف"
-          />
-        )}
-
-        {/* =====================================================
-            Other Party
-        ===================================================== */}
-
-        {form.partyType === "Other" && (
+          {/* الرقم المرجعي */}
           <Input
-            label="اسم الطرف"
-            value={form.externalPartyName}
-            onChange={(e) => set("externalPartyName", e.target.value)}
-          />
-        )}
-
-        {/* =====================================================
-            التوصيف - GROUPED DROPDOWN
-        ===================================================== */}
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
-            التوصيف <span className="text-negative">*</span>
-          </label>
-
-          <CompactSelect
-            options={groupedMovementOptions}
-            value={form.movementTypeId}
-            onChange={(value) => set("movementTypeId", value || "")}
-            isLoading={loadingTypes}
-            isDisabled={loadingTypes}
-            placeholder={
-              loadingTypes ? "جاري تحميل التوصيفات..." : "اختر التوصيف"
-            }
+            label="الرقم المرجعي"
+            {...register("referenceNumber")}
+            error={errors.referenceNumber?.message}
           />
 
-          {!loadingTypes && groupedMovementOptions.length === 0 && (
-            <p className="mt-1.5 text-xs text-negative">
-              مفيش توصيفات متاحة لهذا الاتجاه والطرف.
-            </p>
-          )}
-
-          {selectedMovement && (
-            <p className="mt-1.5 text-xs text-ink-400">
-              التصنيف:{" "}
-              {CLASSIFICATIONS.find(
-                (item) => item.value === selectedMovement.classification,
-              )?.label || selectedMovement.classification}
-            </p>
-          )}
-        </div>
-
-        {/* =====================================================
-            Description
-        ===================================================== */}
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
-            البيان
-          </label>
-
-          <textarea
-            value={form.description}
-            onChange={(e) => set("description", e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-ink-400/15 bg-white px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none"
+          {/* البيان */}
+          <Input
+            label="البيان"
+            {...register("description")}
+            error={errors.description?.message}
           />
-        </div>
 
-        {/* =====================================================
-            Notes
-        ===================================================== */}
+          {/* الملاحظات */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-900">
+              ملاحظات
+            </label>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-900">
-            ملاحظات
-          </label>
+            <textarea
+              {...register("notes")}
+              rows={3}
+              className="w-full resize-none rounded-lg border border-ink-400/15 px-3 py-2 text-sm outline-none transition placeholder:text-ink-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-400/10"
+              placeholder="أضف ملاحظات إن وجدت..."
+            />
 
-          <textarea
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-ink-400/15 bg-white px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none"
-          />
-        </div>
+            {errors.notes && (
+              <p className="mt-1 text-xs text-negative">
+                {errors.notes.message}
+              </p>
+            )}
+          </div>
 
-        {/* =====================================================
-            Reference
-        ===================================================== */}
+          {/* Actions */}
+          <div className="flex justify-end gap-2 border-t border-ink-400/10 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={saving}
+            >
+              إلغاء
+            </Button>
 
-        <Input
-          label="رقم مرجعي (اختياري)"
-          value={form.referenceNumber}
-          onChange={(e) => set("referenceNumber", e.target.value)}
-        />
-
-        {/* =====================================================
-            Actions
-        ===================================================== */}
-
-        <div className="flex justify-end gap-2 border-t border-ink-400/10 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-xl border border-ink-400/15 px-4 py-2 text-sm text-ink-700 transition hover:bg-ink-400/5"
-          >
-            إلغاء
-          </button>
-
-          <Button type="submit" disabled={!canSave || saving}>
-            {saving && <Loader2 size={16} className="animate-spin" />}
-            حفظ التعديلات
-          </Button>
-        </div>
-      </form>
+            <Button type="submit" disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  جاري الحفظ...
+                </>
+              ) : (
+                <>
+                  <Save size={16} />
+                  حفظ التعديلات
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      )}
     </Modal>
   );
 }

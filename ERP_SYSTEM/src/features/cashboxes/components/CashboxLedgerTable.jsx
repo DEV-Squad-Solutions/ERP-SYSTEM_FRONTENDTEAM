@@ -18,10 +18,15 @@ import { toast } from "sonner";
 
 import CashVoucherEditModal from "./CashVoucherEditModal";
 import ExpenseQuickEntryModal from "./ExpenseQuickEntryModal";
+import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
-import CompactSelect from "../../../shared/components/ui/CompactSelect";
-import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
+import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
 import { selectIsAdmin } from "../../auth/authSlice";
+import {
+  buildDescriptionGroups,
+  getCurrentDescriptionValue,
+  buildPostingTargetPayload,
+} from "../utils/descriptionGroups";
 
 const fmt = (number) =>
   Number(number ?? 0).toLocaleString("ar-EG", {
@@ -37,210 +42,6 @@ function emptyDraft() {
     notes: "",
   };
 }
-
-/**
- * يبني مجموعات التوصيف.
- *
- * Partner:
- *   العملاء والموردين
- *
- * Revenue:
- *   أنواع الإيرادات
- *
- * Expense:
- *   أنواع المصروفات
- *
- * Driver:
- *   السائقين
- *
- * Employee:
- *   الموظفين
- *
- * كل option يحمل metadata داخليًا.
- */
-function buildDescriptionGroups({
-  partyOptions,
-  driverOptions,
-  employeeOptions,
-  revenueTypes,
-  expenseTypes,
-  currentVoucher,
-}) {
-  const currentMovementTypeId = currentVoucher?.cashMovementTypeId
-    ? String(currentVoucher.cashMovementTypeId)
-    : "";
-
-  const currentPartyType = currentVoucher?.partyType || "None";
-
-  const groups = [];
-
-  // =========================================================
-  // Customers / Suppliers
-  // =========================================================
-
-  if (partyOptions.length) {
-    groups.push({
-      label: "عملاء وموردين",
-      options: partyOptions.map((party) => ({
-        value: `partner:${party.id}`,
-        label: party.name,
-        meta: {
-          type: "Partner",
-          businessPartnerId: String(party.id),
-          movementTypeId:
-            currentPartyType === "Partner" ? currentMovementTypeId : "",
-          classification: "PartnerSettlement",
-          partyType: "Partner",
-        },
-      })),
-    });
-  }
-
-  // =========================================================
-  // Revenue
-  // =========================================================
-
-  if (revenueTypes.length) {
-    groups.push({
-      label: "إيرادات",
-      options: revenueTypes.map((type) => ({
-        value: `revenue:${type.id}`,
-        label: type.name,
-        meta: {
-          type: "MovementType",
-          movementTypeId: String(type.id),
-          classification: "Revenue",
-          partyType: "None",
-          businessPartnerId: null,
-          driverId: null,
-          employeeId: null,
-        },
-      })),
-    });
-  }
-
-  // =========================================================
-  // Expenses
-  // =========================================================
-
-  if (expenseTypes.length) {
-    groups.push({
-      label: "مصاريف",
-      options: expenseTypes.map((type) => ({
-        value: `expense:${type.id}`,
-        label: type.name,
-        meta: {
-          type: "MovementType",
-          movementTypeId: String(type.id),
-          classification: "Expense",
-          partyType: "None",
-          businessPartnerId: null,
-          driverId: null,
-          employeeId: null,
-        },
-      })),
-    });
-  }
-
-  // =========================================================
-  // Drivers
-  // =========================================================
-
-  if (driverOptions.length) {
-    groups.push({
-      label: "سائقين",
-      options: driverOptions.map((driver) => ({
-        value: `driver:${driver.id}`,
-        label: driver.name,
-        meta: {
-          type: "Driver",
-          driverId: String(driver.id),
-          movementTypeId:
-            currentPartyType === "Driver" ? currentMovementTypeId : "",
-          classification: "Other",
-          partyType: "Driver",
-        },
-      })),
-    });
-  }
-
-  // =========================================================
-  // Salaries
-  // =========================================================
-
-  if (employeeOptions.length) {
-    groups.push({
-      label: "رواتب وأجور",
-      options: employeeOptions.map((employee) => ({
-        value: `salary:${employee.id}`,
-        label: employee.name,
-        meta: {
-          type: "Employee",
-          employeeId: String(employee.id),
-          movementTypeId:
-            currentPartyType === "Employee" ? currentMovementTypeId : "",
-          classification: "Other",
-          partyType: "Employee",
-        },
-      })),
-    });
-  }
-
-  // =========================================================
-  // Advances
-  // =========================================================
-
-  if (employeeOptions.length) {
-    groups.push({
-      label: "سلف",
-      options: employeeOptions.map((employee) => ({
-        value: `advance:${employee.id}`,
-        label: employee.name,
-        meta: {
-          type: "Employee",
-          employeeId: String(employee.id),
-          movementTypeId:
-            currentPartyType === "Employee" ? currentMovementTypeId : "",
-          classification: "Other",
-          partyType: "Employee",
-        },
-      })),
-    });
-  }
-
-  return groups;
-}
-
-function getCurrentDescriptionValue(row) {
-  if (!row) {
-    return "";
-  }
-
-  if (row.partyType === "Partner" && row.businessPartnerId) {
-    return `partner:${row.businessPartnerId}`;
-  }
-
-  if (row.partyType === "Driver" && row.driverId) {
-    return `driver:${row.driverId}`;
-  }
-
-  if (row.partyType === "Employee" && row.employeeId) {
-    return `salary:${row.employeeId}`;
-  }
-
-  if (row.cashMovementTypeId) {
-    if (row.cashMovementTypeClassification === "Revenue") {
-      return `revenue:${row.cashMovementTypeId}`;
-    }
-
-    if (row.cashMovementTypeClassification === "Expense") {
-      return `expense:${row.cashMovementTypeId}`;
-    }
-  }
-
-  return "";
-}
-
 export default function CashboxLedgerTable({
   data,
   isLoading,
@@ -281,22 +82,12 @@ export default function CashboxLedgerTable({
   const vouchers = data?.items || [];
 
   // =========================================================
-  // Movement Types
+  // Party / description select data (نداء واحد بيغني عن نداءات
+  // منفصلة لكل مجموعة: عملاء/موردين، سائقين، موظفين، مصاريف، إيرادات)
   // =========================================================
 
-  const { data: revenueTypes = [], isFetching: loadingRevenue } =
-    useGetCashMovementTypeOptionsQuery({
-      direction: undefined,
-      classification: "Revenue",
-      forPartner: false,
-    });
-
-  const { data: expenseTypes = [], isFetching: loadingExpense } =
-    useGetCashMovementTypeOptionsQuery({
-      direction: undefined,
-      classification: "Expense",
-      forPartner: false,
-    });
+  const { data: partySelect, isFetching: loadingPartySelect } =
+    useGetCashVoucherPartySelectQuery();
 
   // =========================================================
   // Currency
@@ -331,17 +122,14 @@ export default function CashboxLedgerTable({
 
   // =========================================================
   // Description Groups
+  //
+  // بتتبني حسب اتجاه الحركة نفسها (row.direction / draft.direction)
+  // عشان تظهر مجموعة "إيرادات" مع الوارد ومجموعة "مصاريف" مع الصادر
+  // بس، زي ما buildDescriptionGroups بيفلتر داخليًا.
   // =========================================================
 
-  const getDescriptionGroups = (row) =>
-    buildDescriptionGroups({
-      partyOptions,
-      driverOptions,
-      employeeOptions,
-      revenueTypes,
-      expenseTypes,
-      currentVoucher: row,
-    });
+  const getDescriptionGroups = (direction) =>
+    buildDescriptionGroups(partySelect, { direction });
 
   // =========================================================
   // Inline description change
@@ -355,7 +143,7 @@ export default function CashboxLedgerTable({
       return;
     }
 
-    const groups = getDescriptionGroups(row);
+    const groups = getDescriptionGroups(row.direction);
 
     const selectedOption = groups
       .flatMap((group) => group.options)
@@ -367,6 +155,12 @@ export default function CashboxLedgerTable({
 
     const meta = selectedOption.meta || {};
 
+    // =========================================================
+    // Exactly one posting target must be sent to the backend
+    // (see buildPostingTargetPayload in utils/descriptionGroups.js
+    // for the shared rule)
+    // =========================================================
+
     const payload = {
       id: row.id,
       cashboxId,
@@ -376,19 +170,7 @@ export default function CashboxLedgerTable({
       direction: row.direction,
       amount: Number(row.amount),
 
-      cashMovementTypeId: meta.movementTypeId || row.cashMovementTypeId || null,
-
-      partyType: meta.partyType || "None",
-
-      businessPartnerId: meta.businessPartnerId || null,
-
-      driverId: meta.driverId || null,
-
-      driverTripId: meta.type === "Driver" ? row.driverTripId || null : null,
-
-      employeeId: meta.employeeId || null,
-
-      externalPartyName: row.externalPartyName || null,
+      ...buildPostingTargetPayload(meta, row),
 
       description: row.description || undefined,
 
@@ -1034,7 +816,7 @@ export default function CashboxLedgerTable({
 
                 const isInvoiceGenerated = Boolean(row.invoiceId);
 
-                const descriptionGroups = getDescriptionGroups(row);
+                const descriptionGroups = getDescriptionGroups(row.direction);
 
                 const selectedDescription = getCurrentDescriptionValue(row);
 
@@ -1097,16 +879,14 @@ export default function CashboxLedgerTable({
 
                     <td className="min-w-0 border-l border-ink-400/5 px-2 py-2">
                       <div className="min-w-[240px]">
-                        <CompactSelect
-                          options={descriptionGroups}
+                        <DescriptionCascadeSelect
+                          groups={descriptionGroups}
                           value={selectedDescription}
                           onChange={(value) =>
                             handleDescriptionChange(row, value)
                           }
                           isLoading={
-                            loadingRevenue ||
-                            loadingExpense ||
-                            isDescriptionUpdating
+                            loadingPartySelect || isDescriptionUpdating
                           }
                           isDisabled={
                             isDescriptionUpdating || isInvoiceGenerated
@@ -1273,6 +1053,7 @@ export default function CashboxLedgerTable({
           isOpen={expenseModalOpen}
           onClose={() => setExpenseModalOpen(false)}
           cashboxId={cashboxId}
+          onSaved={refetch}
         />
 
         {/* ===================================================== */}

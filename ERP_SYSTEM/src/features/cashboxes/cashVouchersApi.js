@@ -47,6 +47,20 @@ export const cashVouchersApi = baseApi.injectEndpoints({
     }),
 
     // =========================================================
+    // Party / description select
+    //
+    // يرجع دفعة واحدة: الشركاء، السائقين، الموظفين، أنواع المصاريف
+    // وأنواع الإيرادات المتاحة لتوصيف سندات الخزنة. يستخدم في
+    // CashboxLedgerTable لبناء قائمة "التوصيف" بدلاً من عمل عدة
+    // نداءات منفصلة لكل مجموعة.
+    // =========================================================
+    getCashVoucherPartySelect: builder.query({
+      query: () => `CashVouchers/party-select`,
+
+      providesTags: ["CashVoucherPartySelect"],
+    }),
+
+    // =========================================================
     // Create
     // =========================================================
     createCashVoucher: builder.mutation({
@@ -76,6 +90,11 @@ export const cashVouchersApi = baseApi.injectEndpoints({
 
     // =========================================================
     // Update
+    //
+    // مهم: السكيما الجديدة من الـ Swagger ملهاش partyType خالص —
+    // الباك اند بيحدد نوع الطرف من الحقل المرسل نفسه (posting
+    // target واحد بالظبط: employeeId / businessPartnerId /
+    // driverId / externalPartyName / cashMovementTypeId).
     // =========================================================
     updateCashVoucher: builder.mutation({
       query: ({ id, ...data }) => ({
@@ -86,29 +105,33 @@ export const cashVouchersApi = baseApi.injectEndpoints({
           direction: data.direction,
 
           cashboxId: Number(data.cashboxId),
-          cashMovementTypeId: Number(data.cashMovementTypeId),
 
-          partyType: data.partyType,
+          cashMovementTypeId:
+            data.cashMovementTypeId != null && data.cashMovementTypeId !== ""
+              ? Number(data.cashMovementTypeId)
+              : null,
 
           businessPartnerId:
             data.businessPartnerId != null && data.businessPartnerId !== ""
               ? Number(data.businessPartnerId)
-              : undefined,
+              : null,
 
           driverId:
             data.driverId != null && data.driverId !== ""
               ? Number(data.driverId)
-              : undefined,
+              : null,
 
           driverTripId:
             data.driverTripId != null && data.driverTripId !== ""
               ? Number(data.driverTripId)
               : undefined,
 
-          externalPartyName:
-            data.partyType === "Other"
-              ? data.externalPartyName?.trim() || undefined
-              : undefined,
+          employeeId:
+            data.employeeId != null && data.employeeId !== ""
+              ? Number(data.employeeId)
+              : null,
+
+          externalPartyName: data.externalPartyName?.trim() || undefined,
 
           amount: Number(data.amount),
 
@@ -172,6 +195,7 @@ export const cashVouchersApi = baseApi.injectEndpoints({
 export const {
   useGetCashVouchersQuery,
   useGetCashVoucherByIdQuery,
+  useGetCashVoucherPartySelectQuery,
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
   useDeleteCashVoucherMutation,
