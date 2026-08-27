@@ -545,50 +545,6 @@ export default function InvoiceEditPage() {
       return Number(line.count) <= 0 || Number(line.weight) <= 0;
     });
 
-    if (hasInvalidLine) {
-      toast.error("كل سطر مستخدم لازم يكون له عدد ووزن أكبر من صفر");
-
-      return;
-    }
-
-    // =====================================================
-    // الفاتورة النقدية
-    // =====================================================
-
-    if (
-      form.paymentTerm === "Cash" &&
-      Number(form.paidAmount) !== displayTotal
-    ) {
-      toast.error(
-        "الفاتورة النقدية لازم يكون المدفوع = إجمالي الفاتورة بالظبط",
-      );
-
-      return;
-    }
-
-    // =====================================================
-    // المدفوع يحتاج خزنة ونوع حركة
-    // =====================================================
-
-    if (
-      Number(form.paidAmount) > 0 &&
-      (!form.cashboxId || !form.cashMovementTypeId)
-    ) {
-      toast.error("اختر الخزنة ونوع الحركة أولاً لإن فيه مبلغ مدفوع");
-
-      return;
-    }
-
-    // =====================================================
-    // rowVersion
-    // =====================================================
-
-    if (!rowVersion) {
-      toast.error("رقم إصدار الفاتورة مفقود، أعد تحميل الفاتورة");
-
-      return;
-    }
-
     try {
       const body = buildInvoiceUpdateBody({
         form,
@@ -946,25 +902,6 @@ export default function InvoiceEditPage() {
                 value={form.cashboxId}
                 onChange={handleCashboxChange}
                 placeholder="اختر الخزنة"
-              />
-            </div>
-
-            {/* نوع الحركة */}
-            <div>
-              <label className="block mb-1.5 text-sm font-medium text-ink-900">
-                نوع الحركة <span className="text-negative">*</span>
-              </label>
-
-              <CompactSelect
-                options={
-                  cashMovementTypeOptions?.map((t) => ({
-                    value: t.id,
-                    label: t.name,
-                  })) || []
-                }
-                value={form.cashMovementTypeId}
-                onChange={handleCashMovementTypeChange}
-                placeholder="اختر نوع الحركة"
               />
             </div>
 

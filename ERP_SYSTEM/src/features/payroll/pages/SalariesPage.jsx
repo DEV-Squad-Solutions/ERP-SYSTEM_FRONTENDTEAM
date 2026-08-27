@@ -9,19 +9,35 @@ import {
   Wallet,
   AlertCircle,
   RefreshCw,
+  Send,
+  RotateCw,
+  Plus,
+  X,
 } from "lucide-react";
 
-import { useGetPayrollEntriesQuery } from "../payrollApi";
+import {
+  useGetPayrollEntriesQuery,
+  useMoveSalaryMutation,
+  useBulkMoveSalaryMutation,
+  useRecalculatePayrollEntryMutation,
+} from "../payrollApi";
 import {
   EMPLOYEE_TYPE,
   employeeTypeOptions,
   fmtMoney,
 } from "../payroll.constants";
 
+import { useGetCashboxesQuery } from "../../cashboxes/cashboxesApi";
+import { useGetCashMovementTypesQuery } from "../../cashboxes/cashMovementTypesApi";
+
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+
+import MoveSalaryModal from "../components/MoveSalaryModal";
+import BulkMoveSalaryModal from "../components/BulkMoveSalaryModal";
+import BulkCreatePayrollEntriesModal from "../components/BulkCreatePayrollEntriesModal";
 
 const currentYear = new Date().getFullYear();
 
@@ -41,6 +57,12 @@ export default function SalariesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  const [moveModalRow, setMoveModalRow] = useState(null);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
   const { data, isLoading, isFetching, isError, refetch } =
     useGetPayrollEntriesQuery({
       PageNumber: page,
@@ -51,6 +73,19 @@ export default function SalariesPage() {
       EmployeeType: applied.employeeType || undefined,
       Search: applied.search || undefined,
     });
+
+  const { data: cashboxesData } = useGetCashboxesQuery();
+  const cashboxes = Array.isArray(cashboxesData)
+    ? cashboxesData
+    : (cashboxesData?.items ?? []);
+
+  const { data: movementTypesData } = useGetCashMovementTypesQuery();
+  const cashMovementTypes = Array.isArray(movementTypesData)
+    ? movementTypesData
+    : (movementTypesData?.items ?? []);
+
+  const [recalculate, { isLoading: isRecalculating }] =
+    useRecalculatePayrollEntryMutation();
 
   const rows = data?.items || [];
 
@@ -72,6 +107,34 @@ export default function SalariesPage() {
     setPage(1);
   };
 
+  // =========================================================
+  // Selection
+  // =========================================================
+
+  function toggleRow(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds((prev) => {
+      if (prev.size === rows.length) return new Set();
+      return new Set(rows.map((r) => r.id));
+    });
+  }
+
+  async function handleRecalculate(id) {
+    try {
+      await recalculate(id).unwrap();
+    } catch {
+      // معالجة الخطأ حسب نظام الإشعارات عندك
+    }
+  }
+
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
       {/* Header */}
@@ -84,10 +147,24 @@ export default function SalariesPage() {
           </p>
         </div>
 
-        <Button variant="outline" onClick={() => window.print()}>
-          <Printer size={14} />
-          طباعة
-        </Button>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <Button onClick={() => setBulkMoveOpen(true)} className="h-9">
+              <Send size={14} />
+              ترحيل المحدد ({selectedIds.size})
+            </Button>
+          )}
+
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer size={14} />
+            طباعة
+          </Button>
+
+          <Button onClick={() => setCreateModalOpen(true)}>
+            <Plus size={14} />
+            قيود مرتبات جديدة
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -161,9 +238,20 @@ export default function SalariesPage() {
               ${isFetching ? "opacity-60" : ""}
             `}
           >
-            <table className="w-full text-right border-collapse min-w-[950px]">
+            <table className="w-full text-right border-collapse min-w-[1050px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
+                  <th className="p-2.5 border-l border-ink-400/5 w-8">
+                    <input
+                      type="checkbox"
+                      checked={
+                        rows.length > 0 && selectedIds.size === rows.length
+                      }
+                      onChange={toggleAll}
+                      className="rounded border-ink-400/30"
+                    />
+                  </th>
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     الموظف
                   </th>
@@ -192,100 +280,158 @@ export default function SalariesPage() {
                     الصافي
                   </th>
 
+                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                    حالة الترحيل
+                  </th>
+
                   <th className="p-2.5 font-medium">الإجراءات</th>
                 </tr>
               </thead>
 
               <tbody>
-                {rows.map((row, index) => (
-                  <tr
-                    key={row.id}
-                    className="
-                      border-b border-ink-400/5
-                      last:border-0
-                      hover:bg-primary-50/30
-                      transition-colors
-                      animate-fadeUp
-                    "
-                    style={{
-                      animationDelay: `${Math.min(index, 12) * 25}ms`,
-                    }}
-                  >
-                    {/* Employee */}
-                    <td className="p-2.5 border-l border-ink-400/5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(`/dashboard/payroll/salaries/${row.id}`)
-                        }
-                        className="
-                          text-primary-600
-                          hover:text-primary-700
-                          hover:underline
-                          text-sm
-                          font-semibold
-                          text-right
-                        "
-                      >
-                        {row.employeeName}
-                      </button>
+                {rows.map((row, index) => {
+                  const isMoved = !!row.isSalaryMoveToEmployeeAccount;
 
-                      {row.employeeCode && (
-                        <div className="text-[11px] text-ink-400 mt-0.5">
-                          {row.employeeCode}
+                  return (
+                    <tr
+                      key={row.id}
+                      className="
+                        border-b border-ink-400/5
+                        last:border-0
+                        hover:bg-primary-50/30
+                        transition-colors
+                        animate-fadeUp
+                      "
+                      style={{
+                        animationDelay: `${Math.min(index, 12) * 25}ms`,
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(row.id)}
+                          onChange={() => toggleRow(row.id)}
+                          disabled={isMoved}
+                          className="rounded border-ink-400/30 disabled:opacity-30"
+                        />
+                      </td>
+
+                      {/* Employee */}
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/dashboard/payroll/salaries/${row.id}`)
+                          }
+                          className="
+                            text-primary-600
+                            hover:text-primary-700
+                            hover:underline
+                            text-sm
+                            font-semibold
+                            text-right
+                          "
+                        >
+                          {row.employeeName}
+                        </button>
+
+                        {row.employeeCode && (
+                          <div className="text-[11px] text-ink-400 mt-0.5">
+                            {row.employeeCode}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Employee type */}
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        <span className="text-xs text-ink-700">
+                          {EMPLOYEE_TYPE[row.employeeType] ||
+                            row.employeeType ||
+                            "—"}
+                        </span>
+                      </td>
+
+                      {/* Period */}
+                      <td className="p-2.5 num text-[12px] border-l border-ink-400/5">
+                        <div>{row.startDate}</div>
+                        <div className="text-ink-400">{row.endDate}</div>
+                      </td>
+
+                      {/* Bonus */}
+                      <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">
+                        {fmtMoney(row.bonus)}
+                      </td>
+
+                      {/* Deduction */}
+                      <td className="p-2.5 num text-negative text-[13px] border-l border-ink-400/5">
+                        {fmtMoney(row.deduction)}
+                      </td>
+
+                      {/* Gross */}
+                      <td className="p-2.5 num font-medium text-[13px] border-l border-ink-400/5">
+                        {fmtMoney(row.grossSalary)}
+                      </td>
+
+                      {/* Net */}
+                      <td className="p-2.5 num font-bold text-[13px] border-l border-ink-400/5">
+                        {fmtMoney(row.netSalary)}
+                      </td>
+
+                      {/* Move status */}
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        {isMoved ? (
+                          <span className="inline-flex whitespace-nowrap rounded-md bg-primary-500/10 px-2 py-1 text-[11px] text-primary-500">
+                            مُرحّل
+                          </span>
+                        ) : (
+                          <span className="inline-flex whitespace-nowrap rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
+                            لم يُرحّل
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="p-2.5">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/dashboard/payroll/salaries/${row.id}`)
+                            }
+                            className="text-xs text-primary-600 hover:underline font-medium"
+                          >
+                            التفاصيل
+                          </button>
+
+                          {!isMoved && (
+                            <button
+                              type="button"
+                              onClick={() => setMoveModalRow(row)}
+                              title="ترحيل الراتب لحساب الموظف"
+                              className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
+                            >
+                              <Send size={14} />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleRecalculate(row.id)}
+                            disabled={isRecalculating}
+                            title="إعادة احتساب"
+                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-ink-400/10 hover:text-ink-700 disabled:opacity-40"
+                          >
+                            <RotateCw
+                              size={14}
+                              className={isRecalculating ? "animate-spin" : ""}
+                            />
+                          </button>
                         </div>
-                      )}
-                    </td>
-
-                    {/* Employee type */}
-                    <td className="p-2.5 border-l border-ink-400/5">
-                      <span className="text-xs text-ink-700">
-                        {EMPLOYEE_TYPE[row.employeeType] ||
-                          row.employeeType ||
-                          "—"}
-                      </span>
-                    </td>
-
-                    {/* Period */}
-                    <td className="p-2.5 num text-[12px] border-l border-ink-400/5">
-                      <div>{row.startDate}</div>
-                      <div className="text-ink-400">{row.endDate}</div>
-                    </td>
-
-                    {/* Bonus */}
-                    <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">
-                      {fmtMoney(row.bonus)}
-                    </td>
-
-                    {/* Deduction */}
-                    <td className="p-2.5 num text-negative text-[13px] border-l border-ink-400/5">
-                      {fmtMoney(row.deduction)}
-                    </td>
-
-                    {/* Gross */}
-                    <td className="p-2.5 num font-medium text-[13px] border-l border-ink-400/5">
-                      {fmtMoney(row.grossSalary)}
-                    </td>
-
-                    {/* Net */}
-                    <td className="p-2.5 num font-bold text-[13px] border-l border-ink-400/5">
-                      {fmtMoney(row.netSalary)}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="p-2.5">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(`/dashboard/payroll/salaries/${row.id}`)
-                        }
-                        className="text-xs text-primary-600 hover:underline font-medium"
-                      >
-                        عرض التفاصيل
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -305,6 +451,45 @@ export default function SalariesPage() {
           )}
         </>
       )}
+
+      {/* Single Move Salary */}
+      <MoveSalaryModal
+        row={moveModalRow}
+        cashboxes={cashboxes}
+        cashMovementTypes={cashMovementTypes}
+        onClose={() => setMoveModalRow(null)}
+        onSaved={() => {
+          setMoveModalRow(null);
+          refetch();
+        }}
+      />
+
+      {/* Bulk Move Salary */}
+      <BulkMoveSalaryModal
+        isOpen={bulkMoveOpen}
+        payrollEntryIds={[...selectedIds]}
+        cashboxes={cashboxes}
+        cashMovementTypes={cashMovementTypes}
+        onClose={() => setBulkMoveOpen(false)}
+        onSaved={() => {
+          setBulkMoveOpen(false);
+          setSelectedIds(new Set());
+          refetch();
+        }}
+      />
+
+      {/* Bulk Create Entries */}
+      <BulkCreatePayrollEntriesModal
+        isOpen={createModalOpen}
+        cashboxes={cashboxes}
+        cashMovementTypes={cashMovementTypes}
+        onClose={() => setCreateModalOpen(false)}
+        onSaved={() => {
+          setCreateModalOpen(false);
+          setPage(1);
+          refetch();
+        }}
+      />
     </div>
   );
 }

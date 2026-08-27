@@ -46,11 +46,19 @@ const emptyFilters = {
 export default function AttendancePage() {
   const navigate = useNavigate();
 
+  // =========================================================
+  // Filters
+  // =========================================================
+
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  // =========================================================
+  // Modals
+  // =========================================================
 
   const [showQuickEntry, setShowQuickEntry] = useState(false);
 
@@ -74,15 +82,15 @@ export default function AttendancePage() {
     useGetEmployeeAttendancesQuery({
       PageNumber: page,
       PageSize: pageSize,
-
       EmployeeId: applied.employeeId || undefined,
-
       WorkDateFrom: applied.fromDate || undefined,
-
       WorkDateTo: applied.toDate || undefined,
-
       Status: applied.status || undefined,
     });
+
+  // =========================================================
+  // Delete
+  // =========================================================
 
   const [deleteAttendance] = useDeleteEmployeeAttendanceMutation();
 
@@ -120,9 +128,25 @@ export default function AttendancePage() {
     setShowQuickEntry(false);
   };
 
-  const handleQuickSaved = () => {
+  /**
+   * مهم:
+   * AttendanceQuickEntry هو المسؤول عن إرسال الـ Bulk request.
+   *
+   * بعد نجاح الحفظ:
+   * - نقفل المودال
+   * - نعمل refetch
+   * - السجل الجديد أو المعدل يظهر مباشرة
+   *
+   * لا يوجد هنا أي تحقق من كون السجل جديد أو موجود مسبقًا.
+   */
+  const handleQuickSaved = async () => {
     setShowQuickEntry(false);
-    refetch();
+
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Attendance refetch error:", error);
+    }
   };
 
   // =========================================================
@@ -163,9 +187,14 @@ export default function AttendancePage() {
     setEditingAttendance(null);
   };
 
-  const handleFormSaved = () => {
+  const handleFormSaved = async () => {
     closeEdit();
-    refetch();
+
+    try {
+      await refetch();
+    } catch (error) {
+      console.error("Attendance refetch error:", error);
+    }
   };
 
   // =========================================================
@@ -185,7 +214,7 @@ export default function AttendancePage() {
 
             toast.success("تم حذف سجل الحضور بنجاح");
 
-            refetch();
+            await refetch();
           } catch (error) {
             console.error("Delete attendance error:", error);
 
@@ -520,10 +549,18 @@ export default function AttendancePage() {
 
                     <td className="p-2.5 border-l border-ink-400/5">
                       <span
-                        className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          attendanceStatusBadge[row.status] ||
-                          "text-ink-400 bg-ink-400/10"
-                        }`}
+                        className={`
+                          inline-block
+                          text-xs
+                          font-semibold
+                          px-2
+                          py-0.5
+                          rounded-full
+                          ${
+                            attendanceStatusBadge[row.status] ||
+                            "text-ink-400 bg-ink-400/10"
+                          }
+                        `}
                       >
                         {ATTENDANCE_STATUS[row.status] || row.status}
                       </span>
@@ -643,13 +680,18 @@ function SummaryCard({ label, value, tone }) {
       <p className="text-xs text-ink-400 mb-1">{label}</p>
 
       <p
-        className={`text-lg font-bold num ${
-          tone === "positive"
-            ? "text-positive"
-            : tone === "negative"
-              ? "text-negative"
-              : "text-ink-900"
-        }`}
+        className={`
+          text-lg
+          font-bold
+          num
+          ${
+            tone === "positive"
+              ? "text-positive"
+              : tone === "negative"
+                ? "text-negative"
+                : "text-ink-900"
+          }
+        `}
       >
         {value}
       </p>

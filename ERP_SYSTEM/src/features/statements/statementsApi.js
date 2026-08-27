@@ -23,8 +23,31 @@ export const statementsApi = baseApi.injectEndpoints({
 
       providesTags: ["PartnerItemMovements"],
     }),
+    getOperationalTrialBalance: builder.query({
+      query: ({
+        fromDate,
+        toDate,
+        viewMode = "Summary",
+        category,
+        includeZeroBalances,
+      } = {}) => ({
+        url: "Statements/operational-trial-balance",
+        params: {
+          FromDate: fromDate || undefined,
+          ToDate: toDate || undefined,
+          ViewMode: viewMode || undefined,
+          Category: category || undefined,
+          IncludeZeroBalances: includeZeroBalances ?? undefined,
+        },
+      }),
+
+      providesTags: ["OperationalTrialBalance"],
+    }),
   }),
 });
 
-export const { useGetPartnerStatementQuery, useGetPartnerItemMovementsQuery } =
-  statementsApi;
+export const {
+  useGetPartnerStatementQuery,
+  useGetPartnerItemMovementsQuery,
+  useGetOperationalTrialBalanceQuery,
+} = statementsApi;

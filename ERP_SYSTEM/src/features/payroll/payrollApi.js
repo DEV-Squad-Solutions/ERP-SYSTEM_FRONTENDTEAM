@@ -201,6 +201,107 @@ export const payrollApi = baseApi.injectEndpoints({
     // Payroll Entries
     // =========================================================
 
+    bulkCreatePayrollEntries: builder.mutation({
+      query: (data) => ({
+        url: "PayrollEntries/bulk",
+        method: "POST",
+        body: {
+          entries: data.entries.map((e) => ({
+            employeeId: Number(e.employeeId),
+            startDate: e.startDate,
+            endDate: e.endDate,
+            bonus: Number(e.bonus) || 0,
+            deduction: Number(e.deduction) || 0,
+            isSalaryMoveToEmployeeAccount: !!e.isSalaryMoveToEmployeeAccount,
+            cashboxId: e.cashboxId ? Number(e.cashboxId) : undefined,
+            cashMovementTypeId: e.cashMovementTypeId
+              ? Number(e.cashMovementTypeId)
+              : undefined,
+          })),
+          defaultStartDate: data.defaultStartDate || undefined,
+          defaultEndDate: data.defaultEndDate || undefined,
+          defaultIsSalaryMoveToEmployeeAccount:
+            data.defaultIsSalaryMoveToEmployeeAccount ?? undefined,
+          defaultCashboxId: data.defaultCashboxId
+            ? Number(data.defaultCashboxId)
+            : undefined,
+          defaultCashMovementTypeId: data.defaultCashMovementTypeId
+            ? Number(data.defaultCashMovementTypeId)
+            : undefined,
+        },
+      }),
+
+      invalidatesTags: [
+        { type: "PayrollEntry", id: "LIST" },
+        "Cashbox",
+        "Statement",
+      ],
+    }),
+
+    moveSalary: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `PayrollEntries/${id}/move-salary`,
+        method: "POST",
+        body: {
+          postingDate: data.postingDate,
+          notes: data.notes?.trim() || undefined,
+          cashboxId: Number(data.cashboxId),
+          cashMovementTypeId: Number(data.cashMovementTypeId),
+        },
+      }),
+
+      invalidatesTags: (result, error, { id }) => [
+        { type: "PayrollEntry", id },
+        { type: "PayrollEntry", id: "LIST" },
+        "Cashbox",
+        "Statement",
+      ],
+    }),
+
+    bulkMoveSalary: builder.mutation({
+      query: (data) => ({
+        url: "PayrollEntries/bulk/move-salary",
+        method: "POST",
+        body: {
+          entries: (data.entries || []).map((e) => ({
+            payrollEntryId: Number(e.payrollEntryId),
+            postingDate: e.postingDate || undefined,
+            notes: e.notes?.trim() || undefined,
+            cashboxId: e.cashboxId ? Number(e.cashboxId) : undefined,
+            cashMovementTypeId: e.cashMovementTypeId
+              ? Number(e.cashMovementTypeId)
+              : undefined,
+          })),
+          payrollEntryIds: data.payrollEntryIds || undefined,
+          defaultPostingDate: data.defaultPostingDate || undefined,
+          notes: data.notes?.trim() || undefined,
+          defaultCashboxId: data.defaultCashboxId
+            ? Number(data.defaultCashboxId)
+            : undefined,
+          defaultCashMovementTypeId: data.defaultCashMovementTypeId
+            ? Number(data.defaultCashMovementTypeId)
+            : undefined,
+        },
+      }),
+
+      invalidatesTags: [
+        { type: "PayrollEntry", id: "LIST" },
+        "Cashbox",
+        "Statement",
+      ],
+    }),
+
+    recalculatePayrollEntry: builder.mutation({
+      query: (id) => ({
+        url: `PayrollEntries/${id}/recalculate`,
+        method: "POST",
+      }),
+
+      invalidatesTags: (result, error, id) => [
+        { type: "PayrollEntry", id },
+        { type: "PayrollEntry", id: "LIST" },
+      ],
+    }),
     getPayrollEntries: builder.query({
       query: (params) => ({
         url: "PayrollEntries",
@@ -293,4 +394,8 @@ export const {
   useCreatePayrollEntryMutation,
   usePayPayrollEntryMutation,
   useDeletePayrollEntryMutation,
+  useBulkCreatePayrollEntriesMutation,
+  useMoveSalaryMutation,
+  useBulkMoveSalaryMutation,
+  useRecalculatePayrollEntryMutation,
 } = payrollApi;

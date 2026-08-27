@@ -38,6 +38,9 @@ import Button from "../../../shared/components/ui/Button";
 // Constants
 // =========================================================
 
+const DEFAULT_CHECK_IN = "09:00";
+const DEFAULT_CHECK_OUT = "17:00";
+
 const STATUS = {
   PRESENT: "Present",
   ABSENT: "Absent",
@@ -99,6 +102,10 @@ export default function AttendanceTakingPage() {
   // =======================================================
 
   const [workDate, setWorkDate] = useState(getToday());
+
+  // Default attendance times
+  const [defaultCheckIn, setDefaultCheckIn] = useState(DEFAULT_CHECK_IN);
+  const [defaultCheckOut, setDefaultCheckOut] = useState(DEFAULT_CHECK_OUT);
 
   // =======================================================
   // Filters
@@ -181,9 +188,15 @@ export default function AttendanceTakingPage() {
         existing,
         status: local?.status || existing?.status || STATUS.NOT_RECORDED,
 
-        checkIn: local?.checkIn ?? normalizeValue(existing?.checkIn),
+        checkIn:
+          local?.checkIn ??
+          (normalizeValue(existing?.checkIn) ||
+            (existing ? "" : defaultCheckIn)),
 
-        checkOut: local?.checkOut ?? normalizeValue(existing?.checkOut),
+        checkOut:
+          local?.checkOut ??
+          (normalizeValue(existing?.checkOut) ||
+            (existing ? "" : defaultCheckOut)),
 
         workDayRatio:
           local?.workDayRatio ?? existing?.workDayRatio ?? "FullDay",
@@ -310,7 +323,10 @@ export default function AttendanceTakingPage() {
               checkIn: "",
               checkOut: "",
             }
-          : {}),
+          : {
+              checkIn: current[id]?.checkIn || defaultCheckIn,
+              checkOut: current[id]?.checkOut || defaultCheckOut,
+            }),
       },
     }));
   };
@@ -341,7 +357,10 @@ export default function AttendanceTakingPage() {
                 checkIn: "",
                 checkOut: "",
               }
-            : {}),
+            : {
+                checkIn: next[id]?.checkIn || defaultCheckIn,
+                checkOut: next[id]?.checkOut || defaultCheckOut,
+              }),
         };
       });
 
@@ -373,6 +392,8 @@ export default function AttendanceTakingPage() {
         next[row.id] = {
           ...(next[row.id] || {}),
           status: STATUS.PRESENT,
+          checkIn: next[row.id]?.checkIn || defaultCheckIn,
+          checkOut: next[row.id]?.checkOut || defaultCheckOut,
         };
       });
 
@@ -409,6 +430,47 @@ export default function AttendanceTakingPage() {
     });
 
     toast.success(`تم تحديد ${filteredRows.length} موظف كغائب`);
+  };
+
+  // =======================================================
+  // Apply default times
+  // =======================================================
+
+  const applyDefaultTimes = () => {
+    const targetIds = selectedIds.length
+      ? selectedIds
+      : filteredRows.map((row) => row.id);
+
+    if (!targetIds.length) {
+      toast.error(
+        "اختر موظفًا واحدًا على الأقل أو استخدم قائمة الموظفين الظاهرة",
+      );
+      return;
+    }
+
+    setAttendanceMap((current) => {
+      const next = { ...current };
+
+      targetIds.forEach((id) => {
+        const row = employeeRows.find((item) => item.id === id);
+        if (!row || row.status === STATUS.ABSENT) {
+          return;
+        }
+
+        next[id] = {
+          ...(next[id] || {}),
+          status: STATUS.PRESENT,
+          checkIn: defaultCheckIn,
+          checkOut: defaultCheckOut,
+        };
+      });
+
+      return next;
+    });
+
+    toast.success(
+      `تم تطبيق ${defaultCheckIn} - ${defaultCheckOut} على ${targetIds.length} موظف`,
+    );
   };
 
   // =======================================================
@@ -611,6 +673,62 @@ export default function AttendanceTakingPage() {
           label="لم يسجل"
           value={summary.notRecorded}
         />
+      </div>
+
+      {/* ===================================================
+          Default Attendance Times
+      ==================================================== */}
+
+      <div className="rounded-2xl border border-primary-500/15 bg-primary-50/30 p-4">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink-900">
+              أوقات الحضور والانصراف الافتراضية
+            </p>
+            <p className="text-[11px] text-ink-400 mt-1">
+              تستخدم تلقائيًا عند تحديد الموظف كحاضر، ويمكن تعديل الوقت لأي موظف
+              يدويًا.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2">
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1.5">
+                وقت الدخول الافتراضي
+              </label>
+              <input
+                type="time"
+                value={defaultCheckIn}
+                onChange={(event) => setDefaultCheckIn(event.target.value)}
+                className="h-9 w-full sm:w-[130px] rounded-lg border border-ink-400/15 bg-white px-2 text-sm num outline-none focus:border-primary-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-ink-400 mb-1.5">
+                وقت الانصراف الافتراضي
+              </label>
+              <input
+                type="time"
+                value={defaultCheckOut}
+                onChange={(event) => setDefaultCheckOut(event.target.value)}
+                className="h-9 w-full sm:w-[130px] rounded-lg border border-ink-400/15 bg-white px-2 text-sm num outline-none focus:border-primary-500 transition-colors"
+              />
+            </div>
+
+            <Button
+              variant="outline"
+              className="h-9"
+              onClick={applyDefaultTimes}
+              disabled={
+                !defaultCheckIn || !defaultCheckOut || !filteredRows.length
+              }
+            >
+              <Clock3 size={14} />
+              تطبيق على {selectedIds.length ? "المحدد" : "الظاهر"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* ===================================================

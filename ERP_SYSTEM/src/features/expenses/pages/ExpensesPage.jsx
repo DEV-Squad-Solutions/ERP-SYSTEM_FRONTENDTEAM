@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Receipt, FileWarning, ExternalLink, Plus } from "lucide-react";
+import {
+  Receipt,
+  FileWarning,
+  ExternalLink,
+  Plus,
+  Eye,
+  Pencil,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { useGetCashVouchersQuery } from "../../cashboxes/cashVouchersApi";
@@ -8,17 +15,18 @@ import { useGetCashMovementTypesQuery } from "../../cashboxes/cashMovementTypesA
 
 import ExpenseFilters from "../components/ExpenseFilters";
 import ExpenseQuickEntryModal from "../../cashboxes/components/ExpenseQuickEntryModal";
+import ExpenseDetailsModal from "../components/ExpenseDetailsModal";
 
 import Pagination from "../../../shared/components/ui/Pagination";
 
 const emptyFilters = {
-  Search: "",
-  VoucherNumber: "",
-  CashboxId: "",
-  CashMovementTypeId: "",
-  FromDate: "",
-  ToDate: "",
-  IsDraft: "",
+  search: "",
+  voucherNumber: "",
+  cashboxId: "",
+  cashMovementTypeId: "",
+  fromDate: "",
+  toDate: "",
+  isDraft: "",
 };
 
 function fmtAmount(n, currency) {
@@ -47,6 +55,9 @@ function partyLabel(v) {
         ? `${v.driverName} (رحلة ${v.driverTripInvoiceNumber})`
         : (v.driverName ?? "—");
 
+    case "Employee":
+      return v.employeeName ?? "—";
+
     case "Other":
       return v.externalPartyName ?? "—";
 
@@ -59,6 +70,8 @@ export default function ExpensesPage() {
   const navigate = useNavigate();
 
   const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [editingVoucher, setEditingVoucher] = useState(null);
+  const [viewingVoucher, setViewingVoucher] = useState(null);
 
   const [filters, setFilters] = useState({
     draft: emptyFilters,
@@ -91,13 +104,15 @@ export default function ExpensesPage() {
   // =========================================================
   // Expenses
   // =========================================================
+  // Classification=Expense هي الفلتر الحقيقي لـ "المصاريف"
+  // (مش Direction=Payment اللي ممكن يشمل تسويات شركاء أو حركات تانية)
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetCashVouchersQuery({
-      Direction: "Payment",
+      classification: "Expense",
 
-      PageNumber: page,
-      PageSize: pageSize,
+      pageNumber: page,
+      pageSize: pageSize,
 
       ...filters.applied,
     });
@@ -129,15 +144,9 @@ export default function ExpensesPage() {
   }
 
   // =========================================================
-  // Open Voucher
+  // Open Voucher (inside cashbox / treasury view)
   // =========================================================
 
-  /**
-   * فتح السند داخل الخزنة
-   *
-   * route:
-   * /dashboard/treasury/{cashboxId}?voucherId={voucherId}
-   */
   function openVoucher(voucher) {
     if (!voucher?.cashboxId || !voucher?.id) {
       return;
@@ -147,10 +156,6 @@ export default function ExpensesPage() {
       `/dashboard/treasury/${voucher.cashboxId}?voucherId=${voucher.id}`,
     );
   }
-
-  // =========================================================
-  // Expense Saved
-  // =========================================================
 
   return (
     <div className="animate-fadeUp">
@@ -162,13 +167,16 @@ export default function ExpensesPage() {
           </h2>
 
           <p className="mt-1 text-sm text-ink-400">
-            جميع سندات الصرف المسجلة على الخزائن
+            جميع سندات الصرف المصنّفة كمصروفات
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setExpenseModalOpen(true)}
+          onClick={() => {
+            setEditingVoucher(null);
+            setExpenseModalOpen(true);
+          }}
           className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600"
         >
           <Plus size={16} />
@@ -190,6 +198,7 @@ export default function ExpensesPage() {
         onSearch={handleSearch}
         onReset={handleReset}
       />
+
       {/* ==================== Loading ==================== */}
 
       {isLoading && (
@@ -224,18 +233,19 @@ export default function ExpensesPage() {
         >
           <div className="overflow-x-auto">
             <table
-              className="w-full min-w-[900px] table-fixed text-sm"
+              className="w-full min-w-[980px] table-fixed text-sm"
               dir="rtl"
             >
               <colgroup>
-                <col className="w-[11%]" />
                 <col className="w-[10%]" />
-                <col className="w-[14%]" />
-                <col className="w-[16%]" />
-                <col className="w-[15%]" />
+                <col className="w-[9%]" />
                 <col className="w-[12%]" />
                 <col className="w-[14%]" />
-                <col className="w-[8%]" />
+                <col className="w-[13%]" />
+                <col className="w-[11%]" />
+                <col className="w-[13%]" />
+                <col className="w-[7%]" />
+                <col className="w-[11%]" />
               </colgroup>
 
               <thead>
@@ -243,26 +253,22 @@ export default function ExpensesPage() {
                   <th className="px-3 py-2.5 text-right font-medium">
                     رقم السند
                   </th>
-
                   <th className="px-3 py-2.5 text-right font-medium">
                     التاريخ
                   </th>
-
                   <th className="px-3 py-2.5 text-right font-medium">
                     الخزينة
                   </th>
-
                   <th className="px-3 py-2.5 text-right font-medium">
                     نوع الحركة
                   </th>
-
                   <th className="px-3 py-2.5 text-right font-medium">الجهة</th>
-
                   <th className="px-3 py-2.5 text-right font-medium">المبلغ</th>
-
                   <th className="px-3 py-2.5 text-right font-medium">الوصف</th>
-
                   <th className="px-3 py-2.5 text-right font-medium">الحالة</th>
+                  <th className="px-3 py-2.5 text-right font-medium">
+                    إجراءات
+                  </th>
                 </tr>
               </thead>
 
@@ -270,7 +276,7 @@ export default function ExpensesPage() {
                 {data.items?.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-3 py-14 text-center text-ink-400"
                     >
                       لا توجد مصاريف مطابقة
@@ -282,8 +288,7 @@ export default function ExpensesPage() {
                       key={v.id}
                       className="border-t border-ink-400/10 transition-colors hover:bg-ink-900/[0.015]"
                     >
-                      {/* ==================== Voucher ==================== */}
-
+                      {/* Voucher */}
                       <td className="px-3 py-2.5">
                         <button
                           type="button"
@@ -294,7 +299,6 @@ export default function ExpensesPage() {
                           <span className="truncate font-semibold text-primary-600 transition-colors group-hover:text-primary-800 group-hover:underline">
                             {v.voucherNumber || `#${v.id}`}
                           </span>
-
                           <ExternalLink
                             size={12}
                             className="shrink-0 text-ink-300 opacity-0 transition-opacity group-hover:opacity-100"
@@ -311,22 +315,19 @@ export default function ExpensesPage() {
                         )}
                       </td>
 
-                      {/* ==================== Date ==================== */}
-
+                      {/* Date */}
                       <td className="whitespace-nowrap px-3 py-2.5 text-xs text-ink-600">
                         {fmtDate(v.voucherDate)}
                       </td>
 
-                      {/* ==================== Cashbox ==================== */}
-
+                      {/* Cashbox */}
                       <td className="px-3 py-2.5" title={v.cashboxName || ""}>
                         <span className="block truncate font-medium text-ink-800">
                           {v.cashboxName || "—"}
                         </span>
                       </td>
 
-                      {/* ==================== Movement Type ==================== */}
-
+                      {/* Movement Type */}
                       <td
                         className="px-3 py-2.5"
                         title={v.cashMovementTypeName || ""}
@@ -336,19 +337,16 @@ export default function ExpensesPage() {
                         </span>
                       </td>
 
-                      {/* ==================== Party ==================== */}
-
+                      {/* Party */}
                       <td className="px-3 py-2.5" title={partyLabel(v)}>
                         <span className="block truncate text-ink-700">
                           {partyLabel(v)}
                         </span>
                       </td>
 
-                      {/* ==================== Amount ==================== */}
-
+                      {/* Amount */}
                       <td className="whitespace-nowrap px-3 py-2.5 font-bold text-rose-600">
                         {fmtAmount(v.amount, v.currency)}
-
                         {v.baseCurrency &&
                           v.baseCurrency !== v.currency &&
                           v.baseAmount != null && (
@@ -358,8 +356,7 @@ export default function ExpensesPage() {
                           )}
                       </td>
 
-                      {/* ==================== Description ==================== */}
-
+                      {/* Description */}
                       <td
                         className="px-3 py-2.5 text-ink-400"
                         title={v.description || ""}
@@ -369,8 +366,7 @@ export default function ExpensesPage() {
                         </span>
                       </td>
 
-                      {/* ==================== Status ==================== */}
-
+                      {/* Status */}
                       <td className="px-3 py-2.5">
                         {v.isDraft ? (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
@@ -383,6 +379,32 @@ export default function ExpensesPage() {
                           </span>
                         )}
                       </td>
+
+                      {/* Actions */}
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setViewingVoucher(v)}
+                            title="عرض التفاصيل"
+                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-ink-400/10 hover:text-ink-700"
+                          >
+                            <Eye size={15} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingVoucher(v);
+                              setExpenseModalOpen(true);
+                            }}
+                            title="تعديل"
+                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -390,8 +412,7 @@ export default function ExpensesPage() {
             </table>
           </div>
 
-          {/* ==================== Pagination ==================== */}
-
+          {/* Pagination */}
           {data.totalCount > 0 && (
             <Pagination
               page={data.pageNumber || page}
@@ -408,16 +429,30 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* =====================================================
-          Add Expense Modal
-      ===================================================== */}
-
+      {/* Add / Edit Expense Modal */}
       <ExpenseQuickEntryModal
         isOpen={expenseModalOpen}
-        onClose={() => setExpenseModalOpen(false)}
+        voucher={editingVoucher}
+        onClose={() => {
+          setExpenseModalOpen(false);
+          setEditingVoucher(null);
+        }}
         onSaved={() => {
+          setExpenseModalOpen(false);
+          setEditingVoucher(null);
           setPage(1);
           refetch();
+        }}
+      />
+
+      {/* View Details Modal */}
+      <ExpenseDetailsModal
+        voucher={viewingVoucher}
+        onClose={() => setViewingVoucher(null)}
+        onEdit={(v) => {
+          setViewingVoucher(null);
+          setEditingVoucher(v);
+          setExpenseModalOpen(true);
         }}
       />
     </div>

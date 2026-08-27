@@ -59,7 +59,7 @@ import DeductionsPage from "../features/payroll/pages/DeductionsPage";
 import AdvancesPage from "../features/payroll/pages/AdvancesPage";
 import AdvanceDetailPage from "../features/payroll/pages/AdvanceDetailPage";
 import ReportsPage from "../features/payroll/pages/ReportsPage";
-
+import TrialBalancePage from "../features/TrialBalance/pages/TrialBalancePage";
 import ContainerStoreStatement from "../features/storeContainers/pages/ContainerStoreStatement";
 
 import ExpensesPage from "../features/expenses/pages/ExpensesPage";
@@ -350,7 +350,7 @@ export const router = createBrowserRouter([
       // ========================================================
       {
         path: "adjusted-trial-balance",
-        element: <ComingSoon title="ميزان بعد التسوية" />,
+        element: <TrialBalancePage />,
       },
       {
         path: "income",
