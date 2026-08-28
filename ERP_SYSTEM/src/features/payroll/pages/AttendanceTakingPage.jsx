@@ -1,5 +1,3 @@
-// features/payroll/pages/AttendanceTakingPage.jsx
-
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -19,24 +17,15 @@ import {
 } from "lucide-react";
 
 import {
-  useCreateEmployeeAttendanceMutation,
+  useBulkCreateEmployeeAttendancesMutation,
   useGetEmployeeAttendancesQuery,
   useGetEmployeesSelectQuery,
 } from "../payrollApi";
 
-import {
-  attendanceStatusOptions,
-  attendanceStatusBadge,
-  ATTENDANCE_STATUS,
-} from "../payroll.constants";
+import { attendanceStatusBadge, ATTENDANCE_STATUS } from "../payroll.constants";
 
-import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
-
-// =========================================================
-// Constants
-// =========================================================
 
 const DEFAULT_CHECK_IN = "09:00";
 const DEFAULT_CHECK_OUT = "17:00";
@@ -47,32 +36,36 @@ const STATUS = {
   NOT_RECORDED: "NotRecorded",
 };
 
+const RATIO = {
+  FULL_DAY: 1,
+  THREE_QUARTER_DAY: 2,
+  HALF_DAY: 3,
+  THIRD_DAY: 4,
+  QUARTER_DAY: 5,
+};
+
 const ratioOptions = [
   {
-    value: "FullDay",
+    value: RATIO.FULL_DAY,
     label: "يوم كامل",
   },
   {
-    value: "ThreeQuarterDay",
+    value: RATIO.THREE_QUARTER_DAY,
     label: "ثلاثة أرباع يوم",
   },
   {
-    value: "HalfDay",
+    value: RATIO.HALF_DAY,
     label: "نصف يوم",
   },
   {
-    value: "QuarterDay",
-    label: "ربع يوم",
+    value: RATIO.THIRD_DAY,
+    label: "ثلث يوم",
   },
   {
-    value: "None",
-    label: "بدون",
+    value: RATIO.QUARTER_DAY,
+    label: "ربع يوم",
   },
 ];
-
-// =========================================================
-// Helpers
-// =========================================================
 
 function getToday() {
   const date = new Date();
@@ -85,50 +78,69 @@ function getToday() {
 }
 
 function normalizeValue(value) {
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === "") {
     return "";
   }
 
   return String(value);
 }
 
-// =========================================================
-// Component
-// =========================================================
+function normalizeRatio(value, fallback = RATIO.FULL_DAY) {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  if (typeof value === "number") {
+    return value >= 1 && value <= 5 ? value : fallback;
+  }
+
+  const numericValue = Number(value);
+
+  if (
+    Number.isInteger(numericValue) &&
+    numericValue >= 1 &&
+    numericValue <= 5
+  ) {
+    return numericValue;
+  }
+
+  const normalized = String(value).toLowerCase();
+
+  const map = {
+    fullday: RATIO.FULL_DAY,
+    "full day": RATIO.FULL_DAY,
+    threequarterday: RATIO.THREE_QUARTER_DAY,
+    "three quarter day": RATIO.THREE_QUARTER_DAY,
+    halfday: RATIO.HALF_DAY,
+    "half day": RATIO.HALF_DAY,
+    thirdday: RATIO.THIRD_DAY,
+    "third day": RATIO.THIRD_DAY,
+    quarterday: RATIO.QUARTER_DAY,
+    "quarter day": RATIO.QUARTER_DAY,
+  };
+
+  return map[normalized] ?? fallback;
+}
+
+function toApiTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  return value.length === 5 ? `${value}:00` : value;
+}
 
 export default function AttendanceTakingPage() {
-  // =======================================================
-  // Date
-  // =======================================================
-
   const [workDate, setWorkDate] = useState(getToday());
 
-  // Default attendance times
   const [defaultCheckIn, setDefaultCheckIn] = useState(DEFAULT_CHECK_IN);
-  const [defaultCheckOut, setDefaultCheckOut] = useState(DEFAULT_CHECK_OUT);
 
-  // =======================================================
-  // Filters
-  // =======================================================
+  const [defaultCheckOut, setDefaultCheckOut] = useState(DEFAULT_CHECK_OUT);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-
-  // =======================================================
-  // Selection
-  // =======================================================
-
   const [selectedIds, setSelectedIds] = useState([]);
-
-  // =======================================================
-  // Local attendance state
-  // =======================================================
-
   const [attendanceMap, setAttendanceMap] = useState({});
-
-  // =======================================================
-  // API
-  // =======================================================
 
   const { data: employees, isLoading: employeesLoading } =
     useGetEmployeesSelectQuery();
@@ -146,16 +158,11 @@ export default function AttendanceTakingPage() {
     WorkDateTo: workDate,
   });
 
-  const [createAttendance, { isLoading: isSaving }] =
-    useCreateEmployeeAttendanceMutation();
-
-  // =======================================================
-  // Existing attendance records
-  // =======================================================
+  const [createAttendancesBulk, { isLoading: isSaving }] =
+    useBulkCreateEmployeeAttendancesMutation();
 
   const existingAttendance = useMemo(() => {
     const map = {};
-
     const rows = attendanceData?.items || [];
 
     rows.forEach((row) => {
@@ -169,24 +176,20 @@ export default function AttendanceTakingPage() {
     return map;
   }, [attendanceData]);
 
-  // =======================================================
-  // Employees with attendance state
-  // =======================================================
-
   const employeeRows = useMemo(() => {
     const list = employees || [];
 
     return list.map((employee) => {
       const id = String(employee.id);
       const existing = existingAttendance[id];
-
       const local = attendanceMap[id];
 
       return {
         employee,
         id,
         existing,
-        status: local?.status || existing?.status || STATUS.NOT_RECORDED,
+
+        status: local?.status ?? existing?.status ?? STATUS.NOT_RECORDED,
 
         checkIn:
           local?.checkIn ??
@@ -198,25 +201,32 @@ export default function AttendanceTakingPage() {
           (normalizeValue(existing?.checkOut) ||
             (existing ? "" : defaultCheckOut)),
 
-        workDayRatio:
-          local?.workDayRatio ?? existing?.workDayRatio ?? "FullDay",
+        workDayRatio: normalizeRatio(
+          local?.workDayRatio ?? existing?.workDayRatio ?? RATIO.FULL_DAY,
+        ),
 
         workOverTimeRatio:
-          local?.workOverTimeRatio ?? existing?.workOverTimeRatio ?? "",
+          local?.workOverTimeRatio !== undefined
+            ? normalizeRatio(local.workOverTimeRatio, null)
+            : normalizeRatio(existing?.workOverTimeRatio, null),
 
         workDaysDeductionRatio:
-          local?.workDaysDeductionRatio ??
-          existing?.workDaysDeductionRatio ??
-          "",
+          local?.workDaysDeductionRatio !== undefined
+            ? normalizeRatio(local.workDaysDeductionRatio, null)
+            : normalizeRatio(existing?.workDaysDeductionRatio, null),
+
+        workLocation: local?.workLocation ?? existing?.workLocation ?? null,
 
         notes: local?.notes ?? existing?.notes ?? "",
       };
     });
-  }, [employees, existingAttendance, attendanceMap]);
-
-  // =======================================================
-  // Filtering
-  // =======================================================
+  }, [
+    employees,
+    existingAttendance,
+    attendanceMap,
+    defaultCheckIn,
+    defaultCheckOut,
+  ]);
 
   const filteredRows = useMemo(() => {
     const value = search.trim().toLowerCase();
@@ -233,10 +243,6 @@ export default function AttendanceTakingPage() {
       return matchesSearch && matchesStatus;
     });
   }, [employeeRows, search, statusFilter]);
-
-  // =======================================================
-  // Summary
-  // =======================================================
 
   const summary = useMemo(() => {
     let present = 0;
@@ -261,28 +267,18 @@ export default function AttendanceTakingPage() {
     };
   }, [employeeRows]);
 
-  // =======================================================
-  // Selection
-  // =======================================================
-
   const toggleEmployee = (id) => {
-    setSelectedIds((current) => {
-      if (current.includes(id)) {
-        return current.filter((item) => item !== id);
-      }
-
-      return [...current, id];
-    });
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
   };
 
   const selectAllFiltered = () => {
     const ids = filteredRows.map((row) => row.id);
 
-    setSelectedIds((current) => {
-      const merged = new Set([...current, ...ids]);
-
-      return Array.from(merged);
-    });
+    setSelectedIds((current) => Array.from(new Set([...current, ...ids])));
   };
 
   const clearSelection = () => {
@@ -291,14 +287,9 @@ export default function AttendanceTakingPage() {
 
   const isSelected = (id) => selectedIds.includes(id);
 
-  // =======================================================
-  // Update local row
-  // =======================================================
-
   const updateRow = (id, field, value) => {
     setAttendanceMap((current) => ({
       ...current,
-
       [id]: {
         ...(current[id] || {}),
         [field]: value,
@@ -306,14 +297,9 @@ export default function AttendanceTakingPage() {
     }));
   };
 
-  // =======================================================
-  // Set status
-  // =======================================================
-
   const setEmployeeStatus = (id, status) => {
     setAttendanceMap((current) => ({
       ...current,
-
       [id]: {
         ...(current[id] || {}),
         status,
@@ -326,26 +312,20 @@ export default function AttendanceTakingPage() {
           : {
               checkIn: current[id]?.checkIn || defaultCheckIn,
               checkOut: current[id]?.checkOut || defaultCheckOut,
+              workDayRatio: current[id]?.workDayRatio ?? RATIO.FULL_DAY,
             }),
       },
     }));
   };
 
-  // =======================================================
-  // Bulk status
-  // =======================================================
-
   const bulkSetStatus = (status) => {
     if (!selectedIds.length) {
       toast.error("اختر الموظفين أولاً");
-
       return;
     }
 
     setAttendanceMap((current) => {
-      const next = {
-        ...current,
-      };
+      const next = { ...current };
 
       selectedIds.forEach((id) => {
         next[id] = {
@@ -360,6 +340,7 @@ export default function AttendanceTakingPage() {
             : {
                 checkIn: next[id]?.checkIn || defaultCheckIn,
                 checkOut: next[id]?.checkOut || defaultCheckOut,
+                workDayRatio: next[id]?.workDayRatio ?? RATIO.FULL_DAY,
               }),
         };
       });
@@ -374,19 +355,13 @@ export default function AttendanceTakingPage() {
     );
   };
 
-  // =======================================================
-  // Select all present
-  // =======================================================
-
   const markAllPresent = () => {
     if (!filteredRows.length) {
       return;
     }
 
     setAttendanceMap((current) => {
-      const next = {
-        ...current,
-      };
+      const next = { ...current };
 
       filteredRows.forEach((row) => {
         next[row.id] = {
@@ -394,6 +369,7 @@ export default function AttendanceTakingPage() {
           status: STATUS.PRESENT,
           checkIn: next[row.id]?.checkIn || defaultCheckIn,
           checkOut: next[row.id]?.checkOut || defaultCheckOut,
+          workDayRatio: next[row.id]?.workDayRatio ?? RATIO.FULL_DAY,
         };
       });
 
@@ -403,19 +379,13 @@ export default function AttendanceTakingPage() {
     toast.success(`تم تحديد ${filteredRows.length} موظف كحاضر`);
   };
 
-  // =======================================================
-  // Select all absent
-  // =======================================================
-
   const markAllAbsent = () => {
     if (!filteredRows.length) {
       return;
     }
 
     setAttendanceMap((current) => {
-      const next = {
-        ...current,
-      };
+      const next = { ...current };
 
       filteredRows.forEach((row) => {
         next[row.id] = {
@@ -431,10 +401,6 @@ export default function AttendanceTakingPage() {
 
     toast.success(`تم تحديد ${filteredRows.length} موظف كغائب`);
   };
-
-  // =======================================================
-  // Apply default times
-  // =======================================================
 
   const applyDefaultTimes = () => {
     const targetIds = selectedIds.length
@@ -453,6 +419,7 @@ export default function AttendanceTakingPage() {
 
       targetIds.forEach((id) => {
         const row = employeeRows.find((item) => item.id === id);
+
         if (!row || row.status === STATUS.ABSENT) {
           return;
         }
@@ -462,6 +429,7 @@ export default function AttendanceTakingPage() {
           status: STATUS.PRESENT,
           checkIn: defaultCheckIn,
           checkOut: defaultCheckOut,
+          workDayRatio: next[id]?.workDayRatio ?? RATIO.FULL_DAY,
         };
       });
 
@@ -473,23 +441,14 @@ export default function AttendanceTakingPage() {
     );
   };
 
-  // =======================================================
-  // Reset local changes
-  // =======================================================
-
   const handleReset = () => {
     setAttendanceMap({});
     setSelectedIds([]);
   };
 
-  // =======================================================
-  // Save
-  // =======================================================
-
   const handleSave = async () => {
     if (!employeeRows.length) {
       toast.error("لا يوجد موظفون للتسجيل");
-
       return;
     }
 
@@ -499,97 +458,88 @@ export default function AttendanceTakingPage() {
 
     if (!rowsToSave.length) {
       toast.error("حدد حالة موظف واحد على الأقل");
-
       return;
     }
 
     const invalidPresent = rowsToSave.find(
-      (row) => row.status === STATUS.PRESENT && !row.checkIn && !row.existing,
+      (row) => row.status === STATUS.PRESENT && !row.checkIn,
     );
 
     if (invalidPresent) {
       toast.error(
         `يجب تحديد وقت الحضور للموظف ${invalidPresent.employee.name}`,
       );
-
       return;
     }
 
+    const newRows = rowsToSave.filter((row) => !row.existing);
+
+    if (!newRows.length) {
+      toast.info("لا توجد سجلات جديدة للحفظ");
+      return;
+    }
+
+    const payload = {
+      attendances: newRows.map((row) => ({
+        employeeId: Number(row.employee.id),
+
+        status: row.status === STATUS.PRESENT ? 0 : 1,
+
+        workDate,
+
+        checkIn: row.status === STATUS.PRESENT ? toApiTime(row.checkIn) : null,
+
+        checkOut:
+          row.status === STATUS.PRESENT ? toApiTime(row.checkOut) : null,
+
+        workDayRatio:
+          row.status === STATUS.PRESENT
+            ? normalizeRatio(row.workDayRatio, RATIO.FULL_DAY)
+            : null,
+
+        workOverTimeRatio:
+          row.status === STATUS.PRESENT && row.workOverTimeRatio
+            ? normalizeRatio(row.workOverTimeRatio, null)
+            : null,
+
+        workDaysDeductionRatio: row.workDaysDeductionRatio
+          ? normalizeRatio(row.workDaysDeductionRatio, null)
+          : null,
+
+        workLocation: row.workLocation || null,
+
+        notes: row.notes?.trim() || null,
+      })),
+    };
+
     try {
-      const newRows = rowsToSave.filter((row) => !row.existing);
-
-      if (!newRows.length) {
-        toast.success("لا توجد سجلات جديدة للحفظ");
-
-        return;
-      }
-
-      await Promise.all(
-        newRows.map((row) => {
-          return createAttendance({
-            employeeId: Number(row.employee.id),
-
-            workDate,
-
-            status: row.status,
-
-            checkIn:
-              row.status === STATUS.PRESENT && row.checkIn ? row.checkIn : null,
-
-            checkOut:
-              row.status === STATUS.PRESENT && row.checkOut
-                ? row.checkOut
-                : null,
-
-            workDayRatio:
-              row.status === STATUS.PRESENT
-                ? row.workDayRatio || "FullDay"
-                : null,
-
-            workOverTimeRatio: row.workOverTimeRatio || null,
-
-            workDaysDeductionRatio: row.workDaysDeductionRatio || null,
-
-            workLocation: null,
-
-            notes: row.notes?.trim() || null,
-          }).unwrap();
-        }),
-      );
+      await createAttendancesBulk(payload).unwrap();
 
       toast.success(`تم تسجيل حضور ${newRows.length} موظف بنجاح`);
 
       setAttendanceMap({});
       setSelectedIds([]);
 
-      refetch();
+      await refetch();
     } catch (error) {
       console.error("Bulk attendance save error:", error);
 
+      const validationError =
+        error?.data?.errors?.["$.attendances[0].workDayRatio"]?.[0];
+
       toast.error(
-        error?.data?.message ||
+        validationError ||
+          error?.data?.message ||
           error?.data?.title ||
           "حدث خطأ أثناء حفظ الحضور",
       );
     }
   };
 
-  // =======================================================
-  // Loading
-  // =======================================================
-
   const isLoading = employeesLoading || attendanceLoading;
-
-  // =======================================================
-  // Render
-  // =======================================================
 
   return (
     <div className="animate-fadeUp space-y-4">
-      {/* ===================================================
-          Header
-      ==================================================== */}
-
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
           <h2 className="font-display text-2xl font-bold text-ink-900">
@@ -618,10 +568,6 @@ export default function AttendanceTakingPage() {
           </Button>
         </div>
       </div>
-
-      {/* ===================================================
-          Date + Summary
-      ==================================================== */}
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
         <div className="col-span-2 md:col-span-1 rounded-2xl border border-ink-400/10 bg-white shadow-card p-3">
@@ -675,19 +621,15 @@ export default function AttendanceTakingPage() {
         />
       </div>
 
-      {/* ===================================================
-          Default Attendance Times
-      ==================================================== */}
-
       <div className="rounded-2xl border border-primary-500/15 bg-primary-50/30 p-4">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-ink-900">
               أوقات الحضور والانصراف الافتراضية
             </p>
+
             <p className="text-[11px] text-ink-400 mt-1">
-              تستخدم تلقائيًا عند تحديد الموظف كحاضر، ويمكن تعديل الوقت لأي موظف
-              يدويًا.
+              تستخدم تلقائيًا عند تحديد الموظف كحاضر
             </p>
           </div>
 
@@ -696,6 +638,7 @@ export default function AttendanceTakingPage() {
               <label className="block text-xs font-medium text-ink-400 mb-1.5">
                 وقت الدخول الافتراضي
               </label>
+
               <input
                 type="time"
                 value={defaultCheckIn}
@@ -708,6 +651,7 @@ export default function AttendanceTakingPage() {
               <label className="block text-xs font-medium text-ink-400 mb-1.5">
                 وقت الانصراف الافتراضي
               </label>
+
               <input
                 type="time"
                 value={defaultCheckOut}
@@ -730,10 +674,6 @@ export default function AttendanceTakingPage() {
           </div>
         </div>
       </div>
-
-      {/* ===================================================
-          Filters
-      ==================================================== */}
 
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -798,10 +738,6 @@ export default function AttendanceTakingPage() {
           </div>
         </div>
       </div>
-
-      {/* ===================================================
-          Bulk Actions
-      ==================================================== */}
 
       <div className="rounded-2xl border border-primary-500/15 bg-primary-50/40 p-3">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
@@ -887,10 +823,6 @@ export default function AttendanceTakingPage() {
         </div>
       </div>
 
-      {/* ===================================================
-          Loading
-      ==================================================== */}
-
       {isLoading ? (
         <AttendanceTableSkeleton />
       ) : isError ? (
@@ -921,10 +853,6 @@ export default function AttendanceTakingPage() {
         </div>
       ) : (
         <>
-          {/* =================================================
-              Table
-          ================================================== */}
-
           <div
             className={`
               overflow-x-auto
@@ -1013,8 +941,6 @@ export default function AttendanceTakingPage() {
                         animationDelay: `${Math.min(index, 12) * 20}ms`,
                       }}
                     >
-                      {/* Selection */}
-
                       <td className="p-2.5">
                         <input
                           type="checkbox"
@@ -1023,8 +949,6 @@ export default function AttendanceTakingPage() {
                           className="accent-primary-500"
                         />
                       </td>
-
-                      {/* Employee */}
 
                       <td className="p-2.5">
                         <div className="flex items-center gap-2.5">
@@ -1043,8 +967,6 @@ export default function AttendanceTakingPage() {
                           </div>
                         </div>
                       </td>
-
-                      {/* Status */}
 
                       <td className="p-2.5">
                         <div className="flex items-center gap-1.5">
@@ -1113,8 +1035,6 @@ export default function AttendanceTakingPage() {
                         </div>
                       </td>
 
-                      {/* Check In */}
-
                       <td className="p-2.5">
                         <input
                           type="time"
@@ -1126,8 +1046,6 @@ export default function AttendanceTakingPage() {
                           className="h-8 rounded-lg border border-ink-400/15 px-2 text-xs num outline-none focus:border-primary-500 disabled:bg-ink-400/5 disabled:text-ink-400/50"
                         />
                       </td>
-
-                      {/* Check Out */}
 
                       <td className="p-2.5">
                         <input
@@ -1141,48 +1059,52 @@ export default function AttendanceTakingPage() {
                         />
                       </td>
 
-                      {/* Work Day Ratio */}
-
                       <td className="p-2.5 min-w-[150px]">
                         <CompactSelect
                           options={ratioOptions}
                           value={present ? row.workDayRatio : ""}
                           onChange={(value) =>
-                            updateRow(row.id, "workDayRatio", value)
+                            updateRow(
+                              row.id,
+                              "workDayRatio",
+                              normalizeRatio(value, RATIO.FULL_DAY),
+                            )
                           }
                           placeholder="نسبة اليوم"
                           isDisabled={!present}
                         />
                       </td>
 
-                      {/* Overtime */}
-
                       <td className="p-2.5 min-w-[140px]">
                         <CompactSelect
                           options={ratioOptions}
-                          value={present ? row.workOverTimeRatio : ""}
+                          value={present ? row.workOverTimeRatio || "" : ""}
                           onChange={(value) =>
-                            updateRow(row.id, "workOverTimeRatio", value)
+                            updateRow(
+                              row.id,
+                              "workOverTimeRatio",
+                              value ? normalizeRatio(value, null) : null,
+                            )
                           }
                           placeholder="بدون إضافي"
                           isDisabled={!present}
                         />
                       </td>
 
-                      {/* Deduction */}
-
                       <td className="p-2.5 min-w-[140px]">
                         <CompactSelect
                           options={ratioOptions}
-                          value={row.workDaysDeductionRatio}
+                          value={row.workDaysDeductionRatio || ""}
                           onChange={(value) =>
-                            updateRow(row.id, "workDaysDeductionRatio", value)
+                            updateRow(
+                              row.id,
+                              "workDaysDeductionRatio",
+                              value ? normalizeRatio(value, null) : null,
+                            )
                           }
                           placeholder="بدون خصم"
                         />
                       </td>
-
-                      {/* Notes */}
 
                       <td className="p-2.5">
                         <input
@@ -1200,10 +1122,6 @@ export default function AttendanceTakingPage() {
               </tbody>
             </table>
           </div>
-
-          {/* =================================================
-              Bottom Action
-          ================================================== */}
 
           <div className="sticky bottom-3 z-10">
             <div className="rounded-2xl border border-ink-400/10 bg-white/95 backdrop-blur shadow-lg p-3">
@@ -1245,10 +1163,6 @@ export default function AttendanceTakingPage() {
     </div>
   );
 }
-
-// =========================================================
-// Summary Card
-// =========================================================
 
 function SummaryCard({ icon: Icon, label, value, tone }) {
   return (
@@ -1298,10 +1212,6 @@ function SummaryCard({ icon: Icon, label, value, tone }) {
     </div>
   );
 }
-
-// =========================================================
-// Skeleton
-// =========================================================
 
 function AttendanceTableSkeleton() {
   return (

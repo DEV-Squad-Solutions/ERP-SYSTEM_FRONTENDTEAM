@@ -1,9 +1,7 @@
 // features/payroll/components/BulkMoveSalaryModal.jsx
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
 
 import Modal from "../../../shared/components/ui/Modal";
@@ -12,13 +10,6 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 
 import { useBulkMoveSalaryMutation } from "../payrollApi";
-
-const schema = z.object({
-  defaultPostingDate: z.string().min(1, "التاريخ مطلوب"),
-  defaultCashboxId: z.string().min(1, "الخزينة مطلوبة"),
-  defaultCashMovementTypeId: z.string().min(1, "نوع الحركة مطلوب"),
-  notes: z.string().optional(),
-});
 
 const defaultValues = {
   defaultPostingDate: "",
@@ -29,23 +20,20 @@ const defaultValues = {
 
 export default function BulkMoveSalaryModal({
   isOpen,
-  payrollEntryIds,
-  cashboxes,
-  cashMovementTypes,
+  payrollEntryIds = [],
+  cashboxes = [],
+  cashMovementTypes = [],
   onClose,
   onSaved,
 }) {
   const [bulkMoveSalary, { isLoading }] = useBulkMoveSalaryMutation();
 
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm({ resolver: zodResolver(schema), defaultValues });
+  const wasOpenRef = useRef(false);
 
-  const wasOpenRef = { current: false };
+  const { control, register, handleSubmit, reset } = useForm({
+    defaultValues,
+  });
+
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       reset({
@@ -53,21 +41,32 @@ export default function BulkMoveSalaryModal({
         defaultPostingDate: new Date().toISOString().slice(0, 10),
       });
     }
-    wasOpenRef.current = isOpen;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
 
-  if (!isOpen) return null;
+    wasOpenRef.current = isOpen;
+  }, [isOpen, reset]);
 
   const onSubmit = async (data) => {
     try {
-      await bulkMoveSalary({ payrollEntryIds, ...data }).unwrap();
+      await bulkMoveSalary({
+        payrollEntryIds: payrollEntryIds.map(Number),
+        defaultPostingDate: data.defaultPostingDate,
+        defaultCashboxId: Number(data.defaultCashboxId),
+        defaultCashMovementTypeId: Number(data.defaultCashMovementTypeId),
+        notes: data.notes,
+      }).unwrap();
+
       toast.success(`تم ترحيل ${payrollEntryIds.length} راتب بنجاح`);
-      onSaved();
-    } catch {
-      toast.error("حصل خطأ أثناء الترحيل الجماعي، حاول تاني");
+
+      onSaved?.();
+    } catch (error) {
+      // الباك هو المسؤول عن الخطأ
+      toast.error(
+        error?.data?.message || error?.data?.title || "حدث خطأ أثناء الترحيل",
+      );
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <Modal
@@ -84,68 +83,72 @@ export default function BulkMoveSalaryModal({
           label="تاريخ الترحيل"
           type="date"
           {...register("defaultPostingDate")}
-          error={errors.defaultPostingDate?.message}
         />
 
         <div>
           <label className="block text-xs font-medium text-ink-400 mb-1">
             الخزينة
           </label>
+
           <Controller
             name="defaultCashboxId"
             control={control}
             render={({ field }) => (
               <CompactSelect
-                options={cashboxes.map((c) => ({ value: c.id, label: c.name }))}
+                options={cashboxes.map((cashbox) => ({
+                  value: cashbox.id,
+                  label: cashbox.name,
+                }))}
                 value={field.value}
-                onChange={field.onChange}
+                onChange={(value) =>
+                  field.onChange(
+                    value === "" || value == null ? "" : Number(value),
+                  )
+                }
                 placeholder="اختر الخزينة"
               />
             )}
           />
-          {errors.defaultCashboxId && (
-            <p className="text-xs text-negative mt-1">
-              {errors.defaultCashboxId.message}
-            </p>
-          )}
         </div>
 
         <div>
           <label className="block text-xs font-medium text-ink-400 mb-1">
             نوع الحركة
           </label>
+
           <Controller
             name="defaultCashMovementTypeId"
             control={control}
             render={({ field }) => (
               <CompactSelect
-                options={cashMovementTypes.map((t) => ({
-                  value: t.id,
-                  label: t.name,
+                options={cashMovementTypes.map((type) => ({
+                  value: type.id,
+                  label: type.name,
                 }))}
                 value={field.value}
-                onChange={field.onChange}
+                onChange={(value) =>
+                  field.onChange(
+                    value === "" || value == null ? "" : Number(value),
+                  )
+                }
                 placeholder="اختر نوع الحركة"
               />
             )}
           />
-          {errors.defaultCashMovementTypeId && (
-            <p className="text-xs text-negative mt-1">
-              {errors.defaultCashMovementTypeId.message}
-            </p>
-          )}
         </div>
 
-        <Input
-          label="ملاحظات عامة"
-          {...register("notes")}
-          error={errors.notes?.message}
-        />
+        <Input label="ملاحظات عامة" {...register("notes")} />
 
         <div className="flex justify-end gap-2 pt-2 border-t border-ink-400/10">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             إلغاء
           </Button>
+
           <Button type="submit" disabled={isLoading}>
             {isLoading
               ? "جارِ الترحيل..."

@@ -1,5 +1,3 @@
-// features/payroll/payrollApi.js
-
 import { baseApi } from "../../lib/baseApi";
 
 export const payrollApi = baseApi.injectEndpoints({
@@ -13,7 +11,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: "Employees/GetAll",
         params,
       }),
-
       providesTags: (result) =>
         result?.employees
           ? [
@@ -28,13 +25,11 @@ export const payrollApi = baseApi.injectEndpoints({
 
     getEmployeeById: builder.query({
       query: (id) => `Employees/${id}`,
-
       providesTags: (result, error, id) => [{ type: "Employee", id }],
     }),
 
     getEmployeesSelect: builder.query({
       query: () => "Employees/select",
-
       providesTags: [{ type: "Employee", id: "LIST" }],
     }),
 
@@ -44,7 +39,6 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: [{ type: "Employee", id: "LIST" }],
     }),
 
@@ -54,7 +48,6 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-
       invalidatesTags: (result, error, { id }) => [
         { type: "Employee", id },
         { type: "Employee", id: "LIST" },
@@ -66,7 +59,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: `Employees/${id}`,
         method: "DELETE",
       }),
-
       invalidatesTags: (result, error, id) => [
         { type: "Employee", id },
         { type: "Employee", id: "LIST" },
@@ -82,7 +74,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: "EmployeeAttendances",
         params,
       }),
-
       providesTags: (result) =>
         result?.items
           ? [
@@ -101,7 +92,6 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: [{ type: "Attendance", id: "LIST" }],
     }),
 
@@ -111,7 +101,6 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-
       invalidatesTags: (result, error, { id }) => [
         { type: "Attendance", id },
         { type: "Attendance", id: "LIST" },
@@ -119,12 +108,11 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     bulkCreateEmployeeAttendances: builder.mutation({
-      query: (body) => ({
+      query: (data) => ({
         url: "EmployeeAttendances/bulk",
         method: "POST",
-        body,
+        body: data,
       }),
-
       invalidatesTags: [{ type: "Attendance", id: "LIST" }],
     }),
 
@@ -133,7 +121,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: `EmployeeAttendances/${id}`,
         method: "DELETE",
       }),
-
       invalidatesTags: (result, error, id) => [
         { type: "Attendance", id },
         { type: "Attendance", id: "LIST" },
@@ -149,7 +136,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: "EmployeeTransactions",
         params,
       }),
-
       providesTags: (result) =>
         result?.items
           ? [
@@ -168,7 +154,6 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: [{ type: "Transaction", id: "LIST" }],
     }),
 
@@ -178,7 +163,6 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-
       invalidatesTags: (result, error, { id }) => [
         { type: "Transaction", id },
         { type: "Transaction", id: "LIST" },
@@ -190,7 +174,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: `EmployeeTransactions/${id}`,
         method: "DELETE",
       }),
-
       invalidatesTags: (result, error, id) => [
         { type: "Transaction", id },
         { type: "Transaction", id: "LIST" },
@@ -218,13 +201,18 @@ export const payrollApi = baseApi.injectEndpoints({
               ? Number(e.cashMovementTypeId)
               : undefined,
           })),
+
           defaultStartDate: data.defaultStartDate || undefined,
+
           defaultEndDate: data.defaultEndDate || undefined,
+
           defaultIsSalaryMoveToEmployeeAccount:
             data.defaultIsSalaryMoveToEmployeeAccount ?? undefined,
+
           defaultCashboxId: data.defaultCashboxId
             ? Number(data.defaultCashboxId)
             : undefined,
+
           defaultCashMovementTypeId: data.defaultCashMovementTypeId
             ? Number(data.defaultCashMovementTypeId)
             : undefined,
@@ -238,16 +226,15 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
+    // =========================================================
+    // Move Salary
+    // =========================================================
+
     moveSalary: builder.mutation({
       query: ({ id, ...data }) => ({
         url: `PayrollEntries/${id}/move-salary`,
         method: "POST",
-        body: {
-          postingDate: data.postingDate,
-          notes: data.notes?.trim() || undefined,
-          cashboxId: Number(data.cashboxId),
-          cashMovementTypeId: Number(data.cashMovementTypeId),
-        },
+        body: data,
       }),
 
       invalidatesTags: (result, error, { id }) => [
@@ -258,30 +245,15 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
+    // =========================================================
+    // Bulk Move Salary
+    // =========================================================
+
     bulkMoveSalary: builder.mutation({
       query: (data) => ({
         url: "PayrollEntries/bulk/move-salary",
         method: "POST",
-        body: {
-          entries: (data.entries || []).map((e) => ({
-            payrollEntryId: Number(e.payrollEntryId),
-            postingDate: e.postingDate || undefined,
-            notes: e.notes?.trim() || undefined,
-            cashboxId: e.cashboxId ? Number(e.cashboxId) : undefined,
-            cashMovementTypeId: e.cashMovementTypeId
-              ? Number(e.cashMovementTypeId)
-              : undefined,
-          })),
-          payrollEntryIds: data.payrollEntryIds || undefined,
-          defaultPostingDate: data.defaultPostingDate || undefined,
-          notes: data.notes?.trim() || undefined,
-          defaultCashboxId: data.defaultCashboxId
-            ? Number(data.defaultCashboxId)
-            : undefined,
-          defaultCashMovementTypeId: data.defaultCashMovementTypeId
-            ? Number(data.defaultCashMovementTypeId)
-            : undefined,
-        },
+        body: data,
       }),
 
       invalidatesTags: [
@@ -290,6 +262,10 @@ export const payrollApi = baseApi.injectEndpoints({
         "Statement",
       ],
     }),
+
+    // =========================================================
+    // Recalculate Payroll Entry
+    // =========================================================
 
     recalculatePayrollEntry: builder.mutation({
       query: (id) => ({
@@ -302,6 +278,7 @@ export const payrollApi = baseApi.injectEndpoints({
         { type: "PayrollEntry", id: "LIST" },
       ],
     }),
+
     getPayrollEntries: builder.query({
       query: (params) => ({
         url: "PayrollEntries",
@@ -326,7 +303,10 @@ export const payrollApi = baseApi.injectEndpoints({
       providesTags: (result, error, id) => [{ type: "PayrollEntry", id }],
     }),
 
-    // POST /api/v1/PayrollEntries
+    // =========================================================
+    // Create Payroll Entry
+    // =========================================================
+
     createPayrollEntry: builder.mutation({
       query: (data) => ({
         url: "PayrollEntries",
@@ -337,7 +317,10 @@ export const payrollApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: "PayrollEntry", id: "LIST" }],
     }),
 
-    // POST /api/v1/PayrollEntries/{id}/pay
+    // =========================================================
+    // Pay Payroll Entry
+    // =========================================================
+
     payPayrollEntry: builder.mutation({
       query: ({ id, ...data }) => ({
         url: `PayrollEntries/${id}/pay`,
@@ -351,7 +334,10 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // DELETE /api/v1/PayrollEntries/{id}
+    // =========================================================
+    // Delete Payroll Entry
+    // =========================================================
+
     deletePayrollEntry: builder.mutation({
       query: (id) => ({
         url: `PayrollEntries/${id}`,

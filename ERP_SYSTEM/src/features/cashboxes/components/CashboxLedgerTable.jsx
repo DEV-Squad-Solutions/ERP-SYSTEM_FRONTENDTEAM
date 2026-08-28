@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+
 import {
   FileSearch,
   AlertCircle,
   RefreshCw,
   Plus,
-  Receipt,
   Check,
   X,
   Loader2,
@@ -13,50 +13,90 @@ import {
   ChevronDown,
   Trash2,
 } from "lucide-react";
+
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
 
 import CashVoucherEditModal from "./CashVoucherEditModal";
-import ExpenseQuickEntryModal from "./ExpenseQuickEntryModal";
 import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
+
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
 import { selectIsAdmin } from "../../auth/authSlice";
+
 import {
   buildDescriptionGroups,
   getCurrentDescriptionValue,
   buildPostingTargetPayload,
 } from "../utils/descriptionGroups";
 
-const fmt = (number) =>
-  Number(number ?? 0).toLocaleString("ar-EG", {
+/* =========================================================
+   Helpers
+========================================================= */
+
+const fmt = (value) =>
+  Number(value ?? 0).toLocaleString("ar-EG", {
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
 
+const toNumber = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+};
+
+function getToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function emptyDraft() {
   return {
-    voucherDate: new Date().toISOString().slice(0, 10),
+    voucherDate: getToday(),
     description: "",
     receiptAmount: "",
     paymentAmount: "",
-    notes: "",
   };
 }
+
+/* =========================================================
+   Sort Icon
+========================================================= */
+
+function SortIcon({ active, dir }) {
+  if (!active) {
+    return <ArrowUpDown size={11} className="text-ink-300 transition-colors" />;
+  }
+
+  return dir === "asc" ? (
+    <ChevronUp size={11} className="text-primary-600" />
+  ) : (
+    <ChevronDown size={11} className="text-primary-600" />
+  );
+}
+
+/* =========================================================
+   Component
+========================================================= */
+
 export default function CashboxLedgerTable({
   data,
   isLoading,
   isFetching,
   isError,
   refetch,
+
   cashboxId,
   cashboxCurrency,
   cashboxBaseCurrency,
+
   partyOptions = [],
   driverOptions = [],
   employeeOptions = [],
+
   onAddVoucher,
   onUpdateVoucher,
   onDeleteVoucher,
+
   page = 1,
   pageSize = 20,
   totalCount = 0,
@@ -65,33 +105,36 @@ export default function CashboxLedgerTable({
 }) {
   const isAdmin = useSelector(selectIsAdmin);
 
+  /* =========================================================
+     Local State
+  ========================================================= */
+
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const [draft, setDraft] = useState(emptyDraft());
 
   const [editingRow, setEditingRow] = useState(null);
+
   const [updatingRowId, setUpdatingRowId] = useState(null);
   const [deletingRowId, setDeletingRowId] = useState(null);
   const [descriptionUpdatingId, setDescriptionUpdatingId] = useState(null);
 
-  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
-
   const [sortKey, setSortKey] = useState("date");
   const [sortDir, setSortDir] = useState("asc");
 
-  const vouchers = data?.items || [];
-
-  // =========================================================
-  // Party / description select data (نداء واحد بيغني عن نداءات
-  // منفصلة لكل مجموعة: عملاء/موردين، سائقين، موظفين، مصاريف، إيرادات)
-  // =========================================================
+  /* =========================================================
+     API
+  ========================================================= */
 
   const { data: partySelect, isFetching: loadingPartySelect } =
     useGetCashVoucherPartySelectQuery();
 
-  // =========================================================
-  // Currency
-  // =========================================================
+  /* =========================================================
+     Base Data
+  ========================================================= */
+
+  const vouchers = data?.items ?? [];
 
   const currency = cashboxCurrency || vouchers[0]?.currency || "EGP";
 
@@ -100,145 +143,210 @@ export default function CashboxLedgerTable({
 
   const isForeign = currency !== baseCurrency;
 
-  // =========================================================
-  // Opening balances
-  // =========================================================
+  /* =========================================================
+     Opening Balances
+  ========================================================= */
 
-  const openingBalance = Number(
-    data?.summary?.openingBalance ??
-      data?.summary?.openingCashboxBalance ??
-      data?.summary?.previousBalance ??
-      data?.openingBalance ??
-      0,
+  const openingBalance = useMemo(
+    () =>
+      toNumber(
+        data?.summary?.openingBalance ??
+          data?.summary?.openingCashboxBalance ??
+          data?.summary?.previousBalance ??
+          data?.openingBalance ??
+          0,
+      ),
+    [data],
   );
 
-  const openingBaseBalance = Number(
-    data?.summary?.openingBaseBalance ??
-      data?.summary?.openingBaseCashboxBalance ??
-      data?.summary?.previousBaseBalance ??
-      data?.openingBaseBalance ??
-      0,
+  const openingBaseBalance = useMemo(
+    () =>
+      toNumber(
+        data?.summary?.openingBaseBalance ??
+          data?.summary?.openingBaseCashboxBalance ??
+          data?.summary?.previousBaseBalance ??
+          data?.openingBaseBalance ??
+          0,
+      ),
+    [data],
   );
 
-  // =========================================================
-  // Description Groups
-  //
-  // بتتبني حسب اتجاه الحركة نفسها (row.direction / draft.direction)
-  // عشان تظهر مجموعة "إيرادات" مع الوارد ومجموعة "مصاريف" مع الصادر
-  // بس، زي ما buildDescriptionGroups بيفلتر داخليًا.
-  // =========================================================
+  /* =========================================================
+     Description Groups
+  ========================================================= */
 
-  const getDescriptionGroups = (direction) =>
-    buildDescriptionGroups(partySelect, { direction });
+  const getDescriptionGroups = useCallback(
+    (direction) => buildDescriptionGroups(partySelect, { direction }),
+    [partySelect],
+  );
 
-  // =========================================================
-  // Inline description change
-  //
-  // لا يوجد أي تأكيد أو Business Validation هنا.
-  // نرسل مباشرة للـ backend وننتظر النتيجة.
-  // =========================================================
+  /* =========================================================
+     Description Change
+  ========================================================= */
 
-  async function handleDescriptionChange(row, selectedValue) {
-    if (!selectedValue) {
-      return;
-    }
-
-    const groups = getDescriptionGroups(row.direction);
-
-    const selectedOption = groups
-      .flatMap((group) => group.options)
-      .find((option) => option.value === selectedValue);
-
-    if (!selectedOption) {
-      return;
-    }
-
-    const meta = selectedOption.meta || {};
-
-    // =========================================================
-    // Exactly one posting target must be sent to the backend
-    // (see buildPostingTargetPayload in utils/descriptionGroups.js
-    // for the shared rule)
-    // =========================================================
-
-    const payload = {
-      id: row.id,
-      cashboxId,
-      rowVersion: row.rowVersion,
-
-      voucherDate: row.voucherDate,
-      direction: row.direction,
-      amount: Number(row.amount),
-
-      ...buildPostingTargetPayload(meta, row),
-
-      description: row.description || undefined,
-
-      notes: row.notes || undefined,
-
-      referenceNumber: row.referenceNumber || undefined,
-    };
-
-    if (isForeign) {
-      payload.exchangeRate = Number(row.exchangeRate ?? row.rate ?? 1);
-    }
-
-    setDescriptionUpdatingId(row.id);
-
-    try {
-      await onUpdateVoucher(payload);
-
-      toast.success("تم تحديث توصيف الحركة بنجاح");
-    } catch (error) {
-      const code = error?.data?.errorCode;
-
-      if (code === "CashVouchers.Concurrency") {
-        toast.error("السند تم تعديله من مستخدم آخر. أعد تحميل البيانات.");
-      } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
-        toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
-      } else {
-        toast.error(
-          error?.data?.detail ||
-            error?.data?.title ||
-            error?.error ||
-            "تعذر تحديث توصيف الحركة",
-        );
+  const handleDescriptionChange = useCallback(
+    async (row, selectedValue) => {
+      if (!selectedValue || !onUpdateVoucher) {
+        return;
       }
-    } finally {
-      setDescriptionUpdatingId(null);
-    }
-  }
 
-  // =========================================================
-  // Add
-  // =========================================================
+      const groups = getDescriptionGroups(row.direction);
 
-  function openAddRow() {
+      const selectedOption = groups
+        .flatMap((group) => group.options)
+        .find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        return;
+      }
+
+      const meta = selectedOption.meta || {};
+
+      const payload = {
+        id: row.id,
+        cashboxId,
+        rowVersion: row.rowVersion,
+        voucherDate: row.voucherDate,
+        direction: row.direction,
+        amount: toNumber(row.amount),
+
+        ...buildPostingTargetPayload(meta, row),
+
+        description: row.description || undefined,
+
+        notes: row.notes || undefined,
+
+        referenceNumber: row.referenceNumber || undefined,
+      };
+
+      if (isForeign) {
+        payload.exchangeRate = toNumber(row.exchangeRate ?? row.rate ?? 1) || 1;
+      }
+
+      setDescriptionUpdatingId(row.id);
+
+      try {
+        await onUpdateVoucher(payload);
+
+        toast.success("تم تحديث توصيف الحركة بنجاح");
+      } catch (error) {
+        const code = error?.data?.errorCode;
+
+        if (code === "CashVouchers.Concurrency") {
+          toast.error("السند تم تعديله من مستخدم آخر. أعد تحميل البيانات.");
+        } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
+          toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
+        } else {
+          toast.error(
+            error?.data?.detail ||
+              error?.data?.title ||
+              error?.error ||
+              "تعذر تحديث توصيف الحركة",
+          );
+        }
+      } finally {
+        setDescriptionUpdatingId(null);
+      }
+    },
+    [cashboxId, getDescriptionGroups, isForeign, onUpdateVoucher],
+  );
+
+  /* =========================================================
+     Add Row
+  ========================================================= */
+
+  const openAddRow = useCallback(() => {
     setDraft(emptyDraft());
     setIsAdding(true);
-  }
+  }, []);
 
-  function closeAddRow() {
-    setIsAdding(false);
-    setDraft(emptyDraft());
-  }
-
-  async function handleSave() {
-    const receipt = Number(draft.receiptAmount) || 0;
-
-    const payment = Number(draft.paymentAmount) || 0;
-
-    if (receipt <= 0 && payment <= 0) {
-      toast.error("أدخل قيمة وارد أو قيمة صادر");
+  const closeAddRow = useCallback(() => {
+    if (saving) {
       return;
     }
 
-    if (receipt > 0 && payment > 0) {
-      toast.error("لا يمكن إدخال وارد وصادر في نفس الحركة");
+    setIsAdding(false);
+    setDraft(emptyDraft());
+  }, [saving]);
+
+  /* =========================================================
+     Draft Changes
+  ========================================================= */
+
+  const handlePaymentChange = useCallback((event) => {
+    const value = event.target.value;
+
+    setDraft((current) => ({
+      ...current,
+
+      // الصادر يمسح الوارد
+      paymentAmount: value,
+      receiptAmount: "",
+    }));
+  }, []);
+
+  const handleReceiptChange = useCallback((event) => {
+    const value = event.target.value;
+
+    setDraft((current) => ({
+      ...current,
+
+      // الوارد يمسح الصادر
+      receiptAmount: value,
+      paymentAmount: "",
+    }));
+  }, []);
+
+  const handleDraftDescriptionChange = useCallback((event) => {
+    setDraft((current) => ({
+      ...current,
+      description: event.target.value,
+    }));
+  }, []);
+
+  const handleDraftDateChange = useCallback((event) => {
+    setDraft((current) => ({
+      ...current,
+      voucherDate: event.target.value,
+    }));
+  }, []);
+
+  /* =========================================================
+     Save New Voucher
+  ========================================================= */
+
+  const handleSave = useCallback(async () => {
+    if (saving || !onAddVoucher) {
+      return;
+    }
+
+    const receipt = toNumber(draft.receiptAmount);
+
+    const payment = toNumber(draft.paymentAmount);
+
+    const description = draft.description.trim();
+
+    /*
+     * Minimal frontend checks only:
+     * - amount
+     * - description
+     *
+     * No accounting/business validation.
+     */
+
+    if (receipt <= 0 && payment <= 0) {
+      toast.error("أدخل قيمة الوارد أو الصادر");
+      return;
+    }
+
+    if (!description) {
+      toast.error("اكتب بيان الحركة أولاً");
       return;
     }
 
     const amount = receipt > 0 ? receipt : payment;
+
+    const direction = receipt > 0 ? "Receipt" : "Payment";
 
     setSaving(true);
 
@@ -246,14 +354,21 @@ export default function CashboxLedgerTable({
       await onAddVoucher({
         cashboxId,
         voucherDate: draft.voucherDate,
-        direction: receipt > 0 ? "Receipt" : "Payment",
+        direction,
         amount,
-        description: draft.description || undefined,
+        description,
       });
 
-      toast.success("تم تسجيل الحركة كمسودة");
+      toast.success("تم تسجيل الحركة بنجاح");
 
-      setDraft(emptyDraft());
+      /*
+       * Keep the add row open so the user
+       * can enter another movement immediately.
+       */
+      setDraft({
+        ...emptyDraft(),
+        voucherDate: draft.voucherDate,
+      });
     } catch (error) {
       toast.error(
         error?.data?.detail ||
@@ -264,154 +379,308 @@ export default function CashboxLedgerTable({
     } finally {
       setSaving(false);
     }
-  }
+  }, [cashboxId, draft, onAddVoucher, saving]);
 
-  // =========================================================
-  // Full Edit
-  //
-  // لا يوجد confirm.
-  // لا يوجد validation business من الفرونت.
-  // onUpdateVoucher هو المسؤول عن تنفيذ الطلب.
-  // =========================================================
+  /* =========================================================
+     Keyboard
+  ========================================================= */
 
-  async function handleFullEdit(payload) {
-    if (!editingRow) {
-      return;
-    }
+  const handleAddKeyDown = useCallback(
+    (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleSave();
+        return;
+      }
 
-    setUpdatingRowId(editingRow.id);
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAddRow();
+      }
+    },
+    [closeAddRow, handleSave],
+  );
 
-    try {
-      await onUpdateVoucher({
-        id: editingRow.id,
-        cashboxId,
-        rowVersion: editingRow.rowVersion,
-        ...payload,
-      });
+  /* =========================================================
+     Full Edit
+  ========================================================= */
 
-      toast.success("تم تحديث السند بنجاح");
+  const handleFullEdit = useCallback(
+    async (payload) => {
+      if (!editingRow || !onUpdateVoucher) {
+        return;
+      }
 
-      setEditingRow(null);
-    } catch (error) {
-      const code = error?.data?.errorCode;
+      setUpdatingRowId(editingRow.id);
 
-      if (code === "CashVouchers.Concurrency") {
-        toast.error(
-          "السند تم تعديله من مستخدم آخر. أعد تحميل البيانات ثم حاول مرة أخرى.",
-        );
-      } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
-        toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
-      } else {
+      try {
+        await onUpdateVoucher({
+          id: editingRow.id,
+          cashboxId,
+          rowVersion: editingRow.rowVersion,
+          ...payload,
+        });
+
+        toast.success("تم تحديث السند بنجاح");
+
+        setEditingRow(null);
+      } catch (error) {
+        const code = error?.data?.errorCode;
+
+        if (code === "CashVouchers.Concurrency") {
+          toast.error(
+            "السند تم تعديله من مستخدم آخر. أعد تحميل البيانات ثم حاول مرة أخرى.",
+          );
+        } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
+          toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
+        } else {
+          toast.error(
+            error?.data?.detail ||
+              error?.data?.title ||
+              error?.error ||
+              "تعذر تحديث السند",
+          );
+        }
+      } finally {
+        setUpdatingRowId(null);
+      }
+    },
+    [cashboxId, editingRow, onUpdateVoucher],
+  );
+
+  /* =========================================================
+     Delete
+  ========================================================= */
+
+  const executeDeleteVoucher = useCallback(
+    async (row) => {
+      if (!row || deletingRowId || !onDeleteVoucher) {
+        return;
+      }
+
+      setDeletingRowId(row.id);
+
+      try {
+        await onDeleteVoucher({
+          id: row.id,
+          rowVersion: row.rowVersion,
+        });
+
+        toast.success("تم حذف السند بنجاح");
+
+        if (editingRow && String(editingRow.id) === String(row.id)) {
+          setEditingRow(null);
+        }
+
+        refetch?.();
+      } catch (error) {
         toast.error(
           error?.data?.detail ||
             error?.data?.title ||
             error?.error ||
-            "تعذر تحديث السند",
+            "تعذر حذف السند",
+        );
+      } finally {
+        setDeletingRowId(null);
+      }
+    },
+    [deletingRowId, editingRow, onDeleteVoucher, refetch],
+  );
+
+  const handleDeleteVoucher = useCallback(
+    (row) => {
+      if (!isAdmin) {
+        toast.error("ليس لديك صلاحية حذف السند");
+        return;
+      }
+
+      if (!onDeleteVoucher) {
+        toast.error("خدمة حذف السند غير متاحة");
+        return;
+      }
+
+      if (row.invoiceId) {
+        toast.error("السند المولد من فاتورة لا يمكن حذفه من هنا.");
+        return;
+      }
+
+      toast.warning(`هل أنت متأكد من حذف السند رقم ${row.voucherNumber}؟`, {
+        duration: 8000,
+
+        action: {
+          label: "حذف",
+          onClick: () => executeDeleteVoucher(row),
+        },
+
+        cancel: {
+          label: "إلغاء",
+        },
+      });
+    },
+    [executeDeleteVoucher, isAdmin, onDeleteVoucher],
+  );
+
+  /* =========================================================
+     Sorting
+  ========================================================= */
+
+  const toggleSort = useCallback(
+    (key) => {
+      if (sortKey === key) {
+        setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+      } else {
+        setSortKey(key);
+        setSortDir("asc");
+      }
+    },
+    [sortKey],
+  );
+
+  /* =========================================================
+     Chronological Rows
+     
+     IMPORTANT:
+     Running balance is ALWAYS calculated
+     chronologically, regardless of UI sorting.
+  ========================================================= */
+
+  const rows = useMemo(() => {
+    const chronological = [...vouchers].sort((a, b) => {
+      const dateCompare = String(a.voucherDate || "").localeCompare(
+        String(b.voucherDate || ""),
+      );
+
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+
+      return String(a.voucherNumber || "").localeCompare(
+        String(b.voucherNumber || ""),
+        undefined,
+        {
+          numeric: true,
+        },
+      );
+    });
+
+    let running = openingBalance;
+
+    let baseRunning = openingBaseBalance;
+
+    return chronological.map((voucher) => {
+      const amount = toNumber(voucher.amount);
+
+      const exchangeRate =
+        toNumber(voucher.exchangeRate ?? voucher.rate ?? 1) || 1;
+
+      const baseAmount = toNumber(voucher.baseAmount ?? amount * exchangeRate);
+
+      const debit = voucher.direction === "Receipt" ? amount : 0;
+
+      const credit = voucher.direction === "Payment" ? amount : 0;
+
+      const baseDebit = voucher.direction === "Receipt" ? baseAmount : 0;
+
+      const baseCredit = voucher.direction === "Payment" ? baseAmount : 0;
+
+      running += debit - credit;
+
+      baseRunning += baseDebit - baseCredit;
+
+      const isDescribed = Boolean(voucher.cashMovementTypeId);
+
+      const isDraft =
+        typeof voucher.isDraft === "boolean" ? voucher.isDraft : !isDescribed;
+
+      return {
+        ...voucher,
+
+        amount,
+        exchangeRate,
+        baseAmount,
+
+        debit,
+        credit,
+
+        baseDebit,
+        baseCredit,
+
+        balance: running,
+        baseBalance: baseRunning,
+
+        isDescribed,
+        isDraft,
+      };
+    });
+  }, [openingBalance, openingBaseBalance, vouchers]);
+
+  /* =========================================================
+     Totals
+  ========================================================= */
+
+  const totals = useMemo(() => {
+    return rows.reduce(
+      (result, row) => {
+        result.debit += row.debit;
+        result.credit += row.credit;
+
+        result.baseDebit += row.baseDebit;
+
+        result.baseCredit += row.baseCredit;
+
+        return result;
+      },
+      {
+        debit: 0,
+        credit: 0,
+        baseDebit: 0,
+        baseCredit: 0,
+      },
+    );
+  }, [rows]);
+
+  const finalBalance = openingBalance + totals.debit - totals.credit;
+
+  const finalBaseBalance =
+    openingBaseBalance + totals.baseDebit - totals.baseCredit;
+
+  /* =========================================================
+     Display Sort
+  ========================================================= */
+
+  const displayRows = useMemo(() => {
+    const sorted = [...rows].sort((a, b) => {
+      let cmp = 0;
+
+      if (sortKey === "number") {
+        cmp = String(a.voucherNumber || "").localeCompare(
+          String(b.voucherNumber || ""),
+          undefined,
+          {
+            numeric: true,
+          },
+        );
+      } else {
+        cmp = String(a.voucherDate || "").localeCompare(
+          String(b.voucherDate || ""),
         );
       }
-    } finally {
-      setUpdatingRowId(null);
-    }
-  }
 
-  // =========================================================
-  // Delete
-  // =========================================================
-
-  function handleDeleteVoucher(row) {
-    if (!isAdmin) {
-      toast.error("ليس لديك صلاحية حذف السند");
-      return;
-    }
-
-    if (!onDeleteVoucher) {
-      toast.error("خدمة حذف السند غير متاحة");
-      return;
-    }
-
-    if (row.invoiceId) {
-      toast.error("السند المولد من فاتورة لا يمكن حذفه من هنا.");
-      return;
-    }
-
-    toast.warning(`هل أنت متأكد من حذف السند رقم ${row.voucherNumber}؟`, {
-      duration: 8000,
-
-      action: {
-        label: "حذف",
-        onClick: () => executeDeleteVoucher(row),
-      },
-
-      cancel: {
-        label: "إلغاء",
-      },
+      return sortDir === "asc" ? cmp : -cmp;
     });
-  }
 
-  async function executeDeleteVoucher(row) {
-    if (!row || deletingRowId) {
-      return;
-    }
+    return sorted;
+  }, [rows, sortDir, sortKey]);
 
-    setDeletingRowId(row.id);
+  const showEmptyState = !isFetching && rows.length === 0 && !isAdding;
 
-    try {
-      await onDeleteVoucher({
-        id: row.id,
-        rowVersion: row.rowVersion,
-      });
-
-      toast.success("تم حذف السند بنجاح");
-
-      if (editingRow && String(editingRow.id) === String(row.id)) {
-        setEditingRow(null);
-      }
-
-      refetch?.();
-    } catch (error) {
-      toast.error(
-        error?.data?.detail ||
-          error?.data?.title ||
-          error?.error ||
-          "تعذر حذف السند",
-      );
-    } finally {
-      setDeletingRowId(null);
-    }
-  }
-
-  // =========================================================
-  // Sorting
-  // =========================================================
-
-  function toggleSort(key) {
-    if (sortKey === key) {
-      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
-
-  function SortIcon({ active, dir }) {
-    if (!active) {
-      return <ArrowUpDown size={11} className="text-ink-300" />;
-    }
-
-    return dir === "asc" ? (
-      <ChevronUp size={11} className="text-primary-600" />
-    ) : (
-      <ChevronDown size={11} className="text-primary-600" />
-    );
-  }
-
-  // =========================================================
-  // Loading
-  // =========================================================
+  /* =========================================================
+     Loading
+  ========================================================= */
 
   if (isLoading) {
     return (
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         {[1, 2, 3, 4, 5, 6].map((item) => (
           <div
             key={item}
@@ -422,9 +691,9 @@ export default function CashboxLedgerTable({
     );
   }
 
-  // =========================================================
-  // Error
-  // =========================================================
+  /* =========================================================
+     Error
+  ========================================================= */
 
   if (isError) {
     return (
@@ -442,7 +711,7 @@ export default function CashboxLedgerTable({
         <button
           type="button"
           onClick={refetch}
-          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-100"
+          className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-1.5 text-sm font-medium text-primary-500 transition-all hover:bg-primary-100 active:scale-95"
         >
           <RefreshCw size={13} />
           إعادة المحاولة
@@ -451,107 +720,15 @@ export default function CashboxLedgerTable({
     );
   }
 
-  // =========================================================
-  // Chronological
-  // =========================================================
-
-  const chronological = [...vouchers].sort((a, b) => {
-    const dateCompare = String(a.voucherDate || "").localeCompare(
-      String(b.voucherDate || ""),
-    );
-
-    if (dateCompare !== 0) {
-      return dateCompare;
-    }
-
-    return String(a.voucherNumber || "").localeCompare(
-      String(b.voucherNumber || ""),
-      undefined,
-      {
-        numeric: true,
-      },
-    );
-  });
-
-  let running = openingBalance;
-  let baseRunning = openingBaseBalance;
-
-  const rows = chronological.map((voucher) => {
-    const amount = Number(voucher.amount) || 0;
-
-    const exchangeRate = Number(voucher.exchangeRate ?? voucher.rate ?? 1) || 1;
-
-    const baseAmount = Number(voucher.baseAmount ?? amount * exchangeRate);
-
-    const debit = voucher.direction === "Receipt" ? amount : 0;
-
-    const credit = voucher.direction === "Payment" ? amount : 0;
-
-    const baseDebit = voucher.direction === "Receipt" ? baseAmount : 0;
-
-    const baseCredit = voucher.direction === "Payment" ? baseAmount : 0;
-
-    running += debit - credit;
-
-    baseRunning += baseDebit - baseCredit;
-
-    const isDescribed = Boolean(voucher.cashMovementTypeId);
-
-    const isDraft =
-      typeof voucher.isDraft === "boolean" ? voucher.isDraft : !isDescribed;
-
-    return {
-      ...voucher,
-      amount,
-      exchangeRate,
-      baseAmount,
-      debit,
-      credit,
-      baseDebit,
-      baseCredit,
-      balance: running,
-      baseBalance: baseRunning,
-      isDescribed,
-      isDraft,
-    };
-  });
-
-  const totalDebit = rows.reduce((sum, row) => sum + row.debit, 0);
-
-  const totalCredit = rows.reduce((sum, row) => sum + row.credit, 0);
-
-  const totalBaseDebit = rows.reduce((sum, row) => sum + row.baseDebit, 0);
-
-  const totalBaseCredit = rows.reduce((sum, row) => sum + row.baseCredit, 0);
-
-  // =========================================================
-  // Display sort
-  // =========================================================
-
-  const displayRows = [...rows].sort((a, b) => {
-    const cmp =
-      sortKey === "number"
-        ? String(a.voucherNumber || "").localeCompare(
-            String(b.voucherNumber || ""),
-            undefined,
-            {
-              numeric: true,
-            },
-          )
-        : String(a.voucherDate || "").localeCompare(
-            String(b.voucherDate || ""),
-          );
-
-    return sortDir === "asc" ? cmp : -cmp;
-  });
-
-  const showEmptyState = !isFetching && rows.length === 0 && !isAdding;
+  /* =========================================================
+     Render
+  ========================================================= */
 
   return (
     <div>
-      {/* ===================================================== */}
-      {/* Foreign currency */}
-      {/* ===================================================== */}
+      {/* =====================================================
+          Foreign Currency
+      ===================================================== */}
 
       {isForeign && (
         <div className="mb-2 rounded-xl border border-primary-100 bg-primary-50/50 px-3 py-2">
@@ -569,39 +746,33 @@ export default function CashboxLedgerTable({
         </div>
       )}
 
-      {/* ===================================================== */}
-      {/* Actions */}
-      {/* ===================================================== */}
+      {/* =====================================================
+          Actions
+      ===================================================== */}
 
       {!isAdding && (
-        <div className="mb-2 flex gap-2">
+        <div className="mb-2">
           <button
             type="button"
             onClick={openAddRow}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink-400/15 py-2 text-[11px] text-ink-400 transition hover:bg-primary-50/40 hover:text-primary-500"
+            className="group flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink-400/15 py-2 text-[11px] text-ink-400 transition-all duration-200 hover:border-primary-300/40 hover:bg-primary-50/40 hover:text-primary-500 active:scale-[0.99]"
           >
-            <Plus size={13} />
-            إضافة حركة
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setExpenseModalOpen(true)}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-red-300/40 px-3 py-2 text-[11px] text-red-500 transition hover:bg-red-50/40"
-          >
-            <Receipt size={13} />
-            تسجيل مصروف
+            <Plus
+              size={13}
+              className="transition-transform duration-200 group-hover:rotate-90"
+            />
+            إضافة حركة جديدة
           </button>
         </div>
       )}
 
-      {/* ===================================================== */}
-      {/* Table */}
-      {/* ===================================================== */}
+      {/* =====================================================
+          Table
+      ===================================================== */}
 
       <div
-        className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
-          isFetching ? "opacity-60" : ""
+        className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 ${
+          isFetching ? "opacity-60" : "opacity-100"
         }`}
       >
         <div className="overflow-x-auto">
@@ -621,18 +792,34 @@ export default function CashboxLedgerTable({
               <col className="w-[10%]" />
             </colgroup>
 
+            {/* =================================================
+                Header
+            ================================================= */}
+
             <thead>
               <tr className="bg-ink-900/[0.03] text-[10px] text-ink-400">
                 <th className="border-l border-ink-400/5 px-2 py-2 font-medium">
                   الرصيد
                 </th>
 
-                <th className="border-l border-ink-400/5 px-2 py-2 font-medium text-negative">
-                  صادر {isForeign && `(${currency})`}
-                </th>
+                {/* الصادر = أخضر */}
 
                 <th className="border-l border-ink-400/5 px-2 py-2 font-medium text-positive">
-                  وارد {isForeign && `(${currency})`}
+                  <span className="inline-flex items-center gap-1">
+                    <ArrowUpDown size={10} />
+                    صادر
+                    {isForeign && ` (${currency})`}
+                  </span>
+                </th>
+
+                {/* الوارد = أحمر */}
+
+                <th className="border-l border-ink-400/5 px-2 py-2 font-medium text-negative">
+                  <span className="inline-flex items-center gap-1">
+                    <ArrowUpDown size={10} />
+                    وارد
+                    {isForeign && ` (${currency})`}
+                  </span>
                 </th>
 
                 {isForeign && (
@@ -649,7 +836,7 @@ export default function CashboxLedgerTable({
                   <button
                     type="button"
                     onClick={() => toggleSort("date")}
-                    className="inline-flex items-center gap-1 hover:text-ink-700"
+                    className="inline-flex items-center gap-1 transition-colors hover:text-ink-700"
                   >
                     التاريخ
                     <SortIcon active={sortKey === "date"} dir={sortDir} />
@@ -660,7 +847,7 @@ export default function CashboxLedgerTable({
                   <button
                     type="button"
                     onClick={() => toggleSort("number")}
-                    className="inline-flex items-center gap-1 hover:text-ink-700"
+                    className="inline-flex items-center gap-1 transition-colors hover:text-ink-700"
                   >
                     السند
                     <SortIcon active={sortKey === "number"} dir={sortDir} />
@@ -670,9 +857,9 @@ export default function CashboxLedgerTable({
             </thead>
 
             <tbody>
-              {/* ================================================= */}
-              {/* Empty */}
-              {/* ================================================= */}
+              {/* =================================================
+                  Empty
+              ================================================= */}
 
               {showEmptyState && (
                 <tr>
@@ -687,26 +874,29 @@ export default function CashboxLedgerTable({
                       </p>
 
                       <p className="text-[11px] text-ink-400">
-                        ابدأ بتسجيل أول سند
+                        ابدأ بتسجيل أول حركة
                       </p>
                     </div>
                   </td>
                 </tr>
               )}
 
-              {/* ================================================= */}
-              {/* Add row */}
-              {/* ================================================= */}
+              {/* =================================================
+                  Add Row
+              ================================================= */}
 
               {isAdding && (
-                <tr className="border-b border-ink-400/10 bg-primary-50/30 align-top">
+                <tr className="animate-in fade-in slide-in-from-top-1 border-b border-primary-100 bg-primary-50/30 align-top duration-200">
+                  {/* Actions / Balance */}
+
                   <td className="p-1.5">
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex h-6 w-6 items-center justify-center rounded-md bg-positive/15 text-positive hover:bg-positive/25 disabled:opacity-50"
+                        title="حفظ الحركة - Enter"
+                        className="flex h-7 w-7 items-center justify-center rounded-md bg-positive/15 text-positive transition-all hover:bg-positive/25 active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {saving ? (
                           <Loader2 size={12} className="animate-spin" />
@@ -719,12 +909,21 @@ export default function CashboxLedgerTable({
                         type="button"
                         onClick={closeAddRow}
                         disabled={saving}
-                        className="flex h-6 w-6 items-center justify-center rounded-md bg-ink-900/[0.05] text-ink-400 hover:bg-ink-900/10"
+                        title="إلغاء - Escape"
+                        className="flex h-7 w-7 items-center justify-center rounded-md bg-ink-900/[0.05] text-ink-400 transition-all hover:bg-ink-900/10 active:scale-90 disabled:opacity-50"
                       >
                         <X size={12} />
                       </button>
                     </div>
+
+                    <div className="mt-1 text-[8px] text-ink-300">
+                      Enter حفظ
+                    </div>
                   </td>
+
+                  {/* =================================================
+                      Payment / Outgoing = Green
+                  ================================================= */}
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
@@ -733,16 +932,17 @@ export default function CashboxLedgerTable({
                       step="0.01"
                       placeholder="صادر"
                       value={draft.paymentAmount}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          paymentAmount: event.target.value,
-                          receiptAmount: "",
-                        }))
-                      }
-                      className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
+                      onChange={handlePaymentChange}
+                      onKeyDown={handleAddKeyDown}
+                      disabled={saving}
+                      autoComplete="off"
+                      className="num w-full rounded-md border border-positive/20 bg-white px-2 py-1.5 text-[11px] text-positive outline-none transition-all placeholder:text-ink-300 focus:border-positive/50 focus:ring-2 focus:ring-positive/10 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
                   </td>
+
+                  {/* =================================================
+                      Receipt / Incoming = Red
+                  ================================================= */}
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
@@ -751,61 +951,84 @@ export default function CashboxLedgerTable({
                       step="0.01"
                       placeholder="وارد"
                       value={draft.receiptAmount}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          receiptAmount: event.target.value,
-                          paymentAmount: "",
-                        }))
-                      }
-                      className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
+                      onChange={handleReceiptChange}
+                      onKeyDown={handleAddKeyDown}
+                      disabled={saving}
+                      autoComplete="off"
+                      className="num w-full rounded-md border border-negative/20 bg-white px-2 py-1.5 text-[11px] text-negative outline-none transition-all placeholder:text-ink-300 focus:border-negative/50 focus:ring-2 focus:ring-negative/10 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
                   </td>
 
+                  {/* =================================================
+                      Exchange
+                  ================================================= */}
+
                   {isForeign && (
-                    <td className="border-l border-ink-400/5 p-1.5 text-center text-[10px] text-ink-300">
-                      عند التعديل
+                    <td className="border-l border-ink-400/5 p-1.5 text-center text-[9px] text-ink-300">
+                      بعد الحفظ
                     </td>
                   )}
+
+                  {/* =================================================
+                      Description
+                  ================================================= */}
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
                       type="text"
-                      placeholder="يمكن توصيف الحركة بعد الحفظ"
+                      placeholder="بيان الحركة — مطلوب"
                       value={draft.description}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          description: event.target.value,
-                        }))
-                      }
-                      className="w-full truncate rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
+                      onChange={handleDraftDescriptionChange}
+                      onKeyDown={handleAddKeyDown}
+                      disabled={saving}
+                      autoComplete="off"
+                      className={`w-full truncate rounded-md border bg-white px-2 py-1.5 text-[11px] outline-none transition-all placeholder:text-ink-300 ${
+                        draft.description.trim()
+                          ? "border-primary-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                          : "border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+                      } disabled:cursor-not-allowed disabled:bg-ink-50`}
                     />
+
+                    <div className="mt-1 flex items-center justify-between text-[8px]">
+                      <span className="text-ink-300">Enter للحفظ</span>
+
+                      {!draft.description.trim() && (
+                        <span className="text-amber-600">البيان مطلوب</span>
+                      )}
+                    </div>
                   </td>
+
+                  {/* =================================================
+                      Date
+                  ================================================= */}
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
                       type="date"
                       value={draft.voucherDate}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          voucherDate: event.target.value,
-                        }))
-                      }
-                      className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px]"
+                      onChange={handleDraftDateChange}
+                      onKeyDown={handleAddKeyDown}
+                      disabled={saving}
+                      className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px] outline-none transition-all focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
                   </td>
 
-                  <td className="p-1.5 text-center text-[10px] text-gold-700">
-                    مسودة
+                  {/* =================================================
+                      Voucher
+                  ================================================= */}
+
+                  <td className="p-1.5 text-center">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold-50 px-2 py-1 text-[9px] font-medium text-gold-700">
+                      {saving && <Loader2 size={9} className="animate-spin" />}
+                      مسودة جديدة
+                    </span>
                   </td>
                 </tr>
               )}
 
-              {/* ================================================= */}
-              {/* Rows */}
-              {/* ================================================= */}
+              {/* =================================================
+                  Existing Rows
+              ================================================= */}
 
               {displayRows.map((row) => {
                 const isUpdating = updatingRowId === row.id;
@@ -823,9 +1046,15 @@ export default function CashboxLedgerTable({
                 return (
                   <tr
                     key={row.id}
-                    className="group border-b border-ink-400/5 align-middle transition hover:bg-ink-900/[0.015] last:border-0"
+                    className={`group border-b border-ink-400/5 align-middle transition-all duration-200 last:border-0 hover:bg-ink-900/[0.015] ${
+                      isUpdating || isDescriptionUpdating
+                        ? "bg-primary-50/20"
+                        : ""
+                    }`}
                   >
-                    {/* Balance */}
+                    {/* =================================================
+                          Balance
+                      ================================================= */}
 
                     <td
                       className={`num border-l border-ink-400/5 px-2 py-2 text-sm font-semibold ${
@@ -841,31 +1070,49 @@ export default function CashboxLedgerTable({
                       )}
                     </td>
 
-                    {/* Credit */}
-
-                    <td className="num border-l border-ink-400/5 px-2 py-2 text-sm text-negative">
-                      {row.credit > 0 ? fmt(row.credit) : "—"}
-
-                      {isForeign && row.credit > 0 && (
-                        <div className="mt-0.5 truncate text-[9px] text-ink-400">
-                          {fmt(row.baseCredit)} {baseCurrency}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Debit */}
+                    {/* =================================================
+                          Outgoing = Green
+                      ================================================= */}
 
                     <td className="num border-l border-ink-400/5 px-2 py-2 text-sm text-positive">
-                      {row.debit > 0 ? fmt(row.debit) : "—"}
+                      {row.credit > 0 ? (
+                        <>
+                          <div className="font-medium">{fmt(row.credit)}</div>
 
-                      {isForeign && row.debit > 0 && (
-                        <div className="mt-0.5 truncate text-[9px] text-ink-400">
-                          {fmt(row.baseDebit)} {baseCurrency}
-                        </div>
+                          {isForeign && (
+                            <div className="mt-0.5 truncate text-[9px] text-ink-400">
+                              {fmt(row.baseCredit)} {baseCurrency}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-ink-200">—</span>
                       )}
                     </td>
 
-                    {/* Exchange */}
+                    {/* =================================================
+                          Incoming = Red
+                      ================================================= */}
+
+                    <td className="num border-l border-ink-400/5 px-2 py-2 text-sm text-negative">
+                      {row.debit > 0 ? (
+                        <>
+                          <div className="font-medium">{fmt(row.debit)}</div>
+
+                          {isForeign && (
+                            <div className="mt-0.5 truncate text-[9px] text-ink-400">
+                              {fmt(row.baseDebit)} {baseCurrency}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-ink-200">—</span>
+                      )}
+                    </td>
+
+                    {/* =================================================
+                          Exchange
+                      ================================================= */}
 
                     {isForeign && (
                       <td className="num border-l border-ink-400/5 px-2 py-2 text-[10px] text-ink-600">
@@ -875,7 +1122,9 @@ export default function CashboxLedgerTable({
                       </td>
                     )}
 
-                    {/* Description */}
+                    {/* =================================================
+                          Description
+                      ================================================= */}
 
                     <td className="min-w-0 border-l border-ink-400/5 px-2 py-2">
                       <div className="min-w-[240px]">
@@ -918,7 +1167,9 @@ export default function CashboxLedgerTable({
                       </div>
                     </td>
 
-                    {/* Date */}
+                    {/* =================================================
+                          Date
+                      ================================================= */}
 
                     <td className="num border-l border-ink-400/5 px-2 py-2 text-[10px] text-ink-600">
                       <span className="whitespace-nowrap">
@@ -926,7 +1177,9 @@ export default function CashboxLedgerTable({
                       </span>
                     </td>
 
-                    {/* Voucher */}
+                    {/* =================================================
+                          Voucher
+                      ================================================= */}
 
                     <td className="px-2 py-2">
                       <div className="flex min-w-0 items-start justify-between gap-1">
@@ -936,7 +1189,7 @@ export default function CashboxLedgerTable({
                           </div>
 
                           <span
-                            className={`mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                            className={`mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
                               row.isDraft
                                 ? "bg-gold-50 text-gold-700"
                                 : "bg-positive/10 text-positive"
@@ -956,7 +1209,7 @@ export default function CashboxLedgerTable({
 
                               handleDeleteVoucher(row);
                             }}
-                            className="shrink-0 rounded-md p-1 text-ink-300 opacity-0 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="shrink-0 rounded-md p-1 text-ink-300 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {isDeleting ? (
                               <Loader2 size={12} className="animate-spin" />
@@ -970,8 +1223,9 @@ export default function CashboxLedgerTable({
                       {!isInvoiceGenerated && (
                         <button
                           type="button"
+                          disabled={isUpdating || isDeleting}
                           onClick={() => setEditingRow(row)}
-                          className="mt-1 text-[9px] text-primary-500 hover:text-primary-700"
+                          className="mt-1 text-[9px] text-primary-500 transition-colors hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           تعديل كامل
                         </button>
@@ -982,37 +1236,45 @@ export default function CashboxLedgerTable({
               })}
             </tbody>
 
-            {/* Footer */}
+            {/* =====================================================
+                Footer
+            ===================================================== */}
 
             {rows.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-primary-100 bg-primary-50/50 font-semibold text-ink-900">
+                  {/* Final Balance */}
+
                   <td className="num px-2 py-2 text-sm">
-                    {fmt(running)}
+                    {fmt(finalBalance)}
 
                     {isForeign && (
                       <div className="mt-0.5 text-[9px] font-normal text-ink-400">
-                        {fmt(baseRunning)} {baseCurrency}
+                        {fmt(finalBaseBalance)} {baseCurrency}
                       </div>
                     )}
                   </td>
 
-                  <td className="num px-2 py-2 text-sm text-negative">
-                    {fmt(totalCredit)}
-
-                    {isForeign && (
-                      <div className="mt-0.5 text-[9px] font-normal text-ink-400">
-                        {fmt(totalBaseCredit)} {baseCurrency}
-                      </div>
-                    )}
-                  </td>
+                  {/* Total Outgoing = Green */}
 
                   <td className="num px-2 py-2 text-sm text-positive">
-                    {fmt(totalDebit)}
+                    {fmt(totals.credit)}
 
                     {isForeign && (
                       <div className="mt-0.5 text-[9px] font-normal text-ink-400">
-                        {fmt(totalBaseDebit)} {baseCurrency}
+                        {fmt(totals.baseCredit)} {baseCurrency}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* Total Incoming = Red */}
+
+                  <td className="num px-2 py-2 text-sm text-negative">
+                    {fmt(totals.debit)}
+
+                    {isForeign && (
+                      <div className="mt-0.5 text-[9px] font-normal text-ink-400">
+                        {fmt(totals.baseDebit)} {baseCurrency}
                       </div>
                     )}
                   </td>
@@ -1020,7 +1282,15 @@ export default function CashboxLedgerTable({
                   {isForeign && <td />}
 
                   <td className="px-2 py-2 text-[10px]" colSpan={3}>
-                    الإجمالي
+                    <div className="flex items-center gap-2">
+                      <span>الإجمالي</span>
+
+                      <span className="font-normal text-ink-400">•</span>
+
+                      <span className="font-normal text-ink-400">
+                        {rows.length} حركة
+                      </span>
+                    </div>
                   </td>
                 </tr>
               </tfoot>
@@ -1028,9 +1298,9 @@ export default function CashboxLedgerTable({
           </table>
         </div>
 
-        {/* ===================================================== */}
-        {/* Full edit */}
-        {/* ===================================================== */}
+        {/* =======================================================
+            Full Edit Modal
+        ======================================================= */}
 
         <CashVoucherEditModal
           isOpen={editingRow !== null}
@@ -1045,20 +1315,9 @@ export default function CashboxLedgerTable({
           employeeOptions={employeeOptions}
         />
 
-        {/* ===================================================== */}
-        {/* Expense */}
-        {/* ===================================================== */}
-
-        <ExpenseQuickEntryModal
-          isOpen={expenseModalOpen}
-          onClose={() => setExpenseModalOpen(false)}
-          cashboxId={cashboxId}
-          onSaved={refetch}
-        />
-
-        {/* ===================================================== */}
-        {/* Pagination */}
-        {/* ===================================================== */}
+        {/* =======================================================
+            Pagination
+        ======================================================= */}
 
         {totalCount > 0 && (
           <Pagination

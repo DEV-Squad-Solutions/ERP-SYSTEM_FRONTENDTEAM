@@ -27,7 +27,7 @@ import {
   fmtMoney,
 } from "../payroll.constants";
 
-import { useGetCashboxesQuery } from "../../cashboxes/cashboxesApi";
+import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
 import { useGetCashMovementTypesQuery } from "../../cashboxes/cashMovementTypesApi";
 
 import Input from "../../../shared/components/ui/Input";
@@ -67,14 +67,13 @@ export default function SalariesPage() {
     useGetPayrollEntriesQuery({
       PageNumber: page,
       PageSize: pageSize,
-
       StartDate: applied.startDate || undefined,
       EndDate: applied.endDate || undefined,
       EmployeeType: applied.employeeType || undefined,
       Search: applied.search || undefined,
     });
 
-  const { data: cashboxesData } = useGetCashboxesQuery();
+  const { data: cashboxesData } = useGetCashboxOptionsQuery();
   const cashboxes = Array.isArray(cashboxesData)
     ? cashboxesData
     : (cashboxesData?.items ?? []);
