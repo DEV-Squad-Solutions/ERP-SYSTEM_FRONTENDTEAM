@@ -71,6 +71,7 @@ import AttendanceTakingPage from "../features/payroll/pages/AttendanceTakingPage
 import EmployeeAccountPage from "../features/statements/pages/EmployeeAccountPage";
 import BulkCreatePayrollEntriesPage from "../features/payroll/pages/BulkCreatePayrollEntriesPage";
 import EmployeeOpeningBalancesPage from "../features/payroll/pages/EmployeeOpeningBalancesPage";
+import InvoiceItemPricingPage from "../features/invoiceItemPricing/pages/InvoiceItemPricingPage";
 
 // ============================================================
 // Coming Soon
@@ -292,6 +293,10 @@ export const router = createBrowserRouter([
       {
         path: "inventory/stock-transfers",
         element: <StockTransfersPage />,
+      },
+      {
+        path: "invoice-item-pricing",
+        element: <InvoiceItemPricingPage />,
       },
 
       // ========================================================

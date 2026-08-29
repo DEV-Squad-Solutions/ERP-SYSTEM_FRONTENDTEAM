@@ -348,6 +348,11 @@ export const navigationItems = [
         icon: FileText,
       },
       {
+        label: "تكلفة أصناف الفواتير", // <-- جديد
+        path: "/dashboard/invoice-item-pricing",
+        icon: Wallet,
+      },
+      {
         label: "تقارير الربحية",
         icon: TrendingUp,
         children: [
