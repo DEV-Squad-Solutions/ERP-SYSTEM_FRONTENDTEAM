@@ -276,7 +276,30 @@ export const payrollStatusBadge = {
 
   Disbursed: "text-positive bg-positive/10",
 };
+export const currencyOptions = [
+  { value: "EGP", label: "جنيه مصري" },
+  { value: "USD", label: "دولار أمريكي" },
+  { value: "EUR", label: "يورو" },
+  { value: "GBP", label: "جنيه إسترليني" },
+  { value: "SAR", label: "ريال سعودي" },
+  { value: "AED", label: "درهم إماراتي" },
+  { value: "KWD", label: "دينار كويتي" },
+];
 
+export const balanceTypeOptions = [
+  { value: "Debit", label: "مدين" },
+  { value: "Credit", label: "دائن" },
+];
+
+export const BALANCE_TYPE_LABELS = {
+  Debit: "مدين",
+  Credit: "دائن",
+};
+
+export const balanceTypeBadge = {
+  Debit: "text-negative bg-negative/10",
+  Credit: "text-positive bg-positive/10",
+};
 // ============================================================
 // Money Formatter
 // ============================================================

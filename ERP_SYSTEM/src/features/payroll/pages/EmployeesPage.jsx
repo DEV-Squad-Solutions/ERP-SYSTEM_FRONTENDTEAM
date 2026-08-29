@@ -81,9 +81,7 @@ export default function EmployeesPage() {
           try {
             await deleteEmployee(employee.id).unwrap();
             toast.success("تم الحذف بنجاح");
-          } catch {
-            toast.error("حصل خطأ أثناء الحذف، حاول تاني");
-          }
+          } catch {}
         },
       },
       cancel: { label: "إلغاء" },

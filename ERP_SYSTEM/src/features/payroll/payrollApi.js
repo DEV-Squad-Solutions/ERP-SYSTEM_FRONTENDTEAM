@@ -2,10 +2,6 @@ import { baseApi } from "../../lib/baseApi";
 
 export const payrollApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // =========================================================
-    // Employees
-    // =========================================================
-
     getEmployees: builder.query({
       query: (params) => ({
         url: "Employees/GetAll",
@@ -65,10 +61,6 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // =========================================================
-    // Attendance
-    // =========================================================
-
     getEmployeeAttendances: builder.query({
       query: (params) => ({
         url: "EmployeeAttendances",
@@ -126,10 +118,14 @@ export const payrollApi = baseApi.injectEndpoints({
         { type: "Attendance", id: "LIST" },
       ],
     }),
-
-    // =========================================================
-    // Employee Transactions
-    // =========================================================
+    bulkDeleteEmployeeAttendances: builder.mutation({
+      query: (attendanceIds) => ({
+        url: "/EmployeeAttendances/bulk/delete",
+        method: "POST",
+        body: { attendanceIds },
+      }),
+      invalidatesTags: ["Attendance"], // عدّل الـ tag على حسب المستخدم في باقي attendance endpoints
+    }),
 
     getEmployeeTransactions: builder.query({
       query: (params) => ({
@@ -180,10 +176,6 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // =========================================================
-    // Payroll Entries
-    // =========================================================
-
     bulkCreatePayrollEntries: builder.mutation({
       query: (data) => ({
         url: "PayrollEntries/bulk",
@@ -201,24 +193,18 @@ export const payrollApi = baseApi.injectEndpoints({
               ? Number(e.cashMovementTypeId)
               : undefined,
           })),
-
           defaultStartDate: data.defaultStartDate || undefined,
-
           defaultEndDate: data.defaultEndDate || undefined,
-
           defaultIsSalaryMoveToEmployeeAccount:
             data.defaultIsSalaryMoveToEmployeeAccount ?? undefined,
-
           defaultCashboxId: data.defaultCashboxId
             ? Number(data.defaultCashboxId)
             : undefined,
-
           defaultCashMovementTypeId: data.defaultCashMovementTypeId
             ? Number(data.defaultCashMovementTypeId)
             : undefined,
         },
       }),
-
       invalidatesTags: [
         { type: "PayrollEntry", id: "LIST" },
         "Cashbox",
@@ -226,17 +212,12 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // =========================================================
-    // Move Salary
-    // =========================================================
-
     moveSalary: builder.mutation({
       query: ({ id, ...data }) => ({
         url: `PayrollEntries/${id}/move-salary`,
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: (result, error, { id }) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },
@@ -245,17 +226,12 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // =========================================================
-    // Bulk Move Salary
-    // =========================================================
-
     bulkMoveSalary: builder.mutation({
       query: (data) => ({
         url: "PayrollEntries/bulk/move-salary",
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: [
         { type: "PayrollEntry", id: "LIST" },
         "Cashbox",
@@ -263,16 +239,11 @@ export const payrollApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // =========================================================
-    // Recalculate Payroll Entry
-    // =========================================================
-
     recalculatePayrollEntry: builder.mutation({
       query: (id) => ({
         url: `PayrollEntries/${id}/recalculate`,
         method: "POST",
       }),
-
       invalidatesTags: (result, error, id) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },
@@ -284,7 +255,6 @@ export const payrollApi = baseApi.injectEndpoints({
         url: "PayrollEntries",
         params,
       }),
-
       providesTags: (result) =>
         result?.items
           ? [
@@ -299,13 +269,8 @@ export const payrollApi = baseApi.injectEndpoints({
 
     getPayrollEntryById: builder.query({
       query: (id) => `PayrollEntries/${id}`,
-
       providesTags: (result, error, id) => [{ type: "PayrollEntry", id }],
     }),
-
-    // =========================================================
-    // Create Payroll Entry
-    // =========================================================
 
     createPayrollEntry: builder.mutation({
       query: (data) => ({
@@ -313,13 +278,8 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: [{ type: "PayrollEntry", id: "LIST" }],
     }),
-
-    // =========================================================
-    // Pay Payroll Entry
-    // =========================================================
 
     payPayrollEntry: builder.mutation({
       query: ({ id, ...data }) => ({
@@ -327,54 +287,93 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: (result, error, { id }) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },
       ],
     }),
 
-    // =========================================================
-    // Delete Payroll Entry
-    // =========================================================
-
     deletePayrollEntry: builder.mutation({
       query: (id) => ({
         url: `PayrollEntries/${id}`,
         method: "DELETE",
       }),
-
       invalidatesTags: (result, error, id) => [
         { type: "PayrollEntry", id },
         { type: "PayrollEntry", id: "LIST" },
       ],
     }),
+
+    bulkDeletePayrollEntries: builder.mutation({
+      query: (data) => ({
+        url: "PayrollEntries/bulk/delete",
+        method: "POST",
+        body: {
+          payrollEntryIds: data.payrollEntryIds.map(Number),
+        },
+      }),
+      invalidatesTags: [
+        { type: "PayrollEntry", id: "LIST" },
+        "Cashbox",
+        "Statement",
+      ],
+    }),
+    getEmployeeOpeningBalances: builder.query({
+      query: (params) => ({
+        url: "/EmployeeOpeningBalances",
+        method: "GET",
+        params,
+      }),
+      providesTags: ["EmployeeOpeningBalance"],
+    }),
+
+    createEmployeeOpeningBalance: builder.mutation({
+      query: (body) => ({
+        url: "/EmployeeOpeningBalances",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["EmployeeOpeningBalance"],
+    }),
+
+    // عدّل الاسم/المسار لو عندك update/delete فعليين في الـ swagger
+    updateEmployeeOpeningBalance: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/EmployeeOpeningBalances/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["EmployeeOpeningBalance"],
+    }),
+
+    deleteEmployeeOpeningBalance: builder.mutation({
+      query: (id) => ({
+        url: `/EmployeeOpeningBalances/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["EmployeeOpeningBalance"],
+    }),
   }),
 });
 
 export const {
-  // Employees
   useGetEmployeesQuery,
   useGetEmployeeByIdQuery,
   useGetEmployeesSelectQuery,
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
   useDeleteEmployeeMutation,
-
-  // Attendance
   useGetEmployeeAttendancesQuery,
   useCreateEmployeeAttendanceMutation,
   useUpdateEmployeeAttendanceMutation,
   useBulkCreateEmployeeAttendancesMutation,
   useDeleteEmployeeAttendanceMutation,
+  useBulkDeleteEmployeeAttendancesMutation,
 
-  // Transactions
   useGetEmployeeTransactionsQuery,
   useCreateEmployeeTransactionMutation,
   useUpdateEmployeeTransactionMutation,
   useDeleteEmployeeTransactionMutation,
-
-  // Payroll
   useGetPayrollEntriesQuery,
   useGetPayrollEntryByIdQuery,
   useCreatePayrollEntryMutation,
@@ -384,4 +383,9 @@ export const {
   useMoveSalaryMutation,
   useBulkMoveSalaryMutation,
   useRecalculatePayrollEntryMutation,
+  useBulkDeletePayrollEntriesMutation,
+  useGetEmployeeOpeningBalancesQuery,
+  useCreateEmployeeOpeningBalanceMutation,
+  useUpdateEmployeeOpeningBalanceMutation,
+  useDeleteEmployeeOpeningBalanceMutation,
 } = payrollApi;

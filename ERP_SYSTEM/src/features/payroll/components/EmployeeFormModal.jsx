@@ -113,9 +113,7 @@ export default function EmployeeFormModal({
       }
       onSaved?.();
       onClose();
-    } catch {
-      toast.error("حصل خطأ أثناء الحفظ، حاول تاني");
-    }
+    } catch {}
   };
 
   return (

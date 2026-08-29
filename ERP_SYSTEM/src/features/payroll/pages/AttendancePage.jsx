@@ -12,6 +12,8 @@ import {
   AlertCircle,
   RefreshCw,
   CalendarClock,
+  CheckSquare,
+  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,6 +21,7 @@ import {
   useGetEmployeeAttendancesQuery,
   useGetEmployeesSelectQuery,
   useDeleteEmployeeAttendanceMutation,
+  useBulkDeleteEmployeeAttendancesMutation,
 } from "../payrollApi";
 
 import {
@@ -69,6 +72,12 @@ export default function AttendancePage() {
   const [selectedAttendance, setSelectedAttendance] = useState(null);
 
   // =========================================================
+  // Selection (Bulk Delete)
+  // =========================================================
+
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // =========================================================
   // Employees
   // =========================================================
 
@@ -93,6 +102,8 @@ export default function AttendancePage() {
   // =========================================================
 
   const [deleteAttendance] = useDeleteEmployeeAttendanceMutation();
+  const [bulkDeleteAttendances, { isLoading: isBulkDeleting }] =
+    useBulkDeleteEmployeeAttendancesMutation();
 
   // =========================================================
   // Filters
@@ -114,39 +125,6 @@ export default function AttendancePage() {
     setDraft(emptyFilters);
     setApplied(emptyFilters);
     setPage(1);
-  };
-
-  // =========================================================
-  // Quick Attendance
-  // =========================================================
-
-  const openQuickEntry = () => {
-    setShowQuickEntry(true);
-  };
-
-  const closeQuickEntry = () => {
-    setShowQuickEntry(false);
-  };
-
-  /**
-   * مهم:
-   * AttendanceQuickEntry هو المسؤول عن إرسال الـ Bulk request.
-   *
-   * بعد نجاح الحفظ:
-   * - نقفل المودال
-   * - نعمل refetch
-   * - السجل الجديد أو المعدل يظهر مباشرة
-   *
-   * لا يوجد هنا أي تحقق من كون السجل جديد أو موجود مسبقًا.
-   */
-  const handleQuickSaved = async () => {
-    setShowQuickEntry(false);
-
-    try {
-      await refetch();
-    } catch (error) {
-      console.error("Attendance refetch error:", error);
-    }
   };
 
   // =========================================================
@@ -198,7 +176,7 @@ export default function AttendancePage() {
   };
 
   // =========================================================
-  // Delete
+  // Delete (single)
   // =========================================================
 
   const handleDelete = (row) => {
@@ -232,10 +210,80 @@ export default function AttendancePage() {
   };
 
   // =========================================================
+  // Delete (bulk)
+  // =========================================================
+
+  const handleBulkDelete = () => {
+    if (!selectedIds.length) return;
+
+    toast(`حذف ${selectedIds.length} سجل حضور؟`, {
+      description: "الإجراء ده لا يمكن التراجع عنه",
+
+      action: {
+        label: "تأكيد الحذف",
+
+        onClick: async () => {
+          try {
+            await bulkDeleteAttendances(selectedIds).unwrap();
+
+            toast.success(`تم حذف ${selectedIds.length} سجل حضور بنجاح`);
+
+            setSelectedIds([]);
+
+            await refetch();
+          } catch (error) {
+            console.error("Bulk delete attendance error:", error);
+
+            toast.error("حصل خطأ أثناء الحذف الجماعي، حاول تاني");
+          }
+        },
+      },
+
+      cancel: {
+        label: "إلغاء",
+      },
+
+      duration: 6000,
+    });
+  };
+
+  // =========================================================
+  // Selection helpers
+  // =========================================================
+
+  const toggleRow = (id) => {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  };
+
+  const toggleAllOnPage = () => {
+    const pageIds = rows.map((row) => row.id);
+    const allSelected = pageIds.every((id) => selectedIds.includes(id));
+
+    if (allSelected) {
+      setSelectedIds((current) =>
+        current.filter((id) => !pageIds.includes(id)),
+      );
+    } else {
+      setSelectedIds((current) =>
+        Array.from(new Set([...current, ...pageIds])),
+      );
+    }
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  // =========================================================
   // Rows
   // =========================================================
 
   const rows = data?.items || [];
+
+  const allOnPageSelected =
+    rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
 
   // =========================================================
   // Summary
@@ -276,7 +324,7 @@ export default function AttendancePage() {
           </p>
         </div>
 
-        <Button onClick={openQuickEntry}>
+        <Button onClick={() => navigate("/dashboard/payroll/attendance")}>
           <Plus size={16} />
           تسجيل حضور
         </Button>
@@ -376,6 +424,46 @@ export default function AttendancePage() {
       </div>
 
       {/* =====================================================
+          Bulk Selection Bar
+      ====================================================== */}
+
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between rounded-2xl border border-primary-500/15 bg-primary-50/40 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <CheckSquare size={16} className="text-primary-600" />
+
+            <p className="text-sm text-ink-900">
+              تم تحديد{" "}
+              <strong className="text-primary-600">{selectedIds.length}</strong>{" "}
+              سجل
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-8"
+              onClick={clearSelection}
+              disabled={isBulkDeleting}
+            >
+              <X size={13} />
+              إلغاء التحديد
+            </Button>
+
+            <Button
+              variant="danger"
+              className="h-8"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+            >
+              <Trash2 size={13} />
+              {isBulkDeleting ? "جارِ الحذف..." : "حذف المحدد"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
           Loading
       ====================================================== */}
 
@@ -460,9 +548,18 @@ export default function AttendancePage() {
               ${isFetching ? "opacity-60" : ""}
             `}
           >
-            <table className="w-full text-right border-collapse min-w-[950px]">
+            <table className="w-full text-right border-collapse min-w-[980px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
+                  <th className="p-2.5 w-10 border-l border-ink-400/5">
+                    <input
+                      type="checkbox"
+                      checked={allOnPageSelected}
+                      onChange={toggleAllOnPage}
+                      className="accent-primary-500"
+                    />
+                  </th>
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     الموظف
                   </th>
@@ -496,122 +593,139 @@ export default function AttendancePage() {
               </thead>
 
               <tbody>
-                {rows.map((row, index) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-ink-400/5 last:border-0 hover:bg-primary-50/30 transition-colors animate-fadeUp"
-                    style={{
-                      animationDelay: `${Math.min(index, 12) * 25}ms`,
-                    }}
-                  >
-                    {/* Employee */}
+                {rows.map((row, index) => {
+                  const selected = selectedIds.includes(row.id);
 
-                    <td className="p-2.5 border-l border-ink-400/5">
-                      <button
-                        type="button"
-                        onClick={() => openEmployeeDetails(row)}
-                        className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline underline-offset-2 transition-colors text-right"
-                        title="عرض تفاصيل الموظف"
-                      >
-                        {row.employeeName}
-                      </button>
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`border-b border-ink-400/5 last:border-0 transition-colors animate-fadeUp ${
+                        selected ? "bg-primary-50/40" : "hover:bg-primary-50/30"
+                      }`}
+                      style={{
+                        animationDelay: `${Math.min(index, 12) * 25}ms`,
+                      }}
+                    >
+                      {/* Checkbox */}
 
-                      <p className="text-[10px] text-ink-400 num mt-0.5">
-                        #{row.employeeId}
-                      </p>
-                    </td>
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleRow(row.id)}
+                          className="accent-primary-500"
+                        />
+                      </td>
 
-                    {/* Date */}
+                      {/* Employee */}
 
-                    <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                      {row.workDate}
-                    </td>
-
-                    {/* Check In */}
-
-                    <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                      {row.checkIn || "—"}
-                    </td>
-
-                    {/* Check Out */}
-
-                    <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                      {row.checkOut || "—"}
-                    </td>
-
-                    {/* Work Hours */}
-
-                    <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                      {row.workHours || "—"}
-                    </td>
-
-                    {/* Status */}
-
-                    <td className="p-2.5 border-l border-ink-400/5">
-                      <span
-                        className={`
-                          inline-block
-                          text-xs
-                          font-semibold
-                          px-2
-                          py-0.5
-                          rounded-full
-                          ${
-                            attendanceStatusBadge[row.status] ||
-                            "text-ink-400 bg-ink-400/10"
-                          }
-                        `}
-                      >
-                        {ATTENDANCE_STATUS[row.status] || row.status}
-                      </span>
-                    </td>
-
-                    {/* Notes */}
-
-                    <td className="p-2.5 text-xs text-ink-600 max-w-[160px] truncate border-l border-ink-400/5">
-                      {row.notes || "—"}
-                    </td>
-
-                    {/* Actions */}
-
-                    <td className="p-2.5">
-                      <div className="flex items-center gap-1">
-                        {/* Details */}
-
+                      <td className="p-2.5 border-l border-ink-400/5">
                         <button
                           type="button"
-                          onClick={() => openDetails(row)}
-                          className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                          title="تفاصيل السجل"
+                          onClick={() => openEmployeeDetails(row)}
+                          className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline underline-offset-2 transition-colors text-right"
+                          title="عرض تفاصيل الموظف"
                         >
-                          <Eye size={15} />
+                          {row.employeeName}
                         </button>
 
-                        {/* Edit */}
+                        <p className="text-[10px] text-ink-400 num mt-0.5">
+                          #{row.employeeId}
+                        </p>
+                      </td>
 
-                        <button
-                          type="button"
-                          onClick={() => openEdit(row)}
-                          className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                          title="تعديل"
+                      {/* Date */}
+
+                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                        {row.workDate}
+                      </td>
+
+                      {/* Check In */}
+
+                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                        {row.checkIn || "—"}
+                      </td>
+
+                      {/* Check Out */}
+
+                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                        {row.checkOut || "—"}
+                      </td>
+
+                      {/* Work Hours */}
+
+                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                        {row.workHours || "—"}
+                      </td>
+
+                      {/* Status */}
+
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        <span
+                          className={`
+                            inline-block
+                            text-xs
+                            font-semibold
+                            px-2
+                            py-0.5
+                            rounded-full
+                            ${
+                              attendanceStatusBadge[row.status] ||
+                              "text-ink-400 bg-ink-400/10"
+                            }
+                          `}
                         >
-                          <Pencil size={15} />
-                        </button>
+                          {ATTENDANCE_STATUS[row.status] || row.status}
+                        </span>
+                      </td>
 
-                        {/* Delete */}
+                      {/* Notes */}
 
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(row)}
-                          className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
-                          title="حذف"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="p-2.5 text-xs text-ink-600 max-w-[160px] truncate border-l border-ink-400/5">
+                        {row.notes || "—"}
+                      </td>
+
+                      {/* Actions */}
+
+                      <td className="p-2.5">
+                        <div className="flex items-center gap-1">
+                          {/* Details */}
+
+                          <button
+                            type="button"
+                            onClick={() => openDetails(row)}
+                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            title="تفاصيل السجل"
+                          >
+                            <Eye size={15} />
+                          </button>
+
+                          {/* Edit */}
+
+                          <button
+                            type="button"
+                            onClick={() => openEdit(row)}
+                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            title="تعديل"
+                          >
+                            <Pencil size={15} />
+                          </button>
+
+                          {/* Delete */}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(row)}
+                            className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
+                            title="حذف"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -644,17 +758,6 @@ export default function AttendancePage() {
         onClose={closeDetails}
         attendance={selectedAttendance}
       />
-
-      {/* =====================================================
-          Quick Attendance Modal
-      ====================================================== */}
-
-      {showQuickEntry && (
-        <AttendanceQuickEntry
-          onClose={closeQuickEntry}
-          onSaved={handleQuickSaved}
-        />
-      )}
 
       {/* =====================================================
           Edit Attendance Modal

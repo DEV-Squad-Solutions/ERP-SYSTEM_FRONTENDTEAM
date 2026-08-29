@@ -212,22 +212,25 @@ export const navigationItems = [
         path: "/dashboard/payroll/employees",
         icon: Users,
       },
-
       // =======================================================
-      // Attendance Taking
+      // Employee Statement  <-- جديد
       // =======================================================
       {
-        label: "تسجيل الحضور",
-        path: "/dashboard/payroll/attendance",
-        icon: Clock,
-        end: true,
+        label: "كشف حساب موظف",
+        path: "/dashboard/payroll/employees/statement",
+        icon: FileText,
+      },
+      {
+        label: "الأرصدة الافتتاحية",
+        path: "/dashboard/payroll/opening-balances",
+        icon: History,
       },
 
       // =======================================================
       // Attendance Records
       // =======================================================
       {
-        label: "سجل الحضور والانصراف",
+        label: "الحضور والانصراف",
         path: "/dashboard/payroll/attendance/records",
         icon: History,
       },

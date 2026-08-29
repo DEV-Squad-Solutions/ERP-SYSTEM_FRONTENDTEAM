@@ -68,6 +68,9 @@ import InvoiceProfitabilityDetailsPage from "../features/reports/pages/InvoicePr
 import InvoiceProfitabilityPage from "../features/reports/pages/InvoiceProfitabilityPage";
 import StockTransfersPage from "../features/inventory/pages/StockTransfersPage";
 import AttendanceTakingPage from "../features/payroll/pages/AttendanceTakingPage";
+import EmployeeAccountPage from "../features/statements/pages/EmployeeAccountPage";
+import BulkCreatePayrollEntriesPage from "../features/payroll/pages/BulkCreatePayrollEntriesPage";
+import EmployeeOpeningBalancesPage from "../features/payroll/pages/EmployeeOpeningBalancesPage";
 
 // ============================================================
 // Coming Soon
@@ -306,8 +309,17 @@ export const router = createBrowserRouter([
       { path: "payroll", element: <PayrollDashboardPage /> },
       { path: "payroll/employees", element: <EmployeesPage /> },
       {
+        path: "payroll/salaries/create",
+        element: <BulkCreatePayrollEntriesPage />,
+      },
+
+      {
         path: "payroll/employees/:employeeId",
         element: <EmployeeDetailPage />,
+      },
+      {
+        path: "payroll/employees/statement",
+        element: <EmployeeAccountPage />,
       },
       { path: "payroll/salaries", element: <SalariesPage /> },
       { path: "payroll/salaries/:salaryId", element: <SalaryDetailPage /> },
@@ -328,7 +340,10 @@ export const router = createBrowserRouter([
       { path: "payroll/advances", element: <AdvancesPage /> },
       { path: "payroll/advances/:advanceId", element: <AdvanceDetailPage /> },
       { path: "payroll/reports", element: <ReportsPage /> },
-
+      {
+        path: "payroll/opening-balances",
+        element: <EmployeeOpeningBalancesPage />,
+      },
       // ========================================================
       // Profitability Reports
       // ========================================================
