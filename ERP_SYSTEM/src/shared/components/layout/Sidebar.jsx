@@ -1,18 +1,68 @@
 import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
-
 import { NavLink, useLocation } from "react-router-dom";
-
 import { X, Info, ChevronDown } from "lucide-react";
-
 import { useSelector } from "react-redux";
-
 import { navigationItems } from "../../constants/navigation";
-
 import CompanyDetailsModal from "../../../features/company/components/CompanyDetailsModal";
 
-// ============================================================
-// Helpers
-// ============================================================
+function canAccessItem(item, roles) {
+  if (!item.roles?.length) {
+    return true;
+  }
+
+  if (roles?.includes("Admin")) {
+    return true;
+  }
+
+  return item.roles.some((role) => roles?.includes(role));
+}
+
+function filterNavigationItems(items, roles) {
+  return items.reduce((result, item) => {
+    if (item.type === "section") {
+      result.push(item);
+      return result;
+    }
+
+    if (item.children?.length) {
+      const filteredChildren = filterNavigationItems(item.children, roles);
+
+      if (filteredChildren.length > 0) {
+        result.push({
+          ...item,
+          children: filteredChildren,
+        });
+      }
+
+      return result;
+    }
+
+    if (canAccessItem(item, roles)) {
+      result.push(item);
+    }
+
+    return result;
+  }, []);
+}
+
+function removeEmptySections(items) {
+  const result = [];
+
+  items.forEach((item, index) => {
+    if (item.type !== "section") {
+      result.push(item);
+      return;
+    }
+
+    const nextItem = items[index + 1];
+
+    if (nextItem && nextItem.type !== "section") {
+      result.push(item);
+    }
+  });
+
+  return result;
+}
 
 function hasActiveItem(items, pathname) {
   return items.some((item) => {
@@ -32,27 +82,20 @@ function hasActiveItem(items, pathname) {
   });
 }
 
-// ============================================================
-// Section Header
-// ============================================================
-
 const SidebarSection = memo(function SidebarSection({ label }) {
   return (
     <li className="pt-5 pb-2 px-3">
+      {" "}
       <div className="flex items-center gap-2">
+        {" "}
         <span className="text-[10px] font-semibold tracking-[0.08em] text-white/25 uppercase whitespace-nowrap">
-          {label}
-        </span>
-
-        <span className="h-px flex-1 bg-white/[0.05]" />
-      </div>
+          {label}{" "}
+        </span>{" "}
+        <span className="h-px flex-1 bg-white/[0.05]" />{" "}
+      </div>{" "}
     </li>
   );
 });
-
-// ============================================================
-// Main Link
-// ============================================================
 
 const SidebarLink = memo(function SidebarLink({
   label,
@@ -93,7 +136,6 @@ const SidebarLink = memo(function SidebarLink({
     >
       {({ isActive }) => (
         <>
-          {/* Active indicator */}
           <span
             aria-hidden="true"
             className={[
@@ -106,7 +148,6 @@ const SidebarLink = memo(function SidebarLink({
             ].join(" ")}
           />
 
-          {/* Icon */}
           {Icon && (
             <Icon
               size={18}
@@ -120,17 +161,12 @@ const SidebarLink = memo(function SidebarLink({
             />
           )}
 
-          {/* Label */}
           <span className="truncate">{label}</span>
         </>
       )}
     </NavLink>
   );
 });
-
-// ============================================================
-// Sub Link
-// ============================================================
 
 const SidebarSubLink = memo(function SidebarSubLink({
   label,
@@ -172,7 +208,6 @@ const SidebarSubLink = memo(function SidebarSubLink({
 
         return (
           <>
-            {/* Vertical line */}
             <span
               aria-hidden="true"
               className={[
@@ -183,7 +218,6 @@ const SidebarSubLink = memo(function SidebarSubLink({
               ].join(" ")}
             />
 
-            {/* Horizontal connector */}
             <span
               aria-hidden="true"
               className={[
@@ -195,7 +229,6 @@ const SidebarSubLink = memo(function SidebarSubLink({
               ].join(" ")}
             />
 
-            {/* Active dot */}
             <span
               aria-hidden="true"
               className={[
@@ -208,7 +241,6 @@ const SidebarSubLink = memo(function SidebarSubLink({
               ].join(" ")}
             />
 
-            {/* Icon */}
             {Icon && (
               <Icon
                 size={15}
@@ -222,7 +254,6 @@ const SidebarSubLink = memo(function SidebarSubLink({
               />
             )}
 
-            {/* Label */}
             <span className="truncate">{label}</span>
           </>
         );
@@ -230,10 +261,6 @@ const SidebarSubLink = memo(function SidebarSubLink({
     </NavLink>
   );
 });
-
-// ============================================================
-// Nested Group
-// ============================================================
 
 const SidebarNestedGroup = memo(function SidebarNestedGroup({
   label,
@@ -263,7 +290,6 @@ const SidebarNestedGroup = memo(function SidebarNestedGroup({
 
   return (
     <li>
-      {/* Nested Group Header */}
       <button
         type="button"
         onClick={toggle}
@@ -313,7 +339,6 @@ const SidebarNestedGroup = memo(function SidebarNestedGroup({
         />
       </button>
 
-      {/* Nested Content */}
       <div
         id={groupId}
         className={[
@@ -354,10 +379,6 @@ const SidebarNestedGroup = memo(function SidebarNestedGroup({
   );
 });
 
-// ============================================================
-// Main Group
-// ============================================================
-
 const SidebarGroup = memo(function SidebarGroup({
   label,
   icon: Icon,
@@ -386,7 +407,6 @@ const SidebarGroup = memo(function SidebarGroup({
 
   return (
     <li>
-      {/* Main Group Header */}
       <button
         type="button"
         onClick={toggle}
@@ -410,7 +430,6 @@ const SidebarGroup = memo(function SidebarGroup({
               ].join(" "),
         ].join(" ")}
       >
-        {/* Icon */}
         {Icon && (
           <Icon
             size={18}
@@ -424,10 +443,8 @@ const SidebarGroup = memo(function SidebarGroup({
           />
         )}
 
-        {/* Label */}
         <span className="flex-1 text-right truncate">{label}</span>
 
-        {/* Chevron */}
         <ChevronDown
           size={15}
           strokeWidth={1.8}
@@ -439,7 +456,6 @@ const SidebarGroup = memo(function SidebarGroup({
         />
       </button>
 
-      {/* Group Content */}
       <div
         id={groupId}
         className={[
@@ -480,23 +496,20 @@ const SidebarGroup = memo(function SidebarGroup({
   );
 });
 
-// ============================================================
-// Sidebar
-// ============================================================
-
 function Sidebar({ isOpen, onClose }) {
   const company = useSelector((state) => state.auth.selectedCompany);
-
   const roles = useSelector((state) => state.auth.roles);
+
+  const [showDetails, setShowDetails] = useState(false);
 
   const canViewCompany =
     roles?.includes("Admin") || roles?.includes("CompanyOwner");
 
-  const [showDetails, setShowDetails] = useState(false);
+  const filteredNavigationItems = useMemo(() => {
+    const filtered = filterNavigationItems(navigationItems, roles);
 
-  // ==========================================================
-  // Callbacks
-  // ==========================================================
+    return removeEmptySections(filtered);
+  }, [roles]);
 
   const handleClose = useCallback(() => {
     onClose?.();
@@ -513,10 +526,6 @@ function Sidebar({ isOpen, onClose }) {
   const handleCloseCompanyDetails = useCallback(() => {
     setShowDetails(false);
   }, []);
-
-  // ==========================================================
-  // Escape Key
-  // ==========================================================
 
   useEffect(() => {
     if (!isOpen) {
@@ -536,16 +545,8 @@ function Sidebar({ isOpen, onClose }) {
     };
   }, [isOpen, handleClose]);
 
-  // ==========================================================
-  // Render
-  // ==========================================================
-
   return (
     <>
-      {/* ======================================================
-          Mobile Overlay
-      ====================================================== */}
-
       <div
         aria-hidden={!isOpen}
         onClick={handleClose}
@@ -560,10 +561,6 @@ function Sidebar({ isOpen, onClose }) {
             : "opacity-0 pointer-events-none",
         ].join(" ")}
       />
-
-      {/* ======================================================
-          Sidebar
-      ====================================================== */}
 
       <aside
         aria-label="القائمة الرئيسية"
@@ -581,10 +578,6 @@ function Sidebar({ isOpen, onClose }) {
           "lg:translate-x-0",
         ].join(" ")}
       >
-        {/* ====================================================
-            Company Header
-        ==================================================== */}
-
         <div className="p-5 border-b border-white/[0.08] flex items-center justify-between shrink-0">
           <button
             type="button"
@@ -630,7 +623,6 @@ function Sidebar({ isOpen, onClose }) {
             </p>
           </button>
 
-          {/* Mobile Close */}
           <button
             type="button"
             onClick={handleClose}
@@ -654,10 +646,6 @@ function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        {/* ====================================================
-            Navigation
-        ==================================================== */}
-
         <nav
           aria-label="التنقل الرئيسي"
           className={[
@@ -669,10 +657,7 @@ function Sidebar({ isOpen, onClose }) {
           ].join(" ")}
         >
           <ul className="space-y-0.5 px-3">
-            {navigationItems.map((item, index) => {
-              // ------------------------------------------------
-              // Section
-              // ------------------------------------------------
+            {filteredNavigationItems.map((item, index) => {
               if (item.type === "section") {
                 return (
                   <SidebarSection
@@ -682,9 +667,6 @@ function Sidebar({ isOpen, onClose }) {
                 );
               }
 
-              // ------------------------------------------------
-              // Group
-              // ------------------------------------------------
               if (item.children?.length) {
                 return (
                   <SidebarGroup
@@ -697,9 +679,6 @@ function Sidebar({ isOpen, onClose }) {
                 );
               }
 
-              // ------------------------------------------------
-              // Normal Link
-              // ------------------------------------------------
               return (
                 <li key={item.path}>
                   <SidebarLink
@@ -715,10 +694,6 @@ function Sidebar({ isOpen, onClose }) {
           </ul>
         </nav>
       </aside>
-
-      {/* ======================================================
-          Company Details
-      ====================================================== */}
 
       {company && canViewCompany && (
         <CompanyDetailsModal

@@ -1,8 +1,11 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import LoginPage from "../features/auth/pages/LoginPage";
+
 import ProtectedRoute from "../shared/components/ProtectedRoute";
+import RoleRoute from "../shared/components/RoleRoute";
 import DashboardLayout from "../shared/components/layout/DashboardLayout";
+
 import DashboardHome from "../features/dashboard/pages/DashboardHome";
 
 import SalesPage from "../features/sales/pages/SalesPage";
@@ -59,342 +62,638 @@ import DeductionsPage from "../features/payroll/pages/DeductionsPage";
 import AdvancesPage from "../features/payroll/pages/AdvancesPage";
 import AdvanceDetailPage from "../features/payroll/pages/AdvanceDetailPage";
 import ReportsPage from "../features/payroll/pages/ReportsPage";
+
 import TrialBalancePage from "../features/TrialBalance/pages/TrialBalancePage";
+
 import ContainerStoreStatement from "../features/storeContainers/pages/ContainerStoreStatement";
 
 import ExpensesPage from "../features/expenses/pages/ExpensesPage";
+
 import ItemProfitabilityPage from "../features/reports/pages/ItemProfitabilityPage";
 import InvoiceProfitabilityDetailsPage from "../features/reports/pages/InvoiceProfitabilityDetailsPage";
 import InvoiceProfitabilityPage from "../features/reports/pages/InvoiceProfitabilityPage";
+
 import StockTransfersPage from "../features/inventory/pages/StockTransfersPage";
+
 import AttendanceTakingPage from "../features/payroll/pages/AttendanceTakingPage";
+
 import EmployeeAccountPage from "../features/statements/pages/EmployeeAccountPage";
+
 import BulkCreatePayrollEntriesPage from "../features/payroll/pages/BulkCreatePayrollEntriesPage";
+
 import EmployeeOpeningBalancesPage from "../features/payroll/pages/EmployeeOpeningBalancesPage";
+
 import InvoiceItemPricingPage from "../features/invoiceItemPricing/pages/InvoiceItemPricingPage";
 
-// ============================================================
-// Coming Soon
-// ============================================================
+import CurrenciesPage from "../features/exchange-rates/pages/CurrenciesPage";
+
+const ROLES = {
+  ADMIN: "Admin",
+  ACCOUNTANT: "Accountant",
+  SALES: "Sales",
+  INVENTORY: "Inventory",
+  HR: "HR",
+};
+
+function Role({ roles, children }) {
+  return <RoleRoute roles={roles}>{children} </RoleRoute>;
+}
+
 function ComingSoon({ title }) {
   return (
-    <div className="text-center py-20 text-gray-400">
-      <p className="text-lg">{title}</p>
-
-      <p className="text-sm mt-1">هذه الصفحة قيد التطوير</p>
+    <div className="py-20 text-center text-gray-400">
+      {" "}
+      <p className="text-lg">{title}</p>{" "}
+      <p className="mt-1 text-sm">هذه الصفحة قيد التطوير</p>{" "}
     </div>
   );
 }
 
-// ============================================================
-// Router
-// ============================================================
 export const router = createBrowserRouter([
-  // ==========================================================
-  // Authentication
-  // ==========================================================
   {
     path: "/",
     element: <LoginPage />,
   },
 
-  // ==========================================================
-  // 404
-  // ==========================================================
   {
     path: "*",
     element: <Error404 />,
   },
 
-  // ==========================================================
-  // Dashboard
-  // ==========================================================
   {
     path: "/dashboard",
-
     element: (
       <ProtectedRoute>
         <DashboardLayout />
       </ProtectedRoute>
     ),
-
     children: [
-      // ========================================================
-      // Dashboard
-      // ========================================================
       {
         index: true,
         element: <DashboardHome />,
       },
 
-      // ========================================================
-      // Sales
-      // ========================================================
       {
         path: "sales",
-        element: <SalesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <SalesPage />
+          </Role>
+        ),
       },
+
       {
         path: "sales/new",
-        element: <InvoiceCreatePage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <InvoiceCreatePage />
+          </Role>
+        ),
       },
+
       {
         path: "sales/:id",
-        element: <InvoiceDetailsPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <InvoiceDetailsPage />
+          </Role>
+        ),
       },
+
       {
         path: "sales/:id/edit",
-        element: <InvoiceEditPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <InvoiceEditPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Purchases
-      // ========================================================
       {
         path: "purchases/new",
-        element: <InvoiceCreatePage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <InvoiceCreatePage />
+          </Role>
+        ),
       },
+
       {
         path: "purchases/:id",
-        element: <InvoiceDetailsPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <InvoiceDetailsPage />
+          </Role>
+        ),
       },
+
       {
         path: "purchases/:id/edit",
-        element: <InvoiceEditPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <InvoiceEditPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Container Store
-      // ========================================================
       {
         path: "stores/containers/:partnerId",
-        element: <ContainerStoreStatement />,
+        element: (
+          <Role
+            roles={[
+              ROLES.ADMIN,
+              ROLES.SALES,
+              ROLES.INVENTORY,
+              ROLES.ACCOUNTANT,
+            ]}
+          >
+            <ContainerStoreStatement />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Partners
-      // ========================================================
       {
         path: "partners",
-        element: <PartnersListPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <PartnersListPage />
+          </Role>
+        ),
       },
+
       {
         path: "partners/:partnerId",
-        element: <PartnerDetailPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <PartnerDetailPage />
+          </Role>
+        ),
       },
+
       {
         path: "partners/statement",
-        element: <PartnerAccountPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <PartnerAccountPage />
+          </Role>
+        ),
       },
+
       {
         path: "partners/opening-balances",
-        element: <PartnerOpeningBalancesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <PartnerOpeningBalancesPage />
+          </Role>
+        ),
       },
+
       {
         path: "partners/countries",
-        element: <CountriesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <CountriesPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Drivers
-      // ========================================================
       {
         path: "drivers",
-        element: <DriversListPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <DriversListPage />
+          </Role>
+        ),
       },
+
       {
         path: "drivers/:driverId",
-        element: <DriverDetailPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <DriverDetailPage />
+          </Role>
+        ),
       },
+
       {
         path: "drivers/trip-costs",
-        element: <DriverTripCostEntryPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <DriverTripCostEntryPage />
+          </Role>
+        ),
       },
+
       {
         path: "drivers/statement",
-        element: <DriverStatementPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <DriverStatementPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Treasury
-      // ========================================================
       {
         path: "treasury",
-        element: <CashboxesListPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxesListPage />
+          </Role>
+        ),
       },
+
       {
         path: "treasury/:cashboxId",
-        element: <CashboxDetailPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxDetailPage />
+          </Role>
+        ),
       },
+
       {
         path: "treasury/transfers",
-        element: <CashboxTransfersPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxTransfersPage />
+          </Role>
+        ),
       },
+
       {
         path: "treasury/transfers/:id",
-        element: <CashboxTransferDetailsPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxTransferDetailsPage />
+          </Role>
+        ),
       },
+
       {
         path: "treasury/cash-movement-types",
-        element: <CashMovementTypesListPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashMovementTypesListPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Stores
-      // ========================================================
+      {
+        path: "treasury/currencies",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CurrenciesPage />
+          </Role>
+        ),
+      },
+
       {
         path: "stores",
-        element: <StoresListPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StoresListPage />
+          </Role>
+        ),
       },
+
       {
         path: "stores/:id",
-        element: <StoreDetailPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StoreDetailPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Items
-      // ========================================================
       {
         path: "items/:id",
-        element: <ItemDetailPage />,
+        element: (
+          <Role
+            roles={[
+              ROLES.ADMIN,
+              ROLES.INVENTORY,
+              ROLES.SALES,
+              ROLES.ACCOUNTANT,
+            ]}
+          >
+            <ItemDetailPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Inventory
-      // ========================================================
       {
         path: "inventory/opening-balances",
-        element: <StockOpeningBalancesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockOpeningBalancesPage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/adjustments",
-        element: <StockAdjustmentsListPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockAdjustmentsListPage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/adjustments/new",
-        element: <StockAdjustmentCreatePage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockAdjustmentCreatePage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/adjustments/:id",
-        element: <StockAdjustmentDetailPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockAdjustmentDetailPage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/adjustments/:id/edit",
-        element: <StockAdjustmentEditPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockAdjustmentEditPage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/units",
-        element: <UnitsPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY]}>
+            <UnitsPage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/containers",
-        element: <PackagingUnitsPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY]}>
+            <PackagingUnitsPage />
+          </Role>
+        ),
       },
+
       {
         path: "inventory/stock-transfers",
-        element: <StockTransfersPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockTransfersPage />
+          </Role>
+        ),
       },
+
       {
         path: "invoice-item-pricing",
-        element: <InvoiceItemPricingPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.INVENTORY]}>
+            <InvoiceItemPricingPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Expenses
-      // ========================================================
       {
         path: "expenses",
-        element: <ExpensesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <ExpensesPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Payroll
-      // ========================================================
+      {
+        path: "payroll",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <PayrollDashboardPage />
+          </Role>
+        ),
+      },
 
-      { path: "payroll", element: <PayrollDashboardPage /> },
-      { path: "payroll/employees", element: <EmployeesPage /> },
+      {
+        path: "payroll/employees",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EmployeesPage />
+          </Role>
+        ),
+      },
+
       {
         path: "payroll/salaries/create",
-        element: <BulkCreatePayrollEntriesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <BulkCreatePayrollEntriesPage />
+          </Role>
+        ),
       },
 
       {
         path: "payroll/employees/:employeeId",
-        element: <EmployeeDetailPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EmployeeDetailPage />
+          </Role>
+        ),
       },
+
       {
         path: "payroll/employees/statement",
-        element: <EmployeeAccountPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EmployeeAccountPage />
+          </Role>
+        ),
       },
-      { path: "payroll/salaries", element: <SalariesPage /> },
-      { path: "payroll/salaries/:salaryId", element: <SalaryDetailPage /> },
 
-      // تسجيل حضور اليوم
+      {
+        path: "payroll/salaries",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <SalariesPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "payroll/salaries/:salaryId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <SalaryDetailPage />
+          </Role>
+        ),
+      },
+
       {
         path: "payroll/attendance",
-        element: <AttendanceTakingPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR]}>
+            <AttendanceTakingPage />
+          </Role>
+        ),
       },
 
-      // سجل الحضور والانصراف
       {
         path: "payroll/attendance/records",
-        element: <AttendancePage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <AttendancePage />
+          </Role>
+        ),
       },
-      { path: "payroll/overtime", element: <OvertimePage /> },
-      { path: "payroll/deductions", element: <DeductionsPage /> },
-      { path: "payroll/advances", element: <AdvancesPage /> },
-      { path: "payroll/advances/:advanceId", element: <AdvanceDetailPage /> },
-      { path: "payroll/reports", element: <ReportsPage /> },
+
+      {
+        path: "payroll/overtime",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR]}>
+            <OvertimePage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "payroll/deductions",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR]}>
+            <DeductionsPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "payroll/advances",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <AdvancesPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "payroll/advances/:advanceId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <AdvanceDetailPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "payroll/reports",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <ReportsPage />
+          </Role>
+        ),
+      },
+
       {
         path: "payroll/opening-balances",
-        element: <EmployeeOpeningBalancesPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EmployeeOpeningBalancesPage />
+          </Role>
+        ),
       },
-      // ========================================================
-      // Profitability Reports
-      // ========================================================
+
       {
         path: "reports/profitability/invoices",
-        element: <InvoiceProfitabilityPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <InvoiceProfitabilityPage />
+          </Role>
+        ),
       },
+
       {
         path: "reports/profitability/invoices/:invoiceId",
-        element: <InvoiceProfitabilityDetailsPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <InvoiceProfitabilityDetailsPage />
+          </Role>
+        ),
       },
+
       {
         path: "reports/profitability/items",
-        element: <ItemProfitabilityPage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <ItemProfitabilityPage />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Accounting
-      // ========================================================
+      {
+        path: "statements/operational-trial-balance",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <ComingSoon title="ميزان المراجعة قبل التسوية" />
+          </Role>
+        ),
+      },
+
       {
         path: "adjusted-trial-balance",
-        element: <TrialBalancePage />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <TrialBalancePage />
+          </Role>
+        ),
       },
+
       {
         path: "income",
-        element: <ComingSoon title="تقارير الدخل" />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <ComingSoon title="تقارير الدخل" />
+          </Role>
+        ),
       },
+
       {
         path: "financial-position",
-        element: <ComingSoon title="تقارير المركز المالي" />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <ComingSoon title="تقارير المركز المالي" />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Reports
-      // ========================================================
       {
         path: "reports",
-        element: <ComingSoon title="التقارير" />,
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <ComingSoon title="التقارير" />
+          </Role>
+        ),
       },
 
-      // ========================================================
-      // Permissions
-      // ========================================================
       {
         path: "permissions",
-        element: <PermissionsPage />,
+        element: (
+          <Role roles={ROLES.ADMIN}>
+            <PermissionsPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "bank",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <BankPage />
+          </Role>
+        ),
       },
     ],
   },

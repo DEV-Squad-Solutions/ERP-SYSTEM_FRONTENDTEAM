@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
+import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 
 import {
   buildDescriptionGroups,
@@ -56,6 +57,12 @@ const schema = z.object({
  * يتم استخدام نفس DescriptionCascadeSelect
  * ونفس buildPostingTargetPayload لضمان توحيد
  * منطق هدف الترحيل.
+ *
+ * سعر الصرف:
+ * لو العملة أجنبية (isForeign)، بيتحمّل تلقائيًا من
+ * GET /ExchangeRates/resolve?currency=&date= كل ما تاريخ
+ * السند يتغير، ويتعرض في خانة قابلة للتعديل. لو المستخدم
+ * غيّره يدويًا مش بيتلمس تاني لنفس التاريخ.
  */
 export default function CashVoucherEditModal({
   isOpen,
@@ -73,12 +80,17 @@ export default function CashVoucherEditModal({
       skip: !isOpen,
     });
 
+  const [resolveExchangeRate, { isFetching: isResolvingRate }] =
+    useLazyResolveExchangeRateQuery();
+
   const {
     register,
     handleSubmit,
     control,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
@@ -96,6 +108,7 @@ export default function CashVoucherEditModal({
   });
 
   const direction = watch("direction");
+  const voucherDate = watch("voucherDate");
 
   const groups = useMemo(
     () =>
@@ -131,6 +144,41 @@ export default function CashVoucherEditModal({
       notes: voucher.notes || "",
     });
   }, [isOpen, voucher, reset]);
+
+  /**
+   * جلب سعر الصرف تلقائيًا كل ما تاريخ السند يتغير —
+   * بس لو عملة أجنبية. القيمة الأصلية المحفوظة على السند (لو
+   * موجودة ولسه على نفس التاريخ) بتتفضل زي ما هي، ومتتلمسش لو
+   * المستخدم عدّل الخانة يدويًا لنفس التاريخ.
+   */
+  const lastResolvedKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen || !isForeign || !currency || !voucherDate) return;
+
+    const key = `${currency}|${voucherDate}`;
+
+    // نفس المفتاح اللي اتحمّل بيه آخر مرة — متعملش نداء تاني
+    if (lastResolvedKeyRef.current === key) return;
+
+    resolveExchangeRate({ currency, date: voucherDate })
+      .unwrap()
+      .then((res) => {
+        lastResolvedKeyRef.current = key;
+
+        if (res?.rate != null) {
+          setValue("exchangeRate", String(res.rate), {
+            shouldValidate: false,
+          });
+        }
+      })
+      .catch(() => {
+        // مفيش سعر متاح لنفس العملة والتاريخ ده — سيب الخانة
+        // زي ما هي عشان المستخدم يدخلها يدويًا
+        lastResolvedKeyRef.current = key;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isForeign, currency, voucherDate]);
 
   if (!isOpen || !voucher) {
     return null;
@@ -295,14 +343,27 @@ export default function CashVoucherEditModal({
             />
 
             {isForeign && (
-              <Input
-                type="number"
-                step="0.0001"
-                label={`سعر الصرف (${baseCurrency || "EGP"})`}
-                placeholder="سعر يوم السند تلقائيًا إن ترك فارغًا"
-                {...register("exchangeRate")}
-                error={errors.exchangeRate?.message}
-              />
+              <div>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  label={`سعر الصرف (${baseCurrency || "EGP"})`}
+                  placeholder={
+                    isResolvingRate
+                      ? "جاري تحميل السعر..."
+                      : "سعر يوم السند تلقائيًا إن ترك فارغًا"
+                  }
+                  {...register("exchangeRate")}
+                  error={errors.exchangeRate?.message}
+                />
+
+                {isResolvingRate && (
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-400">
+                    <Loader2 size={11} className="animate-spin" />
+                    جاري جلب سعر {currency} بتاريخ السند...
+                  </p>
+                )}
+              </div>
             )}
           </div>
 

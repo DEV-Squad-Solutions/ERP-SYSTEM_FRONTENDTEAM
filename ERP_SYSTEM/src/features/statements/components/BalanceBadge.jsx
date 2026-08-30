@@ -1,6 +1,6 @@
 const config = {
-  عليه: { className: "text-negative" },
-  له: { className: "text-positive" },
+  عليه: { className: "text-positive" },
+  له: { className: "text-negative" },
   مسدد: { className: "text-ink-400" },
 };
 

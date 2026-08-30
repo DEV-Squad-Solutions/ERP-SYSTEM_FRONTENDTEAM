@@ -1,9 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ArrowRightLeft, Info, Wallet, CircleDollarSign } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Info,
+  Wallet,
+  CircleDollarSign,
+  Loader2,
+} from "lucide-react";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
@@ -13,8 +19,13 @@ import {
   useCreateCashboxTransferMutation,
   useUpdateCashboxTransferMutation,
 } from "../cashboxTransfersApi";
+import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 
 const today = new Date().toISOString().slice(0, 10);
+
+// ⚠️ افتراض — استبدلها بمصدر عملة الشركة الأساسية الفعلي عندك
+// (context / config) لو مختلف عن EGP أو مش ثابت.
+const COMPANY_BASE_CURRENCY = "EGP";
 
 // =========================================================
 // Validation
@@ -140,6 +151,8 @@ export default function CashboxTransferFormModal({
 
   const isLoading = isCreating || isUpdating;
 
+  const [resolveExchangeRate] = useLazyResolveExchangeRateQuery();
+
   // =========================================================
   // Form
   // =========================================================
@@ -150,6 +163,7 @@ export default function CashboxTransferFormModal({
     control,
     watch,
     reset,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
@@ -160,6 +174,7 @@ export default function CashboxTransferFormModal({
   const destinationCashboxId = watch("destinationCashboxId");
   const amount = watch("amount");
   const conversionRate = watch("conversionRate");
+  const transferDate = watch("transferDate");
 
   // =========================================================
   // Selected Cashboxes
@@ -260,6 +275,86 @@ export default function CashboxTransferFormModal({
   }, [transfer, isOpen, reset]);
 
   // =========================================================
+  // Auto-resolve Conversion Rate
+  //
+  // كل ما (عملة المصدر، عملة الوجهة، تاريخ التحويل) يتغيروا،
+  // بنجيب سعر كل عملة بالنسبة لعملة الشركة الأساسية بنفس
+  // التاريخ، ونحسب نسبة التحويل بينهم:
+  //
+  //   conversionRate = sourceRate / destinationRate
+  //
+  // لو أي عملة هي عملة الشركة الأساسية، سعرها = 1 من غير
+  // نداء API. لو فشل الجلب لأي طرف، الخانة بتفضل زي ما هي
+  // عشان المستخدم يدخلها يدويًا.
+  // =========================================================
+
+  const isResolvingRateRef = useRef(false);
+  const lastResolvedKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !isDifferentCurrency ||
+      !sourceCurrency ||
+      !destinationCurrency ||
+      !transferDate
+    ) {
+      return;
+    }
+
+    const key = `${sourceCurrency}|${destinationCurrency}|${transferDate}`;
+
+    if (lastResolvedKeyRef.current === key) return;
+
+    async function resolveRate() {
+      isResolvingRateRef.current = true;
+
+      try {
+        const [sourceRate, destinationRate] = await Promise.all([
+          sourceCurrency === COMPANY_BASE_CURRENCY
+            ? Promise.resolve({ rate: 1 })
+            : resolveExchangeRate({
+                currency: sourceCurrency,
+                date: transferDate,
+              }).unwrap(),
+
+          destinationCurrency === COMPANY_BASE_CURRENCY
+            ? Promise.resolve({ rate: 1 })
+            : resolveExchangeRate({
+                currency: destinationCurrency,
+                date: transferDate,
+              }).unwrap(),
+        ]);
+
+        lastResolvedKeyRef.current = key;
+
+        if (sourceRate?.rate && destinationRate?.rate) {
+          const computed = sourceRate.rate / destinationRate.rate;
+
+          setValue("conversionRate", String(computed), {
+            shouldValidate: false,
+          });
+        }
+      } catch {
+        // مفيش سعر متاح لواحدة من العملتين بنفس التاريخ —
+        // سيب الخانة عشان المستخدم يدخلها يدويًا
+        lastResolvedKeyRef.current = key;
+      } finally {
+        isResolvingRateRef.current = false;
+      }
+    }
+
+    resolveRate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isOpen,
+    isDifferentCurrency,
+    sourceCurrency,
+    destinationCurrency,
+    transferDate,
+  ]);
+
+  // =========================================================
   // Submit
   // =========================================================
 
@@ -320,8 +415,6 @@ export default function CashboxTransferFormModal({
         // وهذا يمنع اختلافات التقريب بين Frontend و Backend.
       }
 
-      console.log("Cashbox transfer payload:", payload);
-
       const saved = isEdit
         ? await updateTransfer({
             id: transfer.id,
@@ -338,8 +431,6 @@ export default function CashboxTransferFormModal({
 
       onClose();
     } catch (err) {
-      console.error("Cashbox transfer error:", err);
-
       const message =
         err?.data?.message ||
         err?.data?.title ||
@@ -502,7 +593,7 @@ export default function CashboxTransferFormModal({
 
               {isDifferentCurrency ? (
                 <p className="mt-1 text-xs text-amber-700">
-                  العملات مختلفة، يجب تحديد سعر التحويل.
+                  العملات مختلفة، تم تحميل سعر التحويل تلقائيًا — يمكنك تعديله.
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-emerald-700">
@@ -534,15 +625,24 @@ export default function CashboxTransferFormModal({
           />
 
           {isDifferentCurrency && (
-            <Input
-              label={`سعر التحويل (${sourceCurrency} → ${destinationCurrency})`}
-              type="number"
-              step="0.000001"
-              min="0.000001"
-              placeholder="مثال: 50.25"
-              error={errors.conversionRate?.message}
-              {...register("conversionRate")}
-            />
+            <div>
+              <Input
+                label={`سعر التحويل (${sourceCurrency} → ${destinationCurrency})`}
+                type="number"
+                step="0.000001"
+                min="0.000001"
+                placeholder="بيتحمّل تلقائيًا حسب تاريخ التحويل"
+                error={errors.conversionRate?.message}
+                {...register("conversionRate")}
+              />
+
+              {isResolvingRateRef.current && (
+                <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-400">
+                  <Loader2 size={11} className="animate-spin" />
+                  جاري جلب سعر التحويل...
+                </p>
+              )}
+            </div>
           )}
         </div>
 

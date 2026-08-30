@@ -5,7 +5,6 @@ const STORAGE_KEY = "auth";
 const loadPersistedAuth = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -14,11 +13,18 @@ const loadPersistedAuth = () => {
 
 const persisted = loadPersistedAuth();
 
+const normalizeArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") return [value];
+  return [];
+};
+
 const initialState = {
   fullName: persisted?.fullName || null,
   email: persisted?.email || null,
 
-  roles: persisted?.roles || [],
+  roles: normalizeArray(persisted?.roles),
+  permissions: normalizeArray(persisted?.permissions),
 
   accessToken: persisted?.accessToken || null,
   refreshToken: persisted?.refreshToken || null,
@@ -38,6 +44,7 @@ const persistState = (state) => {
     email: state.email,
 
     roles: state.roles,
+    permissions: state.permissions,
 
     accessToken: state.accessToken,
     refreshToken: state.refreshToken,
@@ -58,67 +65,65 @@ const authSlice = createSlice({
   initialState,
 
   reducers: {
-    // =====================================================
-    // Login
-    // =====================================================
-
     setCredentials: (state, action) => {
       const data = action.payload;
 
-      state.fullName = data.fullName;
-      state.email = data.email;
+      state.fullName = data.fullName || null;
+      state.email = data.email || null;
 
-      state.roles = data.roles || [];
+      state.roles = normalizeArray(data.roles);
+      state.permissions = normalizeArray(data.permissions);
 
-      state.selectionToken = data.selectionToken;
+      state.selectionToken = data.selectionToken || null;
 
       state.companies = data.companies || [];
 
-      state.requiresCompanySelection = data.requiresCompanySelection;
+      state.requiresCompanySelection = !!data.requiresCompanySelection;
 
       if (!data.requiresCompanySelection) {
-        state.accessToken = data.accessToken;
+        state.accessToken = data.accessToken || null;
+        state.refreshToken = data.refreshToken || null;
+        state.isAuthenticated = !!data.accessToken;
 
-        state.refreshToken = data.refreshToken;
-
-        state.isAuthenticated = true;
-
-        const company = data.companies?.[0] || null;
-
-        state.selectedCompany = company;
+        state.selectedCompany = data.companies?.[0] || null;
       }
 
       persistState(state);
     },
 
-    // =====================================================
-    // Company selection
-    // =====================================================
-
     setCompanySelection: (state, action) => {
       const data = action.payload;
 
-      state.accessToken = data.accessToken;
-
-      state.refreshToken = data.refreshToken;
+      state.accessToken = data.accessToken || null;
+      state.refreshToken = data.refreshToken || null;
 
       state.requiresCompanySelection = false;
+      state.isAuthenticated = !!data.accessToken;
 
-      state.isAuthenticated = true;
+      if (Array.isArray(data.roles)) {
+        state.roles = normalizeArray(data.roles);
+      }
+
+      if (Array.isArray(data.permissions)) {
+        state.permissions = normalizeArray(data.permissions);
+      }
 
       const company =
-        state.companies.find((c) => c.id === data.selectedCompanyId) ||
+        state.companies.find(
+          (company) => company.id === data.selectedCompanyId,
+        ) ||
         data.companies?.[0] ||
+        state.selectedCompany ||
         null;
 
       state.selectedCompany = company;
 
+      if (Array.isArray(data.companies)) {
+        state.companies = data.companies;
+      }
+
       persistState(state);
     },
-
-    // =====================================================
-    // Refresh token
-    // =====================================================
 
     updateTokens: (state, action) => {
       state.accessToken = action.payload.accessToken;
@@ -132,9 +137,15 @@ const authSlice = createSlice({
       persistState(state);
     },
 
-    // =====================================================
-    // Logout
-    // =====================================================
+    setPermissions: (state, action) => {
+      state.permissions = normalizeArray(action.payload);
+      persistState(state);
+    },
+
+    setRoles: (state, action) => {
+      state.roles = normalizeArray(action.payload);
+      persistState(state);
+    },
 
     logout: (state) => {
       localStorage.removeItem(STORAGE_KEY);
@@ -143,6 +154,7 @@ const authSlice = createSlice({
       state.email = null;
 
       state.roles = [];
+      state.permissions = [];
 
       state.accessToken = null;
       state.refreshToken = null;
@@ -152,15 +164,10 @@ const authSlice = createSlice({
       state.selectedCompany = null;
 
       state.requiresCompanySelection = false;
-
       state.isAuthenticated = false;
     },
   },
 });
-
-// =========================================================
-// Selectors
-// =========================================================
 
 export const selectAccessToken = (state) => state.auth.accessToken;
 
@@ -168,16 +175,20 @@ export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
 
 export const selectSelectedCompany = (state) => state.auth.selectedCompany;
 
-export const selectRoles = (state) => state.auth.roles;
+export const selectRoles = (state) => state.auth.roles || [];
+
+export const selectPermissions = (state) => state.auth.permissions || [];
 
 export const selectIsAdmin = (state) =>
-  state.auth.roles?.includes("Admin") ?? false;
+  selectRoles(state).some((role) => String(role).toLowerCase() === "admin");
 
-// =========================================================
-// Actions
-// =========================================================
-
-export const { setCredentials, setCompanySelection, updateTokens, logout } =
-  authSlice.actions;
+export const {
+  setCredentials,
+  setCompanySelection,
+  updateTokens,
+  setPermissions,
+  setRoles,
+  logout,
+} = authSlice.actions;
 
 export default authSlice.reducer;
