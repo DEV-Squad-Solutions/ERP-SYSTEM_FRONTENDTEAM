@@ -57,11 +57,7 @@ import EmployeeDetailPage from "../features/payroll/pages/EmployeeDetailPage";
 import SalariesPage from "../features/payroll/pages/SalariesPage";
 import SalaryDetailPage from "../features/payroll/pages/SalaryDetailPage";
 import AttendancePage from "../features/payroll/pages/AttendancePage";
-import OvertimePage from "../features/payroll/pages/OvertimePage";
-import DeductionsPage from "../features/payroll/pages/DeductionsPage";
-import AdvancesPage from "../features/payroll/pages/AdvancesPage";
-import AdvanceDetailPage from "../features/payroll/pages/AdvanceDetailPage";
-import ReportsPage from "../features/payroll/pages/ReportsPage";
+import EmployeeMovementsPage from "../features/payroll/pages/EmployeeMovementsPage";
 
 import TrialBalancePage from "../features/TrialBalance/pages/TrialBalancePage";
 
@@ -553,46 +549,10 @@ export const router = createBrowserRouter([
       },
 
       {
-        path: "payroll/overtime",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR]}>
-            <OvertimePage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/deductions",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR]}>
-            <DeductionsPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/advances",
+        path: "payroll/movements",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <AdvancesPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/advances/:advanceId",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <AdvanceDetailPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/reports",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <ReportsPage />
+            <EmployeeMovementsPage />
           </Role>
         ),
       },

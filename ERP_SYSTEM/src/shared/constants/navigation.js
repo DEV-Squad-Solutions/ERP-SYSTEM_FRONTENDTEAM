@@ -23,12 +23,11 @@ import {
   Ruler,
   PackageOpen,
   Globe,
-  CreditCard,
-  MinusCircle,
   Timer,
   ArrowLeftRight,
   ChartNoAxesCombined,
   Coins,
+  ArrowRightLeft,
 } from "lucide-react";
 
 const ALL_ROLES = [
@@ -291,22 +290,11 @@ export const navigationItems = [
         icon: WalletCards,
         roles: HR_ROLES,
       },
+
       {
-        label: "الإضافي والبدلات",
-        path: "/dashboard/payroll/overtime",
-        icon: Timer,
-        roles: HR_ROLES,
-      },
-      {
-        label: "الخصومات",
-        path: "/dashboard/payroll/deductions",
-        icon: MinusCircle,
-        roles: HR_ROLES,
-      },
-      {
-        label: "السلف",
-        path: "/dashboard/payroll/advances",
-        icon: CreditCard,
+        label: "الحركات المالية الموظفين",
+        path: "/dashboard/payroll/movements",
+        icon: ArrowRightLeft,
         roles: HR_ROLES,
       },
       {

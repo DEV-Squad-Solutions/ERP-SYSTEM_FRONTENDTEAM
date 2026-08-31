@@ -1,8 +1,8 @@
 // features/payroll/pages/EmployeeDetailPage.jsx
 //
-// TODO INTEGRATION: تبويبات الحضور/الإضافي والبدلات/الخصومات/السلف بتحتاج
+// TODO INTEGRATION: تبويبات الحضور والحركات (سلف/خصومات/مكافآت/سحوبات) بتحتاج
 // endpoints بفلتر employeeId - مستخدمين هنا getEmployeeAttendances و
-// getEmployeeTransactions بفلتر EmployeeId، وسجل المرتبات من getPayrollEntries
+// getEmployeeMovements بفلتر EmployeeId، وسجل المرتبات من getPayrollEntries
 // بفلتر EmployeeId. لو الباك إند مختلف، الجزء اللي محتاج تعديل هو الـparams بس.
 
 import { useState } from "react";
@@ -13,17 +13,21 @@ import {
   useGetEmployeeByIdQuery,
   useDeleteEmployeeMutation,
   useGetEmployeeAttendancesQuery,
-  useGetEmployeeTransactionsQuery,
+  useGetEmployeeMovementsQuery,
   useGetPayrollEntriesQuery,
 } from "../payrollApi";
-import { fmtMoney } from "../payroll.constants";
+import {
+  fmtMoney,
+  MOVEMENT_TYPE_LABELS,
+  movementTypeBadge,
+} from "../payroll.constants";
 import Button from "../../../shared/components/ui/Button";
 import EmployeeFormModal from "../components/EmployeeFormModal";
 
 const TABS = [
   { key: "basic", label: "البيانات الأساسية" },
   { key: "attendance", label: "الحضور" },
-  { key: "transactions", label: "الإضافي والخصومات والسلف" },
+  { key: "movements", label: "الحركات (سلف، خصومات، مكافآت، سحوبات)" },
   { key: "history", label: "سجل المرتبات" },
 ];
 
@@ -127,9 +131,7 @@ export default function EmployeeDetailPage() {
         {activeTab === "attendance" && (
           <AttendanceTab employeeId={employee.id} />
         )}
-        {activeTab === "transactions" && (
-          <TransactionsTab employeeId={employee.id} />
-        )}
+        {activeTab === "movements" && <MovementsTab employeeId={employee.id} />}
         {activeTab === "history" && (
           <PayrollHistoryTab employeeId={employee.id} />
         )}
@@ -243,8 +245,8 @@ function AttendanceTab({ employeeId }) {
   );
 }
 
-function TransactionsTab({ employeeId }) {
-  const { data, isLoading } = useGetEmployeeTransactionsQuery({
+function MovementsTab({ employeeId }) {
+  const { data, isLoading } = useGetEmployeeMovementsQuery({
     EmployeeId: employeeId,
     PageSize: 50,
   });
@@ -259,7 +261,7 @@ function TransactionsTab({ employeeId }) {
 
   return (
     <div className="overflow-x-auto custom-scroll rounded-xl border border-ink-400/10">
-      <table className="w-full text-right border-collapse min-w-[600px]">
+      <table className="w-full text-right border-collapse min-w-[720px]">
         <thead>
           <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
             <th className="p-2.5 font-medium border-l border-ink-400/5">
@@ -268,33 +270,49 @@ function TransactionsTab({ employeeId }) {
             <th className="p-2.5 font-medium border-l border-ink-400/5">
               النوع
             </th>
-            <th className="p-2.5 font-medium border-l border-ink-400/5">
-              القيمة
+            <th className="p-2.5 font-medium border-l border-ink-400/5 text-positive">
+              مدين
+            </th>
+            <th className="p-2.5 font-medium border-l border-ink-400/5 text-negative">
+              دائن
             </th>
             <th className="p-2.5 font-medium border-l border-ink-400/5">
-              ملاحظات
+              العملة
             </th>
-            <th className="p-2.5 font-medium">الحالة</th>
+            <th className="p-2.5 font-medium border-l border-ink-400/5">
+              رقم السند
+            </th>
+            <th className="p-2.5 font-medium">ملاحظات</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-ink-400/5 last:border-0">
               <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                {r.transactionDate}
+                {r.movementDate}
               </td>
-              <td className="p-2.5 text-xs border-l border-ink-400/5">
-                {r.type === "Debit" ? "خصم" : "إضافة"}
+              <td className="p-2.5 border-l border-ink-400/5">
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                    movementTypeBadge[r.type] || "bg-ink-400/10 text-ink-400"
+                  }`}
+                >
+                  {MOVEMENT_TYPE_LABELS[r.type] || r.type}
+                </span>
               </td>
-              <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                {fmtMoney(r.amount)}
+              <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">
+                {r.debit > 0 ? fmtMoney(r.debit) : "—"}
+              </td>
+              <td className="p-2.5 num text-negative text-[13px] border-l border-ink-400/5">
+                {r.credit > 0 ? fmtMoney(r.credit) : "—"}
               </td>
               <td className="p-2.5 text-xs text-ink-600 border-l border-ink-400/5">
-                {r.notes || "—"}
+                {r.currency}
               </td>
-              <td className="p-2.5 text-xs">
-                {r.isProcessed ? "تم الترحيل" : "معلّق"}
+              <td className="p-2.5 text-xs text-ink-600 border-l border-ink-400/5">
+                {r.cashVoucherNumber || "—"}
               </td>
+              <td className="p-2.5 text-xs text-ink-600">{r.notes || "—"}</td>
             </tr>
           ))}
         </tbody>

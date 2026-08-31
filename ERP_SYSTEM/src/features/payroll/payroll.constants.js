@@ -74,182 +74,36 @@ export const dayRatioOptions = Object.entries(DAY_RATIO).map(
 );
 
 // ============================================================
-// Transaction Type
+// Employee Movement Type
+// ============================================================
+// EmployeeMovements API:
+// Debit = 1, Credit = 2, Advance = 3, Deduction = 4, Bonus = 5, Withdrawal = 6
 // ============================================================
 
-export const TRANSACTION_TYPE = {
-  Debit: "خصم",
-  Credit: "إضافة",
+export const MOVEMENT_TYPE_LABELS = {
+  Debit: "مدين",
+  Credit: "دائن",
+  Advance: "سلفة",
+  Deduction: "خصم",
+  Bonus: "مكافأة",
+  Withdrawal: "سحب",
 };
 
-export const transactionTypeOptions = Object.entries(TRANSACTION_TYPE).map(
+export const movementTypeOptions = Object.entries(MOVEMENT_TYPE_LABELS).map(
   ([value, label]) => ({
     value,
     label,
   }),
 );
 
-// ============================================================
-// Employee Transaction Categories
-// ============================================================
-//
-// مؤقت إلى أن يوفر الـ backend category حقيقي.
-// ============================================================
-
-export const TRANSACTION_CATEGORY = {
-  // ----------------------------------------------------------
-  // Credit
-  // ----------------------------------------------------------
-
-  Overtime: {
-    label: "ساعات إضافية",
-    type: "Credit",
-  },
-
-  TransportAllowance: {
-    label: "بدل انتقال",
-    type: "Credit",
-  },
-
-  HousingAllowance: {
-    label: "بدل سكن",
-    type: "Credit",
-  },
-
-  MealAllowance: {
-    label: "بدل وجبة",
-    type: "Credit",
-  },
-
-  Bonus: {
-    label: "مكافأة",
-    type: "Credit",
-  },
-
-  Incentive: {
-    label: "حافز",
-    type: "Credit",
-  },
-
-  OtherAddition: {
-    label: "أخرى (إضافة)",
-    type: "Credit",
-  },
-
-  // ----------------------------------------------------------
-  // Debit
-  // ----------------------------------------------------------
-
-  AbsenceDeduction: {
-    label: "خصم غياب",
-    type: "Debit",
-  },
-
-  LatenessDeduction: {
-    label: "خصم تأخير",
-    type: "Debit",
-  },
-
-  Penalty: {
-    label: "جزاء",
-    type: "Debit",
-  },
-
-  AdminDeduction: {
-    label: "خصم إداري",
-    type: "Debit",
-  },
-
-  OtherDeduction: {
-    label: "أخرى (خصم)",
-    type: "Debit",
-  },
-
-  // ----------------------------------------------------------
-  // Advance
-  // ----------------------------------------------------------
-
-  Advance: {
-    label: "سلفة",
-    type: "Debit",
-  },
+export const movementTypeBadge = {
+  Debit: "text-positive bg-positive/10",
+  Credit: "text-negative bg-negative/10",
+  Advance: "text-amber-600 bg-amber-50",
+  Deduction: "text-negative bg-negative/10",
+  Bonus: "text-positive bg-positive/10",
+  Withdrawal: "text-negative bg-negative/10",
 };
-
-// ============================================================
-// Category Groups
-// ============================================================
-
-export const overtimeAllowanceCategories = [
-  "Overtime",
-  "TransportAllowance",
-  "HousingAllowance",
-  "MealAllowance",
-  "Bonus",
-  "Incentive",
-  "OtherAddition",
-];
-
-export const deductionCategories = [
-  "AbsenceDeduction",
-  "LatenessDeduction",
-  "Penalty",
-  "AdminDeduction",
-  "OtherDeduction",
-];
-
-export const advanceCategories = ["Advance"];
-
-// ============================================================
-// Category Helpers
-// ============================================================
-
-export function categoryOptionsFor(categoryKeys = []) {
-  return categoryKeys
-    .filter((key) => TRANSACTION_CATEGORY[key])
-    .map((key) => ({
-      value: key,
-      label: TRANSACTION_CATEGORY[key].label,
-    }));
-}
-
-// ============================================================
-// Temporary Category Encoding
-// ============================================================
-//
-// مؤقت فقط إلى أن يضيف الـ backend حقل category حقيقي.
-// ============================================================
-
-export function encodeCategory(category, notes) {
-  if (!category) {
-    return notes || "";
-  }
-
-  const cleanNotes = String(notes || "").trim();
-
-  return cleanNotes ? `[${category}] ${cleanNotes}` : `[${category}]`;
-}
-
-export function parseCategory(notes) {
-  const value = String(notes || "");
-
-  const match = /^\[([A-Za-z][A-Za-z0-9]*)\]\s*(.*)$/.exec(value);
-
-  if (!match) {
-    return {
-      category: null,
-      cleanNotes: value,
-    };
-  }
-
-  return {
-    category: match[1],
-    cleanNotes: match[2],
-  };
-}
-
-export function categoryLabel(category) {
-  return TRANSACTION_CATEGORY[category]?.label || "—";
-}
 
 // ============================================================
 // Payroll Status
@@ -269,13 +123,11 @@ export const PAYROLL_STATUS = {
 
 export const payrollStatusBadge = {
   Draft: "text-ink-400 bg-ink-400/10",
-
   UnderReview: "text-amber-600 bg-amber-50",
-
   Approved: "text-primary-600 bg-primary-50",
-
   Disbursed: "text-positive bg-positive/10",
 };
+
 export const currencyOptions = [
   { value: "EGP", label: "جنيه مصري" },
   { value: "USD", label: "دولار أمريكي" },
@@ -300,6 +152,7 @@ export const balanceTypeBadge = {
   Debit: "text-negative bg-negative/10",
   Credit: "text-positive bg-positive/10",
 };
+
 // ============================================================
 // Money Formatter
 // ============================================================

@@ -118,61 +118,65 @@ export const payrollApi = baseApi.injectEndpoints({
         { type: "Attendance", id: "LIST" },
       ],
     }),
+
     bulkDeleteEmployeeAttendances: builder.mutation({
       query: (attendanceIds) => ({
         url: "/EmployeeAttendances/bulk/delete",
         method: "POST",
         body: { attendanceIds },
       }),
-      invalidatesTags: ["Attendance"], // عدّل الـ tag على حسب المستخدم في باقي attendance endpoints
+      invalidatesTags: ["Attendance"],
     }),
 
-    getEmployeeTransactions: builder.query({
+    // ============================================================
+    // Employee Movements (بديل EmployeeTransactions القديمة)
+    // ============================================================
+
+    getEmployeeMovements: builder.query({
       query: (params) => ({
-        url: "EmployeeTransactions",
+        url: "EmployeeMovements",
         params,
       }),
       providesTags: (result) =>
         result?.items
           ? [
-              ...result.items.map((transaction) => ({
-                type: "Transaction",
-                id: transaction.id,
+              ...result.items.map((movement) => ({
+                type: "EmployeeMovement",
+                id: movement.id,
               })),
-              { type: "Transaction", id: "LIST" },
+              { type: "EmployeeMovement", id: "LIST" },
             ]
-          : [{ type: "Transaction", id: "LIST" }],
+          : [{ type: "EmployeeMovement", id: "LIST" }],
     }),
 
-    createEmployeeTransaction: builder.mutation({
+    getEmployeeMovementById: builder.query({
+      query: (id) => `EmployeeMovements/${id}`,
+      providesTags: (result, error, id) => [{ type: "EmployeeMovement", id }],
+    }),
+
+    createEmployeeMovement: builder.mutation({
       query: (data) => ({
-        url: "EmployeeTransactions",
+        url: "EmployeeMovements",
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [{ type: "Transaction", id: "LIST" }],
-    }),
-
-    updateEmployeeTransaction: builder.mutation({
-      query: ({ id, ...data }) => ({
-        url: `EmployeeTransactions/${id}`,
-        method: "PUT",
-        body: data,
-      }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Transaction", id },
-        { type: "Transaction", id: "LIST" },
+      invalidatesTags: [
+        { type: "EmployeeMovement", id: "LIST" },
+        "Cashbox",
+        "Statement",
       ],
     }),
 
-    deleteEmployeeTransaction: builder.mutation({
-      query: (id) => ({
-        url: `EmployeeTransactions/${id}`,
-        method: "DELETE",
+    bulkCreateEmployeeMovements: builder.mutation({
+      query: (data) => ({
+        url: "EmployeeMovements/bulk",
+        method: "POST",
+        body: data,
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Transaction", id },
-        { type: "Transaction", id: "LIST" },
+      invalidatesTags: [
+        { type: "EmployeeMovement", id: "LIST" },
+        "Cashbox",
+        "Statement",
       ],
     }),
 
@@ -318,6 +322,7 @@ export const payrollApi = baseApi.injectEndpoints({
         "Statement",
       ],
     }),
+
     getEmployeeOpeningBalances: builder.query({
       query: (params) => ({
         url: "/EmployeeOpeningBalances",
@@ -336,7 +341,6 @@ export const payrollApi = baseApi.injectEndpoints({
       invalidatesTags: ["EmployeeOpeningBalance"],
     }),
 
-    // عدّل الاسم/المسار لو عندك update/delete فعليين في الـ swagger
     updateEmployeeOpeningBalance: builder.mutation({
       query: ({ id, ...body }) => ({
         url: `/EmployeeOpeningBalances/${id}`,
@@ -370,10 +374,11 @@ export const {
   useDeleteEmployeeAttendanceMutation,
   useBulkDeleteEmployeeAttendancesMutation,
 
-  useGetEmployeeTransactionsQuery,
-  useCreateEmployeeTransactionMutation,
-  useUpdateEmployeeTransactionMutation,
-  useDeleteEmployeeTransactionMutation,
+  useGetEmployeeMovementsQuery,
+  useGetEmployeeMovementByIdQuery,
+  useCreateEmployeeMovementMutation,
+  useBulkCreateEmployeeMovementsMutation,
+
   useGetPayrollEntriesQuery,
   useGetPayrollEntryByIdQuery,
   useCreatePayrollEntryMutation,

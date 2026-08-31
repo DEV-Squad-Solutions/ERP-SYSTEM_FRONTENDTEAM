@@ -483,7 +483,7 @@ export default function AttendanceTakingPage() {
       attendances: newRows.map((row) => ({
         employeeId: Number(row.employee.id),
 
-        status: row.status === STATUS.PRESENT ? 0 : 1,
+        status: row.status === STATUS.PRESENT ? 1 : 0, // ← Present = 1, Absent = 0
 
         workDate,
 
