@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Printer,
   Pencil,
+  Star,
 } from "lucide-react";
 
 import { useGetPartiesQuery, useDeletePartyMutation } from "../partiesApi";
@@ -37,6 +38,7 @@ export default function PartnersListPage() {
     taxNumber: "",
     currency: "",
     isActive: "",
+    special: "",
   });
 
   const { data, isLoading, isFetching, isError, refetch } = useGetPartiesQuery({
@@ -47,6 +49,7 @@ export default function PartnersListPage() {
     TaxNumber: filters.taxNumber || undefined,
     Currency: filters.currency || undefined,
     IsActive: filters.isActive === "" ? undefined : filters.isActive === "true",
+    Special: filters.special === "" ? undefined : filters.special === "true",
   });
 
   const parties = data?.items ?? [];
@@ -69,6 +72,7 @@ export default function PartnersListPage() {
       taxNumber: "",
       currency: "",
       isActive: "",
+      special: "",
     });
 
     setPage(1);
@@ -79,7 +83,8 @@ export default function PartnersListPage() {
     filters.code ||
     filters.taxNumber ||
     filters.currency ||
-    filters.isActive;
+    filters.isActive ||
+    filters.special;
 
   const openCreate = () => {
     setShowCreateModal(true);
@@ -224,6 +229,22 @@ export default function PartnersListPage() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="mb-1.5 block text-xs text-ink-400">
+                    نوع الشريك
+                  </label>
+
+                  <select
+                    value={filters.special}
+                    onChange={handleChange("special")}
+                    className="w-full rounded-xl border border-ink-400/15 bg-white px-3 py-2 text-sm focus:border-emerald-700/50 focus:outline-none"
+                  >
+                    <option value="">الكل</option>
+                    <option value="true">خاص</option>
+                    <option value="false">عادي</option>
+                  </select>
+                </div>
+
                 {hasActiveFilters && (
                   <button
                     type="button"
@@ -302,6 +323,8 @@ export default function PartnersListPage() {
 
                     <th className="px-4 py-3 font-medium">حد الائتمان</th>
 
+                    <th className="px-4 py-3 font-medium">النوع</th>
+
                     <th className="px-4 py-3 font-medium">الحالة</th>
 
                     <th className="px-4 py-3 font-medium">إجراءات</th>
@@ -321,8 +344,16 @@ export default function PartnersListPage() {
                         {party.code}
                       </td>
 
-                      <td className="max-w-[220px] truncate px-4 py-3 font-semibold text-ink-900">
-                        {party.name}
+                      <td className="max-w-[220px] px-4 py-3 font-semibold text-ink-900">
+                        <div className="flex items-center gap-1.5 truncate">
+                          {party.special && (
+                            <Star
+                              size={13}
+                              className="shrink-0 fill-amber-500 text-amber-500"
+                            />
+                          )}
+                          <span className="truncate">{party.name}</span>
+                        </div>
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3 text-ink-700">
@@ -337,6 +368,18 @@ export default function PartnersListPage() {
                         {party.creditLimit != null
                           ? party.creditLimit.toLocaleString("ar-EG")
                           : "—"}
+                      </td>
+
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <span
+                          className={
+                            party.special
+                              ? "rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600"
+                              : "rounded-full bg-ink-400/10 px-2 py-0.5 text-xs font-semibold text-ink-400"
+                          }
+                        >
+                          {party.special ? "خاص" : "عادي"}
+                        </span>
                       </td>
 
                       <td className="whitespace-nowrap px-4 py-3">

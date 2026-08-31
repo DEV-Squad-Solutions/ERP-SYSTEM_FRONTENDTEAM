@@ -24,6 +24,10 @@ function filterNavigationItems(items, roles) {
       return result;
     }
 
+    if (!canAccessItem(item, roles)) {
+      return result;
+    }
+
     if (item.children?.length) {
       const filteredChildren = filterNavigationItems(item.children, roles);
 
@@ -37,10 +41,7 @@ function filterNavigationItems(items, roles) {
       return result;
     }
 
-    if (canAccessItem(item, roles)) {
-      result.push(item);
-    }
-
+    result.push(item);
     return result;
   }, []);
 }
@@ -84,15 +85,14 @@ function hasActiveItem(items, pathname) {
 
 const SidebarSection = memo(function SidebarSection({ label }) {
   return (
-    <li className="pt-5 pb-2 px-3">
-      {" "}
-      <div className="flex items-center gap-2">
-        {" "}
-        <span className="text-[10px] font-semibold tracking-[0.08em] text-white/25 uppercase whitespace-nowrap">
-          {label}{" "}
-        </span>{" "}
-        <span className="h-px flex-1 bg-white/[0.05]" />{" "}
-      </div>{" "}
+    <li className="px-3 pt-6 pb-2 select-none">
+      <div className="flex items-center gap-2.5">
+        <span className="whitespace-nowrap text-[10px] font-semibold tracking-[0.1em] text-white/25 uppercase">
+          {label}
+        </span>
+
+        <span className="h-px flex-1 bg-white/[0.06]" />
+      </div>
     </li>
   );
 });
@@ -113,23 +113,22 @@ const SidebarLink = memo(function SidebarLink({
       className={({ isActive }) =>
         [
           "group relative flex items-center gap-3",
-          "px-3 py-2.5 rounded-lg",
+          "min-h-10 rounded-xl px-3 py-2.5",
           "text-sm",
           "transition-all duration-200 ease-out",
           "outline-none",
-          "focus-visible:ring-2",
-          "focus-visible:ring-gold-500/30",
+          "focus-visible:ring-2 focus-visible:ring-gold-500/30",
           isActive
             ? [
-                "text-white",
-                "bg-white/[0.07]",
-                "font-medium",
-                "shadow-sm",
+                "bg-white/[0.075]",
+                "font-medium text-white",
+                "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]",
               ].join(" ")
             : [
                 "text-white/55",
-                "hover:text-white",
                 "hover:bg-white/[0.04]",
+                "hover:text-white",
+                "hover:translate-x-[-1px]",
               ].join(" "),
         ].join(" ")
       }
@@ -141,10 +140,20 @@ const SidebarLink = memo(function SidebarLink({
             className={[
               "absolute right-0 top-1/2",
               "-translate-y-1/2",
-              "w-[3px]",
-              "rounded-full",
-              "transition-all duration-200",
-              isActive ? "h-[60%] bg-gold-500 opacity-100" : "h-0 opacity-0",
+              "w-[3px] rounded-full",
+              "transition-all duration-300 ease-out",
+              isActive
+                ? "h-[62%] bg-gold-500 opacity-100 shadow-[0_0_10px_rgba(234,179,8,0.25)]"
+                : "h-0 opacity-0",
+            ].join(" ")}
+          />
+
+          <span
+            aria-hidden="true"
+            className={[
+              "pointer-events-none absolute inset-0 rounded-xl",
+              "transition-opacity duration-200",
+              isActive ? "opacity-100" : "opacity-0",
             ].join(" ")}
           />
 
@@ -153,15 +162,17 @@ const SidebarLink = memo(function SidebarLink({
               size={18}
               strokeWidth={1.8}
               className={[
-                "shrink-0",
-                "transition-all duration-200",
-                "group-hover:scale-[1.04]",
-                isActive ? "text-gold-400" : "",
+                "relative shrink-0",
+                "transition-all duration-200 ease-out",
+                "group-hover:scale-[1.05]",
+                isActive
+                  ? "text-gold-400 drop-shadow-[0_0_5px_rgba(234,179,8,0.2)]"
+                  : "",
               ].join(" ")}
             />
           )}
 
-          <span className="truncate">{label}</span>
+          <span className="relative truncate">{label}</span>
         </>
       )}
     </NavLink>
@@ -184,26 +195,25 @@ const SidebarSubLink = memo(function SidebarSubLink({
       className={({ isActive }) =>
         [
           "group relative flex items-center gap-2.5",
-          "py-2 pr-3 pl-2",
-          "rounded-lg",
+          "min-h-9 rounded-lg py-2 pr-3 pl-2",
           "text-[13px]",
           "transition-all duration-200 ease-out",
           "outline-none",
-          "focus-visible:ring-2",
-          "focus-visible:ring-gold-500/30",
+          "focus-visible:ring-2 focus-visible:ring-gold-500/30",
           isActive
-            ? "text-white bg-white/[0.055] font-medium"
+            ? "bg-white/[0.06] font-medium text-white translate-x-[-1px]"
             : [
                 "text-white/40",
-                "hover:text-white/85",
                 "hover:bg-white/[0.035]",
+                "hover:text-white/85",
+                "hover:translate-x-[-1px]",
               ].join(" "),
         ].join(" ")
       }
     >
       {({ isActive }) => {
         const lineColor = isActive
-          ? "bg-gold-500/60"
+          ? "bg-gold-500/70"
           : "bg-white/10 group-hover:bg-white/20";
 
         return (
@@ -213,7 +223,7 @@ const SidebarSubLink = memo(function SidebarSubLink({
               className={[
                 "absolute right-0 top-0 bottom-0",
                 "w-px",
-                "transition-colors duration-200",
+                "transition-all duration-300",
                 lineColor,
               ].join(" ")}
             />
@@ -224,7 +234,7 @@ const SidebarSubLink = memo(function SidebarSubLink({
                 "absolute right-0 top-1/2",
                 "h-px w-2",
                 "-translate-y-1/2",
-                "transition-colors duration-200",
+                "transition-all duration-300",
                 lineColor,
               ].join(" ")}
             />
@@ -233,11 +243,13 @@ const SidebarSubLink = memo(function SidebarSubLink({
               aria-hidden="true"
               className={[
                 "absolute right-[-2px] top-1/2",
-                "w-[5px] h-[5px]",
+                "h-[5px] w-[5px]",
                 "-translate-y-1/2",
                 "rounded-full",
-                "transition-all duration-200",
-                isActive ? "bg-gold-500 scale-100" : "bg-transparent scale-0",
+                "transition-all duration-300 ease-out",
+                isActive
+                  ? "scale-100 bg-gold-500 shadow-[0_0_6px_rgba(234,179,8,0.4)]"
+                  : "scale-0 bg-transparent",
               ].join(" ")}
             />
 
@@ -246,15 +258,15 @@ const SidebarSubLink = memo(function SidebarSubLink({
                 size={15}
                 strokeWidth={1.8}
                 className={[
-                  "shrink-0",
-                  "transition-transform duration-200",
-                  "group-hover:scale-[1.04]",
+                  "relative shrink-0",
+                  "transition-all duration-200 ease-out",
+                  "group-hover:scale-[1.05]",
                   isActive ? "text-gold-400" : "",
                 ].join(" ")}
               />
             )}
 
-            <span className="truncate">{label}</span>
+            <span className="relative truncate">{label}</span>
           </>
         );
       }}
@@ -296,20 +308,18 @@ const SidebarNestedGroup = memo(function SidebarNestedGroup({
         aria-expanded={isOpen}
         aria-controls={groupId}
         className={[
-          "group w-full flex items-center gap-2.5",
-          "py-2 pr-3 pl-2",
-          "rounded-lg",
+          "group flex w-full items-center gap-2.5",
+          "min-h-9 rounded-lg py-2 pr-3 pl-2",
           "text-[13px]",
-          "transition-all duration-200",
+          "transition-all duration-200 ease-out",
           "outline-none",
-          "focus-visible:ring-2",
-          "focus-visible:ring-gold-500/30",
+          "focus-visible:ring-2 focus-visible:ring-gold-500/30",
           hasActiveChild
-            ? "text-white bg-white/[0.04] font-medium"
+            ? "bg-white/[0.045] font-medium text-white"
             : [
                 "text-white/40",
-                "hover:text-white/80",
                 "hover:bg-white/[0.03]",
+                "hover:text-white/80",
               ].join(" "),
         ].join(" ")}
       >
@@ -319,21 +329,21 @@ const SidebarNestedGroup = memo(function SidebarNestedGroup({
             strokeWidth={1.8}
             className={[
               "shrink-0",
-              "transition-transform duration-200",
-              "group-hover:scale-[1.04]",
+              "transition-all duration-200",
+              "group-hover:scale-[1.05]",
               hasActiveChild ? "text-gold-400" : "",
             ].join(" ")}
           />
         )}
 
-        <span className="flex-1 text-right truncate">{label}</span>
+        <span className="flex-1 truncate text-right">{label}</span>
 
         <ChevronDown
           size={13}
           strokeWidth={1.8}
           className={[
             "shrink-0",
-            "transition-transform duration-300",
+            "transition-transform duration-300 ease-out",
             isOpen ? "rotate-180" : "",
           ].join(" ")}
         />
@@ -344,13 +354,13 @@ const SidebarNestedGroup = memo(function SidebarNestedGroup({
         className={[
           "grid",
           "transition-[grid-template-rows,opacity]",
-          "duration-250 ease-out",
+          "duration-300 ease-out",
           "will-change-[grid-template-rows,opacity]",
           isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         ].join(" ")}
       >
         <div className="overflow-hidden">
-          <ul className="mr-3 mt-0.5 space-y-0.5 border-r border-white/[0.05] pr-2">
+          <ul className="mr-3 mt-1 space-y-0.5 border-r border-white/[0.05] pr-2">
             {children.map((child) =>
               child.children?.length ? (
                 <SidebarNestedGroup
@@ -413,20 +423,22 @@ const SidebarGroup = memo(function SidebarGroup({
         aria-expanded={isOpen}
         aria-controls={groupId}
         className={[
-          "group w-full flex items-center gap-3",
-          "px-3 py-2.5",
-          "rounded-lg",
+          "group flex w-full items-center gap-3",
+          "min-h-10 rounded-xl px-3 py-2.5",
           "text-sm",
           "transition-all duration-200 ease-out",
           "outline-none",
-          "focus-visible:ring-2",
-          "focus-visible:ring-gold-500/30",
+          "focus-visible:ring-2 focus-visible:ring-gold-500/30",
           hasActiveChild
-            ? ["text-white", "bg-white/[0.065]", "font-medium"].join(" ")
+            ? [
+                "bg-white/[0.065]",
+                "font-medium text-white",
+                "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.035)]",
+              ].join(" ")
             : [
                 "text-white/55",
-                "hover:text-white",
                 "hover:bg-white/[0.04]",
+                "hover:text-white",
               ].join(" "),
         ].join(" ")}
       >
@@ -436,21 +448,21 @@ const SidebarGroup = memo(function SidebarGroup({
             strokeWidth={1.8}
             className={[
               "shrink-0",
-              "transition-all duration-200",
-              "group-hover:scale-[1.04]",
+              "transition-all duration-200 ease-out",
+              "group-hover:scale-[1.05]",
               hasActiveChild ? "text-gold-400" : "",
             ].join(" ")}
           />
         )}
 
-        <span className="flex-1 text-right truncate">{label}</span>
+        <span className="flex-1 truncate text-right">{label}</span>
 
         <ChevronDown
           size={15}
           strokeWidth={1.8}
           className={[
             "shrink-0",
-            "transition-transform duration-300",
+            "transition-transform duration-300 ease-out",
             isOpen ? "rotate-180" : "",
           ].join(" ")}
         />
@@ -461,13 +473,13 @@ const SidebarGroup = memo(function SidebarGroup({
         className={[
           "grid",
           "transition-[grid-template-rows,opacity]",
-          "duration-250 ease-out",
+          "duration-300 ease-out",
           "will-change-[grid-template-rows,opacity]",
           isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         ].join(" ")}
       >
         <div className="overflow-hidden">
-          <ul className="mt-0.5 mr-[7px] space-y-0.5 border-r border-white/[0.06] pr-3">
+          <ul className="mt-1 mr-[7px] space-y-0.5 border-r border-white/[0.06] pr-3">
             {children.map((child) =>
               child.children?.length ? (
                 <SidebarNestedGroup
@@ -507,7 +519,6 @@ function Sidebar({ isOpen, onClose }) {
 
   const filteredNavigationItems = useMemo(() => {
     const filtered = filterNavigationItems(navigationItems, roles);
-
     return removeEmptySections(filtered);
   }, [roles]);
 
@@ -545,6 +556,22 @@ function Sidebar({ isOpen, onClose }) {
     };
   }, [isOpen, handleClose]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    if (window.innerWidth < 1024) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   return (
     <>
       <div
@@ -552,13 +579,13 @@ function Sidebar({ isOpen, onClose }) {
         onClick={handleClose}
         className={[
           "fixed inset-0 z-30",
-          "bg-ink-900/50",
-          "backdrop-blur-[2px]",
+          "bg-ink-900/55",
+          "backdrop-blur-[3px]",
           "lg:hidden",
-          "transition-opacity duration-300",
+          "transition-all duration-300 ease-out",
           isOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none",
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
         ].join(" ")}
       />
 
@@ -566,45 +593,44 @@ function Sidebar({ isOpen, onClose }) {
         aria-label="القائمة الرئيسية"
         className={[
           "fixed top-0 right-0",
-          "h-screen w-64",
-          "bg-ink-900",
-          "z-40",
+          "z-40 h-screen w-64",
           "flex flex-col",
           "border-l border-white/[0.06]",
-          "shadow-2xl shadow-black/20",
-          "transition-transform duration-300 ease-out",
+          "bg-ink-900",
+          "shadow-2xl shadow-black/25",
+          "transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "will-change-transform",
           isOpen ? "translate-x-0" : "translate-x-full",
           "lg:translate-x-0",
         ].join(" ")}
       >
-        <div className="p-5 border-b border-white/[0.08] flex items-center justify-between shrink-0">
+        <div className="relative flex shrink-0 items-center justify-between border-b border-white/[0.08] p-5">
+          <div
+            aria-hidden="true"
+            className="absolute bottom-0 right-0 left-0 h-px bg-gradient-to-l from-gold-500/20 via-white/[0.04] to-transparent"
+          />
+
           <button
             type="button"
             onClick={handleCompanyDetails}
             disabled={!company || !canViewCompany}
             className={[
-              "min-w-0",
-              "flex-1",
+              "group min-w-0 flex-1",
+              "rounded-lg p-1 -m-1",
               "text-right",
-              "group",
-              "rounded-md",
               "outline-none",
+              "transition-colors duration-200",
               "disabled:cursor-default",
-              "focus-visible:ring-2",
-              "focus-visible:ring-gold-500/30",
+              "focus-visible:ring-2 focus-visible:ring-gold-500/30",
             ].join(" ")}
           >
-            <p className="text-[11px] text-white/40 mb-0.5 flex items-center gap-1">
-              الشركة الحالية
+            <p className="mb-1 flex items-center gap-1 text-[11px] text-white/40">
+              <span>الشركة الحالية</span>
+
               {company && canViewCompany && (
                 <Info
                   size={11}
-                  className={[
-                    "opacity-0",
-                    "group-hover:opacity-100",
-                    "transition-opacity duration-200",
-                  ].join(" ")}
+                  className="opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                 />
               )}
             </p>
@@ -612,11 +638,12 @@ function Sidebar({ isOpen, onClose }) {
             <p
               className={[
                 "font-display",
-                "font-semibold",
-                "text-white",
+                "font-semibold text-white",
                 "truncate",
-                "transition-colors duration-200",
-                company && canViewCompany ? "group-hover:text-gold-400" : "",
+                "transition-all duration-200",
+                company && canViewCompany
+                  ? "group-hover:text-gold-400 group-hover:translate-x-[-1px]"
+                  : "",
               ].join(" ")}
             >
               {company?.name || "غير محدد"}
@@ -627,18 +654,14 @@ function Sidebar({ isOpen, onClose }) {
             type="button"
             onClick={handleClose}
             className={[
-              "lg:hidden",
-              "shrink-0",
-              "mr-3",
-              "p-1.5",
-              "rounded-md",
+              "mr-3 shrink-0",
+              "rounded-lg p-1.5",
               "text-white/50",
-              "hover:text-white",
-              "hover:bg-white/[0.05]",
               "transition-all duration-200",
+              "hover:bg-white/[0.05] hover:text-white",
               "outline-none",
-              "focus-visible:ring-2",
-              "focus-visible:ring-gold-500/30",
+              "focus-visible:ring-2 focus-visible:ring-gold-500/30",
+              "lg:hidden",
             ].join(" ")}
             aria-label="إغلاق القائمة"
           >
@@ -649,14 +672,15 @@ function Sidebar({ isOpen, onClose }) {
         <nav
           aria-label="التنقل الرئيسي"
           className={[
+            "custom-scroll",
             "flex-1",
             "overflow-y-auto",
-            "custom-scroll",
-            "py-3",
             "overscroll-contain",
+            "scroll-smooth",
+            "py-3",
           ].join(" ")}
         >
-          <ul className="space-y-0.5 px-3">
+          <ul className="space-y-0.5 px-3 pb-5">
             {filteredNavigationItems.map((item, index) => {
               if (item.type === "section") {
                 return (

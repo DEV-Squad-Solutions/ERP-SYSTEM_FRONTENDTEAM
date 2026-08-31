@@ -23,11 +23,11 @@ import {
   Ruler,
   PackageOpen,
   Globe,
-  Timer,
   ArrowLeftRight,
   ChartNoAxesCombined,
   Coins,
   ArrowRightLeft,
+  CalendarRange,
 } from "lucide-react";
 
 const ALL_ROLES = [
@@ -69,6 +69,8 @@ const REPORT_ROLES = [
   "HR",
 ];
 
+const ADMIN_ROLES = ["Admin", "CompanyOwner"];
+
 export const navigationItems = [
   {
     label: "الرئيسية",
@@ -88,6 +90,7 @@ export const navigationItems = [
     label: "المبيعات والمشتريات",
     path: "/dashboard/sales",
     icon: ShoppingCart,
+    end: true,
     roles: SALES_ROLES,
   },
 
@@ -107,18 +110,21 @@ export const navigationItems = [
         label: "كشف حساب عميل/مورد",
         path: "/dashboard/partners/statement",
         icon: FileText,
+        end: true,
         roles: PARTNERS_ROLES,
       },
       {
         label: "أرصدة افتتاحية",
         path: "/dashboard/partners/opening-balances",
         icon: History,
-        roles: ["Admin", "CompanyOwner", "Accountant"],
+        end: true,
+        roles: ACCOUNTING_ROLES,
       },
       {
         label: "الدول",
         path: "/dashboard/partners/countries",
         icon: Globe,
+        end: true,
         roles: ["Admin", "CompanyOwner", "Sales", "Accountant"],
       },
     ],
@@ -140,30 +146,35 @@ export const navigationItems = [
         label: "التحويلات المخزنية",
         path: "/dashboard/inventory/stock-transfers",
         icon: ArrowLeftRight,
+        end: true,
         roles: INVENTORY_ROLES,
       },
       {
         label: "تسويات المخزون",
         path: "/dashboard/inventory/adjustments",
         icon: SlidersHorizontal,
+        end: true,
         roles: ["Admin", "CompanyOwner", "Inventory"],
       },
       {
         label: "أرصدة افتتاحية مخزنية",
         path: "/dashboard/inventory/opening-balances",
         icon: History,
+        end: true,
         roles: ["Admin", "CompanyOwner", "Inventory", "Accountant"],
       },
       {
         label: "العبوات",
         path: "/dashboard/inventory/containers",
         icon: PackageOpen,
+        end: true,
         roles: INVENTORY_ROLES,
       },
       {
         label: "وحدات القياس",
         path: "/dashboard/inventory/units",
         icon: Ruler,
+        end: true,
         roles: INVENTORY_ROLES,
       },
     ],
@@ -185,12 +196,14 @@ export const navigationItems = [
         label: "كشف حساب سائق",
         path: "/dashboard/drivers/statement",
         icon: FileText,
+        end: true,
         roles: DRIVER_ROLES,
       },
       {
         label: "مصاريف الرحلات",
         path: "/dashboard/drivers/trip-costs",
         icon: Receipt,
+        end: true,
         roles: DRIVER_ROLES,
       },
     ],
@@ -218,19 +231,22 @@ export const navigationItems = [
         label: "التحويلات بين الخزائن",
         path: "/dashboard/treasury/transfers",
         icon: ArrowLeftRight,
+        end: true,
         roles: FINANCE_ROLES,
       },
       {
         label: "أنواع حركات الخزنة",
         path: "/dashboard/treasury/cash-movement-types",
         icon: SlidersHorizontal,
-        roles: ["Admin", "CompanyOwner", "Accountant"],
+        end: true,
+        roles: FINANCE_ROLES,
       },
       {
         label: "العملات وأسعار الصرف",
         path: "/dashboard/treasury/currencies",
         icon: Coins,
-        roles: ["Admin", "CompanyOwner", "Accountant"],
+        end: true,
+        roles: FINANCE_ROLES,
       },
     ],
   },
@@ -239,6 +255,7 @@ export const navigationItems = [
     label: "المصاريف",
     path: "/dashboard/expenses",
     icon: Receipt,
+    end: true,
     roles: FINANCE_ROLES,
   },
 
@@ -264,43 +281,49 @@ export const navigationItems = [
         label: "الموظفين",
         path: "/dashboard/payroll/employees",
         icon: Users,
+        end: true,
         roles: HR_ROLES,
       },
       {
         label: "كشف حساب موظف",
         path: "/dashboard/payroll/employees/statement",
         icon: FileText,
+        end: true,
         roles: HR_ROLES,
       },
       {
         label: "الأرصدة الافتتاحية",
         path: "/dashboard/payroll/opening-balances",
         icon: History,
+        end: true,
         roles: ["Admin", "CompanyOwner", "HR", "Accountant"],
       },
       {
         label: "الحضور والانصراف",
         path: "/dashboard/payroll/attendance/records",
-        icon: History,
+        icon: CalendarRange,
+        end: true,
+        roles: HR_ROLES,
+      },
+      {
+        label: "الحركات المالية للموظفين",
+        path: "/dashboard/payroll/movements",
+        icon: ArrowRightLeft,
+        end: true,
         roles: HR_ROLES,
       },
       {
         label: "المرتبات",
         path: "/dashboard/payroll/salaries",
         icon: WalletCards,
-        roles: HR_ROLES,
-      },
-
-      {
-        label: "الحركات المالية الموظفين",
-        path: "/dashboard/payroll/movements",
-        icon: ArrowRightLeft,
+        end: true,
         roles: HR_ROLES,
       },
       {
         label: "تقارير المرتبات",
         path: "/dashboard/payroll/reports",
         icon: FileBarChart,
+        end: true,
         roles: HR_ROLES,
       },
     ],
@@ -313,9 +336,18 @@ export const navigationItems = [
   },
 
   {
+    label: "السنوات المالية",
+    path: "/dashboard/fiscal-years",
+    icon: CalendarRange,
+    end: true,
+    roles: ACCOUNTING_ROLES,
+  },
+
+  {
     label: "قيود اليومية",
     path: "/dashboard/journal-entries",
     icon: BookOpen,
+    end: true,
     roles: ACCOUNTING_ROLES,
   },
 
@@ -323,6 +355,7 @@ export const navigationItems = [
     label: "ميزان المراجعة التشغيلي",
     path: "/dashboard/statements/operational-trial-balance",
     icon: ClipboardList,
+    end: true,
     roles: ACCOUNTING_ROLES,
   },
 
@@ -330,6 +363,7 @@ export const navigationItems = [
     label: "ميزان بعد التسوية",
     path: "/dashboard/adjusted-trial-balance",
     icon: Scale,
+    end: true,
     roles: ACCOUNTING_ROLES,
   },
 
@@ -337,6 +371,7 @@ export const navigationItems = [
     label: "قائمة الدخل",
     path: "/dashboard/income",
     icon: ChartNoAxesCombined,
+    end: true,
     roles: ACCOUNTING_ROLES,
   },
 
@@ -344,6 +379,7 @@ export const navigationItems = [
     label: "المركز المالي",
     path: "/dashboard/financial-position",
     icon: PieChart,
+    end: true,
     roles: ACCOUNTING_ROLES,
   },
 
@@ -362,24 +398,28 @@ export const navigationItems = [
         label: "تقرير المبيعات والمشتريات",
         path: "/dashboard/reports/sales",
         icon: ShoppingCart,
+        end: true,
         roles: ["Admin", "CompanyOwner", "Accountant", "Sales"],
       },
       {
         label: "تقرير حركة المخزون",
         path: "/dashboard/reports/inventory",
         icon: Boxes,
+        end: true,
         roles: ["Admin", "CompanyOwner", "Accountant", "Inventory"],
       },
       {
         label: "تقرير الحسابات",
         path: "/dashboard/reports/accounts",
         icon: FileText,
+        end: true,
         roles: ACCOUNTING_ROLES,
       },
       {
         label: "تكلفة أصناف الفواتير",
         path: "/dashboard/invoice-item-pricing",
         icon: Wallet,
+        end: true,
         roles: ["Admin", "CompanyOwner", "Accountant", "Inventory"],
       },
       {
@@ -409,13 +449,14 @@ export const navigationItems = [
   {
     type: "section",
     label: "الإدارة",
-    roles: ["Admin", "CompanyOwner"],
+    roles: ADMIN_ROLES,
   },
 
   {
     label: "الصلاحيات",
     path: "/dashboard/permissions",
     icon: ShieldCheck,
-    roles: ["Admin", "CompanyOwner"],
+    end: true,
+    roles: ADMIN_ROLES,
   },
 ];

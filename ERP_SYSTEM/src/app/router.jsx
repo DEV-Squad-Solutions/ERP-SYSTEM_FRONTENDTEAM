@@ -82,6 +82,9 @@ import EmployeeOpeningBalancesPage from "../features/payroll/pages/EmployeeOpeni
 import InvoiceItemPricingPage from "../features/invoiceItemPricing/pages/InvoiceItemPricingPage";
 
 import CurrenciesPage from "../features/exchange-rates/pages/CurrenciesPage";
+import FiscalYearsListPage from "../features/fiscalYears/pages/FiscalYearsListPage";
+import ProfilePage from "../features/features/users/pages/ProfilePage";
+import EditProfilePage from "../features/features/users/pages/EditProfilePage";
 
 const ROLES = {
   ADMIN: "Admin",
@@ -128,6 +131,10 @@ export const router = createBrowserRouter([
         index: true,
         element: <DashboardHome />,
       },
+
+      // ============================================================
+      // المبيعات والمشتريات
+      // ============================================================
 
       {
         path: "sales",
@@ -192,6 +199,56 @@ export const router = createBrowserRouter([
         ),
       },
 
+      // ============================================================
+      // العملاء والموردين
+      // (قائمة -> أرصدة افتتاحية -> كشف حساب -> الدول)
+      // ============================================================
+
+      {
+        path: "partners",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <PartnersListPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "partners/opening-balances",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <PartnerOpeningBalancesPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "partners/statement",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <PartnerAccountPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "partners/countries",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <CountriesPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "partners/:partnerId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <PartnerDetailPage />
+          </Role>
+        ),
+      },
+
       {
         path: "stores/containers/:partnerId",
         element: (
@@ -208,65 +265,16 @@ export const router = createBrowserRouter([
         ),
       },
 
-      {
-        path: "partners",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
-            <PartnersListPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "partners/:partnerId",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
-            <PartnerDetailPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "partners/statement",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
-            <PartnerAccountPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "partners/opening-balances",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <PartnerOpeningBalancesPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "partners/countries",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
-            <CountriesPage />
-          </Role>
-        ),
-      },
+      // ============================================================
+      // السائقين
+      // (قائمة -> مصاريف الرحلات -> كشف حساب)
+      // ============================================================
 
       {
         path: "drivers",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
             <DriversListPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "drivers/:driverId",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
-            <DriverDetailPage />
           </Role>
         ),
       },
@@ -290,37 +298,24 @@ export const router = createBrowserRouter([
       },
 
       {
+        path: "drivers/:driverId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.SALES, ROLES.ACCOUNTANT]}>
+            <DriverDetailPage />
+          </Role>
+        ),
+      },
+
+      // ============================================================
+      // الخزائن والبنوك
+      // (خزائن -> أنواع حركات -> عملات -> تحويلات)
+      // ============================================================
+
+      {
         path: "treasury",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
             <CashboxesListPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "treasury/:cashboxId",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <CashboxDetailPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "treasury/transfers",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <CashboxTransfersPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "treasury/transfers/:id",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <CashboxTransferDetailsPage />
           </Role>
         ),
       },
@@ -344,6 +339,56 @@ export const router = createBrowserRouter([
       },
 
       {
+        path: "treasury/transfers",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxTransfersPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "treasury/transfers/:id",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxTransferDetailsPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "treasury/:cashboxId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <CashboxDetailPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "expenses",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <ExpensesPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "bank",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <BankPage />
+          </Role>
+        ),
+      },
+
+      // ============================================================
+      // المخازن
+      // (قائمة -> عبوات -> وحدات -> أرصدة -> تحويلات -> تسويات)
+      // ============================================================
+
+      {
         path: "stores",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
@@ -353,26 +398,19 @@ export const router = createBrowserRouter([
       },
 
       {
-        path: "stores/:id",
+        path: "inventory/containers",
         element: (
-          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
-            <StoreDetailPage />
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY]}>
+            <PackagingUnitsPage />
           </Role>
         ),
       },
 
       {
-        path: "items/:id",
+        path: "inventory/units",
         element: (
-          <Role
-            roles={[
-              ROLES.ADMIN,
-              ROLES.INVENTORY,
-              ROLES.SALES,
-              ROLES.ACCOUNTANT,
-            ]}
-          >
-            <ItemDetailPage />
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY]}>
+            <UnitsPage />
           </Role>
         ),
       },
@@ -382,6 +420,15 @@ export const router = createBrowserRouter([
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
             <StockOpeningBalancesPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "inventory/stock-transfers",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
+            <StockTransfersPage />
           </Role>
         ),
       },
@@ -423,28 +470,26 @@ export const router = createBrowserRouter([
       },
 
       {
-        path: "inventory/units",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY]}>
-            <UnitsPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "inventory/containers",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.INVENTORY]}>
-            <PackagingUnitsPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "inventory/stock-transfers",
+        path: "stores/:id",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.INVENTORY, ROLES.ACCOUNTANT]}>
-            <StockTransfersPage />
+            <StoreDetailPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "items/:id",
+        element: (
+          <Role
+            roles={[
+              ROLES.ADMIN,
+              ROLES.INVENTORY,
+              ROLES.SALES,
+              ROLES.ACCOUNTANT,
+            ]}
+          >
+            <ItemDetailPage />
           </Role>
         ),
       },
@@ -458,14 +503,10 @@ export const router = createBrowserRouter([
         ),
       },
 
-      {
-        path: "expenses",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <ExpensesPage />
-          </Role>
-        ),
-      },
+      // ============================================================
+      // الأجور والمرتبات
+      // (لوحة تحكم -> موظفين -> أرصدة -> حضور -> حركات -> مرتبات -> كشف حساب)
+      // ============================================================
 
       {
         path: "payroll",
@@ -486,46 +527,10 @@ export const router = createBrowserRouter([
       },
 
       {
-        path: "payroll/salaries/create",
+        path: "payroll/opening-balances",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <BulkCreatePayrollEntriesPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/employees/:employeeId",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <EmployeeDetailPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/employees/statement",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <EmployeeAccountPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/salaries",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <SalariesPage />
-          </Role>
-        ),
-      },
-
-      {
-        path: "payroll/salaries/:salaryId",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <SalaryDetailPage />
+            <EmployeeOpeningBalancesPage />
           </Role>
         ),
       },
@@ -558,37 +563,59 @@ export const router = createBrowserRouter([
       },
 
       {
-        path: "payroll/opening-balances",
+        path: "payroll/salaries",
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
-            <EmployeeOpeningBalancesPage />
+            <SalariesPage />
           </Role>
         ),
       },
 
       {
-        path: "reports/profitability/invoices",
+        path: "payroll/salaries/create",
         element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
-            <InvoiceProfitabilityPage />
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <BulkCreatePayrollEntriesPage />
           </Role>
         ),
       },
 
       {
-        path: "reports/profitability/invoices/:invoiceId",
+        path: "payroll/salaries/:salaryId",
         element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
-            <InvoiceProfitabilityDetailsPage />
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <SalaryDetailPage />
           </Role>
         ),
       },
 
       {
-        path: "reports/profitability/items",
+        path: "payroll/employees/statement",
         element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
-            <ItemProfitabilityPage />
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EmployeeAccountPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "payroll/employees/:employeeId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EmployeeDetailPage />
+          </Role>
+        ),
+      },
+
+      // ============================================================
+      // المحاسبة
+      // ============================================================
+
+      {
+        path: "fiscal-years",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <FiscalYearsListPage />
           </Role>
         ),
       },
@@ -629,6 +656,10 @@ export const router = createBrowserRouter([
         ),
       },
 
+      // ============================================================
+      // التقارير
+      // ============================================================
+
       {
         path: "reports",
         element: (
@@ -639,6 +670,37 @@ export const router = createBrowserRouter([
       },
 
       {
+        path: "reports/profitability/invoices",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <InvoiceProfitabilityPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "reports/profitability/invoices/:invoiceId",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <InvoiceProfitabilityDetailsPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "reports/profitability/items",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.SALES]}>
+            <ItemProfitabilityPage />
+          </Role>
+        ),
+      },
+
+      // ============================================================
+      // الإدارة
+      // ============================================================
+
+      {
         path: "permissions",
         element: (
           <Role roles={ROLES.ADMIN}>
@@ -646,12 +708,15 @@ export const router = createBrowserRouter([
           </Role>
         ),
       },
-
       {
-        path: "bank",
+        path: "profile",
+        element: <ProfilePage />,
+      },
+      {
+        path: "profile/edit",
         element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <BankPage />
+          <Role roles={[ROLES.ADMIN]}>
+            <EditProfilePage />
           </Role>
         ),
       },

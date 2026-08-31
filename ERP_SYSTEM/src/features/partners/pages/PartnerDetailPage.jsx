@@ -1,6 +1,13 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, Pencil, Trash2, Warehouse, Package } from "lucide-react";
+import {
+  ArrowRight,
+  Pencil,
+  Trash2,
+  Warehouse,
+  Package,
+  Star,
+} from "lucide-react";
 import { useState } from "react";
 
 import { useGetPartyByIdQuery, useDeletePartyMutation } from "../partiesApi";
@@ -99,19 +106,37 @@ export default function PartnerDetailPage() {
           <div>
             <span className="font-mono text-xs text-ink-400">{party.code}</span>
 
-            <h2 className="text-xl font-bold text-ink-900 mt-1">
+            <h2 className="flex items-center gap-2 text-xl font-bold text-ink-900 mt-1">
+              {party.special && (
+                <Star
+                  size={18}
+                  className="shrink-0 fill-amber-500 text-amber-500"
+                />
+              )}
               {party.name}
             </h2>
 
-            <span
-              className={
-                party.isActive
-                  ? "inline-block mt-2 text-emerald-700 text-xs font-semibold bg-emerald-700/10 px-2 py-0.5 rounded-full"
-                  : "inline-block mt-2 text-red-500 text-xs font-semibold bg-red-500/10 px-2 py-0.5 rounded-full"
-              }
-            >
-              {party.isActive ? "نشط" : "غير نشط"}
-            </span>
+            <div className="flex items-center gap-2 mt-2">
+              <span
+                className={
+                  party.isActive
+                    ? "inline-block text-emerald-700 text-xs font-semibold bg-emerald-700/10 px-2 py-0.5 rounded-full"
+                    : "inline-block text-red-500 text-xs font-semibold bg-red-500/10 px-2 py-0.5 rounded-full"
+                }
+              >
+                {party.isActive ? "نشط" : "غير نشط"}
+              </span>
+
+              <span
+                className={
+                  party.special
+                    ? "inline-block text-amber-600 text-xs font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full"
+                    : "inline-block text-ink-400 text-xs font-semibold bg-ink-400/10 px-2 py-0.5 rounded-full"
+                }
+              >
+                {party.special ? "شريك خاص" : "شريك عادي"}
+              </span>
+            </div>
           </div>
 
           {/* Actions */}

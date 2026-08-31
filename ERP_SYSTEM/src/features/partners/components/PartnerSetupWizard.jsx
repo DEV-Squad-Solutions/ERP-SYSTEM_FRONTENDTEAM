@@ -35,6 +35,7 @@ const partnerSchema = z.object({
   currency: z.enum(["EGP", "USD", "EUR", "GBP", "SAR", "AED", "KWD"]),
   address: z.string().optional(),
   usesReturnableContainers: z.boolean(),
+  special: z.boolean(),
 });
 
 const storeSchema = z.object({
@@ -60,6 +61,7 @@ const PARTNER_DEFAULTS = {
   currency: "EGP",
   address: "",
   usesReturnableContainers: false,
+  special: false,
 };
 
 const STORE_DEFAULTS = {
@@ -217,6 +219,7 @@ export default function PartnerSetupWizard({
         partyType: partnerType,
 
         usesReturnableContainers: data.usesReturnableContainers,
+        special: data.special,
       }).unwrap();
 
       const createdPartner = created?.data ?? created;
@@ -532,6 +535,21 @@ export default function PartnerSetupWizard({
               {...registerPartner("usesReturnableContainers")}
             />
             يستخدم حاويات مرتجعة
+          </label>
+
+          <label className="flex items-center gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-3.5 py-3 text-sm text-ink-700 cursor-pointer select-none transition-colors hover:bg-amber-500/[0.07]">
+            <input
+              type="checkbox"
+              {...registerPartner("special")}
+              className="h-4 w-4 rounded border-ink-400/30 accent-amber-500"
+            />
+            <span>
+              شريك خاص
+              <span className="block text-xs text-ink-400 mt-0.5">
+                يُستخدم لتمييز {partnerLabelShort} كحساب خاص (مثل شركاء الإدارة
+                أو الأطراف ذات المعاملة الاستثنائية)
+              </span>
+            </span>
           </label>
 
           <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-3 text-xs text-ink-600">

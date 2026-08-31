@@ -20,39 +20,32 @@ const normalizeArray = (value) => {
 };
 
 const initialState = {
+  userId: persisted?.userId || null,
   fullName: persisted?.fullName || null,
   email: persisted?.email || null,
-
   roles: normalizeArray(persisted?.roles),
   permissions: normalizeArray(persisted?.permissions),
-
   accessToken: persisted?.accessToken || null,
   refreshToken: persisted?.refreshToken || null,
   selectionToken: persisted?.selectionToken || null,
-
   companies: persisted?.companies || [],
   selectedCompany: persisted?.selectedCompany || null,
-
   requiresCompanySelection: persisted?.requiresCompanySelection || false,
-
   isAuthenticated: !!persisted?.accessToken,
 };
 
 const persistState = (state) => {
   const toStore = {
+    userId: state.userId,
     fullName: state.fullName,
     email: state.email,
-
     roles: state.roles,
     permissions: state.permissions,
-
     accessToken: state.accessToken,
     refreshToken: state.refreshToken,
     selectionToken: state.selectionToken,
-
     companies: state.companies,
     selectedCompany: state.selectedCompany,
-
     requiresCompanySelection: state.requiresCompanySelection,
   };
 
@@ -61,31 +54,30 @@ const persistState = (state) => {
 
 const authSlice = createSlice({
   name: "auth",
-
   initialState,
-
   reducers: {
     setCredentials: (state, action) => {
       const data = action.payload;
+      const user = data.user || data;
 
-      state.fullName = data.fullName || null;
-      state.email = data.email || null;
-
-      state.roles = normalizeArray(data.roles);
-      state.permissions = normalizeArray(data.permissions);
-
+      state.userId = user.id || user.userId || data.id || data.userId || null;
+      state.fullName =
+        user.fullName ||
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+        null;
+      state.email = user.email || data.email || null;
+      state.roles = normalizeArray(user.roles || data.roles);
+      state.permissions = normalizeArray(user.permissions || data.permissions);
       state.selectionToken = data.selectionToken || null;
-
-      state.companies = data.companies || [];
-
+      state.companies = data.companies || user.companies || [];
       state.requiresCompanySelection = !!data.requiresCompanySelection;
 
       if (!data.requiresCompanySelection) {
         state.accessToken = data.accessToken || null;
         state.refreshToken = data.refreshToken || null;
         state.isAuthenticated = !!data.accessToken;
-
-        state.selectedCompany = data.companies?.[0] || null;
+        state.selectedCompany =
+          data.companies?.[0] || user.companies?.[0] || null;
       }
 
       persistState(state);
@@ -96,9 +88,12 @@ const authSlice = createSlice({
 
       state.accessToken = data.accessToken || null;
       state.refreshToken = data.refreshToken || null;
-
       state.requiresCompanySelection = false;
       state.isAuthenticated = !!data.accessToken;
+
+      if (data.id || data.userId) {
+        state.userId = data.id || data.userId;
+      }
 
       if (Array.isArray(data.roles)) {
         state.roles = normalizeArray(data.roles);
@@ -150,33 +145,27 @@ const authSlice = createSlice({
     logout: (state) => {
       localStorage.removeItem(STORAGE_KEY);
 
+      state.userId = null;
       state.fullName = null;
       state.email = null;
-
       state.roles = [];
       state.permissions = [];
-
       state.accessToken = null;
       state.refreshToken = null;
       state.selectionToken = null;
-
       state.companies = [];
       state.selectedCompany = null;
-
       state.requiresCompanySelection = false;
       state.isAuthenticated = false;
     },
   },
 });
 
+export const selectUserId = (state) => state.auth.userId;
 export const selectAccessToken = (state) => state.auth.accessToken;
-
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
-
 export const selectSelectedCompany = (state) => state.auth.selectedCompany;
-
 export const selectRoles = (state) => state.auth.roles || [];
-
 export const selectPermissions = (state) => state.auth.permissions || [];
 
 export const selectIsAdmin = (state) =>

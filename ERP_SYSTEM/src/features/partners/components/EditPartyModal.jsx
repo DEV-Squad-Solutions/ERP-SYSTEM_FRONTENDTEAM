@@ -40,6 +40,8 @@ const editPartySchema = z.object({
   creditLimit: z.union([z.coerce.number().min(0), z.literal("")]).optional(),
 
   isActive: z.boolean(),
+
+  special: z.boolean(),
 });
 
 const DEFAULT_VALUES = {
@@ -51,6 +53,7 @@ const DEFAULT_VALUES = {
   taxNumber: "",
   creditLimit: "",
   isActive: true,
+  special: false,
 };
 
 export default function EditPartyModal({ isOpen, onClose, party }) {
@@ -78,6 +81,7 @@ export default function EditPartyModal({ isOpen, onClose, party }) {
       taxNumber: party.taxNumber ?? "",
       creditLimit: party.creditLimit ?? "",
       isActive: party.isActive ?? true,
+      special: party.special ?? false,
     });
   }, [party, isOpen, reset]);
 
@@ -182,6 +186,21 @@ export default function EditPartyModal({ isOpen, onClose, party }) {
           <input type="checkbox" {...register("isActive")} />
 
           <span>الشريك نشط</span>
+        </label>
+
+        {/* شريك خاص */}
+        <label className="flex items-center gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-3.5 py-3 text-sm text-ink-700 cursor-pointer select-none transition-colors hover:bg-amber-500/[0.07]">
+          <input
+            type="checkbox"
+            {...register("special")}
+            className="h-4 w-4 rounded border-ink-400/30 accent-amber-500"
+          />
+          <span>
+            شريك خاص
+            <span className="block text-xs text-ink-400 mt-0.5">
+              يُستخدم لتمييز هذا الشريك كحساب خاص
+            </span>
+          </span>
         </label>
 
         {/* الأزرار */}
