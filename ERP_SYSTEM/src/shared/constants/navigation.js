@@ -28,6 +28,7 @@ import {
   Coins,
   ArrowRightLeft,
   CalendarRange,
+  ListTree,
 } from "lucide-react";
 
 const ALL_ROLES = [
@@ -339,6 +340,14 @@ export const navigationItems = [
     label: "السنوات المالية",
     path: "/dashboard/fiscal-years",
     icon: CalendarRange,
+    end: true,
+    roles: ACCOUNTING_ROLES,
+  },
+
+  {
+    label: "دليل الحسابات",
+    path: "/dashboard/accounts",
+    icon: ListTree,
     end: true,
     roles: ACCOUNTING_ROLES,
   },

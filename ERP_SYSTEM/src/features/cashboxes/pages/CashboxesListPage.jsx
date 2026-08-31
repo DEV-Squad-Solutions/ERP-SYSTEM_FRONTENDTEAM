@@ -8,16 +8,13 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-
 import {
   useGetCashboxesQuery,
   useDeleteCashboxMutation,
 } from "../cashboxesApi";
-
 import CashboxCard from "../components/CashboxCard";
 import CashboxFormModal from "../components/CashboxFormModal";
 import CashboxTransferModal from "../components/CashboxTransferFormModal";
-
 import Pagination from "../../../shared/components/ui/Pagination";
 import Button from "../../../shared/components/ui/Button";
 import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
@@ -25,16 +22,8 @@ import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal
 export default function CashboxesListPage() {
   const navigate = useNavigate();
 
-  // =========================================================
-  // Pagination
-  // =========================================================
-
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-
-  // =========================================================
-  // Filters
-  // =========================================================
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -44,21 +33,10 @@ export default function CashboxesListPage() {
   const [isActive, setIsActive] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  // =========================================================
-  // Modals
-  // =========================================================
-
   const [showFormModal, setShowFormModal] = useState(false);
-
   const [showTransferModal, setShowTransferModal] = useState(false);
-
   const [editingCashbox, setEditingCashbox] = useState(null);
-
   const [cashboxToDelete, setCashboxToDelete] = useState(null);
-
-  // =========================================================
-  // Search Debounce
-  // =========================================================
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -68,10 +46,6 @@ export default function CashboxesListPage() {
 
     return () => clearTimeout(timeout);
   }, [searchInput]);
-
-  // =========================================================
-  // Query
-  // =========================================================
 
   const {
     data: cashboxes,
@@ -91,10 +65,6 @@ export default function CashboxesListPage() {
 
   const items = cashboxes?.items ?? [];
 
-  // =========================================================
-  // Delete
-  // =========================================================
-
   const [deleteCashbox, { isLoading: isDeleting }] = useDeleteCashboxMutation();
 
   const handleDelete = (cashbox) => {
@@ -106,9 +76,7 @@ export default function CashboxesListPage() {
 
     try {
       await deleteCashbox(cashboxToDelete.id).unwrap();
-
       toast.success("تم حذف الخزنة بنجاح");
-
       setCashboxToDelete(null);
     } catch (err) {
       console.error("Delete cashbox error:", err);
@@ -122,10 +90,6 @@ export default function CashboxesListPage() {
     }
   };
 
-  // =========================================================
-  // Create / Edit
-  // =========================================================
-
   const openCreate = () => {
     setEditingCashbox(null);
     setShowFormModal(true);
@@ -135,10 +99,6 @@ export default function CashboxesListPage() {
     setEditingCashbox(cashbox);
     setShowFormModal(true);
   };
-
-  // =========================================================
-  // Filters
-  // =========================================================
 
   const resetFilters = () => {
     setSearchInput("");
@@ -154,16 +114,8 @@ export default function CashboxesListPage() {
     search || code || name || currency || isActive,
   );
 
-  // =========================================================
-  // Render
-  // =========================================================
-
   return (
     <div dir="rtl" className="animate-fadeUp space-y-4 p-6">
-      {/* =====================================================
-          Header
-      ====================================================== */}
-
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/20 bg-white p-5 shadow-sm">
         <div>
           <h1 className="text-xl font-bold text-ink">الخزائن</h1>
@@ -174,10 +126,6 @@ export default function CashboxesListPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* =================================================
-              Filters
-          ================================================== */}
-
           <div className="relative">
             <button
               type="button"
@@ -197,18 +145,12 @@ export default function CashboxesListPage() {
 
             {showFilters && (
               <>
-                {/* Overlay */}
-
                 <div
                   className="fixed inset-0 z-10"
                   onClick={() => setShowFilters(false)}
                 />
 
-                {/* Dropdown */}
-
                 <div className="absolute left-0 z-20 mt-2 w-80 animate-fadeUp space-y-3 rounded-2xl border border-gold/20 bg-white p-4 shadow-lg">
-                  {/* Search */}
-
                   <div>
                     <label className="mb-1.5 block text-xs text-ink/50">
                       بحث
@@ -226,8 +168,6 @@ export default function CashboxesListPage() {
                     </div>
                   </div>
 
-                  {/* Code */}
-
                   <div>
                     <label className="mb-1.5 block text-xs text-ink/50">
                       الكود
@@ -243,8 +183,6 @@ export default function CashboxesListPage() {
                       className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-emerald-600"
                     />
                   </div>
-
-                  {/* Name */}
 
                   <div>
                     <label className="mb-1.5 block text-xs text-ink/50">
@@ -262,8 +200,6 @@ export default function CashboxesListPage() {
                     />
                   </div>
 
-                  {/* Currency */}
-
                   <div>
                     <label className="mb-1.5 block text-xs text-ink/50">
                       العملة
@@ -278,24 +214,15 @@ export default function CashboxesListPage() {
                       className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-emerald-600"
                     >
                       <option value="">كل العملات</option>
-
                       <option value="EGP">EGP</option>
-
                       <option value="USD">USD</option>
-
                       <option value="EUR">EUR</option>
-
                       <option value="GBP">GBP</option>
-
                       <option value="SAR">SAR</option>
-
                       <option value="AED">AED</option>
-
                       <option value="KWD">KWD</option>
                     </select>
                   </div>
-
-                  {/* Status */}
 
                   <div>
                     <label className="mb-1.5 block text-xs text-ink/50">
@@ -311,14 +238,10 @@ export default function CashboxesListPage() {
                       className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-emerald-600"
                     >
                       <option value="">كل الحالات</option>
-
                       <option value="true">نشطة فقط</option>
-
                       <option value="false">غير نشطة فقط</option>
                     </select>
                   </div>
-
-                  {/* Reset */}
 
                   {hasActiveFilters && (
                     <button
@@ -335,18 +258,10 @@ export default function CashboxesListPage() {
             )}
           </div>
 
-          {/* =================================================
-              Transfer
-          ================================================== */}
-
           <Button variant="outline" onClick={() => setShowTransferModal(true)}>
             <ArrowLeftRight size={16} />
             تحويل بين الخزائن
           </Button>
-
-          {/* =================================================
-              Create
-          ================================================== */}
 
           <Button onClick={openCreate}>
             <Plus size={16} />
@@ -354,10 +269,6 @@ export default function CashboxesListPage() {
           </Button>
         </div>
       </div>
-
-      {/* =====================================================
-          Loading
-      ====================================================== */}
 
       {isLoading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -370,10 +281,6 @@ export default function CashboxesListPage() {
         </div>
       )}
 
-      {/* =====================================================
-          Error
-      ====================================================== */}
-
       {isError && !isLoading && (
         <div className="rounded-2xl border border-dashed border-red-200 bg-white py-20 text-center">
           <p className="mb-3 text-red-500">حدث خطأ أثناء تحميل الخزائن</p>
@@ -383,10 +290,6 @@ export default function CashboxesListPage() {
           </Button>
         </div>
       )}
-
-      {/* =====================================================
-          Empty
-      ====================================================== */}
 
       {!isLoading && !isError && items.length === 0 && (
         <div className="rounded-2xl border border-dashed border-ink-400/20 bg-white py-20 text-center">
@@ -416,10 +319,6 @@ export default function CashboxesListPage() {
         </div>
       )}
 
-      {/* =====================================================
-          Cards
-      ====================================================== */}
-
       {!isLoading && !isError && items.length > 0 && (
         <div
           className={`grid grid-cols-1 gap-4 transition-opacity duration-200 sm:grid-cols-2 lg:grid-cols-3 ${
@@ -438,10 +337,6 @@ export default function CashboxesListPage() {
         </div>
       )}
 
-      {/* =====================================================
-          Pagination
-      ====================================================== */}
-
       {cashboxes?.totalCount > 0 && (
         <Pagination
           page={pageNumber}
@@ -458,10 +353,6 @@ export default function CashboxesListPage() {
         />
       )}
 
-      {/* =====================================================
-          Create / Edit Cashbox
-      ====================================================== */}
-
       <CashboxFormModal
         isOpen={showFormModal}
         onClose={() => setShowFormModal(false)}
@@ -473,10 +364,6 @@ export default function CashboxesListPage() {
         }}
       />
 
-      {/* =====================================================
-          Delete Confirmation
-      ====================================================== */}
-
       <DeleteConfirmModal
         isOpen={!!cashboxToDelete}
         onClose={() => setCashboxToDelete(null)}
@@ -486,10 +373,6 @@ export default function CashboxesListPage() {
         description="سيتم حذف الخزنة نهائيًا. هذا الإجراء لا يمكن التراجع عنه."
         isDeleting={isDeleting}
       />
-
-      {/* =====================================================
-          Cashbox Transfer
-      ====================================================== */}
 
       <CashboxTransferModal
         isOpen={showTransferModal}

@@ -306,7 +306,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const [header, setHeader] = useState(() => ({
     ...getDefaultHeader(),
     ...(draft?.header || {}),
-    // رقم الفاتورة بيفضل جديد دايمًا حتى لو فيه مسودة قديمة
     invoiceNumber:
       draft?.header?.invoiceNumber || "INVS-" + generateInvoiceNumber(),
   }));

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+
 import { useParams, useNavigate } from "react-router-dom";
 
 import {
@@ -12,7 +13,6 @@ import {
 } from "lucide-react";
 
 import { AnimatePresence, motion } from "framer-motion";
-
 import { useSelector } from "react-redux";
 
 import { useGetCashboxByIdQuery } from "../cashboxesApi";
@@ -53,17 +53,20 @@ const currencySymbols = {
 };
 
 const emptyFilters = {
-  Search: "",
-  VoucherNumber: "",
-  Direction: "",
-  CashMovementTypeId: "",
-  PartyType: "",
-  BusinessPartnerId: "",
-  DriverId: "",
-  DriverTripId: "",
-  IsDraft: "",
-  FromDate: "",
-  ToDate: "",
+  search: "",
+  voucherNumber: "",
+  direction: "",
+  cashboxId: "",
+  cashMovementTypeId: "",
+  classification: "",
+  partyType: "",
+  employeeId: "",
+  businessPartnerId: "",
+  driverId: "",
+  driverTripId: "",
+  isDraft: "",
+  fromDate: "",
+  toDate: "",
 };
 
 const directionOptions = [
@@ -74,6 +77,25 @@ const directionOptions = [
   {
     value: "Payment",
     label: "صادر",
+  },
+];
+
+const classificationOptions = [
+  {
+    value: "PartnerSettlement",
+    label: "تسوية طرف",
+  },
+  {
+    value: "Expense",
+    label: "مصروف",
+  },
+  {
+    value: "Revenue",
+    label: "إيراد",
+  },
+  {
+    value: "Other",
+    label: "أخرى",
   },
 ];
 
@@ -94,6 +116,10 @@ const partyTypeOptions = [
     value: "Other",
     label: "طرف آخر",
   },
+  {
+    value: "Employee",
+    label: "موظف",
+  },
 ];
 
 const draftOptions = [
@@ -110,33 +136,25 @@ const draftOptions = [
 export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
   const navigate = useNavigate();
-
   const isAdmin = useSelector(selectIsAdmin);
 
   const [filters, setFilters] = useState({
     draft: {
       ...emptyFilters,
+      cashboxId,
     },
     applied: {
       ...emptyFilters,
+      cashboxId,
     },
   });
 
   const [filtersOpen, setFiltersOpen] = useState(true);
-
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  // =========================================================
-  // Cashbox
-  // =========================================================
-
   const { data: cashbox, isFetching: isFetchingCashbox } =
     useGetCashboxByIdQuery(cashboxId);
-
-  // =========================================================
-  // Select data
-  // =========================================================
 
   const { data: parties, isLoading: isLoadingParties } =
     useGetPartiesSelectQuery();
@@ -147,16 +165,13 @@ export default function CashboxDetailPage() {
   const { data: employees, isLoading: isLoadingEmployees } =
     useGetEmployeesSelectQuery();
 
-  // =========================================================
-  // Movement types for filter
-  // =========================================================
-
   const {
     data: movementTypesForFilter,
     isLoading: isLoadingMovementTypesFilter,
   } = useGetCashMovementTypeOptionsQuery({
-    direction: filters.draft.Direction || undefined,
-    forPartner: filters.draft.PartyType === "Partner" ? true : undefined,
+    direction: filters.draft.direction || undefined,
+    forPartner:
+      filters.draft.classification === "PartnerSettlement" ? true : undefined,
   });
 
   const movementTypeFilterOptions = useMemo(
@@ -168,46 +183,42 @@ export default function CashboxDetailPage() {
     [movementTypesForFilter],
   );
 
-  // =========================================================
-  // Mutations
-  // =========================================================
-
   const [createVoucher] = useCreateCashVoucherMutation();
-
   const [updateVoucher] = useUpdateCashVoucherMutation();
-
   const [deleteVoucher] = useDeleteCashVoucherMutation();
 
-  // =========================================================
-  // Query params
-  // =========================================================
-
-  const queryParams = useMemo(() => {
-    const activeFilters = Object.fromEntries(
-      Object.entries(filters.applied).filter(
-        ([, value]) => value !== "" && value !== null && value !== undefined,
-      ),
-    );
-
-    return {
-      cashboxId,
+  const queryParams = useMemo(
+    () => ({
       pageNumber: page,
       pageSize,
-      ...activeFilters,
-    };
-  }, [cashboxId, page, pageSize, filters.applied]);
+      cashboxId,
+      search: filters.applied.search || undefined,
+      voucherNumber: filters.applied.voucherNumber || undefined,
+      direction: filters.applied.direction || undefined,
+      cashMovementTypeId: filters.applied.cashMovementTypeId || undefined,
+      classification: filters.applied.classification || undefined,
+      partyType: filters.applied.partyType || undefined,
+      employeeId: filters.applied.employeeId || undefined,
+      businessPartnerId: filters.applied.businessPartnerId || undefined,
+      driverId: filters.applied.driverId || undefined,
+      driverTripId: filters.applied.driverTripId || undefined,
+      isDraft:
+        filters.applied.isDraft === "true"
+          ? "true"
+          : filters.applied.isDraft === "false"
+            ? "false"
+            : undefined,
+      fromDate: filters.applied.fromDate || undefined,
+      toDate: filters.applied.toDate || undefined,
+    }),
+    [cashboxId, page, pageSize, filters.applied],
+  );
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetCashVouchersQuery(queryParams);
 
-  // =========================================================
-  // Currency
-  // =========================================================
-
   const cashboxCurrency = cashbox?.currency || "EGP";
-
   const cashboxBaseCurrency = cashbox?.baseCurrency || "EGP";
-
   const isForeignCashbox = cashboxCurrency !== cashboxBaseCurrency;
 
   const fmt = (number) =>
@@ -215,14 +226,9 @@ export default function CashboxDetailPage() {
       maximumFractionDigits: 2,
     });
 
-  // =========================================================
-  // Filters
-  // =========================================================
-
   const setFilter = (key, value) => {
     setFilters((previous) => ({
       ...previous,
-
       draft: {
         ...previous.draft,
         [key]: value,
@@ -233,7 +239,6 @@ export default function CashboxDetailPage() {
   const handleSearch = () => {
     setFilters((previous) => ({
       ...previous,
-
       applied: {
         ...previous.draft,
       },
@@ -245,6 +250,7 @@ export default function CashboxDetailPage() {
   const handleReset = () => {
     const reset = {
       ...emptyFilters,
+      cashboxId,
     };
 
     setFilters({
@@ -257,8 +263,12 @@ export default function CashboxDetailPage() {
 
   const activeFilters = useMemo(
     () =>
-      Object.values(filters.draft).filter(
-        (value) => value !== "" && value !== null && value !== undefined,
+      Object.entries(filters.draft).filter(
+        ([key, value]) =>
+          key !== "cashboxId" &&
+          value !== "" &&
+          value !== null &&
+          value !== undefined,
       ).length,
     [filters.draft],
   );
@@ -266,25 +276,17 @@ export default function CashboxDetailPage() {
   const handlePartyTypeChange = (value) => {
     setFilters((previous) => ({
       ...previous,
-
       draft: {
         ...previous.draft,
-
-        PartyType: value,
-
-        BusinessPartnerId:
-          value === "Partner" ? previous.draft.BusinessPartnerId : "",
-
-        DriverId: value === "Driver" ? previous.draft.DriverId : "",
-
-        DriverTripId: value === "Driver" ? previous.draft.DriverTripId : "",
+        partyType: value,
+        employeeId: value === "Employee" ? previous.draft.employeeId : "",
+        businessPartnerId:
+          value === "Partner" ? previous.draft.businessPartnerId : "",
+        driverId: value === "Driver" ? previous.draft.driverId : "",
+        driverTripId: value === "Driver" ? previous.draft.driverTripId : "",
       },
     }));
   };
-
-  // =========================================================
-  // Voucher handlers
-  // =========================================================
 
   async function handleAddVoucher(payload) {
     await createVoucher({
@@ -305,16 +307,14 @@ export default function CashboxDetailPage() {
       throw new Error("ليس لديك صلاحية حذف السند");
     }
 
-    await deleteVoucher({
-      id,
-      rowVersion,
-      cashboxId,
-    }).unwrap();
+    ```
+await deleteVoucher({
+  id,
+  rowVersion,
+  cashboxId,
+}).unwrap();
+```;
   }
-
-  // =========================================================
-  // Pagination
-  // =========================================================
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
@@ -325,28 +325,21 @@ export default function CashboxDetailPage() {
     setPage(1);
   };
 
-  // =========================================================
-  // Printing
-  // =========================================================
-
   const { printList, printRef } = useCashboxLedgerPrint({
     title: `كشف حركة ${cashbox?.name || "الخزنة"}`,
   });
 
   return (
     <div className="animate-fadeUp space-y-6">
-      {/* Back */}
-
       <button
         onClick={() => navigate(-1)}
         className="inline-flex items-center gap-2 text-sm text-ink-500 transition hover:text-primary-600"
       >
+        {" "}
         <ArrowRight size={16} />
-        العودة للخزائن
+        العودة للخزائن{" "}
       </button>
-
-      {/* Header */}
-
+      ```
       <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -427,9 +420,6 @@ export default function CashboxDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* Filters */}
-
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <button
           type="button"
@@ -487,32 +477,40 @@ export default function CashboxDetailPage() {
                   <Input
                     label="بحث عام"
                     placeholder="رقم السند، البيان، الطرف..."
-                    value={filters.draft.Search}
+                    value={filters.draft.search}
                     onChange={(event) =>
-                      setFilter("Search", event.target.value)
+                      setFilter("search", event.target.value)
                     }
                   />
 
                   <Input
                     label="رقم السند"
                     placeholder="رقم السند"
-                    value={filters.draft.VoucherNumber}
+                    value={filters.draft.voucherNumber}
                     onChange={(event) =>
-                      setFilter("VoucherNumber", event.target.value)
+                      setFilter("voucherNumber", event.target.value)
                     }
                   />
 
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
-                      نوع الحركة (وارد/صادر)
+                      اتجاه الحركة
                     </label>
 
                     <CompactSelect
                       options={directionOptions}
-                      value={filters.draft.Direction}
-                      onChange={(value) => setFilter("Direction", value)}
+                      value={filters.draft.direction}
+                      onChange={(value) => setFilter("direction", value)}
                       placeholder="الكل"
                     />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">
+                      الخزنة
+                    </label>
+
+                    <Input value={cashbox?.name || ""} disabled />
                   </div>
 
                   <div>
@@ -522,11 +520,24 @@ export default function CashboxDetailPage() {
 
                     <CompactSelect
                       options={movementTypeFilterOptions}
-                      value={filters.draft.CashMovementTypeId}
+                      value={filters.draft.cashMovementTypeId}
                       onChange={(value) =>
-                        setFilter("CashMovementTypeId", value)
+                        setFilter("cashMovementTypeId", value)
                       }
                       isLoading={isLoadingMovementTypesFilter}
+                      placeholder="الكل"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">
+                      التصنيف
+                    </label>
+
+                    <CompactSelect
+                      options={classificationOptions}
+                      value={filters.draft.classification}
+                      onChange={(value) => setFilter("classification", value)}
                       placeholder="الكل"
                     />
                   </div>
@@ -538,8 +549,29 @@ export default function CashboxDetailPage() {
 
                     <CompactSelect
                       options={partyTypeOptions}
-                      value={filters.draft.PartyType}
+                      value={filters.draft.partyType}
                       onChange={handlePartyTypeChange}
+                      placeholder="الكل"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">
+                      الموظف
+                    </label>
+
+                    <CompactSelect
+                      options={(employees || []).map((employee) => ({
+                        value: employee.id,
+                        label: employee.name,
+                      }))}
+                      value={filters.draft.employeeId}
+                      onChange={(value) => setFilter("employeeId", value)}
+                      isLoading={isLoadingEmployees}
+                      isDisabled={
+                        filters.draft.partyType !== "" &&
+                        filters.draft.partyType !== "Employee"
+                      }
                       placeholder="الكل"
                     />
                   </div>
@@ -554,14 +586,14 @@ export default function CashboxDetailPage() {
                         value: party.id,
                         label: party.name,
                       }))}
-                      value={filters.draft.BusinessPartnerId}
+                      value={filters.draft.businessPartnerId}
                       onChange={(value) =>
-                        setFilter("BusinessPartnerId", value)
+                        setFilter("businessPartnerId", value)
                       }
                       isLoading={isLoadingParties}
                       isDisabled={
-                        filters.draft.PartyType !== "" &&
-                        filters.draft.PartyType !== "Partner"
+                        filters.draft.partyType !== "" &&
+                        filters.draft.partyType !== "Partner"
                       }
                       placeholder="الكل"
                     />
@@ -577,12 +609,12 @@ export default function CashboxDetailPage() {
                         value: driver.id,
                         label: driver.name,
                       }))}
-                      value={filters.draft.DriverId}
-                      onChange={(value) => setFilter("DriverId", value)}
+                      value={filters.draft.driverId}
+                      onChange={(value) => setFilter("driverId", value)}
                       isLoading={isLoadingDrivers}
                       isDisabled={
-                        filters.draft.PartyType !== "" &&
-                        filters.draft.PartyType !== "Driver"
+                        filters.draft.partyType !== "" &&
+                        filters.draft.partyType !== "Driver"
                       }
                       placeholder="الكل"
                     />
@@ -591,13 +623,13 @@ export default function CashboxDetailPage() {
                   <Input
                     label="رقم رحلة السائق"
                     placeholder="Trip ID"
-                    value={filters.draft.DriverTripId}
+                    value={filters.draft.driverTripId}
                     onChange={(event) =>
-                      setFilter("DriverTripId", event.target.value)
+                      setFilter("driverTripId", event.target.value)
                     }
                     disabled={
-                      filters.draft.PartyType !== "" &&
-                      filters.draft.PartyType !== "Driver"
+                      filters.draft.partyType !== "" &&
+                      filters.draft.partyType !== "Driver"
                     }
                   />
 
@@ -608,8 +640,8 @@ export default function CashboxDetailPage() {
 
                     <CompactSelect
                       options={draftOptions}
-                      value={filters.draft.IsDraft}
-                      onChange={(value) => setFilter("IsDraft", value)}
+                      value={filters.draft.isDraft}
+                      onChange={(value) => setFilter("isDraft", value)}
                       placeholder="الكل"
                     />
                   </div>
@@ -617,18 +649,18 @@ export default function CashboxDetailPage() {
                   <Input
                     type="date"
                     label="من تاريخ"
-                    value={filters.draft.FromDate}
+                    value={filters.draft.fromDate}
                     onChange={(event) =>
-                      setFilter("FromDate", event.target.value)
+                      setFilter("fromDate", event.target.value)
                     }
                   />
 
                   <Input
                     type="date"
                     label="إلى تاريخ"
-                    value={filters.draft.ToDate}
+                    value={filters.draft.toDate}
                     onChange={(event) =>
-                      setFilter("ToDate", event.target.value)
+                      setFilter("toDate", event.target.value)
                     }
                   />
                 </div>
@@ -649,9 +681,6 @@ export default function CashboxDetailPage() {
           )}
         </AnimatePresence>
       </div>
-
-      {/* Ledger */}
-
       <div className="overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card">
         <CashboxLedgerTable
           cashboxId={cashboxId}
@@ -675,17 +704,14 @@ export default function CashboxDetailPage() {
           onPageSizeChange={handlePageSizeChange}
         />
       </div>
-
-      {/* Print */}
-
       <div className="hidden">
         <div ref={printRef}>
           <CashboxLedgerPrintTemplate
             cashbox={cashbox}
             items={data?.items || []}
             summary={data?.summary}
-            fromDate={filters.applied.FromDate}
-            toDate={filters.applied.ToDate}
+            fromDate={filters.applied.fromDate}
+            toDate={filters.applied.toDate}
           />
         </div>
       </div>

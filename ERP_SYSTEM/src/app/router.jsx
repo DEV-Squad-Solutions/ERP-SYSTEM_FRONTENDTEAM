@@ -86,6 +86,8 @@ import FiscalYearsListPage from "../features/fiscalYears/pages/FiscalYearsListPa
 import ProfilePage from "../features/features/users/pages/ProfilePage";
 import EditProfilePage from "../features/features/users/pages/EditProfilePage";
 
+import AccountsPage from "../features/accounts/pages/AccountsPage";
+
 const ROLES = {
   ADMIN: "Admin",
   ACCOUNTANT: "Accountant",
@@ -616,6 +618,15 @@ export const router = createBrowserRouter([
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
             <FiscalYearsListPage />
+          </Role>
+        ),
+      },
+
+      {
+        path: "accounts",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
+            <AccountsPage />
           </Role>
         ),
       },

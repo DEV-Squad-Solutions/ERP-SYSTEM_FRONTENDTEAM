@@ -1,6 +1,4 @@
-// features/payroll/pages/SalaryDetailPage.jsx
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -10,22 +8,19 @@ import {
   CalendarDays,
   User,
   Clock3,
-  CheckCircle2,
-  X,
   PlusCircle,
   MinusCircle,
 } from "lucide-react";
-
 import {
   useGetPayrollEntryByIdQuery,
-  usePayPayrollEntryMutation,
+  useCreateEmployeeMovementMutation,
 } from "../payrollApi";
-
+import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
 import { EMPLOYEE_TYPE, fmtMoney } from "../payroll.constants";
-
 import Button from "../../../shared/components/ui/Button";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
+import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 export default function SalaryDetailPage() {
   const { salaryId } = useParams();
@@ -38,13 +33,38 @@ export default function SalaryDetailPage() {
     refetch,
   } = useGetPayrollEntryByIdQuery(salaryId);
 
-  const [payPayroll, { isLoading: isPaying }] = usePayPayrollEntryMutation();
+  const { data: cashboxesData, isLoading: isCashboxesLoading } =
+    useGetCashboxOptionsQuery();
+
+  const [createEmployeeMovement, { isLoading: isPaying }] =
+    useCreateEmployeeMovementMutation();
 
   const [showPayModal, setShowPayModal] = useState(false);
+
   const [postingDate, setPostingDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+
+  const [cashboxId, setCashboxId] = useState("");
+
   const [notes, setNotes] = useState("");
+
+  const cashboxOptions = Array.isArray(cashboxesData)
+    ? cashboxesData
+    : cashboxesData?.items ||
+      cashboxesData?.data ||
+      cashboxesData?.result ||
+      [];
+
+  useEffect(() => {
+    if (!showPayModal) {
+      return;
+    }
+
+    setCashboxId("");
+    setNotes("");
+    setPostingDate(new Date().toISOString().slice(0, 10));
+  }, [showPayModal]);
 
   const handlePay = async () => {
     if (!postingDate) {
@@ -52,20 +72,49 @@ export default function SalaryDetailPage() {
       return;
     }
 
+    if (!cashboxId) {
+      toast.error("اختار الخزنة اللي هيتم الصرف منها");
+      return;
+    }
+
+    if (!entry?.employeeId) {
+      toast.error("بيانات الموظف غير موجودة");
+      return;
+    }
+
+    const amount = Number(entry.netSalary);
+
+    if (!amount || amount <= 0) {
+      toast.error("صافي المرتب غير صالح للصرف");
+      return;
+    }
+
     try {
-      await payPayroll({
-        id: salaryId,
-        postingDate,
-        notes,
+      await createEmployeeMovement({
+        employeeId: Number(entry.employeeId),
+        type: "Credit",
+        amount,
+        currency: entry.currency || "EGP",
+        exchangeRate: Number(entry.exchangeRate) || 1,
+        movementDate: postingDate,
+        cashboxId: Number(cashboxId),
+        notes:
+          notes.trim() ||
+          `صرف مرتب ${entry.startDate || ""} إلى ${entry.endDate || ""}`,
       }).unwrap();
 
-      toast.success("تم صرف المرتب بنجاح");
+      toast.success("تم صرف المرتب وتسجيل الحركة بنجاح");
+
       setShowPayModal(false);
       setNotes("");
+      setCashboxId("");
+
       refetch();
     } catch (error) {
       toast.error(
-        error?.data?.message || "حصل خطأ أثناء صرف المرتب، حاول تاني",
+        error?.data?.message ||
+          error?.data?.detail ||
+          "حصل خطأ أثناء صرف المرتب، حاول تاني",
       );
     }
   };
@@ -97,24 +146,15 @@ export default function SalaryDetailPage() {
 
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
-      {/* Back */}
       <button
         type="button"
         onClick={() => navigate("/dashboard/payroll/salaries")}
-        className="
-          flex
-          items-center
-          gap-1.5
-          text-sm
-          text-emerald-700
-          hover:underline
-        "
+        className="flex items-center gap-1.5 text-sm text-emerald-700 hover:underline"
       >
         <ArrowRight size={14} />
         رجوع لقائمة المرتبات
       </button>
 
-      {/* Header */}
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
@@ -154,7 +194,6 @@ export default function SalaryDetailPage() {
           </div>
         </div>
 
-        {/* Period */}
         <div className="mt-5 pt-4 border-t border-ink-400/10">
           <div className="flex items-center gap-2 text-sm text-ink-700">
             <CalendarDays size={15} className="text-ink-400" />
@@ -170,7 +209,6 @@ export default function SalaryDetailPage() {
         </div>
       </div>
 
-      {/* Salary Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <SummaryCard label="إجمالي المرتب" value={entry.grossSalary} />
 
@@ -191,7 +229,6 @@ export default function SalaryDetailPage() {
         <SummaryCard label="صافي المرتب" value={entry.netSalary} primary />
       </div>
 
-      {/* Attendance Summary */}
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-5">
         <div className="flex items-center gap-2 mb-4">
           <Clock3 size={17} className="text-primary-600" />
@@ -226,7 +263,6 @@ export default function SalaryDetailPage() {
         </div>
       </div>
 
-      {/* Salary Calculation */}
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card overflow-hidden">
         <div className="px-5 py-4 border-b border-ink-400/10">
           <h2 className="text-sm font-bold text-ink-900">ملخص حساب المرتب</h2>
@@ -249,7 +285,6 @@ export default function SalaryDetailPage() {
         </div>
       </div>
 
-      {/* Pay Modal */}
       <Modal
         isOpen={showPayModal}
         onClose={() => !isPaying && setShowPayModal(false)}
@@ -270,6 +305,25 @@ export default function SalaryDetailPage() {
             </p>
           </div>
 
+          <CompactSelect
+            label="الخزنة"
+            value={cashboxId}
+            onChange={(value) => setCashboxId(value)}
+            options={cashboxOptions.map((cashbox) => ({
+              value: String(cashbox.id),
+              label:
+                cashbox.name ||
+                cashbox.cashboxName ||
+                cashbox.label ||
+                cashbox.code ||
+                `خزنة ${cashbox.id}`,
+            }))}
+            placeholder={
+              isCashboxesLoading ? "جاري تحميل الخزائن..." : "اختر الخزنة"
+            }
+            disabled={isCashboxesLoading || isPaying}
+          />
+
           <Input
             label="تاريخ الصرف"
             type="date"
@@ -284,6 +338,13 @@ export default function SalaryDetailPage() {
             placeholder="ملاحظات الصرف..."
           />
 
+          <div className="rounded-xl border border-primary-100 bg-primary-50 px-3 py-2.5">
+            <p className="text-xs text-primary-700">
+              سيتم تسجيل المرتب كحركة موظف من نوع Credit، مع خصم قيمة المرتب من
+              الخزنة المحددة.
+            </p>
+          </div>
+
           <div className="flex justify-end gap-2 pt-3 border-t border-ink-400/10">
             <Button
               type="button"
@@ -294,10 +355,14 @@ export default function SalaryDetailPage() {
               إلغاء
             </Button>
 
-            <Button type="button" onClick={handlePay} disabled={isPaying}>
+            <Button
+              type="button"
+              onClick={handlePay}
+              disabled={isPaying || isCashboxesLoading}
+            >
               <Wallet size={14} />
 
-              {isPaying ? "جارِ الصرف..." : "تأكيد صرف المرتب"}
+              {isPaying ? "جارِ تسجيل الصرف..." : "تأكيد صرف المرتب"}
             </Button>
           </div>
         </div>
