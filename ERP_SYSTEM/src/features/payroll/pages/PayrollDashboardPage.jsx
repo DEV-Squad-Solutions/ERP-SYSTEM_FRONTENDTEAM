@@ -1,11 +1,4 @@
-// features/payroll/pages/PayrollDashboardPage.jsx
-//
-// TODO INTEGRATION: مفيش endpoint مخصص لـstats الداشبورد في الـshapes اللي
-// بعتها. دلوقتي بيتم حساب الأرقام من useGetPayrollEntriesQuery للفترة الحالية
-// (أول اللوجيك التقريبي) لحد ما يتوفر endpoint مخصص للملخص. لو فيه endpoint
-// زي "PayrollEntries/summary" بلغني وأستبدل الحساب اليدوي بيه مباشرة.
-
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet,
@@ -14,143 +7,573 @@ import {
   Users,
   PiggyBank,
   CreditCard,
+  RefreshCw,
+  CalendarDays,
+  UserRound,
+  Clock3,
+  ArrowUpRight,
+  ReceiptText,
+  Banknote,
+  Printer,
 } from "lucide-react";
-import { useGetPayrollEntriesQuery, useGetEmployeesQuery } from "../payrollApi";
+
+import {
+  useGetPayrollDashboardQuery,
+  useGetEmployeesSelectQuery,
+} from "../payrollApi";
+
 import { fmtMoney } from "../payroll.constants";
 
-function StatCard({ label, value, icon: Icon, tone }) {
+import Button from "../../../shared/components/ui/Button";
+import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import { usePayrollDashboardPrint } from "../../../shared/hooks/usePayrollDashboardPrint";
+import PayrollDashboardPrintTemplate from "../../../shared/components/print/PayrollDashboardPrintTemplate";
+
+const EMPLOYEE_TYPES = {
+  DAILY: "Daily",
+  MONTHLY: "Monthly",
+};
+
+const getToday = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const getFirstDayOfMonth = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}-01`;
+};
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  iconClassName = "",
+  valueClassName = "",
+}) {
   return (
-    <div className="rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card hover:-translate-y-0.5 hover:shadow-md transition-all duration-300">
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-xs text-ink-400">{label}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-500">{title}</p>
+
+          <p
+            className={`mt-2 truncate text-xl font-bold tracking-tight text-slate-900 ${valueClassName}`}
+          >
+            {value}
+          </p>
+        </div>
+
         <div
-          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-            tone === "negative"
-              ? "bg-negative/10 text-negative"
-              : tone === "positive"
-                ? "bg-positive/10 text-positive"
-                : "bg-primary-50 text-primary-500"
-          }`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 ${iconClassName}`}
         >
-          <Icon size={15} />
+          <Icon size={19} />
         </div>
       </div>
-      <p className="text-xl font-bold num text-ink-900">{value}</p>
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, count }) {
+  return (
+    <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+          <Icon size={17} />
+        </div>
+
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+
+          {count !== undefined && (
+            <p className="text-xs text-slate-500">
+              {count} {count === 1 ? "عنصر" : "عناصر"}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ title, description }) {
+  return (
+    <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-5 text-center">
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm">
+        <ReceiptText size={20} />
+      </div>
+
+      <p className="text-sm font-semibold text-slate-700">{title}</p>
+
+      {description && (
+        <p className="mt-1 max-w-md text-xs text-slate-500">{description}</p>
+      )}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-[100px] animate-pulse rounded-2xl bg-slate-100"
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="h-[320px] animate-pulse rounded-2xl bg-slate-100" />
+        <div className="h-[320px] animate-pulse rounded-2xl bg-slate-100" />
+      </div>
     </div>
   );
 }
 
 export default function PayrollDashboardPage() {
   const navigate = useNavigate();
-  const { data: employeesData } = useGetEmployeesQuery({ PageSize: 1 });
-  const { data: entriesData, isLoading } = useGetPayrollEntriesQuery({
-    PageSize: 100,
+
+  const [fromDate, setFromDate] = useState(getFirstDayOfMonth);
+  const [toDate, setToDate] = useState(getToday);
+  const [employeeId, setEmployeeId] = useState("");
+  const [employeeType, setEmployeeType] = useState("");
+
+  const { data: employeesData, isLoading: employeesLoading } =
+    useGetEmployeesSelectQuery();
+
+  const employees = useMemo(() => {
+    if (Array.isArray(employeesData)) {
+      return employeesData;
+    }
+
+    if (Array.isArray(employeesData?.data)) {
+      return employeesData.data;
+    }
+
+    if (Array.isArray(employeesData?.items)) {
+      return employeesData.items;
+    }
+
+    return [];
+  }, [employeesData]);
+
+  const employeeOptions = useMemo(
+    () =>
+      employees.map((employee) => ({
+        value: employee.id ?? employee.employeeId,
+        label:
+          employee.name ??
+          employee.employeeName ??
+          employee.fullName ??
+          employee.code ??
+          `موظف ${employee.id ?? employee.employeeId}`,
+      })),
+    [employees],
+  );
+
+  const employeeTypeOptions = useMemo(
+    () => [
+      {
+        value: EMPLOYEE_TYPES.DAILY,
+        label: "يومي",
+      },
+      {
+        value: EMPLOYEE_TYPES.MONTHLY,
+        label: "شهري",
+      },
+    ],
+    [],
+  );
+
+  const params = useMemo(() => {
+    const result = {};
+
+    if (fromDate) {
+      result.FromDate = fromDate;
+    }
+
+    if (toDate) {
+      result.ToDate = toDate;
+    }
+
+    if (employeeId) {
+      result.EmployeeId = Number(employeeId);
+    }
+
+    if (employeeType) {
+      result.EmployeeType = employeeType;
+    }
+
+    return result;
+  }, [fromDate, toDate, employeeId, employeeType]);
+
+  const { data, isLoading, isFetching, isError, refetch } =
+    useGetPayrollDashboardQuery(params);
+
+  const { printDashboard, printRef } = usePayrollDashboardPrint({
+    title: "تقرير الأجور والمرتبات",
   });
 
-  const entries = entriesData?.items || [];
+  const selectedEmployeeName = useMemo(() => {
+    if (!employeeId) {
+      return "";
+    }
 
-  const stats = useMemo(() => {
-    const totalGross = entries.reduce((s, e) => s + (e.grossSalary || 0), 0);
-    const totalDeductions = entries.reduce((s, e) => s + (e.deduction || 0), 0);
-    const totalNet = entries.reduce((s, e) => s + (e.netSalary || 0), 0);
-    return { totalGross, totalDeductions, totalNet };
-  }, [entries]);
+    return (
+      employeeOptions.find(
+        (option) => String(option.value) === String(employeeId),
+      )?.label || ""
+    );
+  }, [employeeId, employeeOptions]);
 
-  const totalEmployees = employeesData?.totalCount || 0;
+  const pendingPayrolls = Array.isArray(data?.pendingPayrolls)
+    ? data.pendingPayrolls
+    : [];
+
+  const recentOperations = Array.isArray(data?.recentOperations)
+    ? data.recentOperations
+    : [];
+
+  const handlePrint = () => {
+    if (!data) {
+      return;
+    }
+
+    printDashboard();
+  };
+
+  if (isLoading) {
+    return (
+      <div dir="rtl" className="space-y-6">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">
+            لوحة الأجور والمرتبات
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500">
+            ملخص شامل لحالة الرواتب والمدفوعات والاستحقاقات
+          </p>
+        </div>
+
+        <DashboardSkeleton />
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-fadeUp space-y-6">
-      <div>
-        <h2 className="font-display text-2xl font-bold text-ink-900">
-          لوحة تحكم الأجور والمرتبات
-        </h2>
-        <p className="text-sm text-ink-400 mt-1">
-          نظرة عامة على المرتبات والمستحقات
-        </p>
+    <div dir="rtl" className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            لوحة الأجور والمرتبات
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500">
+            ملخص شامل لحالة الرواتب والمدفوعات والاستحقاقات
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={refetch} disabled={isFetching}>
+            <RefreshCw size={15} className={isFetching ? "animate-spin" : ""} />
+            تحديث
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={handlePrint}
+            disabled={isFetching || isError || !data}
+          >
+            <Printer size={15} />
+            طباعة
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard
-          label="إجمالي المرتبات"
-          value={fmtMoney(stats.totalGross)}
-          icon={Wallet}
-        />
-        <StatCard
-          label="صافي المستحق"
-          value={fmtMoney(stats.totalNet)}
-          icon={TrendingUp}
-          tone="positive"
-        />
-        {/* TODO INTEGRATION: "إجمالي ما تم صرفه" محتاج فلترة بحالة "تم الصرف" */}
-        <StatCard label="إجمالي ما تم صرفه" value="—" icon={CreditCard} />
-        <StatCard
-          label="إجمالي الخصومات"
-          value={fmtMoney(stats.totalDeductions)}
-          icon={TrendingDown}
-          tone="negative"
-        />
-        {/* TODO INTEGRATION: "إجمالي السلف" محتاج فلترة EmployeeTransactions بنوع السلفة تحديدًا */}
-        <StatCard label="إجمالي السلف" value="—" icon={PiggyBank} />
-        <StatCard label="عدد الموظفين" value={totalEmployees} icon={Users} />
-      </div>
+      {/* Filters */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 flex items-center gap-2">
+          <CalendarDays size={17} className="text-slate-500" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-ink-900">
-              المرتبات المعلّقة
-            </h3>
-            <button
-              onClick={() => navigate("/dashboard/payroll/salaries")}
-              className="text-xs text-primary-600 hover:underline"
-            >
-              عرض الكل
-            </button>
+          <h2 className="text-sm font-bold text-slate-900">فلاتر التقرير</h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {/* From Date */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              من تاريخ
+            </label>
+
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+            />
           </div>
-          {isLoading ? (
-            <p className="text-sm text-ink-400 py-6 text-center">
-              جارِ التحميل...
-            </p>
-          ) : entries.length === 0 ? (
-            <p className="text-sm text-ink-400 py-6 text-center">
-              لا توجد مرتبات معلّقة
-            </p>
+
+          {/* To Date */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              إلى تاريخ
+            </label>
+
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+            />
+          </div>
+
+          {/* Employee */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              الموظف
+            </label>
+
+            <CompactSelect
+              options={employeeOptions}
+              value={employeeId}
+              onChange={setEmployeeId}
+              isLoading={employeesLoading}
+              placeholder="كل الموظفين"
+            />
+          </div>
+
+          {/* Employee Type */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600">
+              نوع الموظف
+            </label>
+
+            <CompactSelect
+              options={employeeTypeOptions}
+              value={employeeType}
+              onChange={setEmployeeType}
+              placeholder="كل الأنواع"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Error */}
+      {isError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          حدث خطأ أثناء تحميل بيانات لوحة الأجور.
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          title="إجمالي كشوف الرواتب"
+          value={data?.totalPayrolls ?? 0}
+          icon={ReceiptText}
+          iconClassName="text-slate-600"
+        />
+
+        <StatCard
+          title="صافي المستحق"
+          value={fmtMoney(data?.netPayable ?? 0)}
+          icon={Wallet}
+          iconClassName="text-emerald-600"
+          valueClassName="text-emerald-700"
+        />
+
+        <StatCard
+          title="إجمالي المدفوع"
+          value={fmtMoney(data?.totalPaid ?? 0)}
+          icon={Banknote}
+          iconClassName="text-blue-600"
+          valueClassName="text-blue-700"
+        />
+
+        <StatCard
+          title="إجمالي الخصومات"
+          value={fmtMoney(data?.totalDeductions ?? 0)}
+          icon={TrendingDown}
+          iconClassName="text-red-600"
+          valueClassName="text-red-700"
+        />
+
+        <StatCard
+          title="إجمالي السلف"
+          value={fmtMoney(data?.totalAdvances ?? 0)}
+          icon={CreditCard}
+          iconClassName="text-amber-600"
+          valueClassName="text-amber-700"
+        />
+
+        <StatCard
+          title="عدد الموظفين"
+          value={data?.employeeCount ?? 0}
+          icon={Users}
+          iconClassName="text-violet-600"
+        />
+      </div>
+
+      {/* Content */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {/* Pending Payrolls */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <SectionHeader
+            icon={Clock3}
+            title="كشوف الرواتب المعلقة"
+            count={pendingPayrolls.length}
+          />
+
+          {pendingPayrolls.length === 0 ? (
+            <EmptyState
+              title="لا توجد كشوف معلقة"
+              description="لا توجد رواتب معلقة ضمن الفلاتر الحالية."
+            />
           ) : (
             <div className="space-y-2">
-              {entries.slice(0, 6).map((e) => (
-                <div
-                  key={e.id}
-                  className="flex items-center justify-between py-2 border-b border-ink-400/5 last:border-0 cursor-pointer hover:bg-ink-900/[0.015] -mx-2 px-2 rounded-lg transition-colors"
+              {pendingPayrolls.slice(0, 6).map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
                   onClick={() =>
-                    navigate(`/dashboard/payroll/salaries/${e.id}`)
+                    navigate(`/dashboard/payroll/salaries/${item.id}`)
                   }
+                  className="group flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-right transition hover:border-slate-200 hover:bg-white hover:shadow-sm"
                 >
-                  <div>
-                    <p className="text-sm text-ink-900">{e.employeeName}</p>
-                    <p className="text-[11px] text-ink-400">
-                      {e.startDate} - {e.endDate}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
+                      <UserRound size={17} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {item.employeeName || "—"}
+                      </p>
+
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {item.employeeCode || "—"} •{" "}
+                        {item.employeeType === EMPLOYEE_TYPES.DAILY
+                          ? "يومي"
+                          : "شهري"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3">
+                    <div className="text-left">
+                      <p className="text-xs text-slate-500">صافي الراتب</p>
+
+                      <p className="mt-0.5 text-sm font-bold text-slate-900">
+                        {fmtMoney(item.netSalary ?? 0)}
+                      </p>
+                    </div>
+
+                    <ArrowUpRight
+                      size={16}
+                      className="text-slate-400 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                    />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Recent Operations */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <SectionHeader
+            icon={TrendingUp}
+            title="آخر العمليات"
+            count={recentOperations.length}
+          />
+
+          {recentOperations.length === 0 ? (
+            <EmptyState
+              title="لا توجد عمليات حديثة"
+              description="لا توجد عمليات مالية ضمن الفترة المحددة."
+            />
+          ) : (
+            <div className="space-y-2">
+              {recentOperations.slice(0, 6).map((operation, index) => (
+                <div
+                  key={`${operation.sourceId}-${index}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
+                      <PiggyBank size={17} />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {operation.operationName ||
+                          operation.operationType ||
+                          "عملية مالية"}
+                      </p>
+
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {operation.employeeName || "—"}
+                        {operation.referenceNumber
+                          ? ` • ${operation.referenceNumber}`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-left">
+                    <p className="text-sm font-bold text-slate-900">
+                      {fmtMoney(operation.amount ?? 0)}
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      {operation.currency || "EGP"}
                     </p>
                   </div>
-                  <span className="num text-sm font-semibold text-ink-900">
-                    {fmtMoney(e.netSalary)}
-                  </span>
                 </div>
               ))}
             </div>
           )}
+        </section>
+      </div>
+
+      {/* Footer */}
+      <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={14} />
+
+          <span>
+            الفترة: {fromDate || "—"} إلى {toDate || "—"}
+          </span>
         </div>
 
-        <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-4">
-          <h3 className="text-sm font-semibold text-ink-900 mb-3">
-            آخر العمليات
-          </h3>
-          {/* TODO INTEGRATION: مفيش endpoint لسجل عمليات (Activity Log) في
-              الـshapes المبعوتة. محتاجين endpoint زي "PayrollEntries/activity"
-              أو مصدر مشابه لعرض آخر عمليات إنشاء/اعتماد/صرف مرتب أو إضافة
-              سلفة/خصم. لحد ما يتوفر، القسم ده فاضي كنقطة تكامل واضحة. */}
-          <p className="text-sm text-ink-400 py-6 text-center">
-            سجل العمليات — بانتظار endpoint من الباك إند
-          </p>
+        <div>
+          {employeeId
+            ? `الموظف: ${selectedEmployeeName || "—"}`
+            : "كل الموظفين"}
+        </div>
+      </div>
+
+      {/* Print */}
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <PayrollDashboardPrintTemplate
+            data={data}
+            fromDate={fromDate}
+            toDate={toDate}
+            employeeId={employeeId}
+            employeeType={employeeType}
+            employeeName={selectedEmployeeName}
+          />
         </div>
       </div>
     </div>

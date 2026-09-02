@@ -3,12 +3,14 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
+
 import { useCreateEmployeeMovementMutation } from "../payrollApi";
-import { movementTypeOptions, currencyOptions } from "../payroll.constants";
+import { movementTypeOptions } from "../payroll.constants";
 
 function getToday() {
   const d = new Date();
@@ -19,36 +21,24 @@ function getToday() {
   )}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const schema = z
-  .object({
-    employeeId: z.string().min(1, "اختر الموظف"),
-    type: z.string().min(1, "نوع الحركة مطلوب"),
-    amount: z.coerce.number().positive("أدخل مبلغ صحيح"),
-    currency: z.string().min(1, "العملة مطلوبة"),
-    exchangeRate: z.coerce.number().optional(),
-    movementDate: z.string().min(1, "تاريخ الحركة مطلوب"),
-    cashboxId: z.string().min(1, "اختر الخزينة"),
-    notes: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (
-      data.currency !== "EGP" &&
-      (!data.exchangeRate || data.exchangeRate <= 0)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["exchangeRate"],
-        message: "أدخل سعر الصرف لعملة غير الجنيه المصري",
-      });
-    }
-  });
+const schema = z.object({
+  employeeId: z.string().min(1, "اختر الموظف"),
+
+  type: z.string().min(1, "نوع الحركة مطلوب"),
+
+  amount: z.coerce.number().positive("أدخل مبلغ صحيح"),
+
+  movementDate: z.string().min(1, "تاريخ الحركة مطلوب"),
+
+  cashboxId: z.string().min(1, "اختر الخزينة"),
+
+  notes: z.string().optional(),
+});
 
 const defaultValues = {
   employeeId: "",
   type: "Debit",
   amount: "",
-  currency: "EGP",
-  exchangeRate: "",
   movementDate: getToday(),
   cashboxId: "",
   notes: "",
@@ -69,21 +59,20 @@ export default function EmployeeMovementFormModal({
     control,
     handleSubmit,
     reset,
-    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues,
   });
 
-  const currency = watch("currency");
-  const isForeign = currency !== "EGP";
-
   const wasOpenRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
-      reset(defaultValues);
+      reset({
+        ...defaultValues,
+        movementDate: getToday(),
+      });
     }
 
     wasOpenRef.current = isOpen;
@@ -94,8 +83,6 @@ export default function EmployeeMovementFormModal({
       employeeId: Number(data.employeeId),
       type: data.type,
       amount: Number(data.amount),
-      currency: data.currency,
-      exchangeRate: isForeign ? Number(data.exchangeRate) : 1,
       movementDate: data.movementDate,
       cashboxId: Number(data.cashboxId),
       notes: data.notes?.trim() || null,
@@ -122,9 +109,10 @@ export default function EmployeeMovementFormModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="تسجيل حركة موظف">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Employee */}
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-ink-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-ink-400">
               الموظف
             </label>
 
@@ -142,14 +130,15 @@ export default function EmployeeMovementFormModal({
             />
 
             {errors.employeeId && (
-              <p className="text-xs text-negative mt-1">
+              <p className="mt-1 text-xs text-negative">
                 {errors.employeeId.message}
               </p>
             )}
           </div>
 
+          {/* Movement Type */}
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-ink-400">
               نوع الحركة
             </label>
 
@@ -161,17 +150,19 @@ export default function EmployeeMovementFormModal({
                   options={movementTypeOptions}
                   value={field.value}
                   onChange={field.onChange}
+                  placeholder="اختر نوع الحركة"
                 />
               )}
             />
 
             {errors.type && (
-              <p className="text-xs text-negative mt-1">
+              <p className="mt-1 text-xs text-negative">
                 {errors.type.message}
               </p>
             )}
           </div>
 
+          {/* Date */}
           <Input
             label="تاريخ الحركة"
             type="date"
@@ -179,50 +170,19 @@ export default function EmployeeMovementFormModal({
             error={errors.movementDate?.message}
           />
 
+          {/* Amount */}
           <Input
             label="المبلغ"
             type="number"
             step="0.01"
+            min="0"
             {...register("amount")}
             error={errors.amount?.message}
           />
 
-          <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
-              العملة
-            </label>
-
-            <Controller
-              name="currency"
-              control={control}
-              render={({ field }) => (
-                <CompactSelect
-                  options={currencyOptions}
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              )}
-            />
-
-            {errors.currency && (
-              <p className="text-xs text-negative mt-1">
-                {errors.currency.message}
-              </p>
-            )}
-          </div>
-
-          {isForeign && (
-            <Input
-              label="سعر الصرف مقابل الجنيه المصري"
-              type="number"
-              step="0.0001"
-              {...register("exchangeRate")}
-              error={errors.exchangeRate?.message}
-            />
-          )}
-
+          {/* Cashbox */}
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-ink-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-ink-400">
               الخزينة <span className="text-negative">*</span>
             </label>
 
@@ -234,39 +194,51 @@ export default function EmployeeMovementFormModal({
                   options={cashboxOptions}
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="اختر الخزينة"
+                  placeholder="اختر خزينة الموظف"
                 />
               )}
             />
 
             {errors.cashboxId && (
-              <p className="text-xs text-negative mt-1">
+              <p className="mt-1 text-xs text-negative">
                 {errors.cashboxId.message}
               </p>
             )}
 
             {!cashboxOptions.length && (
-              <p className="text-xs text-warning mt-1">
-                لا توجد خزائن متاحة للاختيار
+              <p className="mt-1 text-xs text-warning">
+                لا توجد خزائن مصرية متاحة للاختيار
               </p>
             )}
+
+            <p className="mt-1 text-[11px] text-ink-400">
+              جميع حركات الموظفين يتم تسجيلها على خزينة بالجنيه المصري.
+            </p>
           </div>
 
+          {/* Notes */}
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-ink-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-ink-400">
               ملاحظات
             </label>
 
             <textarea
               {...register("notes")}
               rows={2}
-              className="w-full rounded-lg border border-ink-400/15 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500"
+              placeholder="أضف ملاحظات إن وجدت..."
+              className="w-full rounded-lg border border-ink-400/15 bg-white px-3 py-2 text-sm outline-none transition focus:border-primary-500"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-ink-400/10">
-          <Button type="button" variant="outline" onClick={onClose}>
+        {/* Actions */}
+        <div className="flex justify-end gap-2 border-t border-ink-400/10 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             إلغاء
           </Button>
 

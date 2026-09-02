@@ -51,7 +51,6 @@ import UnitsPage from "../features/units/pages/UnitsPage";
 import PackagingUnitsPage from "../features/containers/pages/PackagingUnitsPage";
 import CountriesPage from "../features/countries/pages/CountriesPage";
 
-import PayrollDashboardPage from "../features/payroll/pages/PayrollDashboardPage";
 import EmployeesPage from "../features/payroll/pages/EmployeesPage";
 import EmployeeDetailPage from "../features/payroll/pages/EmployeeDetailPage";
 import SalariesPage from "../features/payroll/pages/SalariesPage";
@@ -85,6 +84,8 @@ import CurrenciesPage from "../features/exchange-rates/pages/CurrenciesPage";
 import FiscalYearsListPage from "../features/fiscalYears/pages/FiscalYearsListPage";
 import ProfilePage from "../features/features/users/pages/ProfilePage";
 import EditProfilePage from "../features/features/users/pages/EditProfilePage";
+import PayrollReportsPage from "../features/payroll/pages/PayrollReportsPage";
+import PayrollDashboardPage from "../features/payroll/pages/PayrollDashboardPage";
 
 import AccountsPage from "../features/accounts/pages/AccountsPage";
 
@@ -596,6 +597,14 @@ export const router = createBrowserRouter([
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
             <EmployeeAccountPage />
+          </Role>
+        ),
+      },
+      {
+        path: "payroll/reports",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <PayrollReportsPage />
           </Role>
         ),
       },

@@ -325,11 +325,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     if (typeof draft?.isTemporaryDriver === "boolean") {
       setIsTemporaryDriver(draft.isTemporaryDriver);
     }
-    if (draft) {
-      toast.info("تم استرجاع بيانات فاتورة لم تُحفظ", {
-        description: "كملت من آخر نقطة وصلتلها",
-      });
-    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

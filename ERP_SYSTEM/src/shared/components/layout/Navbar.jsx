@@ -5,6 +5,7 @@ import {
   LogOut,
   Menu,
   ChevronLeft,
+  ChevronRight,
   ShieldCheck,
   UserRound,
   Pencil,
@@ -13,6 +14,7 @@ import {
 import { logout, selectIsAdmin } from "../../../features/auth/authSlice";
 
 import { navigationItems } from "../../constants/navigation";
+import { matchRouteTitle } from "../../constants/routeTitles";
 import Modal from "../../components/ui/Modal";
 
 const findBreadcrumb = (items, pathname, parents = []) => {
@@ -63,10 +65,15 @@ export default function Navbar({ onMenuClick }) {
     [location.pathname],
   );
 
-  const pageTitle =
-    breadcrumb[breadcrumb.length - 1]?.label || "نظام إدارة الحسابات";
+  const pageTitle = matchRouteTitle(location.pathname) || "نظام إدارة الحسابات";
 
   const initials = getInitials(fullName);
+
+  const canGoBack = location.pathname !== "/dashboard";
+
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   const handleLogout = () => {
     setProfileOpen(false);
@@ -86,7 +93,7 @@ export default function Navbar({ onMenuClick }) {
     <>
       <header className="sticky top-0 z-40 h-[58px] border-b border-ink-200/70 bg-white/90 backdrop-blur-xl dark:border-white/[0.07] dark:bg-ink-900/90">
         <div className="flex h-full items-center justify-between gap-2 px-3 sm:px-4 lg:px-5">
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1">
             <button
               onClick={onMenuClick}
               className="group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition-all duration-200 hover:bg-primary-50 hover:text-primary-600 active:scale-90 dark:text-ink-400 dark:hover:bg-primary-500/10 dark:hover:text-primary-400 lg:hidden"
@@ -98,9 +105,22 @@ export default function Navbar({ onMenuClick }) {
               />
             </button>
 
+            {canGoBack && (
+              <button
+                onClick={handleBack}
+                className="group flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition-all duration-200 animate-[fadeSlideIn_0.25s_ease-out] hover:bg-primary-50 hover:text-primary-600 active:scale-90 dark:text-ink-400 dark:hover:bg-primary-500/10 dark:hover:text-primary-400"
+                aria-label="رجوع"
+              >
+                <ChevronRight
+                  size={18}
+                  className="transition-transform duration-200 group-hover:translate-x-0.5"
+                />
+              </button>
+            )}
+
             <div className="flex min-w-0 items-center gap-1">
               {breadcrumb.length > 1 && (
-                <div className="hidden min-w-0 items-center gap-0.5 text-[11px] font-medium text-ink-400 dark:text-ink-500 sm:flex">
+                <div className="hidden min-w-0 items-center gap-0.5 text-[11px] font-medium text-ink-400 animate-[fadeSlideIn_0.25s_ease-out] dark:text-ink-500 sm:flex">
                   {breadcrumb.slice(0, -1).map((item, index) => (
                     <div
                       key={`${item.path}-${index}`}
@@ -129,7 +149,7 @@ export default function Navbar({ onMenuClick }) {
                 </div>
               )}
 
-              <div className="flex min-w-0 items-center gap-1.5 animate-[pageTitleIn_0.3s_ease-out]">
+              <div className="flex min-w-0 items-center gap-1.5 animate-[fadeSlideIn_0.3s_ease-out]">
                 <span className="hidden h-1.5 w-1.5 shrink-0 rounded-full bg-primary-500 shadow-[0_0_0_3px] shadow-primary-500/10 sm:block" />
 
                 <h1 className="truncate font-display text-[14px] font-semibold tracking-tight text-ink-800 dark:text-white sm:text-[15px] lg:text-base">
@@ -287,17 +307,15 @@ export default function Navbar({ onMenuClick }) {
 
       <style>
         {`
-          @keyframes pageTitleIn {
+          @keyframes fadeSlideIn {
             0% {
               opacity: 0;
-              transform: translateY(-5px);
-              filter: blur(2px);
+              transform: translateY(-4px);
             }
 
             100% {
               opacity: 1;
               transform: translateY(0);
-              filter: blur(0);
             }
           }
 

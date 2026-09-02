@@ -226,16 +226,6 @@ export default function PartnerAccountPage() {
       =================================================== */}
 
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between   ">
-        <div className="min-w-0">
-          <h2 className="font-display text-xl font-bold text-ink-900 sm:text-2xl">
-            العملاء والموردين
-          </h2>
-
-          <p className="mt-0.5 text-xs text-ink-400 sm:text-sm">
-            كشف حساب متكامل مع سجل الفواتير والأصناف
-          </p>
-        </div>
-
         {/* Partner selector */}
         <div className=" flex-1  ">
           <PartnerSelectHeader

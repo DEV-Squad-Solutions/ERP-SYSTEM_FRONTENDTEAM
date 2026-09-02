@@ -128,12 +128,8 @@ export default function PartnersListPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">
-            العملاء / الموردين
-          </h2>
-
           <p className="mt-1 text-sm text-gray-500">
-            إجمالي السجلات: {data?.totalCount ?? 0}
+            إجمالي العملاء والموردين: {data?.totalCount ?? 0}
           </p>
         </div>
 

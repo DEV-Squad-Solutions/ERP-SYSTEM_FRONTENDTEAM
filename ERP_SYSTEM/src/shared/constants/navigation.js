@@ -404,27 +404,6 @@ export const navigationItems = [
     roles: REPORT_ROLES,
     children: [
       {
-        label: "تقرير المبيعات والمشتريات",
-        path: "/dashboard/reports/sales",
-        icon: ShoppingCart,
-        end: true,
-        roles: ["Admin", "CompanyOwner", "Accountant", "Sales"],
-      },
-      {
-        label: "تقرير حركة المخزون",
-        path: "/dashboard/reports/inventory",
-        icon: Boxes,
-        end: true,
-        roles: ["Admin", "CompanyOwner", "Accountant", "Inventory"],
-      },
-      {
-        label: "تقرير الحسابات",
-        path: "/dashboard/reports/accounts",
-        icon: FileText,
-        end: true,
-        roles: ACCOUNTING_ROLES,
-      },
-      {
         label: "تكلفة أصناف الفواتير",
         path: "/dashboard/invoice-item-pricing",
         icon: Wallet,

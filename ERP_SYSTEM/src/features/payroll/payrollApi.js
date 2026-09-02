@@ -357,6 +357,25 @@ export const payrollApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["EmployeeOpeningBalance"],
     }),
+    getPayrollDashboard: builder.query({
+      query: (params) => ({
+        url: "PayrollEntries/dashboard",
+        method: "GET",
+        params,
+      }),
+      providesTags: [{ type: "PayrollEntry", id: "DASHBOARD" }],
+    }),
+    getPayrollReport: builder.query({
+      query: ({ StartDate, EndDate }) => ({
+        url: "PayrollEntries/report",
+        method: "GET",
+        params: {
+          StartDate,
+          EndDate,
+        },
+      }),
+      providesTags: [{ type: "PayrollEntry", id: "REPORT" }],
+    }),
   }),
 });
 
@@ -393,4 +412,6 @@ export const {
   useCreateEmployeeOpeningBalanceMutation,
   useUpdateEmployeeOpeningBalanceMutation,
   useDeleteEmployeeOpeningBalanceMutation,
+  useGetPayrollDashboardQuery,
+  useGetPayrollReportQuery,
 } = payrollApi;
