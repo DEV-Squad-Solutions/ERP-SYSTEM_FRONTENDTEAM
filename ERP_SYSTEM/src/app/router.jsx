@@ -68,6 +68,7 @@ import BeforeAdjustmentTrialBalancePage from "../features/TrialBalance/pages/Bef
 import IncomeStatementPage from "../features/statements/pages/IncomeStatementPage.jsx";
 import FinancialPositionPage from "../features/statements/pages/FinancialPositionPage.jsx";
 import CashFlowPage from "../features/statements/pages/CashFlowPage.jsx";
+import FinancialStatementsPage from "../features/financialStatements/pages/FinancialStatementsPage.jsx";
 
 const ROLES = {
   ADMIN: "Admin",
@@ -548,6 +549,11 @@ export const router = createBrowserRouter([
           </Role>
         ),
       },
+      {
+        path: "financial-statements",
+        element: <FinancialStatementsPage />,
+      },
+
       {
         path: "journal-entries",
         element: (

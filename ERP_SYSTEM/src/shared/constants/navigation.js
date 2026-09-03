@@ -337,7 +337,6 @@ export const navigationItems = [
     label: "المحاسبة",
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "السنوات المالية",
     path: "/dashboard/fiscal-years",
@@ -345,7 +344,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "دليل الحسابات",
     path: "/dashboard/accounts",
@@ -353,7 +351,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "إعدادات الربط المحاسبي",
     path: "/dashboard/account-mappings",
@@ -361,7 +358,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "قيود اليومية",
     path: "/dashboard/journal-entries",
@@ -369,7 +365,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "ميزان المراجعة قبل التسوية",
     path: "/dashboard/trial-balance/before-adjustments",
@@ -377,7 +372,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "ميزان المراجعة بعد التسوية",
     path: "/dashboard/trial-balance/after-adjustments",
@@ -385,7 +379,13 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
+  {
+    label: "تشكيل القوائم المالية",
+    path: "/dashboard/financial-statements",
+    icon: ListTree,
+    end: true,
+    roles: ACCOUNTING_ROLES,
+  },
   {
     label: "قائمة الدخل",
     path: "/dashboard/income",
@@ -393,7 +393,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "المركز المالي",
     path: "/dashboard/financial-position",
@@ -401,7 +400,6 @@ export const navigationItems = [
     end: true,
     roles: ACCOUNTING_ROLES,
   },
-
   {
     label: "قائمة التدفقات النقدية",
     path: "/dashboard/cash-flow",
