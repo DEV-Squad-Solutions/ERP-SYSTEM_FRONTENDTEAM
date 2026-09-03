@@ -15,6 +15,7 @@ import {
   ReceiptText,
   Banknote,
   Printer,
+  CoinsIcon,
 } from "lucide-react";
 
 import {
@@ -511,7 +512,7 @@ export default function PayrollDashboardPage() {
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm">
-                      <PiggyBank size={17} />
+                      <CoinsIcon size={17} />
                     </div>
 
                     <div className="min-w-0">

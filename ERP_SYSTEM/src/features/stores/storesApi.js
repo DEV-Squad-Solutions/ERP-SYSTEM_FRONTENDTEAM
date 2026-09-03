@@ -157,6 +157,16 @@ export const storesApi = baseApi.injectEndpoints({
         { type: "InventoryCostReport", id: `${storeId}-${itemId}` },
       ],
     }),
+    getItemBalance: builder.query({
+      query: ({ storeId, itemId, asOfDate }) => ({
+        url: "/Invoices/item-balance",
+        params: {
+          storeId,
+          itemId,
+          asOfDate,
+        },
+      }),
+    }),
   }),
 });
 
@@ -170,4 +180,5 @@ export const {
   useDeleteStoreMutation,
   useGetStoreStockReportQuery,
   useGetInventoryCostReportQuery,
+  useLazyGetItemBalanceQuery,
 } = storesApi;

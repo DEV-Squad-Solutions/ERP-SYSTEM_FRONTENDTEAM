@@ -5,6 +5,7 @@ export const routeTitles = {
   "/dashboard/sales/new": "فاتورة بيع جديدة",
   "/dashboard/sales/:id": "تفاصيل الفاتورة",
   "/dashboard/sales/:id/edit": "تعديل الفاتورة",
+
   "/dashboard/purchases/new": "فاتورة شراء جديدة",
   "/dashboard/purchases/:id": "تفاصيل فاتورة الشراء",
   "/dashboard/purchases/:id/edit": "تعديل فاتورة الشراء",
@@ -27,6 +28,7 @@ export const routeTitles = {
   "/dashboard/treasury/transfers": "التحويلات بين الخزائن",
   "/dashboard/treasury/transfers/:id": "تفاصيل التحويل",
   "/dashboard/treasury/:cashboxId": "تفاصيل الخزنة",
+
   "/dashboard/expenses": "المصاريف",
   "/dashboard/bank": "البنك",
 
@@ -58,10 +60,21 @@ export const routeTitles = {
 
   "/dashboard/fiscal-years": "السنوات المالية",
   "/dashboard/accounts": "دليل الحسابات",
-  "/dashboard/statements/operational-trial-balance": "ميزان المراجعة التشغيلي",
-  "/dashboard/adjusted-trial-balance": "ميزان بعد التسوية",
+  "/dashboard/account-mappings": "إعدادات الربط المحاسبي",
+  "/dashboard/journal-entries": "قيود اليومية",
+  "/dashboard/journal-entries/new": "قيد يومية جديد",
+  "/dashboard/journal-entries/:id": "تفاصيل قيد اليومية",
+  "/dashboard/journal-entries/:id/edit": "تعديل قيد اليومية",
+
+  "/dashboard/trial-balance/before-adjustments": "ميزان المراجعة قبل التسوية",
+
+  "/dashboard/trial-balance/after-adjustments": "ميزان المراجعة بعد التسوية",
+
   "/dashboard/income": "قائمة الدخل",
+
   "/dashboard/financial-position": "المركز المالي",
+
+  "/dashboard/cash-flow": "قائمة التدفقات النقدية",
 
   "/dashboard/reports": "التقارير",
   "/dashboard/reports/profitability/invoices": "ربحية الفواتير",
@@ -75,14 +88,20 @@ export const routeTitles = {
 };
 
 export const matchRouteTitle = (pathname) => {
-  if (routeTitles[pathname]) return routeTitles[pathname];
+  if (routeTitles[pathname]) {
+    return routeTitles[pathname];
+  }
 
   for (const pattern of Object.keys(routeTitles)) {
-    if (!pattern.includes(":")) continue;
+    if (!pattern.includes(":")) {
+      continue;
+    }
 
     const regex = new RegExp(`^${pattern.replace(/:[^/]+/g, "[^/]+")}$`);
 
-    if (regex.test(pathname)) return routeTitles[pattern];
+    if (regex.test(pathname)) {
+      return routeTitles[pattern];
+    }
   }
 
   return null;

@@ -123,12 +123,6 @@ export default function DashboardHome() {
   return (
     <div className="space-y-6">
       {/* رأس الصفحة */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-ink-900">نظرة عامة</h2>
-          <p className="mt-1 text-sm text-ink-400">{today}</p>
-        </div>
-      </div>
 
       {/* الإحصائيات */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

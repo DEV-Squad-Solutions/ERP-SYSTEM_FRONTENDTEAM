@@ -1,26 +1,37 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Search, PackageX, Plus } from "lucide-react";
-import { useGetStoreStockReportQuery } from "../storesApi";
-import Pagination from "../../../shared/components/ui/Pagination"; // عدّل المسار حسب مكانك
-import QuickAddItemModal from "../../inventory/components/QuickAddItemModal"; // عدّل المسار حسب مكانك
+import {
+  Search,
+  PackageX,
+  Plus,
+  Eye,
+  Calculator,
+  X,
+  Loader2,
+  ReceiptText,
+} from "lucide-react";
+import {
+  useGetStoreStockReportQuery,
+  useLazyGetItemBalanceQuery,
+} from "../storesApi";
+import Pagination from "../../../shared/components/ui/Pagination";
+import QuickAddItemModal from "../../inventory/components/QuickAddItemModal";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 
-// TODO: الـ API الحالي (InventoryReports/stock) مبيرجعش تصنيف الصنف (category)،
-// فمفيش فلترة حسب التصنيف دلوقتي زي ما كان مطلوب في الـ spec الأصلي.
-// أول ما يتضاف الحقل ده في الـ response أو في fetch منفصل، نضيف فلتر Select هنا.
 export default function StoreInventoryTab({
   storeId,
   activeTab = "inventory",
 }) {
   const navigate = useNavigate();
+
   const [search, setSearch] = useState("");
-  const [hasStock, setHasStock] = useState(undefined); // undefined = الكل
+  const [hasStock, setHasStock] = useState(undefined);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const { data, isFetching, isError } = useGetStoreStockReportQuery({
     storeId,
@@ -30,14 +41,39 @@ export default function StoreInventoryTab({
     hasStock,
   });
 
+  const [
+    getItemBalance,
+    {
+      data: itemBalance,
+      isFetching: isItemBalanceFetching,
+      isError: isItemBalanceError,
+    },
+  ] = useLazyGetItemBalanceQuery();
+
   const items = data?.items ?? [];
+
+  const handleOpenItemBalance = async (row) => {
+    setSelectedItem(row);
+
+    try {
+      await getItemBalance({
+        storeId,
+        itemId: row.itemId,
+        asOfDate: formatDateForApi(new Date()),
+      }).unwrap();
+    } catch {}
+  };
+
+  const handleCloseItemBalance = () => {
+    setSelectedItem(null);
+  };
 
   return (
     <div className="bg-white rounded-2xl shadow-card p-6" dir="rtl">
-      {/* أدوات البحث والفلترة */}
       <div className="flex items-center gap-3 flex-wrap mb-5">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 text-ink-400 absolute right-3 top-1/2 -translate-y-1/2" />
+
           <input
             value={search}
             onChange={(e) => {
@@ -81,20 +117,23 @@ export default function StoreInventoryTab({
         </button>
       </div>
 
-      {/* ملخص سريع */}
       {data?.summary && (
         <div className="grid grid-cols-3 gap-3 mb-5">
           <SummaryChip
             label="إجمالي الأصناف"
             value={fmt(data.summary.totalItemCount)}
           />
+
           <SummaryChip
             label="أصناف برصيد"
             value={fmt(data.summary.itemsWithStockCount)}
           />
+
           <SummaryChip
             label="إجمالي قيمة المخزون"
-            value={`${fmt(data.summary.totalInventoryValue)} ${data.baseCurrency || ""}`}
+            value={`${fmt(data.summary.totalInventoryValue)} ${
+              data.baseCurrency || ""
+            }`}
           />
         </div>
       )}
@@ -120,21 +159,31 @@ export default function StoreInventoryTab({
                   <th className="py-2.5 px-3 text-right font-medium">
                     كود الصنف
                   </th>
+
                   <th className="py-2.5 px-3 text-right font-medium">
                     اسم الصنف
                   </th>
+
                   <th className="py-2.5 px-3 text-right font-medium">الوحدة</th>
+
                   <th className="py-2.5 px-3 text-right font-medium">
                     الكمية الحالية
                   </th>
+
                   <th className="py-2.5 px-3 text-right font-medium">
                     متوسط التكلفة
                   </th>
+
                   <th className="py-2.5 px-3 text-right font-medium">
                     قيمة المخزون
                   </th>
+
+                  <th className="py-2.5 px-3 text-center font-medium">
+                    التفاصيل
+                  </th>
                 </tr>
               </thead>
+
               <tbody>
                 {items.length ? (
                   items.map((row) => (
@@ -145,6 +194,7 @@ export default function StoreInventoryTab({
                       <td className="py-2.5 px-3 font-mono text-ink-600">
                         {row.itemCode}
                       </td>
+
                       <td className="py-2.5 px-3">
                         <button
                           onClick={() =>
@@ -157,25 +207,43 @@ export default function StoreInventoryTab({
                           {row.itemName}
                         </button>
                       </td>
+
                       <td className="py-2.5 px-3 text-ink-600">
                         {row.itemUnitName}
                       </td>
+
                       <td className="py-2.5 px-3 text-ink-900 font-medium">
                         {fmt(row.balance)}
                       </td>
+
                       <td className="py-2.5 px-3 text-ink-700">
                         {fmt(row.averageCost)}
                       </td>
+
                       <td className="py-2.5 px-3 text-ink-900 font-medium">
                         {fmt(row.inventoryValue)}
+                      </td>
+
+                      <td className="py-2.5 px-3">
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenItemBalance(row)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-ink-700 bg-ink-50 hover:bg-ink-100 hover:text-ink-900 transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            التفاصيل
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-14">
+                    <td colSpan={7} className="py-14">
                       <div className="flex flex-col items-center text-center">
                         <PackageX className="w-8 h-8 text-ink-300 mb-2" />
+
                         <p className="text-ink-400 text-sm">
                           لا توجد أصناف مطابقة داخل هذا المخزن.
                         </p>
@@ -212,6 +280,240 @@ export default function StoreInventoryTab({
           );
         }}
       />
+
+      {selectedItem && (
+        <ItemBalanceModal
+          item={selectedItem}
+          data={itemBalance}
+          isLoading={isItemBalanceFetching}
+          isError={isItemBalanceError}
+          onClose={handleCloseItemBalance}
+        />
+      )}
+    </div>
+  );
+}
+
+function ItemBalanceModal({ item, data, isLoading, isError, onClose }) {
+  const pricingExpenses = data?.pricingExpenses ?? [];
+
+  const totalExpenses = pricingExpenses.reduce(
+    (sum, expense) => sum + Number(expense?.amount || 0),
+    0,
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      dir="rtl"
+    >
+      <button
+        type="button"
+        aria-label="إغلاق"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+      />
+
+      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-ink-100">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-ink-50 flex items-center justify-center shrink-0">
+                <Calculator className="w-4 h-4 text-ink-700" />
+              </div>
+
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-ink-900">
+                  تفاصيل تكلفة الصنف
+                </h2>
+
+                <p className="text-xs text-ink-400 mt-0.5 truncate">
+                  {item.itemName}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-ink-400 hover:bg-ink-50 hover:text-ink-700 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-5 max-h-[70vh] overflow-y-auto">
+          {isLoading && (
+            <div className="py-14 flex flex-col items-center justify-center text-center">
+              <Loader2 className="w-7 h-7 text-ink-400 animate-spin mb-3" />
+
+              <p className="text-sm text-ink-500">
+                جاري تحميل تفاصيل تكلفة الصنف...
+              </p>
+            </div>
+          )}
+
+          {isError && !isLoading && (
+            <div className="py-14 text-center">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3">
+                <ReceiptText className="w-5 h-5" />
+              </div>
+
+              <p className="text-sm font-medium text-rose-600">
+                تعذر تحميل تفاصيل الصنف
+              </p>
+
+              <p className="text-xs text-ink-400 mt-1">
+                حاول إغلاق النافذة وفتح التفاصيل مرة أخرى.
+              </p>
+            </div>
+          )}
+
+          {data && !isLoading && !isError && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <DetailCard label="المخزن" value={data.storeName} />
+
+                <DetailCard label="الوحدة" value={data.itemUnitName} />
+
+                <DetailCard
+                  label="الكمية الحالية"
+                  value={fmt(data.currentQuantity)}
+                />
+
+                <DetailCard
+                  label="تاريخ الرصيد"
+                  value={formatDisplayDate(data.asOfDate)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
+                  <p className="text-xs text-ink-500 mb-2">متوسط التكلفة</p>
+
+                  <p className="text-lg font-bold text-ink-900">
+                    {fmt(data.averageCost)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
+                  <p className="text-xs text-ink-500 mb-2">قيمة المخزون</p>
+
+                  <p className="text-lg font-bold text-ink-900">
+                    {fmt(data.inventoryValue)}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-ink-900">
+                      مصروفات التسعير
+                    </h3>
+
+                    <p className="text-xs text-ink-400 mt-0.5">
+                      المصروفات المرتبطة بهذا الصنف
+                    </p>
+                  </div>
+
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-ink-50 text-ink-600">
+                    {fmt(pricingExpenses.length)} مصروف
+                  </span>
+                </div>
+
+                {pricingExpenses.length ? (
+                  <div className="border border-ink-100 rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-ink-50 text-xs text-ink-500">
+                          <th className="py-2.5 px-3 text-right font-medium">
+                            المصروف
+                          </th>
+
+                          <th className="py-2.5 px-3 text-right font-medium">
+                            المبلغ
+                          </th>
+
+                          <th className="py-2.5 px-3 text-right font-medium">
+                            ملاحظات
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {pricingExpenses.map((expense) => (
+                          <tr
+                            key={expense.id}
+                            className="border-t border-ink-50"
+                          >
+                            <td className="py-3 px-3 font-medium text-ink-800">
+                              {expense.name || "—"}
+                            </td>
+
+                            <td className="py-3 px-3 font-semibold text-ink-900">
+                              {fmt(expense.amount)}
+                            </td>
+
+                            <td className="py-3 px-3 text-ink-500">
+                              {expense.notes || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+
+                      <tfoot>
+                        <tr className="border-t border-ink-100 bg-ink-50/60">
+                          <td className="py-3 px-3 font-semibold text-ink-800">
+                            إجمالي المصروفات
+                          </td>
+
+                          <td className="py-3 px-3 font-bold text-ink-900">
+                            {fmt(totalExpenses)}
+                          </td>
+
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-ink-200 py-8 text-center">
+                    <ReceiptText className="w-7 h-7 text-ink-300 mx-auto mb-2" />
+
+                    <p className="text-sm text-ink-400">
+                      لا توجد مصروفات تسعير لهذا الصنف.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end px-5 py-3 border-t border-ink-100 bg-ink-50/40">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-ink-700 bg-white border border-ink-100 hover:bg-ink-50 transition-colors"
+          >
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailCard({ label, value }) {
+  return (
+    <div className="rounded-xl bg-ink-50/70 px-3.5 py-3">
+      <p className="text-[11px] text-ink-400 mb-1">{label}</p>
+
+      <p className="text-sm font-semibold text-ink-900 truncate">
+        {value ?? "—"}
+      </p>
     </div>
   );
 }
@@ -220,7 +522,28 @@ function SummaryChip({ label, value }) {
   return (
     <div className="bg-ink-50 rounded-xl px-3.5 py-2.5">
       <p className="text-[11px] text-ink-500 mb-0.5">{label}</p>
+
       <p className="text-sm font-semibold text-ink-900">{value ?? "—"}</p>
     </div>
   );
+}
+
+function formatDateForApi(date) {
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("ar-EG");
 }

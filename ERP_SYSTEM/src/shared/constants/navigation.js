@@ -29,6 +29,8 @@ import {
   ArrowRightLeft,
   CalendarRange,
   ListTree,
+  Link2,
+  Waves,
 } from "lucide-react";
 
 const ALL_ROLES = [
@@ -353,6 +355,14 @@ export const navigationItems = [
   },
 
   {
+    label: "إعدادات الربط المحاسبي",
+    path: "/dashboard/account-mappings",
+    icon: Link2,
+    end: true,
+    roles: ACCOUNTING_ROLES,
+  },
+
+  {
     label: "قيود اليومية",
     path: "/dashboard/journal-entries",
     icon: BookOpen,
@@ -361,16 +371,16 @@ export const navigationItems = [
   },
 
   {
-    label: "ميزان المراجعة التشغيلي",
-    path: "/dashboard/statements/operational-trial-balance",
+    label: "ميزان المراجعة قبل التسوية",
+    path: "/dashboard/trial-balance/before-adjustments",
     icon: ClipboardList,
     end: true,
     roles: ACCOUNTING_ROLES,
   },
 
   {
-    label: "ميزان بعد التسوية",
-    path: "/dashboard/adjusted-trial-balance",
+    label: "ميزان المراجعة بعد التسوية",
+    path: "/dashboard/trial-balance/after-adjustments",
     icon: Scale,
     end: true,
     roles: ACCOUNTING_ROLES,
@@ -388,6 +398,14 @@ export const navigationItems = [
     label: "المركز المالي",
     path: "/dashboard/financial-position",
     icon: PieChart,
+    end: true,
+    roles: ACCOUNTING_ROLES,
+  },
+
+  {
+    label: "قائمة التدفقات النقدية",
+    path: "/dashboard/cash-flow",
+    icon: Waves,
     end: true,
     roles: ACCOUNTING_ROLES,
   },
