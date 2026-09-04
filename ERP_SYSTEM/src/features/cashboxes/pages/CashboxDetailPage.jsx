@@ -307,13 +307,11 @@ export default function CashboxDetailPage() {
       throw new Error("ليس لديك صلاحية حذف السند");
     }
 
-    ```
-await deleteVoucher({
-  id,
-  rowVersion,
-  cashboxId,
-}).unwrap();
-```;
+    await deleteVoucher({
+      id,
+      rowVersion,
+      cashboxId,
+    }).unwrap();
   }
 
   const handlePageChange = (newPage) => {
@@ -331,15 +329,6 @@ await deleteVoucher({
 
   return (
     <div className="animate-fadeUp space-y-6">
-      <button
-        onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-sm text-ink-500 transition hover:text-primary-600"
-      >
-        {" "}
-        <ArrowRight size={16} />
-        العودة للخزائن{" "}
-      </button>
-      ```
       <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -378,18 +367,18 @@ await deleteVoucher({
                 {isForeignCashbox && (
                   <>
                     <p className="num text-xs text-ink-400">
-                      ≈{" "}
+                      ≈
                       {fmt(
                         cashbox.currentBalance *
                           (cashbox.currentExchangeRate ??
                             cashbox.openingExchangeRate ??
                             1),
-                      )}{" "}
+                      )}
                       {cashboxBaseCurrency}
                     </p>
 
                     <p className="mt-1 text-[11px] text-ink-400">
-                      سعر الصرف:{" "}
+                      سعر الصرف:
                       {fmt(
                         cashbox.currentExchangeRate ??
                           cashbox.openingExchangeRate ??

@@ -5,32 +5,37 @@
  *
  * القاعدة من الـ API الجديد (PUT /CashVouchers/{id}):
  * "Send exactly one posting target: employeeId, businessPartnerId,
- * driverId, externalPartyName, or cashMovementTypeId. driverTripId
- * is allowed only with driverId."
+ * driverId, externalPartyName, or accountId. cashMovementTypeId is
+ * optional and can be sent WITH the target as an additional
+ * descriptor. driverTripId is allowed only with driverId."
  *
- * ملحوظة مهمة: الـ payload الجديد ملوش partyType خالص — الباك اند
- * بيعرف نوع الطرف من الحقل المرسل نفسه. فالملف ده اتبنى تاني من
- * الأول عشان يبقى فيه مصدر واحد للحقيقة، ومفيش أي إشارة لـ
- * partyType في أي مكان.
+ * ملحوظة مهمة: accountId هو الـ posting target للمصاريف والإيرادات
+ * (Use Receipt with Revenue account and Payment with Expense
+ * account). cashMovementTypeId حاجة تانية تمامًا — نوع حركة وصفي
+ * اختياري بييجي من endpoint منفصل (CashMovementTypes/select) ومش
+ * متاح في الشاشة دي دلوقتي، فبنسيبه زي ما هو في السند (لو موجود)
+ * ومبنحطوش من هنا.
  *
- * التوصيف (cashMovementType) بيحدد شكل قائمة "الحساب":
+ * التوصيف بيحدد شكل قائمة "الحساب":
  *   عملاء وموردين → حسابات (businessPartnerId)
- *   إيرادات       → أنواع إيرادات (cashMovementTypeId, Revenue)
- *   مصاريف        → أنواع مصروفات (cashMovementTypeId, Expense)
+ *   إيرادات       → حسابات إيرادات (accountId, accountType Revenue)
+ *   مصاريف        → حسابات مصروفات (accountId, accountType Expense)
  *   سائقين        → سائقين (driverId [+ driverTripId])
  *   رواتب وأجور   → موظفين (employeeId)
  *   سلف           → موظفين (employeeId)
  *
- * شكل رد GET /api/v1/CashVouchers/party-select الفعلي (اتأكد منه
- * من الـ Swagger مباشرة):
+ * شكل رد GET /api/v1/CashVouchers/party-select الفعلي:
  *
  * {
  *   businessPartners: [{ id, name }],
  *   drivers:          [{ id, name }],
  *   employees:        [{ id, name }],
- *   expenses:         [{ id, name, classification: "Expense" }],
- *   revenues:         [{ id, name, classification: "Revenue" }],
+ *   expenses:         [{ id, name, classification, code, accountType: "Expense"-ish }],
+ *   revenues:         [{ id, name, classification, code, accountType: "Revenue"-ish }],
  * }
+ *
+ * expenses/revenues دي حسابات فعلية (ليها code و accountType) —
+ * مش أنواع حركة (cashMovementTypeId).
  *
  * ملحوظة: مفيش أي flag زي isPersonalExpense في الرد — فمفيش
  * تفرقة بين "مصروف عادي" و"مصروف شخصي" على مستوى الـ API. لو
@@ -111,7 +116,8 @@ export function buildDescriptionGroups(partySelect, { direction } = {}) {
     });
   }
 
-  // إيرادات — تتعرض بس لو الاتجاه وارد أو مش محدد بعد
+  // إيرادات — حسابات إيراد، الـ posting target بتاعها accountId.
+  // تتعرض بس لو الاتجاه وارد أو مش محدد بعد
   const revenues = partySelect.revenues || [];
   if (revenues.length && direction !== "Payment") {
     groups.push({
@@ -120,12 +126,13 @@ export function buildDescriptionGroups(partySelect, { direction } = {}) {
       options: revenues.map((t) => ({
         value: makeValue(PREFIX.revenue, t.id),
         label: t.name,
-        meta: { cashMovementTypeId: t.id },
+        meta: { accountId: t.id },
       })),
     });
   }
 
-  // مصاريف — تتعرض بس لو الاتجاه صادر أو مش محدد بعد
+  // مصاريف — حسابات مصروف، الـ posting target بتاعها accountId.
+  // تتعرض بس لو الاتجاه صادر أو مش محدد بعد
   const expenses = partySelect.expenses || [];
   if (expenses.length && direction !== "Receipt") {
     groups.push({
@@ -134,7 +141,7 @@ export function buildDescriptionGroups(partySelect, { direction } = {}) {
       options: expenses.map((t) => ({
         value: makeValue(PREFIX.expense, t.id),
         label: t.name,
-        meta: { cashMovementTypeId: t.id },
+        meta: { accountId: t.id },
       })),
     });
   }
@@ -162,11 +169,13 @@ export function getCurrentDescriptionValue(voucher) {
     return makeValue(PREFIX.employeeSalary, voucher.employeeId);
   }
 
-  if (voucher.cashMovementTypeId) {
+  if (voucher.accountId) {
+    // الحساب هو الـ target للمصاريف والإيرادات؛ الاتجاه بيحدد
+    // أي مجموعة نرجّعها بس للعرض (revenue أو expense)
     const prefix =
       voucher.direction === "Receipt" ? PREFIX.revenue : PREFIX.expense;
 
-    return makeValue(prefix, voucher.cashMovementTypeId);
+    return makeValue(prefix, voucher.accountId);
   }
 
   return "";
@@ -181,7 +190,7 @@ export function buildPostingTargetPayload(meta = {}, context = {}) {
     driverId: null,
     driverTripId: null,
     employeeId: null,
-    cashMovementTypeId: null,
+    accountId: null,
     externalPartyName: undefined,
   };
 
@@ -203,8 +212,8 @@ export function buildPostingTargetPayload(meta = {}, context = {}) {
     return { ...empty, employeeId: Number(meta.employeeId) };
   }
 
-  if (meta.cashMovementTypeId != null) {
-    return { ...empty, cashMovementTypeId: Number(meta.cashMovementTypeId) };
+  if (meta.accountId != null) {
+    return { ...empty, accountId: Number(meta.accountId) };
   }
 
   return empty;

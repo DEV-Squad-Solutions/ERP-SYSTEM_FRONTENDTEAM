@@ -46,6 +46,139 @@ function emptyDraft() {
   };
 }
 
+function normalizeVoucherDate(value) {
+  if (!value) {
+    return getToday();
+  }
+
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
+  return value;
+}
+
+// Posting target fields, in priority order. The API requires exactly ONE
+// of these to be sent (non-null); everything else must be explicitly null.
+const POSTING_TARGET_KEYS = [
+  "employeeId",
+  "businessPartnerId",
+  "driverId",
+  "externalPartyName",
+  "accountId",
+];
+
+function pickPostingTarget(source) {
+  if (!source) {
+    return null;
+  }
+
+  for (const key of POSTING_TARGET_KEYS) {
+    const value = source[key];
+
+    if (key === "externalPartyName") {
+      if (typeof value === "string" && value.trim()) {
+        return { key, value: value.trim() };
+      }
+      continue;
+    }
+
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+
+    const numeric = toNumber(value);
+
+    if (numeric > 0) {
+      return { key, value: numeric };
+    }
+  }
+
+  return null;
+}
+
+function buildUpdateVoucherPayload({
+  row,
+  cashboxId,
+  payload = {},
+  isForeign = false,
+}) {
+  const amount = toNumber(payload.amount ?? row.amount);
+
+  const direction = payload.direction ?? row.direction;
+
+  const voucherDate = normalizeVoucherDate(
+    payload.voucherDate ?? row.voucherDate,
+  );
+
+  // If the caller is explicitly setting a posting target (any of the
+  // target keys present in payload), that target fully replaces the
+  // row's existing one — we never merge an old target with a new one.
+  const payloadHasTarget = POSTING_TARGET_KEYS.some(
+    (key) => payload[key] !== undefined,
+  );
+
+  const picked = payloadHasTarget
+    ? pickPostingTarget(payload)
+    : pickPostingTarget(row);
+
+  const target = {
+    employeeId: null,
+    businessPartnerId: null,
+    driverId: null,
+    externalPartyName: null,
+    accountId: null,
+  };
+
+  if (picked) {
+    target[picked.key] = picked.value;
+  }
+
+  const result = {
+    voucherDate,
+    direction,
+    cashboxId: toNumber(payload.cashboxId ?? cashboxId),
+
+    cashMovementTypeId:
+      payload.cashMovementTypeId ?? row.cashMovementTypeId ?? null,
+
+    ...target,
+
+    // driverTripId is only valid alongside a driverId target.
+    driverTripId:
+      target.driverId != null
+        ? toNumber(payload.driverTripId ?? row.driverTripId) || null
+        : null,
+
+    amount,
+
+    referenceNumber: payload.referenceNumber ?? row.referenceNumber ?? null,
+
+    description: payload.description ?? row.description ?? null,
+
+    notes: payload.notes ?? row.notes ?? null,
+
+    rowVersion: row.rowVersion,
+  };
+
+  if (isForeign) {
+    const exchangeRate = toNumber(
+      payload.exchangeRate ?? row.exchangeRate ?? row.rate ?? 1,
+    );
+
+    result.exchangeRate = exchangeRate > 0 ? exchangeRate : 1;
+  } else if (
+    payload.exchangeRate !== undefined &&
+    payload.exchangeRate !== null
+  ) {
+    result.exchangeRate = toNumber(payload.exchangeRate);
+  } else {
+    result.exchangeRate = null;
+  }
+
+  return result;
+}
+
 export default function CashboxLedgerTable({
   data,
   isLoading,
@@ -114,7 +247,10 @@ export default function CashboxLedgerTable({
   );
 
   const getDescriptionGroups = useCallback(
-    (direction) => buildDescriptionGroups(partySelect, { direction }),
+    (direction) =>
+      buildDescriptionGroups(partySelect, {
+        direction,
+      }),
     [partySelect],
   );
 
@@ -128,7 +264,7 @@ export default function CashboxLedgerTable({
 
       const selectedOption = groups
         .flatMap((group) => group.options)
-        .find((option) => option.value === selectedValue);
+        .find((option) => String(option.value) === String(selectedValue));
 
       if (!selectedOption) {
         return;
@@ -136,27 +272,40 @@ export default function CashboxLedgerTable({
 
       const meta = selectedOption.meta || {};
 
-      const payload = {
-        id: row.id,
-        cashboxId,
-        rowVersion: row.rowVersion,
-        voucherDate: row.voucherDate,
-        direction: row.direction,
-        amount: toNumber(row.amount),
-        ...buildPostingTargetPayload(meta, row),
-        description: row.description || undefined,
-        notes: row.notes || undefined,
-        referenceNumber: row.referenceNumber || undefined,
-      };
+      const postingTargetPayload = buildPostingTargetPayload(meta, row) || {};
 
-      if (isForeign) {
-        payload.exchangeRate = toNumber(row.exchangeRate ?? row.rate ?? 1) || 1;
-      }
+      const payload = buildUpdateVoucherPayload({
+        row,
+        cashboxId,
+        isForeign,
+        payload: {
+          voucherDate: row.voucherDate,
+          direction: row.direction,
+          amount: toNumber(row.amount),
+
+          ...postingTargetPayload,
+
+          cashMovementTypeId:
+            postingTargetPayload.cashMovementTypeId ??
+            meta.cashMovementTypeId ??
+            row.cashMovementTypeId,
+
+          description: row.description || undefined,
+          notes: row.notes || undefined,
+          referenceNumber: row.referenceNumber || undefined,
+
+          exchangeRate: row.exchangeRate ?? row.rate ?? 1,
+        },
+      });
 
       setDescriptionUpdatingId(row.id);
 
       try {
-        await onUpdateVoucher(payload);
+        await onUpdateVoucher({
+          id: row.id,
+          ...payload,
+        });
+
         toast.success("تم تحديث توصيف الحركة بنجاح");
       } catch (error) {
         const code = error?.data?.errorCode;
@@ -304,11 +453,16 @@ export default function CashboxLedgerTable({
       setUpdatingRowId(editingRow.id);
 
       try {
+        const updatePayload = buildUpdateVoucherPayload({
+          row: editingRow,
+          cashboxId,
+          isForeign,
+          payload,
+        });
+
         await onUpdateVoucher({
           id: editingRow.id,
-          cashboxId,
-          rowVersion: editingRow.rowVersion,
-          ...payload,
+          ...updatePayload,
         });
 
         toast.success("تم تحديث السند بنجاح");
@@ -334,7 +488,7 @@ export default function CashboxLedgerTable({
         setUpdatingRowId(null);
       }
     },
-    [cashboxId, editingRow, onUpdateVoucher],
+    [cashboxId, editingRow, isForeign, onUpdateVoucher],
   );
 
   const executeDeleteVoucher = useCallback(
@@ -446,7 +600,14 @@ export default function CashboxLedgerTable({
       running += debit - credit;
       baseRunning += baseDebit - baseCredit;
 
-      const isDescribed = Boolean(voucher.cashMovementTypeId);
+      const isDescribed = Boolean(
+        voucher.cashMovementTypeId ||
+        voucher.accountId ||
+        voucher.employeeId ||
+        voucher.businessPartnerId ||
+        voucher.driverId ||
+        voucher.externalPartyName,
+      );
 
       const isDraft =
         typeof voucher.isDraft === "boolean" ? voucher.isDraft : !isDescribed;
@@ -488,7 +649,14 @@ export default function CashboxLedgerTable({
               : 0,
           balance: 0,
           baseBalance: 0,
-          isDescribed: Boolean(voucher.cashMovementTypeId),
+          isDescribed: Boolean(
+            voucher.cashMovementTypeId ||
+            voucher.accountId ||
+            voucher.employeeId ||
+            voucher.businessPartnerId ||
+            voucher.driverId ||
+            voucher.externalPartyName,
+          ),
           isDraft:
             typeof voucher.isDraft === "boolean"
               ? voucher.isDraft
@@ -899,6 +1067,14 @@ export default function CashboxLedgerTable({
                             title={row.externalPartyName}
                           >
                             المستفيد: {row.externalPartyName}
+                          </div>
+                        )}
+
+                        {row.accountName && (
+                          <div className="mt-0.5 truncate text-right text-[9px] text-primary-500">
+                            الحساب:{" "}
+                            {row.accountCode ? `${row.accountCode} - ` : ""}
+                            {row.accountName}
                           </div>
                         )}
                       </div>

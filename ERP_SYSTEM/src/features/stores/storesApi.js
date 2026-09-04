@@ -167,6 +167,18 @@ export const storesApi = baseApi.injectEndpoints({
         },
       }),
     }),
+    putItemPricingExpenses: builder.mutation({
+      query: ({ itemId, expenses }) => ({
+        url: `/InvoiceItemPricing/${itemId}/expenses`,
+        method: "PUT",
+        body: {
+          expenses,
+        },
+      }),
+      invalidatesTags: (result, error, { itemId }) => [
+        { type: "ItemBalance", id: itemId },
+      ],
+    }),
   }),
 });
 
@@ -181,4 +193,5 @@ export const {
   useGetStoreStockReportQuery,
   useGetInventoryCostReportQuery,
   useLazyGetItemBalanceQuery,
+  usePutItemPricingExpensesMutation,
 } = storesApi;
