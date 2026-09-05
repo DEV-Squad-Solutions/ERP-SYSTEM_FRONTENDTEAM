@@ -5,7 +5,7 @@ import {
   ChevronsLeft,
 } from "lucide-react";
 
-const pageSizeOptions = [1, 25, 50, 100];
+const pageSizeOptions = [25, 50, 75, 100];
 
 /**
  * @param {{

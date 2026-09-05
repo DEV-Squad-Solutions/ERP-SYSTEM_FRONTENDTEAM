@@ -44,6 +44,49 @@ const toNumber = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+const fmtNumber = (value) =>
+  (round2(value) ?? 0).toLocaleString("ar-EG", {
+    maximumFractionDigits: 2,
+  });
+
+// الـ API (Invoices/item-balance) بيستنى asOfDate بصيغة DD/MM/YYYY، مش
+// ISO. invoiceDate ممكن ييجي من input تاريخ بصيغة ISO (YYYY-MM-DD) أو
+// Date object أو بالفعل DD/MM/YYYY، فبنوحّدها هنا قبل الاستعلام بدل ما
+// نبعتها زي ما هي.
+const toApiDate = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      return null;
+    }
+
+    const day = String(value.getDate()).padStart(2, "0");
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const year = value.getFullYear();
+
+    return `${day}/${month}/${year}`;
+  }
+
+  const str = String(value);
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+    return str;
+  }
+
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+
+    return `${day}/${month}/${year}`;
+  }
+
+  return str;
+};
+
 /* =========================================================
    Component
 ========================================================= */
@@ -79,18 +122,20 @@ function InvoiceLineRow({
      رصيد الصنف
   ========================================================= */
 
+  const asOfDate = useMemo(() => toApiDate(invoiceDate), [invoiceDate]);
+
   const { data: balanceData, isLoading: isLoadingBalance } =
     useGetItemBalanceQuery(
       {
         storeId,
         itemId: line.itemId,
-        asOfDate: invoiceDate,
+        asOfDate,
       },
       {
         skip:
           !storeId ||
           !line.itemId ||
-          !invoiceDate ||
+          !asOfDate ||
           line.isTemporaryItem ||
           isReturnLine,
       },
@@ -705,7 +750,10 @@ function InvoiceLineRow({
   ========================================================= */
 
   const readonlyCls =
-    "w-full rounded-lg border border-ink-400/10 px-2.5 py-2 text-sm num text-center bg-ink-400/5 text-ink-600";
+    "w-full rounded-lg border border-ink-400/10 px-2.5 py-2 text-sm num text-center bg-ink-400/5 text-ink-600 transition-colors";
+
+  const iconButtonCls =
+    "shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-150 active:scale-90";
 
   /* =========================================================
      Render
@@ -713,15 +761,15 @@ function InvoiceLineRow({
 
   return (
     <tr
-      className={`border-b border-ink-400/5 last:border-0 transition-colors group ${
-        isReturnLine ? "bg-primary-500/[0.025]" : "hover:bg-ink-900/[0.012]"
+      className={`animate-in fade-in slide-in-from-top-1 duration-200 border-b border-ink-400/5 last:border-0 transition-colors group ${
+        isReturnLine ? "bg-primary-500/[0.025]" : "hover:bg-ink-900/[0.015]"
       }`}
     >
       {/* =====================================================
           #
       ===================================================== */}
 
-      <td className="p-2.5 text-center text-ink-400 text-xs num w-10">
+      <td className="p-2.5 text-center text-ink-300 text-xs num w-10 font-medium">
         {index + 1}
       </td>
 
@@ -750,7 +798,7 @@ function InvoiceLineRow({
                 value={line.itemName ?? ""}
                 onChange={(e) => set("itemName", e.target.value)}
                 placeholder="اكتب اسم الصنف"
-                className="flex-1 min-w-0 rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm outline-none focus:border-primary-500"
+                className="flex-1 min-w-0 rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
               />
             ) : isItemsError ? (
               <div className="flex-1 flex items-center gap-1.5 text-xs text-negative px-2 py-2 bg-negative/5 rounded-lg">
@@ -772,10 +820,10 @@ function InvoiceLineRow({
             <button
               type="button"
               onClick={handleToggleTemporaryItem}
-              className={`shrink-0 px-2 rounded-lg transition-colors ${
+              className={`${iconButtonCls} ${
                 line.isTemporaryItem
-                  ? "bg-primary-100 text-primary-600"
-                  : "text-ink-400 hover:text-primary-500 hover:bg-primary-50"
+                  ? "bg-primary-100 text-primary-600 hover:bg-primary-200"
+                  : "text-ink-400 hover:text-primary-500 hover:bg-primary-50 hover:scale-105"
               }`}
               title="صنف مش موجود بالمخزن - اكتب اسمه يدويًا"
             >
@@ -785,7 +833,7 @@ function InvoiceLineRow({
             <button
               type="button"
               onClick={() => setShowAddItem(true)}
-              className="shrink-0 px-2 rounded-lg text-ink-400 hover:text-primary-500 hover:bg-primary-50 transition-colors"
+              className={`${iconButtonCls} text-ink-400 hover:text-primary-500 hover:bg-primary-50 hover:scale-105`}
               title="إضافة صنف جديد للمخزون"
             >
               <Plus size={15} />
@@ -799,35 +847,28 @@ function InvoiceLineRow({
       ===================================================== */}
 
       <td className="p-2 w-[130px]">
-        <div
-          className={`${readonlyCls} !text-right !bg-ink-400/5 flex flex-col gap-0.5 leading-tight px-2.5 py-1.5`}
-        >
+        <div className="rounded-lg border border-ink-400/10 bg-ink-400/5 px-2.5 py-1.5 text-right transition-colors">
           {isReturnLine ? (
-            <span className="font-medium">
+            <span className="text-sm font-medium text-ink-700">
               متاح: {round2(line.maxReturnQuantity) ?? "-"}
             </span>
           ) : line.isTemporaryItem || !line.itemId ? (
-            <span>-</span>
+            <span className="text-sm text-ink-300">—</span>
           ) : isLoadingBalance ? (
-            <span>...</span>
+            <div className="flex flex-col items-end gap-1 py-0.5">
+              <span className="h-3.5 w-14 animate-pulse rounded bg-ink-400/15" />
+              <span className="h-2.5 w-20 animate-pulse rounded bg-ink-400/10" />
+            </div>
           ) : (
-            <>
-              <span className="font-medium">
-                {(round2(balanceData?.balance) ?? 0).toLocaleString("ar-EG", {
-                  maximumFractionDigits: 2,
-                })}
+            <div className="leading-tight">
+              <span className="num block text-sm font-semibold text-ink-900">
+                {fmtNumber(balanceData?.balance)}
               </span>
 
-              <span className="text-[10px] text-ink-400">
-                متوسط التكلفة:{" "}
-                {(round2(balanceData?.averageCost) ?? 0).toLocaleString(
-                  "ar-EG",
-                  {
-                    maximumFractionDigits: 2,
-                  },
-                )}
+              <span className="num block text-[10px] text-ink-400">
+                متوسط التكلفة: {fmtNumber(balanceData?.averageCost)}
               </span>
-            </>
+            </div>
           )}
         </div>
       </td>
@@ -927,7 +968,7 @@ function InvoiceLineRow({
       ===================================================== */}
 
       <td className="p-2 w-[130px] text-center">
-        <span className="num font-semibold">
+        <span className="num inline-block rounded-lg bg-ink-900/[0.03] px-2.5 py-1 text-sm font-semibold text-ink-900 transition-colors">
           {total.toLocaleString("ar-EG")}
         </span>
       </td>
@@ -940,7 +981,7 @@ function InvoiceLineRow({
         <Input
           value={line.notes ?? ""}
           onChange={(e) => set("notes", e.target.value)}
-          className="w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm bg-white focus:outline-none focus:border-primary-500"
+          className="w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm bg-white transition-colors focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
           placeholder="ملاحظات"
         />
       </td>
@@ -953,7 +994,7 @@ function InvoiceLineRow({
         <button
           type="button"
           onClick={handleRemove}
-          className="p-2 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ink-300 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-negative/10 hover:text-negative hover:scale-105 active:scale-90"
           title="حذف الصنف"
         >
           <Trash2 size={15} />

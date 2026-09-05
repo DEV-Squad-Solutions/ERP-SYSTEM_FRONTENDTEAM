@@ -47,9 +47,8 @@ export default function StoreDetailPage() {
 
   const stats = {
     itemsCount: stockReport?.summary?.totalItemCount,
-    totalQuantity: undefined, // مفيش مصدر بيانات ليها حاليًا
+    itemsWithStockCount: stockReport?.summary?.itemsWithStockCount,
     totalValue: stockReport?.summary?.totalInventoryValue,
-    lastMovementDate: undefined, // مفيش مصدر بيانات ليها حاليًا
   };
 
   const handleEdit = () => {

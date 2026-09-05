@@ -32,23 +32,18 @@ export default function StoreStatsCards({ stats }) {
     },
     {
       icon: Layers,
-      label: "إجمالي الكمية",
-      value: stats?.totalQuantity,
+      label: "عدد الأصناف المتوفرة",
+      value: stats?.itemsWithStockCount,
     },
     {
       icon: Coins,
       label: "إجمالي قيمة المخزون",
-      value: stats?.totalValue,
-    },
-    {
-      icon: Clock,
-      label: "آخر حركة",
-      value: stats?.lastMovementDate,
+      value: stats?.totalValue ? `${stats.totalValue} ج.م` : undefined,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 mb-6">
       {cards.map((c) => (
         <StatCard
           key={c.label}

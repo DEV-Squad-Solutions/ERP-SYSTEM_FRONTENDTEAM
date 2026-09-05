@@ -268,8 +268,17 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [items],
   );
 
+  // كل خيار بيعرض اسم العميل/المورد جنب عملته، وعلامة "خاص" لو
+  // special=true، عشان يبان في القائمة نفسها من غير ما تحتاج تفتح
+  // بيانات الطرف عشان تعرف عملته أو نوعه.
   const partyOptions = useMemo(
-    () => parties?.map((p) => ({ value: p.id, label: p.name })) || [],
+    () =>
+      parties?.map((p) => ({
+        value: p.id,
+        label: `${p.name} (${currencyLabels[p.currency] || p.currency})${
+          p.special ? " · خاص" : ""
+        }`,
+      })) || [],
     [parties],
   );
   const driverOptions = useMemo(

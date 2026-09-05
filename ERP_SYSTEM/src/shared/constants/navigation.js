@@ -420,13 +420,6 @@ export const navigationItems = [
     roles: REPORT_ROLES,
     children: [
       {
-        label: "تكلفة أصناف الفواتير",
-        path: "/dashboard/invoice-item-pricing",
-        icon: Wallet,
-        end: true,
-        roles: ["Admin", "CompanyOwner", "Accountant", "Inventory"],
-      },
-      {
         label: "تقارير الربحية",
         icon: TrendingUp,
         roles: ["Admin", "CompanyOwner", "Accountant"],

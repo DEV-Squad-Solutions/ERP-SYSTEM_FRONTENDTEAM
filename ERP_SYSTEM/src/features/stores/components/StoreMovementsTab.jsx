@@ -53,7 +53,7 @@ export default function StoreMovementsTab({ storeId }) {
   const itemSelectOptions =
     itemsOptions?.map((i) => ({
       value: i.id,
-      label: `${i.code} - ${i.name}`,
+      label: ` ${i.name}`,
     })) ?? [];
 
   return (

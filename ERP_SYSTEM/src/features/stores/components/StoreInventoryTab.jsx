@@ -21,6 +21,7 @@ import {
 } from "../storesApi";
 import Pagination from "../../../shared/components/ui/Pagination";
 import QuickAddItemModal from "../../inventory/components/QuickAddItemModal";
+import Modal from "../../../shared/components/ui/Modal";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 
@@ -29,6 +30,7 @@ export default function StoreInventoryTab({
   activeTab = "inventory",
 }) {
   const navigate = useNavigate();
+
   const [search, setSearch] = useState("");
   const [hasStock, setHasStock] = useState(undefined);
   const [pageNumber, setPageNumber] = useState(1);
@@ -40,7 +42,7 @@ export default function StoreInventoryTab({
     storeId,
     pageNumber,
     pageSize,
-    search: search || undefined,
+    search: search.trim() || undefined,
     hasStock,
   });
 
@@ -64,11 +66,27 @@ export default function StoreInventoryTab({
         itemId: row.itemId,
         asOfDate: formatDateForApi(new Date()),
       }).unwrap();
-    } catch {}
+    } catch {
+      toast.error("تعذر تحميل تفاصيل تكلفة الصنف");
+    }
   };
 
   const handleCloseItemBalance = () => {
     setSelectedItem(null);
+  };
+
+  const handleRefreshItemBalance = async () => {
+    if (!selectedItem?.itemId) return;
+
+    try {
+      await getItemBalance({
+        storeId,
+        itemId: selectedItem.itemId,
+        asOfDate: formatDateForApi(new Date()),
+      }).unwrap();
+    } catch {
+      toast.error("تعذر تحديث تفاصيل تكلفة الصنف");
+    }
   };
 
   return (
@@ -76,6 +94,7 @@ export default function StoreInventoryTab({
       <div className="flex items-center gap-3 flex-wrap mb-5">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4 h-4 text-ink-400 absolute right-3 top-1/2 -translate-y-1/2" />
+
           <input
             value={search}
             onChange={(e) => {
@@ -95,6 +114,7 @@ export default function StoreInventoryTab({
           ].map((opt) => (
             <button
               key={opt.label}
+              type="button"
               onClick={() => {
                 setHasStock(opt.value);
                 setPageNumber(1);
@@ -111,6 +131,7 @@ export default function StoreInventoryTab({
         </div>
 
         <button
+          type="button"
           onClick={() => setIsAddOpen(true)}
           className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 transition-colors shrink-0"
         >
@@ -120,7 +141,7 @@ export default function StoreInventoryTab({
       </div>
 
       {data?.summary && (
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <SummaryChip
             label="إجمالي الأصناف"
             value={fmt(data.summary.totalItemCount)}
@@ -194,11 +215,12 @@ export default function StoreInventoryTab({
                       className="border-b border-ink-50 hover:bg-ink-50/50 transition-colors"
                     >
                       <td className="py-2.5 px-3 font-mono text-ink-600">
-                        {row.itemCode}
+                        {row.itemCode || "—"}
                       </td>
 
                       <td className="py-2.5 px-3">
                         <button
+                          type="button"
                           onClick={() =>
                             navigate(
                               `/dashboard/items/${row.itemId}?fromStore=${storeId}&tab=${activeTab}`,
@@ -206,12 +228,12 @@ export default function StoreInventoryTab({
                           }
                           className="font-medium text-ink-900 hover:text-primary-600 hover:underline transition-colors"
                         >
-                          {row.itemName}
+                          {row.itemName || "—"}
                         </button>
                       </td>
 
                       <td className="py-2.5 px-3 text-ink-600">
-                        {row.itemUnitName}
+                        {row.itemUnitName || "—"}
                       </td>
 
                       <td className="py-2.5 px-3 text-ink-900 font-medium">
@@ -245,6 +267,7 @@ export default function StoreInventoryTab({
                     <td colSpan={7} className="py-14">
                       <div className="flex flex-col items-center text-center">
                         <PackageX className="w-8 h-8 text-ink-300 mb-2" />
+
                         <p className="text-ink-400 text-sm">
                           لا توجد أصناف مطابقة داخل هذا المخزن.
                         </p>
@@ -284,18 +307,13 @@ export default function StoreInventoryTab({
 
       {selectedItem && (
         <ItemBalanceModal
+          isOpen={Boolean(selectedItem)}
           item={selectedItem}
           data={itemBalance}
           isLoading={isItemBalanceFetching}
           isError={isItemBalanceError}
           onClose={handleCloseItemBalance}
-          onSaved={() => {
-            getItemBalance({
-              storeId,
-              itemId: selectedItem.itemId,
-              asOfDate: formatDateForApi(new Date()),
-            });
-          }}
+          onSaved={handleRefreshItemBalance}
         />
       )}
     </div>
@@ -303,6 +321,7 @@ export default function StoreInventoryTab({
 }
 
 function ItemBalanceModal({
+  isOpen,
   item,
   data,
   isLoading,
@@ -315,6 +334,7 @@ function ItemBalanceModal({
 
   const [expenses, setExpenses] = useState([]);
   const [editingId, setEditingId] = useState(null);
+
   const [expenseForm, setExpenseForm] = useState({
     name: "",
     amount: "",
@@ -322,10 +342,12 @@ function ItemBalanceModal({
   });
 
   useEffect(() => {
-    if (data?.pricingExpenses) {
+    if (!isOpen) return;
+
+    if (Array.isArray(data?.pricingExpenses)) {
       setExpenses(
-        data.pricingExpenses.map((expense) => ({
-          id: expense.id,
+        data.pricingExpenses.map((expense, index) => ({
+          id: expense.id ?? `expense-${index}`,
           name: expense.name || "",
           amount: expense.amount ?? 0,
           notes: expense.notes || "",
@@ -334,7 +356,14 @@ function ItemBalanceModal({
     } else {
       setExpenses([]);
     }
-  }, [data]);
+
+    setEditingId(null);
+    setExpenseForm({
+      name: "",
+      amount: "",
+      notes: "",
+    });
+  }, [data, isOpen]);
 
   const totalExpenses = useMemo(
     () =>
@@ -360,12 +389,15 @@ function ItemBalanceModal({
   };
 
   const handleAddExpense = () => {
-    if (!expenseForm.name.trim()) {
+    const name = expenseForm.name.trim();
+    const amount = Number(expenseForm.amount);
+
+    if (!name) {
       toast.error("اكتب اسم المصروف");
       return;
     }
 
-    if (expenseForm.amount === "" || Number(expenseForm.amount) <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("اكتب مبلغ المصروف بشكل صحيح");
       return;
     }
@@ -376,8 +408,8 @@ function ItemBalanceModal({
           expense.id === editingId
             ? {
                 ...expense,
-                name: expenseForm.name.trim(),
-                amount: Number(expenseForm.amount),
+                name,
+                amount,
                 notes: expenseForm.notes.trim(),
               }
             : expense,
@@ -387,9 +419,9 @@ function ItemBalanceModal({
       setExpenses((prev) => [
         ...prev,
         {
-          id: `new-${Date.now()}`,
-          name: expenseForm.name.trim(),
-          amount: Number(expenseForm.amount),
+          id: `new-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name,
+          amount,
           notes: expenseForm.notes.trim(),
         },
       ]);
@@ -417,69 +449,41 @@ function ItemBalanceModal({
   };
 
   const handleSaveExpenses = async () => {
+    if (!item?.itemId) {
+      toast.error("لم يتم تحديد الصنف");
+      return;
+    }
+
     try {
       await putExpenses({
         itemId: item.itemId,
         expenses: expenses.map((expense) => ({
-          name: expense.name,
+          name: expense.name.trim(),
           amount: Number(expense.amount || 0),
-          notes: expense.notes || "",
+          notes: expense.notes?.trim() || "",
         })),
       }).unwrap();
 
       toast.success("تم حفظ مصروفات الصنف بنجاح");
 
       resetForm();
-      onSaved?.();
+
+      await onSaved?.();
     } catch (error) {
       toast.error(
-        error?.data?.message || error?.data?.title || "تعذر حفظ مصروفات الصنف",
+        error?.data?.message ||
+          error?.data?.title ||
+          error?.message ||
+          "تعذر حفظ مصروفات الصنف",
       );
     }
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      dir="rtl"
-    >
-      <button
-        type="button"
-        aria-label="إغلاق"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-      />
+    <Modal isOpen={isOpen} wide onClose={onClose} title="تفاصيل تكلفة الصنف">
 
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-ink-100">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-ink-50 flex items-center justify-center shrink-0">
-                <Calculator className="w-4 h-4 text-ink-700" />
-              </div>
 
-              <div className="min-w-0">
-                <h2 className="text-base font-semibold text-ink-900">
-                  تفاصيل تكلفة الصنف
-                </h2>
-
-                <p className="text-xs text-ink-400 mt-0.5 truncate">
-                  {item.itemName}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-ink-400 hover:bg-ink-50 hover:text-ink-700 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-5 max-h-[70vh] overflow-y-auto">
+        <div className="py-5 max-h-[70vh] overflow-y-auto">
           {isLoading && (
             <div className="py-14 flex flex-col items-center justify-center text-center">
               <Loader2 className="w-7 h-7 text-ink-400 animate-spin mb-3" />
@@ -524,7 +528,7 @@ function ItemBalanceModal({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
                   <p className="text-xs text-ink-500 mb-2">متوسط التكلفة</p>
 
@@ -538,6 +542,16 @@ function ItemBalanceModal({
 
                   <p className="text-lg font-bold text-ink-900">
                     {fmt(data.inventoryValue)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-4">
+                  <p className="text-xs text-primary-600 mb-2">
+                    التكلفة شاملة مصروفات التسعير
+                  </p>
+
+                  <p className="text-lg font-bold text-primary-700">
+                    {fmt(data.totalCostWithPricingExpenses)}
                   </p>
                 </div>
               </div>
@@ -786,18 +800,7 @@ function ItemBalanceModal({
             </div>
           )}
         </div>
-
-        <div className="flex justify-end px-5 py-3 border-t border-ink-100 bg-ink-50/40">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium text-ink-700 bg-white border border-ink-100 hover:bg-ink-50 transition-colors"
-          >
-            إغلاق
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

@@ -8,7 +8,7 @@ export default function StoreHeader({ store, onPrint }) {
 
   return (
     <div className="bg-white rounded-2xl shadow-card p-6 mb-6" dir="rtl">
-      <div className="flex items-start justify-between flex-wrap gap-4">
+      <div className="flex items-start justify-center flex-wrap gap-4">
         <div className="flex items-start gap-4">
           <div className="w-14 h-14 rounded-2xl bg-ink-50 flex items-center justify-center shrink-0">
             <Warehouse className="w-7 h-7 text-ink-600" />
@@ -43,7 +43,7 @@ export default function StoreHeader({ store, onPrint }) {
         </div>
 
         {/* Left side: actions */}
-        <div className="flex items-center gap-2">
+        {/*<div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-ink-600 hover:bg-ink-50 transition-colors"
@@ -58,7 +58,7 @@ export default function StoreHeader({ store, onPrint }) {
             <Printer className="w-4 h-4" />
             طباعة
           </button>
-        </div>
+        </div>*/}
       </div>
     </div>
   );
