@@ -866,7 +866,8 @@ function InvoiceLineRow({
               </span>
 
               <span className="num block text-[10px] text-ink-400">
-                متوسط التكلفة: {fmtNumber(balanceData?.averageCost)}
+                إجمالي التكلفة:
+                {fmtNumber(balanceData?.totalCostWithPricingExpenses)}
               </span>
             </div>
           )}

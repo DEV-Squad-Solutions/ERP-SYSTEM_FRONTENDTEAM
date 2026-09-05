@@ -12,6 +12,8 @@ import {
   Package,
   Users,
   Truck,
+  Briefcase,
+  FileText,
   AlertTriangle,
   CheckCircle2,
   FileWarning,
@@ -466,17 +468,32 @@ export default function DashboardPage() {
         />
         <StatCard
           icon={Users}
-          label="العملاء"
-          value={data?.counts?.customerCount ?? 0}
+          label="الشركاء التجاريين"
+          value={data?.counts?.businessPartnerCount ?? 0}
           format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          sub="عملاء وموردين"
           tone="info"
         />
         <StatCard
-          icon={Truck}
-          label="الموردين"
-          value={data?.counts?.supplierCount ?? 0}
+          icon={Briefcase}
+          label="الموظفين"
+          value={data?.counts?.employeeCount ?? 0}
           format={(v) => Math.round(v).toLocaleString("ar-EG")}
           tone="gold"
+        />
+        <StatCard
+          icon={Truck}
+          label="السائقين"
+          value={data?.counts?.driverCount ?? 0}
+          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          tone="primary"
+        />
+        <StatCard
+          icon={FileText}
+          label="عدد الفواتير"
+          value={data?.counts?.invoiceCount ?? 0}
+          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          tone="success"
         />
         <StatCard
           icon={Clock}
