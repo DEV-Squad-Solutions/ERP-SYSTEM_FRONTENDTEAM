@@ -351,7 +351,9 @@ export default function FiscalYearsListPage() {
                       </td>
 
                       <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-500">
-                        {fy.closedOn || "—"}
+                        {fy.closedOn
+                          ? new Date(fy.closedOn).toLocaleDateString("en-GB")
+                          : "—"}
                       </td>
 
                       <td className="px-4 py-3">

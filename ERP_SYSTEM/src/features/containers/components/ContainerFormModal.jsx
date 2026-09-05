@@ -13,7 +13,6 @@ import {
 
 const containerSchema = z.object({
   name: z.string().min(1, "اسم العبوة مطلوب"),
-  code: z.string().min(1, "الكود مطلوب"),
   description: z.string().optional(),
   isActive: z.preprocess((v) => v === "true" || v === true, z.boolean()),
 });
@@ -36,7 +35,7 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(containerSchema),
-    defaultValues: { name: "", code: "", description: "", isActive: true },
+    defaultValues: { name: "",  description: "", isActive: true },
   });
 
   useEffect(() => {
@@ -45,11 +44,10 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
       container
         ? {
             name: container.name,
-            code: container.code,
             description: container.description ?? "",
             isActive: container.isActive,
           }
-        : { name: "", code: "", description: "", isActive: true },
+        : { name: "",  description: "", isActive: true },
     );
   }, [isOpen, container, reset]);
 
@@ -90,18 +88,7 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
           )}
         </div>
 
-        <div>
-          <label className="block text-xs text-ink-400 mb-1.5">الكود</label>
-          <input
-            type="text"
-            placeholder="مثال: BRL-200"
-            className="w-full border border-ink-400/15 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-700/50 focus:ring-2 focus:ring-emerald-700/10"
-            {...register("code")}
-          />
-          {errors.code && (
-            <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>
-          )}
-        </div>
+        
 
         <div>
           <label className="block text-xs text-ink-400 mb-1.5">

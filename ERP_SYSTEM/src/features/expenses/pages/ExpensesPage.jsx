@@ -170,18 +170,6 @@ export default function ExpensesPage() {
             جميع سندات الصرف المصنّفة كمصروفات
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            setEditingVoucher(null);
-            setExpenseModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600"
-        >
-          <Plus size={16} />
-          تسجيل مصروف
-        </button>
       </div>
 
       {/* Filters */}
@@ -391,18 +379,6 @@ export default function ExpensesPage() {
                           >
                             <Eye size={15} />
                           </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingVoucher(v);
-                              setExpenseModalOpen(true);
-                            }}
-                            title="تعديل"
-                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
-                          >
-                            <Pencil size={15} />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -428,22 +404,6 @@ export default function ExpensesPage() {
           )}
         </div>
       )}
-
-      {/* Add / Edit Expense Modal */}
-      <ExpenseQuickEntryModal
-        isOpen={expenseModalOpen}
-        voucher={editingVoucher}
-        onClose={() => {
-          setExpenseModalOpen(false);
-          setEditingVoucher(null);
-        }}
-        onSaved={() => {
-          setExpenseModalOpen(false);
-          setEditingVoucher(null);
-          setPage(1);
-          refetch();
-        }}
-      />
 
       {/* View Details Modal */}
       <ExpenseDetailsModal

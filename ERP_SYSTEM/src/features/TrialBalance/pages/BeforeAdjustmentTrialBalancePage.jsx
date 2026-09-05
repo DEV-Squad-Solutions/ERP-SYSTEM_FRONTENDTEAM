@@ -2,13 +2,38 @@ import { useState } from "react";
 import { Scale, RefreshCw } from "lucide-react";
 import { useGetOperationalTrialBalanceQuery } from "../../statements/statementsApi";
 
+const CATEGORY_LABELS = {
+  Cashbox: "خزينة",
+  Partner: "عميل / مورد",
+  Driver: "سائق",
+  Employee: "موظف",
+  Revenue: "إيراد",
+  Expense: "مصروف",
+};
+
+const CATEGORY_OPTIONS = [
+  { value: "", label: "كل التصنيفات" },
+  { value: "Cashbox", label: "خزائن" },
+  { value: "Partner", label: "عملاء وموردين" },
+  { value: "Driver", label: "سائقين" },
+  { value: "Employee", label: "موظفين" },
+  { value: "Revenue", label: "إيرادات" },
+  { value: "Expense", label: "مصروفات" },
+];
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
 function firstOfMonthISO() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    1
+  )
+    .toISOString()
+    .slice(0, 10);
 }
 
 function fmt(n) {
@@ -21,6 +46,9 @@ export default function BeforeAdjustmentTrialBalancePage() {
   const [draft, setDraft] = useState({
     fromDate: firstOfMonthISO(),
     toDate: todayISO(),
+    viewMode: "Summary",
+    category: "",
+    includeZeroBalances: false,
   });
 
   const [applied, setApplied] = useState(draft);
@@ -29,7 +57,6 @@ export default function BeforeAdjustmentTrialBalancePage() {
     useGetOperationalTrialBalanceQuery({
       ...applied,
       AdjustmentView: "BeforeAdjustments",
-      viewMode: "Summary",
     });
 
   const items = data?.items ?? [];
@@ -41,29 +68,31 @@ export default function BeforeAdjustmentTrialBalancePage() {
 
   return (
     <div className="animate-fadeUp">
-      {" "}
       <div className="mb-5 flex items-start justify-between gap-4">
-        {" "}
         <div>
-          {" "}
           <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-ink-900">
-            {" "}
             <Scale size={20} className="text-primary-500" />
-            ميزان المراجعة قبل التسوية{" "}
+            ميزان المراجعة قبل التسوية
           </h2>
+
           <p className="mt-1 text-sm text-ink-400">
-            أرصدة الحسابات والحركات خلال الفترة قبل قيود التسوية
+            حركات الحسابات خلال الفترة قبل قيود التسوية
           </p>
         </div>
+
         <button
           type="button"
           onClick={refetch}
           className="inline-flex items-center gap-2 rounded-xl border border-ink-400/20 px-4 py-2.5 text-sm font-medium text-ink-600 transition hover:bg-ink-400/5"
         >
-          <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
+          <RefreshCw
+            size={16}
+            className={isFetching ? "animate-spin" : ""}
+          />
           تحديث
         </button>
       </div>
+
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">من تاريخ</label>
@@ -97,19 +126,83 @@ export default function BeforeAdjustmentTrialBalancePage() {
           />
         </div>
 
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-ink-400">التصنيف</label>
+
+          <select
+            value={draft.category}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                category: e.target.value,
+              }))
+            }
+            className="rounded-xl border border-ink-400/20 px-3 py-2 text-sm"
+          >
+            {CATEGORY_OPTIONS.map((opt) => (
+              <option key={opt.value || "all"} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-ink-400">طريقة العرض</label>
+
+          <div className="flex overflow-hidden rounded-xl border border-ink-400/20">
+            {["Summary", "Detailed"].map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    viewMode: mode,
+                  }))
+                }
+                className={`px-3 py-2 text-sm transition ${
+                  draft.viewMode === mode
+                    ? "bg-primary-500 text-white"
+                    : "bg-white text-ink-600 hover:bg-ink-400/5"
+                }`}
+              >
+                {mode === "Summary" ? "إجمالي" : "تفصيلي"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="mb-2 flex items-center gap-2 text-sm text-ink-600">
+          <input
+            type="checkbox"
+            checked={draft.includeZeroBalances}
+            onChange={(e) =>
+              setDraft((prev) => ({
+                ...prev,
+                includeZeroBalances: e.target.checked,
+              }))
+            }
+            className="rounded border-ink-400/30"
+          />
+          إظهار الحسابات الصفرية
+        </label>
+
         <button
           type="button"
           onClick={handleShow}
-          className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600"
+          className="mb-0 rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600"
         >
           عرض
         </button>
       </div>
+
       {isLoading && (
         <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center text-ink-400">
           جاري تحميل ميزان المراجعة...
         </div>
       )}
+
       {isError && (
         <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
           <span>حدث خطأ أثناء تحميل ميزان المراجعة.</span>
@@ -123,6 +216,7 @@ export default function BeforeAdjustmentTrialBalancePage() {
           </button>
         </div>
       )}
+
       {data && (
         <div
           className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
@@ -130,30 +224,23 @@ export default function BeforeAdjustmentTrialBalancePage() {
           }`}
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm" dir="rtl">
+            <table className="w-full min-w-[700px] text-sm" dir="rtl">
               <thead>
                 <tr className="bg-ink-400/5 text-xs text-ink-400">
                   <th className="px-3 py-2.5 text-right font-medium">
                     التصنيف
                   </th>
-                  <th className="px-3 py-2.5 text-right font-medium">الحساب</th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
-                    مدين أول المدة
+                    الحساب
                   </th>
-                  <th className="px-3 py-2.5 text-right font-medium">
-                    دائن أول المدة
-                  </th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
                     مدين الفترة
                   </th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
                     دائن الفترة
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-medium">
-                    مدين آخر المدة
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-medium">
-                    دائن آخر المدة
                   </th>
                 </tr>
               </thead>
@@ -162,7 +249,7 @@ export default function BeforeAdjustmentTrialBalancePage() {
                 {items.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={4}
                       className="px-3 py-14 text-center text-ink-400"
                     >
                       لا توجد بيانات لهذه الفترة
@@ -176,7 +263,9 @@ export default function BeforeAdjustmentTrialBalancePage() {
                     >
                       <td className="px-3 py-2.5">
                         <span className="inline-flex whitespace-nowrap rounded-md bg-primary-500/10 px-2 py-1 text-[11px] text-primary-600">
-                          {row.categoryName || row.category}
+                          {CATEGORY_LABELS[row.category] ||
+                            row.categoryName ||
+                            row.category}
                         </span>
                       </td>
 
@@ -192,28 +281,12 @@ export default function BeforeAdjustmentTrialBalancePage() {
                         )}
                       </td>
 
-                      <td className="whitespace-nowrap px-3 py-2.5 text-ink-700">
-                        {fmt(row.openingDebit)}
-                      </td>
-
-                      <td className="whitespace-nowrap px-3 py-2.5 text-ink-700">
-                        {fmt(row.openingCredit)}
-                      </td>
-
                       <td className="whitespace-nowrap px-3 py-2.5 text-primary-600">
                         {fmt(row.periodDebit)}
                       </td>
 
                       <td className="whitespace-nowrap px-3 py-2.5 text-rose-600">
                         {fmt(row.periodCredit)}
-                      </td>
-
-                      <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-ink-800">
-                        {fmt(row.closingDebit)}
-                      </td>
-
-                      <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-ink-800">
-                        {fmt(row.closingCredit)}
                       </td>
                     </tr>
                   ))
@@ -227,28 +300,12 @@ export default function BeforeAdjustmentTrialBalancePage() {
                       الإجمالي
                     </td>
 
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {fmt(totals.openingDebit)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {fmt(totals.openingCredit)}
-                    </td>
-
                     <td className="whitespace-nowrap px-3 py-3 text-primary-700">
                       {fmt(totals.periodDebit)}
                     </td>
 
                     <td className="whitespace-nowrap px-3 py-3 text-rose-700">
                       {fmt(totals.periodCredit)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {fmt(totals.closingDebit)}
-                    </td>
-
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {fmt(totals.closingCredit)}
                     </td>
                   </tr>
                 </tfoot>

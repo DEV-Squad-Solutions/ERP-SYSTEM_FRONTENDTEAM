@@ -1,4 +1,5 @@
-import { X, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
+import Modal from "../../../shared/components/ui/Modal";
 
 function fmtAmount(n, currency) {
   if (n == null) return "—";
@@ -26,6 +27,12 @@ function partyLabel(v) {
         : (v.driverName ?? "—");
     case "Employee":
       return v.employeeName ?? "—";
+    case "Account":
+      // حسابات المصاريف والإيرادات (accountId) - نفس الـ posting target
+      // اللي بيتحدد من DescriptionCascadeSelect.
+      return v.accountName
+        ? `${v.accountCode ? `${v.accountCode} - ` : ""}${v.accountName}`
+        : "—";
     case "Other":
       return v.externalPartyName ?? "—";
     default:
@@ -44,96 +51,65 @@ function Row({ label, value }) {
 }
 
 export default function ExpenseDetailsModal({ voucher, onClose, onEdit }) {
-  if (!voucher) return null;
-
   const v = voucher;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4"
-      onClick={onClose}
+    <Modal
+      isOpen={Boolean(v)}
+      onClose={onClose}
+      title={v ? `تفاصيل سند ${v.voucherNumber || `#${v.id}`}` : ""}
     >
-      <div
-        dir="rtl"
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-display text-lg font-bold text-ink-900">
-            تفاصيل سند {v.voucherNumber || `#${v.id}`}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-400/10"
-          >
-            <X size={18} />
-          </button>
+      {v && (
+        <div dir="rtl">
+          <div className="space-y-0.5">
+            <Row label="التاريخ" value={fmtDate(v.voucherDate)} />
+            <Row label="الخزينة" value={v.cashboxName} />
+            <Row label="نوع الحركة" value={v.cashMovementTypeName} />
+            <Row label="التصنيف" value={v.classification} />
+            <Row label="الجهة" value={partyLabel(v)} />
+            <Row
+              label="المبلغ"
+              value={
+                <span className="font-bold text-rose-600">
+                  {fmtAmount(v.amount, v.currency)}
+                </span>
+              }
+            />
+            {v.baseCurrency && v.baseCurrency !== v.currency && (
+              <>
+                <Row label="سعر الصرف" value={v.exchangeRate} />
+                <Row
+                  label="المبلغ بالعملة الأساسية"
+                  value={fmtAmount(v.baseAmount, v.baseCurrency)}
+                />
+                <Row
+                  label="فرق العملة المحقق"
+                  value={fmtAmount(
+                    v.realizedExchangeDifference,
+                    v.baseCurrency,
+                  )}
+                />
+              </>
+            )}
+            <Row label="رقم المرجع" value={v.referenceNumber} />
+            <Row label="الوصف" value={v.description} />
+            <Row label="ملاحظات" value={v.notes} />
+            {v.invoiceNumber && (
+              <>
+                <Row label="فاتورة مرتبطة" value={v.invoiceNumber} />
+                <Row
+                  label="المبلغ المُطبّق على الفاتورة"
+                  value={fmtAmount(
+                    v.appliedInvoiceAmount,
+                    v.appliedInvoiceCurrency,
+                  )}
+                />
+              </>
+            )}
+            <Row label="الحالة" value={v.isDraft ? "مسودة" : "معتمد"} />
+          </div>
         </div>
-
-        <div className="space-y-0.5">
-          <Row label="التاريخ" value={fmtDate(v.voucherDate)} />
-          <Row label="الخزينة" value={v.cashboxName} />
-          <Row label="نوع الحركة" value={v.cashMovementTypeName} />
-          <Row label="التصنيف" value={v.classification} />
-          <Row label="الجهة" value={partyLabel(v)} />
-          <Row
-            label="المبلغ"
-            value={
-              <span className="font-bold text-rose-600">
-                {fmtAmount(v.amount, v.currency)}
-              </span>
-            }
-          />
-          {v.baseCurrency && v.baseCurrency !== v.currency && (
-            <>
-              <Row label="سعر الصرف" value={v.exchangeRate} />
-              <Row
-                label="المبلغ بالعملة الأساسية"
-                value={fmtAmount(v.baseAmount, v.baseCurrency)}
-              />
-              <Row
-                label="فرق العملة المحقق"
-                value={fmtAmount(v.realizedExchangeDifference, v.baseCurrency)}
-              />
-            </>
-          )}
-          <Row label="رقم المرجع" value={v.referenceNumber} />
-          <Row label="الوصف" value={v.description} />
-          <Row label="ملاحظات" value={v.notes} />
-          {v.invoiceNumber && (
-            <>
-              <Row label="فاتورة مرتبطة" value={v.invoiceNumber} />
-              <Row
-                label="المبلغ المُطبّق على الفاتورة"
-                value={fmtAmount(
-                  v.appliedInvoiceAmount,
-                  v.appliedInvoiceCurrency,
-                )}
-              />
-            </>
-          )}
-          <Row label="الحالة" value={v.isDraft ? "مسودة" : "معتمد"} />
-        </div>
-
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-ink-400/20 px-4 py-2 text-sm text-ink-600 hover:bg-ink-400/5"
-          >
-            إغلاق
-          </button>
-          <button
-            type="button"
-            onClick={() => onEdit(v)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600"
-          >
-            <Pencil size={14} />
-            تعديل
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }
