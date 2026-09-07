@@ -12,7 +12,6 @@ import {
   FileText,
   MapPin,
   Wallet,
-  Lock,
   StoreIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -44,10 +43,6 @@ import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePri
 import NumericInput from "../../../../shared/components/ui/NumericInput";
 import { useGetCashboxOptionsQuery } from "../../../cashboxes/cashboxesApi";
 import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
-import {
-  readDraft,
-  useAutosaveDraft,
-} from "../../../../shared/hooks/useDraftPersistence";
 
 const emptyLine = () => ({
   itemId: null,
@@ -89,8 +84,6 @@ const invoiceContentTypeOptions = [
 
 const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي" };
 
-const INVOICE_DRAFT_KEY = "invoiceFormDraft";
-
 // ==== الحالة الافتراضية لبيانات الفاتورة ====
 // دالة واحدة بيتم النداء عليها من مكانين: أول تحميل للفورم، وزرار
 // "مسح البيانات والبدء من جديد" - عشان الاتنين يفضلوا متزامنين لو
@@ -124,42 +117,6 @@ const getDefaultHeader = () => ({
   WBScaleDifference: "",
   WBDiscount: "",
 });
-
-// ==== تحقق أساسي قبل الإرسال ====
-// الهدف منع أخطاء واضحة ورخيصة الاكتشاف (فاتورة من غير عميل، من غير
-// مخزن، من غير أصناف) قبل ما توصل للباك أصلًا، مش استبدال لأي تحقق
-// موجود هناك. بيرجع أول رسالة خطأ لاقاها، أو null لو كل حاجة سليمة.
-function validateInvoiceForm({ header, lines, isReturnInvoice }) {
-  if (!header.storeId) {
-    return "لازم تختار المخزن الأول";
-  }
-
-  if (!header.partyId && !header.partyName?.trim()) {
-    return "لازم تختار العميل أو المورد";
-  }
-
-  if (isReturnInvoice) {
-    const hasReturnLines = lines.some((l) => l.isReturnLine);
-    if (!hasReturnLines) {
-      return "اختار أصناف المرتجع من الفاتورة الأصلية الأول";
-    }
-  } else {
-    const validLines = lines.filter(
-      (l) =>
-        (l.itemId || (l.isTemporaryItem && l.itemName?.trim())) &&
-        Number(l.quantity) > 0,
-    );
-    if (validLines.length === 0) {
-      return "لازم صنف واحد على الأقل بكمية أكبر من صفر";
-    }
-  }
-
-  if (header.paymentMethod === "cash" && !header.cashboxId) {
-    return "لازم تختار الخزنة لأن الدفع نقدي";
-  }
-
-  return null;
-}
 
 function CurrencyChip({ currency }) {
   const [renderedCurrency, setRenderedCurrency] = useState(currency);
@@ -308,41 +265,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
   const [fullReturnState, setFullReturnState] = useState(null);
 
-  // مسودة الفورم المحفوظة (لو موجودة) - بتتقرا مرة واحدة بس، بشكل
-  // sync، عشان نقدر نستخدمها في الـ initializers اللي تحت مباشرة.
-  const draft = useRef(readDraft(INVOICE_DRAFT_KEY)).current;
-
-  const [header, setHeader] = useState(() => ({
-    ...getDefaultHeader(),
-    ...(draft?.header || {}),
-    invoiceNumber:
-      draft?.header?.invoiceNumber || "INVS-" + generateInvoiceNumber(),
-  }));
+  const [header, setHeader] = useState(getDefaultHeader);
 
   const [lines, setLines] = useState(() =>
-    draft?.lines?.length
-      ? draft.lines
-      : Array.from({ length: 10 }, () => emptyLine()),
-  );
-
-  // ملاحظة: containersMovement فوق بيتعمله init بـ useState عادي (مش
-  // لازيّ)، فبنسترجع المسودة بتاعته هنا مرة واحدة وقت أول mount.
-  useEffect(() => {
-    if (draft?.containersMovement) {
-      setContainersMovement(draft.containersMovement);
-    }
-    if (typeof draft?.isTemporaryDriver === "boolean") {
-      setIsTemporaryDriver(draft.isTemporaryDriver);
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ==== حفظ المسودة تلقائيًا (debounced) مع أي تغيير حقيقي في القيم ====
-  const clearDraft = useAutosaveDraft(
-    INVOICE_DRAFT_KEY,
-    () => ({ header, lines, containersMovement, isTemporaryDriver }),
-    [header, lines, containersMovement, isTemporaryDriver],
+    Array.from({ length: 10 }, () => emptyLine()),
   );
 
   const partySelectRef = useRef(null);
@@ -422,9 +348,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines]);
 
+  // مخزن العبوات بقى متاح مع كل أنواع الفواتير، مش بس البيع
   const { data: partyContainerStoreData } = useGetPartyContainerStoreQuery(
     header.partyId,
-    { skip: !header.partyId || !isSalesInvoice },
+    { skip: !header.partyId },
   );
 
   const hasPayment = Number(header.paid) > 0;
@@ -432,6 +359,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const { data: cashboxes } = useGetCashboxOptionsQuery(undefined, {
     skip: !hasPayment,
   });
+
+  const cashboxOptions = useMemo(
+    () =>
+      cashboxes?.map((c) => ({
+        value: c.id,
+        label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
+      })) || [],
+    [cashboxes],
+  );
 
   const handleCashboxChange = useCallback(
     (cashboxId) => {
@@ -457,25 +393,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
   }, [hasPayment]);
 
   useEffect(() => {
-    if (!isSalesInvoice) return;
     const store = partyContainerStoreData?.containerStore;
-    setContainersMovement((prev) => ({
-      ...prev,
-      containerStoreId: store?.id || null,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partyContainerStoreData, isSalesInvoice]);
-
-  useEffect(() => {
-    if (
-      !isSalesInvoice &&
-      (containersMovement.items.length > 0 ||
-        containersMovement.containerStoreId)
-    ) {
-      setContainersMovement({ containerStoreId: null, items: [] });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSalesInvoice]);
+    setContainersMovement((prev) =>
+      prev.containerStoreId === (store?.id || null)
+        ? prev
+        : { ...prev, containerStoreId: store?.id || null },
+    );
+  }, [partyContainerStoreData]);
 
   const handlePartyChange = useCallback(
     (id) => {
@@ -696,17 +620,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
     async (shouldPrint = false) => {
       if (isLoading) return;
 
-      const validationError = validateInvoiceForm({
-        header,
-        lines,
-        isReturnInvoice,
-      });
-
-      if (validationError) {
-        toast.error(validationError);
-        return;
-      }
-
+      // التحقق من صحة الفاتورة (عميل، مخزن، أصناف، خزنة نقدي...) بقى
+      // مسؤولية الباك بالكامل، وأي رفض بيوصل هنا في الـ catch تحت.
       const payload = buildCreateInvoiceRequest({
         movementType: header.movementType,
         header: { ...header, wbTotal },
@@ -718,9 +633,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
       try {
         const invoice = await createInvoice(payload).unwrap();
 
-        // الفاتورة اتحفظت بنجاح، امسح المسودة عشان الفورم الجاي يبدأ فاضي
-        clearDraft();
-
         toast.success("تم حفظ الفاتورة بنجاح", {
           description: `رقم الفاتورة: ${header.invoiceNumber}`,
         });
@@ -730,32 +642,18 @@ export default function CreateInvoiceForm({ onSuccess }) {
         if (shouldPrint) {
           printInvoice(invoice);
         }
-      } catch (err) {
-        // ما نمسحش المسودة هنا عمدًا - الفاتورة فشلت فمفيش داعي المستخدم
-        // يكتب كل حاجة تاني.
-        const backendMessage =
-          err?.data?.message || err?.data?.error || err?.error;
-
-        toast.error("تعذر حفظ الفاتورة", {
-          description:
-            typeof backendMessage === "string" && backendMessage
-              ? backendMessage
-              : "تأكد من اتصال الإنترنت وحاول تاني",
-        });
-      }
+      } catch (err) {}
     },
     [
       isLoading,
       header,
       lines,
-      isReturnInvoice,
       wbTotal,
       containersMovement,
       isTemporaryDriver,
       createInvoice,
       onSuccess,
       printInvoice,
-      clearDraft,
     ],
   );
 
@@ -781,21 +679,17 @@ export default function CreateInvoiceForm({ onSuccess }) {
   }, [submitInvoice]);
 
   const handleCancel = useCallback(() => {
-    // "إلغاء" = تراجع كامل عن الفاتورة الحالية، فبنمسح المسودة صراحة من
-    // غير ما نستنى حفظ ناجح.
-    clearDraft();
     onSuccess?.();
-  }, [clearDraft, onSuccess]);
+  }, [onSuccess]);
 
   const handleResetForm = useCallback(() => {
-    clearDraft();
     setHeader(getDefaultHeader());
     setLines(Array.from({ length: 10 }, () => emptyLine()));
     setContainersMovement({ containerStoreId: null, items: [] });
     setIsTemporaryDriver(false);
     setFullReturnState(null);
     toast.success("تم مسح بيانات الفاتورة");
-  }, [clearDraft]);
+  }, []);
 
   const fmt = useCallback(
     (v) => (Number.isFinite(v) ? v : 0).toLocaleString("ar-EG"),
@@ -909,24 +803,18 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </button>
           <button
             type="button"
-            onClick={() =>
-              isSalesInvoice && header.partyName && setShowPackaging(true)
-            }
-            disabled={!isSalesInvoice || !header.partyName}
+            onClick={() => header.partyName && setShowPackaging(true)}
+            disabled={!header.partyName}
             className={`relative px-3 border-r border-ink-400/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-              !isSalesInvoice || !header.partyName
+              !header.partyName
                 ? "text-ink-400/40 pointer-events-none"
                 : "text-primary-500 hover:bg-primary-50"
             }`}
-            title={
-              !isSalesInvoice
-                ? "مخزن العبوات متاح لفواتير البيع فقط"
-                : "مخزن العبوات"
-            }
+            title="مخزن العبوات"
             aria-label="فتح مخزن العبوات"
           >
-            {!isSalesInvoice ? <Lock size={17} /> : <Boxes size={17} />}
-            {isSalesInvoice && containersMovement.items.length > 0 && (
+            <Boxes size={17} />
+            {containersMovement.items.length > 0 && (
               <Repeat2Icon
                 className="absolute top-1 left-1 text-primary-600"
                 size={12}
@@ -940,12 +828,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
             message="تعذر تحميل قائمة العملاء والموردين"
             onRetry={refetchParties}
           />
-        )}
-
-        {!isSalesInvoice && (
-          <div className="border-t border-ink-400/5 bg-ink-900/[0.02] px-3 py-2 text-xs text-ink-400">
-            حركة العبوات متاحة بس مع فواتير البيع، ومش هتتبعت مع النوع الحالي.
-          </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2">
@@ -1148,12 +1030,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </div>
               <CompactSelect
                 label="الخزنة"
-                options={
-                  cashboxes?.map((c) => ({
-                    value: c.id,
-                    label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
-                  })) || []
-                }
+                options={cashboxOptions}
                 value={header.cashboxId}
                 onChange={handleCashboxChange}
                 placeholder="اختر الخزنة"
