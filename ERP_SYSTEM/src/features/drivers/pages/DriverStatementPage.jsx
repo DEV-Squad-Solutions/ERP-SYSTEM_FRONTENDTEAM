@@ -677,6 +677,11 @@ export default function DriverStatementPage() {
                         الرحلة
                       </th>
 
+                      {/* تكلفة الرحلة */}
+                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
+                        تكلفة الرحلة
+                      </th>
+
                       {/* الفاتورة */}
                       <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
                         الفاتورة
@@ -685,16 +690,6 @@ export default function DriverStatementPage() {
                       {/* العميل */}
                       <th className="px-2 py-2 font-medium border-l border-ink-400/5 min-w-[120px]">
                         العميل
-                      </th>
-
-                      {/* الحركة */}
-                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
-                        الحركة
-                      </th>
-
-                      {/* المستند */}
-                      <th className="px-2 py-2 font-medium border-l border-ink-400/5 whitespace-nowrap">
-                        المستند
                       </th>
 
                       {/* التاريخ */}
@@ -727,31 +722,26 @@ export default function DriverStatementPage() {
                             )}
                           </div>
                         </td>
-
                         {/* المدفوع للسائق */}
                         <td className="px-2 py-2 num text-negative text-[12px] border-l border-ink-400/5 whitespace-nowrap">
                           {row.amountPaidToDriver > 0
                             ? fmt(row.amountPaidToDriver)
                             : "—"}
                         </td>
-
                         {/* المستلم منه */}
                         <td className="px-2 py-2 num text-positive text-[12px] border-l border-ink-400/5 whitespace-nowrap">
                           {row.amountReceivedFromDriver > 0
                             ? fmt(row.amountReceivedFromDriver)
                             : "—"}
                         </td>
-
                         {/* البلد */}
                         <td className="px-2 py-2 text-[11px] text-ink-600 border-l border-ink-400/5 whitespace-nowrap">
                           {row.countryName || "—"}
                         </td>
-
                         {/* الخزنة */}
                         <td className="px-2 py-2 text-ink-600 text-[11px] border-l border-ink-400/5 whitespace-nowrap">
                           {row.cashboxName || "—"}
                         </td>
-
                         {/* البيان */}
                         <td
                           className="px-2 py-2 text-ink-700 text-[11px] max-w-[220px] truncate border-l border-ink-400/5"
@@ -759,7 +749,6 @@ export default function DriverStatementPage() {
                         >
                           {row.description || "—"}
                         </td>
-
                         {/* الرحلة */}
                         <td className="px-2 py-2 num text-[12px] border-l border-ink-400/5 whitespace-nowrap">
                           {row.driverTripNumber ? (
@@ -773,13 +762,29 @@ export default function DriverStatementPage() {
                           ) : (
                             "—"
                           )}
+                        </td>{" "}
+                        {/* تكلفة الرحلة */}
+                        <td className="px-2 py-2 border-l border-ink-400/5 whitespace-nowrap">
+                          {row.driverTripNumber ? (
+                            row.tripCost > 0 ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center justify-center px-1.5 py-0.5 w-full text-center rounded-full text-[10px] font-medium text-positive bg-positive/10">
+                                  {fmt(row.tripCost)}ج.م
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex justify-center items-center  w-full px-1.5 py-0.5 rounded-full text-[10px] font-medium text-negative bg-negative/10">
+                                غير متسعّرة
+                              </span>
+                            )
+                          ) : (
+                            "—"
+                          )}
                         </td>
-
                         {/* الفاتورة */}
                         <td className="px-2 py-2 text-[12px] font-medium num border-l border-ink-400/5 whitespace-nowrap">
                           {row.invoiceNumber || "—"}
                         </td>
-
                         {/* العميل */}
                         <td className="px-2 py-2 text-[11px] border-l border-ink-400/5">
                           {row.businessPartnerId && row.businessPartnerName ? (
@@ -793,17 +798,6 @@ export default function DriverStatementPage() {
                             <span className="text-ink-400">—</span>
                           )}
                         </td>
-
-                        {/* الحركة */}
-                        <td className="px-2 py-2 text-ink-600 text-[11px] border-l border-ink-400/5 whitespace-nowrap">
-                          {row.movementName || "—"}
-                        </td>
-
-                        {/* المستند */}
-                        <td className="px-2 py-2 num text-ink-900 text-[12px] border-l border-ink-400/5 whitespace-nowrap">
-                          {row.documentNumber || "—"}
-                        </td>
-
                         {/* التاريخ */}
                         <td className="px-2 py-2 num text-ink-600 text-[12px] whitespace-nowrap">
                           {row.date || "—"}

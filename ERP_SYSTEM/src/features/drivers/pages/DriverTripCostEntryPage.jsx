@@ -228,7 +228,7 @@ export default function DriverTripCostEntryPage() {
               isFetching ? "opacity-60" : ""
             }`}
           >
-            <table className="w-full text-right border-collapse min-w-[850px]">
+            <table className="w-full text-right border-collapse min-w-[1050px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
@@ -239,9 +239,16 @@ export default function DriverTripCostEntryPage() {
                     التاريخ
                   </th>
 
-                  {/* العميل + البلد */}
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    العميل / البلد
+                    السائق
+                  </th>
+
+                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                    العميل
+                  </th>
+
+                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                    الدولة
                   </th>
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
@@ -249,7 +256,7 @@ export default function DriverTripCostEntryPage() {
                   </th>
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
-                    التكلفة
+                    تكلفة الرحلة
                   </th>
 
                   <th className="p-2.5 font-medium">ملاحظات</th>
@@ -260,66 +267,140 @@ export default function DriverTripCostEntryPage() {
                 {rows.map((row) => {
                   const edited = edits[row.driverTripId];
 
+                  const currentCost = edited?.cost ?? row.cost ?? "";
+
+                  const hasCost =
+                    currentCost !== "" &&
+                    currentCost !== null &&
+                    Number(currentCost) >= 0;
+
                   return (
                     <tr
                       key={row.driverTripId}
-                      className={`border-b border-ink-400/5 last:border-0 transition-colors ${
-                        edited ? "bg-gold-50/40" : "hover:bg-ink-900/[0.01]"
-                      }`}
+                      className={`
+              border-b border-ink-400/5 last:border-0
+              transition-colors
+              ${
+                edited
+                  ? "bg-gold-50/40"
+                  : !hasCost
+                    ? "bg-negative/[0.025]"
+                    : "hover:bg-ink-900/[0.01]"
+              }
+            `}
                     >
                       {/* رقم الرحلة */}
-                      <td className="p-2.5 num text-ink-900 text-[13px] border-l border-ink-400/5 whitespace-nowrap">
-                        {row.tripNumber}
+                      <td className="p-2.5 border-l border-ink-400/5 whitespace-nowrap">
+                        <span className="num text-[13px] font-semibold text-ink-900">
+                          {row.tripNumber}
+                        </span>
                       </td>
 
                       {/* التاريخ */}
-                      <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5 whitespace-nowrap">
-                        {row.tripDate}
+                      <td className="p-2.5 border-l border-ink-400/5 whitespace-nowrap">
+                        <span className="num text-[12px] text-ink-600">
+                          {row.tripDate || "—"}
+                        </span>
                       </td>
 
-                      {/* العميل + البلد */}
-                      <td className="p-2.5 border-l border-ink-400/5 min-w-[180px]">
+                      {/* السائق */}
+                      <td className="p-2.5 border-l border-ink-400/5 min-w-[150px]">
                         <div className="flex flex-col min-w-0">
                           <span
                             className="text-[12px] font-medium text-ink-800 truncate"
-                            title={row.businessPartnerName}
+                            title={row.driverName}
                           >
-                            {row.businessPartnerName || "—"}
+                            {row.driverName || "—"}
                           </span>
 
-                          <span
-                            className="text-[10px] text-ink-400 mt-0.5 truncate"
-                            title={row.countryName}
-                          >
-                            {row.countryName || "—"}
+                          <span className="text-[10px] text-ink-400 mt-0.5">
+                            ID: {row.driverId ?? "—"}
                           </span>
                         </div>
                       </td>
 
-                      {/* رقم الفاتورة */}
-                      <td className="p-2.5 num text-ink-600 text-[13px] border-l border-ink-400/5 whitespace-nowrap">
-                        {row.invoiceNumber || "—"}
+                      {/* العميل */}
+                      <td className="p-2.5 border-l border-ink-400/5 min-w-[190px]">
+                        <span
+                          className="block text-[12px] font-medium text-ink-800 truncate"
+                          title={row.businessPartnerName}
+                        >
+                          {row.businessPartnerName || "—"}
+                        </span>
+                      </td>
+
+                      {/* الدولة */}
+                      <td className="p-2.5 border-l border-ink-400/5 whitespace-nowrap">
+                        {row.countryName ? (
+                          <span className="inline-flex items-center rounded-md bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-600">
+                            {row.countryName}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-ink-300">—</span>
+                        )}
+                      </td>
+
+                      {/* الفاتورة */}
+                      <td className="p-2.5 border-l border-ink-400/5 whitespace-nowrap">
+                        <span className="num text-[12px] text-ink-600">
+                          {row.invoiceNumber || "—"}
+                        </span>
                       </td>
 
                       {/* التكلفة */}
-                      <td className="p-1.5 border-l border-ink-400/5 w-[120px]">
-                        <input
-                          type="number"
-                          value={edited?.cost ?? row.cost ?? ""}
-                          onChange={(e) => setEdit(row, "cost", e.target.value)}
-                          className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 num focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/10"
-                        />
+                      <td className="p-1.5 border-l border-ink-400/5 w-[140px]">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={currentCost}
+                            onChange={(e) =>
+                              setEdit(row, "cost", e.target.value)
+                            }
+                            placeholder="أدخل التكلفة"
+                            className={`
+                    w-full text-xs
+                    bg-white
+                    rounded-lg
+                    px-2.5 py-2
+                    num
+                    focus:outline-none
+                    focus:ring-1
+                    transition
+                    ${
+                      !hasCost
+                        ? "border border-negative/25 focus:border-negative-400 focus:ring-negative-400/10"
+                        : edited
+                          ? "border border-gold-400/50 focus:border-gold-500 focus:ring-gold-500/10"
+                          : "border border-ink-400/15 focus:border-primary-500 focus:ring-primary-500/10"
+                    }
+                  `}
+                          />
+                        </div>
                       </td>
 
-                      {/* ملاحظات */}
-                      <td className="p-1.5 w-[220px]">
+                      {/* الملاحظات */}
+                      <td className="p-1.5 w-[230px]">
                         <input
                           type="text"
                           value={edited?.notes ?? row.costNotes ?? ""}
                           onChange={(e) =>
                             setEdit(row, "notes", e.target.value)
                           }
-                          className="w-full text-xs bg-white border border-ink-400/15 rounded-lg px-2 py-1.5 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/10"
+                          placeholder="ملاحظة..."
+                          className="
+                  w-full text-xs
+                  bg-white
+                  border border-ink-400/15
+                  rounded-lg
+                  px-2.5 py-2
+                  focus:outline-none
+                  focus:border-primary-500
+                  focus:ring-1
+                  focus:ring-primary-500/10
+                  transition
+                "
                         />
                       </td>
                     </tr>
