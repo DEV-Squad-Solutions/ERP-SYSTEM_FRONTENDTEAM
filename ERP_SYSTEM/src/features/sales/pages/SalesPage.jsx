@@ -16,7 +16,7 @@ import { exportInvoicesToExcel } from "../../../shared/hooks/exportInvoicesToExc
 
 const emptyFilters = {
   invoiceNumber: "",
-  movementType: "sale",
+  movementType: "",
   partyId: "",
   country: "",
   storeId: "",

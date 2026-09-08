@@ -8,6 +8,7 @@ import {
   useCreatePartnerOpeningBalanceMutation,
   useUpdatePartnerOpeningBalanceMutation,
 } from "../partnerOpeningBalancesApi";
+import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 
 const currencyOptions = [
   { value: "EGP", label: "جنيه مصري" },
@@ -24,10 +25,14 @@ const balanceTypeOptions = [
   { value: "Payable", label: "دائن (مستحق على الشركة)" },
 ];
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function emptyForm() {
   return {
     businessPartnerId: "",
-    documentDate: new Date().toISOString().slice(0, 10),
+    documentDate: todayISO(),
     currency: "EGP",
     balanceType: "Receivable",
     amount: "",
@@ -51,10 +56,21 @@ export default function PartnerOpeningBalanceModal({
   const [updateBalance, { isLoading: isUpdating }] =
     useUpdatePartnerOpeningBalanceMutation();
 
+  const [resolveExchangeRate, { isFetching: isExchangeRateLoading }] =
+    useLazyResolveExchangeRateQuery();
+
   const [form, setForm] = useState(emptyForm());
 
   const isEditing = Boolean(editingItem);
   const isSaving = isCreating || isUpdating;
+
+  /*
+   * Tracks whether the user manually changed the exchange rate.
+   *
+   * This is only a UI state.
+   * The actual value saved is always form.exchangeRate.
+   */
+  const [rateManuallyEdited, setRateManuallyEdited] = useState(false);
 
   /* =========================================================
      Initialize Form
@@ -66,18 +82,96 @@ export default function PartnerOpeningBalanceModal({
     if (editingItem) {
       setForm({
         businessPartnerId: editingItem.businessPartnerId ?? "",
-        documentDate:
-          editingItem.documentDate ?? new Date().toISOString().slice(0, 10),
+        documentDate: editingItem.documentDate ?? todayISO(),
         currency: editingItem.currency ?? "EGP",
         balanceType: editingItem.balanceType ?? "Receivable",
         amount: editingItem.amount ?? "",
         notes: editingItem.notes ?? "",
         exchangeRate: editingItem.exchangeRate ?? "",
       });
+
+      /*
+       * Existing exchange rate belongs to the saved transaction,
+       * so consider it manually/customized for editing purposes.
+       */
+      setRateManuallyEdited(
+        editingItem.exchangeRate !== null &&
+          editingItem.exchangeRate !== undefined &&
+          editingItem.exchangeRate !== "",
+      );
     } else {
       setForm(emptyForm());
+      setRateManuallyEdited(false);
     }
   }, [isOpen, editingItem]);
+
+  /* =========================================================
+     Resolve Exchange Rate Automatically
+  ========================================================= */
+
+  const loadExchangeRate = async (currency, date) => {
+    if (!currency || !date) return;
+
+    /*
+     * Base currency
+     */
+    if (currency === "EGP") {
+      setForm((current) => ({
+        ...current,
+        exchangeRate: 1,
+      }));
+
+      setRateManuallyEdited(false);
+      return;
+    }
+
+    try {
+      const result = await resolveExchangeRate({
+        currency,
+        date,
+      }).unwrap();
+
+      /*
+       * Depending on the API response shape, support the
+       * common possible property names.
+       */
+      const rate = Number(
+        result?.rate ?? result?.exchangeRate ?? result?.value ?? 0,
+      );
+
+      if (!rate || rate <= 0) {
+        setForm((current) => ({
+          ...current,
+          exchangeRate: "",
+        }));
+
+        setRateManuallyEdited(false);
+
+        toast.warning("لم يتم العثور على سعر صرف لهذا التاريخ");
+        return;
+      }
+
+      setForm((current) => ({
+        ...current,
+        exchangeRate: rate,
+      }));
+
+      setRateManuallyEdited(false);
+    } catch (error) {
+      console.error("Failed to resolve exchange rate:", error);
+
+      /*
+       * Do not block the user.
+       * The exchange rate remains editable manually.
+       */
+      setForm((current) => ({
+        ...current,
+        exchangeRate: "",
+      }));
+
+      setRateManuallyEdited(false);
+    }
+  };
 
   /* =========================================================
      Field Change
@@ -87,6 +181,68 @@ export default function PartnerOpeningBalanceModal({
     setForm((current) => ({
       ...current,
       [key]: value,
+    }));
+  };
+
+  /* =========================================================
+     Currency Change
+  ========================================================= */
+
+  const handleCurrencyChange = async (currency) => {
+    setForm((current) => ({
+      ...current,
+      currency,
+      exchangeRate: currency === "EGP" ? 1 : "",
+    }));
+
+    setRateManuallyEdited(false);
+
+    /*
+     * Immediately resolve the new currency using
+     * the current document date.
+     */
+    if (currency && form.documentDate) {
+      await loadExchangeRate(currency, form.documentDate);
+    }
+  };
+
+  /* =========================================================
+     Date Change
+  ========================================================= */
+
+  const handleDocumentDateChange = async (date) => {
+    setForm((current) => ({
+      ...current,
+      documentDate: date,
+    }));
+
+    /*
+     * If the transaction is in EGP, exchange rate is always 1.
+     */
+    if (form.currency === "EGP") {
+      setField("exchangeRate", 1);
+      return;
+    }
+
+    /*
+     * When date changes, reload the exchange rate for the
+     * selected currency and the new date.
+     */
+    if (form.currency && date) {
+      await loadExchangeRate(form.currency, date);
+    }
+  };
+
+  /* =========================================================
+     Exchange Rate Manual Change
+  ========================================================= */
+
+  const handleExchangeRateChange = (value) => {
+    setRateManuallyEdited(true);
+
+    setForm((current) => ({
+      ...current,
+      exchangeRate: value,
     }));
   };
 
@@ -108,7 +264,16 @@ export default function PartnerOpeningBalanceModal({
       notes: form.notes.trim() || undefined,
     };
 
-    if (form.exchangeRate !== "" && Number(form.exchangeRate) > 0) {
+    /*
+     * EGP always uses rate 1.
+     *
+     * Other currencies use the final value currently
+     * displayed in the input — whether it was loaded
+     * automatically or edited manually.
+     */
+    if (form.currency === "EGP") {
+      payload.exchangeRate = 1;
+    } else if (form.exchangeRate !== "" && Number(form.exchangeRate) > 0) {
       payload.exchangeRate = Number(form.exchangeRate);
     }
 
@@ -204,7 +369,7 @@ export default function PartnerOpeningBalanceModal({
             <input
               type="date"
               value={form.documentDate}
-              onChange={(e) => setField("documentDate", e.target.value)}
+              onChange={(e) => handleDocumentDateChange(e.target.value)}
               className="w-full rounded-lg border border-ink-400/15 px-3 py-2 text-sm outline-none focus:border-primary-500"
             />
           </div>
@@ -235,7 +400,7 @@ export default function PartnerOpeningBalanceModal({
               <CompactSelect
                 options={currencyOptions}
                 value={form.currency}
-                onChange={(value) => setField("currency", value)}
+                onChange={handleCurrencyChange}
                 placeholder="اختر العملة"
               />
             </div>
@@ -262,18 +427,43 @@ export default function PartnerOpeningBalanceModal({
 
             {form.currency !== "EGP" && (
               <div>
-                <label className="mb-1 block text-xs font-medium text-ink-400">
-                  سعر الصرف
-                  <span className="mr-1 text-[11px] text-ink-300">
-                    (اختياري - تلقائي لو فاضي)
-                  </span>
+                <label className="mb-1 flex items-center gap-1 text-xs font-medium text-ink-400">
+                  <span>سعر الصرف</span>
+
+                  {isExchangeRateLoading && (
+                    <Loader2
+                      size={12}
+                      className="animate-spin text-primary-500"
+                    />
+                  )}
                 </label>
 
                 <NumericInput
                   value={form.exchangeRate}
                   decimals
-                  onChange={(value) => setField("exchangeRate", value)}
+                  onChange={handleExchangeRateChange}
+                  disabled={isExchangeRateLoading}
                 />
+
+                <div className="mt-1 text-[10px]">
+                  {isExchangeRateLoading ? (
+                    <span className="text-primary-500">
+                      جاري تحميل سعر الصرف...
+                    </span>
+                  ) : rateManuallyEdited ? (
+                    <span className="text-amber-600">
+                      تم تعديل السعر يدويًا
+                    </span>
+                  ) : form.exchangeRate ? (
+                    <span className="text-emerald-600">
+                      تم تحميل السعر تلقائيًا
+                    </span>
+                  ) : (
+                    <span className="text-ink-300">
+                      يمكنك إدخال السعر يدويًا
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </div>

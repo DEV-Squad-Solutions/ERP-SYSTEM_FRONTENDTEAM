@@ -16,10 +16,6 @@ import {
   MANUAL_ENTRY_TYPES,
 } from "../journalEntriesApi";
 
-// =========================================================
-// Constants
-// =========================================================
-
 const ENTRY_TYPE_LABELS = {
   [JournalEntryType.Manual]: "يدوي",
   [JournalEntryType.Adjustment]: "تسوية",
@@ -33,14 +29,12 @@ const ENTRY_TYPE_OPTIONS = MANUAL_ENTRY_TYPES.map((value) => ({
 
 let nextLineId = 1;
 
-// =========================================================
-// Helpers
-// =========================================================
-
 function emptyLine() {
   return {
     key: `new-${nextLineId++}`,
     accountId: null,
+    partyType: null,
+    partyId: null,
     description: "",
     debit: "",
     credit: "",
@@ -57,22 +51,67 @@ function normalizeId(value) {
     return null;
   }
 
-  return value;
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : value;
 }
 
-// =========================================================
-// Component
-// =========================================================
+function buildAccountOptionValue(accountId, partyType = null, partyId = null) {
+  if (
+    partyType &&
+    partyId !== null &&
+    partyId !== undefined &&
+    partyId !== ""
+  ) {
+    return `party:${accountId}:${partyType}:${partyId}`;
+  }
+
+  return `account:${accountId}`;
+}
+
+function parseAccountOptionValue(value) {
+  if (!value) {
+    return {
+      accountId: null,
+      partyType: null,
+      partyId: null,
+    };
+  }
+
+  const stringValue = String(value);
+
+  if (stringValue.startsWith("party:")) {
+    const [, accountId, partyType, partyId] = stringValue.split(":");
+
+    return {
+      accountId: normalizeId(accountId),
+      partyType: partyType || null,
+      partyId: normalizeId(partyId),
+    };
+  }
+
+  if (stringValue.startsWith("account:")) {
+    const [, accountId] = stringValue.split(":");
+
+    return {
+      accountId: normalizeId(accountId),
+      partyType: null,
+      partyId: null,
+    };
+  }
+
+  return {
+    accountId: normalizeId(value),
+    partyType: null,
+    partyId: null,
+  };
+}
 
 export default function JournalEntryFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
 
   const isEdit = Boolean(id && id !== "new");
-
-  // =======================================================
-  // Existing Entry
-  // =======================================================
 
   const {
     data: existingEntry,
@@ -83,10 +122,6 @@ export default function JournalEntryFormPage() {
   } = useGetJournalEntryByIdQuery(id, {
     skip: !isEdit,
   });
-
-  // =======================================================
-  // Form State
-  // =======================================================
 
   const [fiscalYearId, setFiscalYearId] = useState(null);
 
@@ -100,33 +135,21 @@ export default function JournalEntryFormPage() {
 
   const [lines, setLines] = useState([emptyLine(), emptyLine()]);
 
-  // =======================================================
-  // Fiscal Years
-  // =======================================================
+  const [animatingLine, setAnimatingLine] = useState(null);
 
   const { data: fiscalYears, isLoading: isLoadingFiscalYears } =
     useGetFiscalYearsSelectQuery();
-
-  // =======================================================
-  // Accounts
-  // =======================================================
 
   const {
     data: accountOptionsRaw,
     isLoading: isLoadingAccounts,
     isFetching: isFetchingAccounts,
   } = useGetAccountJournalSelectQuery(
-    {
-      fiscalYearId,
-    },
+    { fiscalYearId },
     {
       skip: !fiscalYearId,
     },
   );
-
-  // =======================================================
-  // Mutations
-  // =======================================================
 
   const [createEntry, { isLoading: isCreating }] =
     useCreateJournalEntryMutation();
@@ -136,37 +159,16 @@ export default function JournalEntryFormPage() {
 
   const isSaving = isCreating || isUpdating;
 
-  // =======================================================
-  // Initialization Control
-  // =======================================================
-
   const initializedEntryRef = useRef(null);
-
-  const manuallyChangedFiscalYearRef = useRef(false);
-
-  // =======================================================
-  // Read Only
-  // =======================================================
-
-  const isAutomatic = existingEntry?.entryType === JournalEntryType.Automatic;
-
-  const isReadOnly = isEdit && isAutomatic;
-
-  // =======================================================
-  // Load Existing Entry
-  // =======================================================
 
   useEffect(() => {
     if (!existingEntry) return;
 
-    // منع إعادة تهيئة نفس القيد أكثر من مرة
     if (initializedEntryRef.current === existingEntry.id) {
       return;
     }
 
     initializedEntryRef.current = existingEntry.id;
-
-    manuallyChangedFiscalYearRef.current = false;
 
     setFiscalYearId(normalizeId(existingEntry.fiscalYearId));
 
@@ -183,6 +185,8 @@ export default function JournalEntryFormPage() {
         ? existingLines.map((line) => ({
             key: `existing-${line.id}`,
             accountId: normalizeId(line.accountId),
+            partyType: line.partyType ?? line.party?.partyType ?? null,
+            partyId: normalizeId(line.partyId ?? line.party?.id),
             description: line.description ?? "",
             debit:
               line.debit !== null && line.debit !== undefined
@@ -197,130 +201,283 @@ export default function JournalEntryFormPage() {
     );
   }, [existingEntry]);
 
-  // =======================================================
-  // Fiscal Year Change
-  // =======================================================
+  useEffect(() => {
+    if (isEdit) return;
+    if (fiscalYearId) return;
+    if (!Array.isArray(fiscalYears) || !fiscalYears.length) {
+      return;
+    }
+
+    const today = new Date();
+    const currentYear = today.getFullYear();
+
+    const flaggedCurrentYear = fiscalYears.find(
+      (year) =>
+        year?.isCurrent === true ||
+        year?.current === true ||
+        year?.isCurrentYear === true,
+    );
+
+    if (flaggedCurrentYear?.id) {
+      setFiscalYearId(normalizeId(flaggedCurrentYear.id));
+      return;
+    }
+
+    const dateMatchedYear = fiscalYears.find((year) => {
+      const startDate = year?.startDate ?? year?.fromDate ?? year?.dateFrom;
+
+      const endDate = year?.endDate ?? year?.toDate ?? year?.dateTo;
+
+      if (!startDate || !endDate) {
+        return false;
+      }
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      return today >= start && today <= end;
+    });
+
+    if (dateMatchedYear?.id) {
+      setFiscalYearId(normalizeId(dateMatchedYear.id));
+      return;
+    }
+
+    const currentYearMatch = fiscalYears.find((year) => {
+      const possibleValues = [year?.year, year?.name, year?.label, year?.code];
+
+      return possibleValues.some((value) =>
+        String(value ?? "").includes(String(currentYear)),
+      );
+    });
+
+    if (currentYearMatch?.id) {
+      setFiscalYearId(normalizeId(currentYearMatch.id));
+      return;
+    }
+
+    const latestYear = [...fiscalYears].sort((a, b) => {
+      const aValue = Number(a?.year ?? a?.name ?? a?.id ?? 0);
+
+      const bValue = Number(b?.year ?? b?.name ?? b?.id ?? 0);
+
+      return bValue - aValue;
+    })[0];
+
+    if (latestYear?.id) {
+      setFiscalYearId(normalizeId(latestYear.id));
+    }
+  }, [fiscalYears, fiscalYearId, isEdit]);
 
   const handleFiscalYearChange = (value) => {
     const nextFiscalYearId = normalizeId(value);
 
-    manuallyChangedFiscalYearRef.current = true;
-
     setFiscalYearId(nextFiscalYearId);
 
-    // لما المستخدم يغير السنة بنفسه،
-    // الحسابات القديمة قد لا تكون موجودة في السنة الجديدة.
     setLines((prev) =>
       prev.map((line) => ({
         ...line,
         accountId: null,
+        partyType: null,
+        partyId: null,
       })),
     );
   };
-
-  // =======================================================
-  // Options
-  // =======================================================
 
   const fiscalYearOptions = useMemo(
     () =>
       (fiscalYears ?? []).map((fiscalYear) => ({
         value: fiscalYear.id,
-        label: fiscalYear.name,
+        label:
+          fiscalYear.name ??
+          fiscalYear.label ??
+          fiscalYear.year ??
+          fiscalYear.id,
       })),
     [fiscalYears],
   );
-
-  // =======================================================
-  // Existing Account Options
-  //
-  // الهدف:
-  // عند فتح Edit، القيد يحتوي accountId بالفعل.
-  // لكن API الحسابات لسه بيجيب options.
-  //
-  // لذلك نضيف الحسابات الموجودة في القيد كـ fallback.
-  // =======================================================
 
   const existingAccountOptions = useMemo(() => {
     if (!existingEntry?.lines?.length) {
       return [];
     }
 
-    return existingEntry.lines
+    const options = [];
+
+    existingEntry.lines
       .filter((line) => line?.accountId)
-      .map((line) => {
+      .forEach((line) => {
         const accountId = normalizeId(line.accountId);
 
-        const accountCode = line.accountCode ?? line.account?.code ?? "";
+        const accountName =
+          line.accountName ?? line.account?.name ?? String(accountId);
 
-        const accountName = line.accountName ?? line.account?.name ?? "";
+        const partyId = normalizeId(line.partyId ?? line.party?.id);
 
-        let label = accountName || String(accountId);
+        const partyType = line.partyType ?? line.party?.partyType ?? null;
 
-        if (accountCode && accountName) {
-          label = `${accountCode} · ${accountName}`;
-        } else if (accountCode) {
-          label = `${accountCode}`;
+        if (partyType && partyId !== null && partyId !== undefined) {
+          const partyName =
+            line.partyName ?? line.party?.name ?? String(partyId);
+
+          options.push({
+            value: buildAccountOptionValue(accountId, partyType, partyId),
+            label: partyName,
+            accountId,
+            partyType,
+            partyId,
+          });
+
+          return;
         }
 
-        return {
-          value: accountId,
-          label,
-        };
+        options.push({
+          value: buildAccountOptionValue(accountId),
+          label: accountName,
+          accountId,
+          partyType: null,
+          partyId: null,
+        });
       });
+
+    return options;
   }, [existingEntry]);
 
-  // =======================================================
-  // API Account Options
-  // =======================================================
+  const apiAccountOptions = useMemo(() => {
+    const result = [];
 
-  const apiAccountOptions = useMemo(
-    () =>
-      (accountOptionsRaw ?? []).map((account) => ({
-        value: normalizeId(account.id ?? account.accountId ?? account.value),
+    const accounts = Array.isArray(accountOptionsRaw)
+      ? accountOptionsRaw
+      : (accountOptionsRaw?.data ?? []);
 
-        label:
-          account.code && account.name
-            ? `${account.code} · ${account.name}`
-            : (account.name ??
-              account.label ??
-              account.code ??
-              String(account.id ?? account.accountId ?? account.value ?? "")),
-      })),
-    [accountOptionsRaw],
-  );
+    accounts.forEach((account) => {
+      const accountId = normalizeId(
+        account.id ?? account.accountId ?? account.value,
+      );
 
-  // =======================================================
-  // Final Account Options
-  //
-  // API options لها الأولوية.
-  // Existing options تستخدم فقط لو الحساب مش موجود
-  // في الـ API response لسه.
-  // =======================================================
+      if (!accountId) return;
+
+      const accountName = account.name ?? account.label ?? String(accountId);
+
+      const partyGroups = Array.isArray(account.partyGroups)
+        ? account.partyGroups
+        : [];
+
+      if (partyGroups.length > 0) {
+        const partyOptions = [];
+
+        partyGroups.forEach((group) => {
+          const partyType = group?.partyType;
+
+          if (!partyType) return;
+
+          const parties = Array.isArray(group?.parties) ? group.parties : [];
+
+          parties.forEach((party) => {
+            const partyId = normalizeId(party?.id);
+
+            if (!partyId) return;
+
+            const partyName = party?.name ?? String(partyId);
+
+            partyOptions.push({
+              value: buildAccountOptionValue(accountId, partyType, partyId),
+              label: partyName,
+              accountId,
+              partyType,
+              partyId,
+            });
+          });
+        });
+
+        if (partyOptions.length > 0) {
+          result.push({
+            label: accountName,
+            options: partyOptions,
+          });
+
+          return;
+        }
+      }
+
+      result.push({
+        value: buildAccountOptionValue(accountId),
+        label: accountName,
+        accountId,
+        partyType: null,
+        partyId: null,
+      });
+    });
+
+    return result;
+  }, [accountOptionsRaw]);
 
   const accountOptions = useMemo(() => {
-    const map = new Map();
+    const normalOptions = [];
+    const groupedOptions = [];
 
-    // fallback أولًا
     existingAccountOptions.forEach((option) => {
       if (!option?.value) return;
 
-      map.set(String(option.value), option);
+      normalOptions.push(option);
     });
 
-    // API فوقها، وبالتالي الـ API له الأولوية
     apiAccountOptions.forEach((option) => {
-      if (!option?.value) return;
-
-      map.set(String(option.value), option);
+      if (Array.isArray(option?.options)) {
+        groupedOptions.push(option);
+      } else if (option?.value) {
+        normalOptions.push(option);
+      }
     });
 
-    return Array.from(map.values());
+    const normalMap = new Map();
+
+    normalOptions.forEach((option) => {
+      const key = String(option.value);
+
+      normalMap.set(key, option);
+    });
+
+    const groupedMap = new Map();
+
+    groupedOptions.forEach((group) => {
+      const groupOptions = [];
+      const seen = new Set();
+
+      (group.options ?? []).forEach((option) => {
+        const key = String(option.value);
+
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        groupOptions.push(option);
+      });
+
+      if (groupOptions.length > 0) {
+        groupedMap.set(group.label, {
+          ...group,
+          options: groupOptions,
+        });
+      }
+    });
+
+    return [
+      ...Array.from(groupedMap.values()),
+      ...Array.from(normalMap.values()),
+    ];
   }, [existingAccountOptions, apiAccountOptions]);
 
-  // =======================================================
-  // Totals
-  // =======================================================
+  const getLineSelectValue = (line) => {
+    if (!line?.accountId) {
+      return null;
+    }
+
+    return buildAccountOptionValue(
+      line.accountId,
+      line.partyType,
+      line.partyId,
+    );
+  };
 
   const totalDebit = useMemo(
     () => lines.reduce((sum, line) => sum + toNumber(line.debit), 0),
@@ -331,12 +488,6 @@ export default function JournalEntryFormPage() {
     () => lines.reduce((sum, line) => sum + toNumber(line.credit), 0),
     [lines],
   );
-
-  const isBalanced = totalDebit > 0 && totalDebit === totalCredit;
-
-  // =======================================================
-  // Lines
-  // =======================================================
 
   const updateLine = (key, patch) => {
     setLines((prev) =>
@@ -351,84 +502,93 @@ export default function JournalEntryFormPage() {
     );
   };
 
-  // -------------------------------------------------------
-  // Debit
-  // -------------------------------------------------------
+  const handleAccountChange = (key, value) => {
+    const parsed = parseAccountOptionValue(value);
+
+    updateLine(key, {
+      accountId: parsed.accountId,
+      partyType: parsed.partyType,
+      partyId: parsed.partyId,
+    });
+  };
 
   const handleDebitChange = (key, value) => {
     updateLine(key, {
       debit: value,
-      credit: value ? "" : undefined,
+      credit: "",
     });
   };
-
-  // -------------------------------------------------------
-  // Credit
-  // -------------------------------------------------------
 
   const handleCreditChange = (key, value) => {
     updateLine(key, {
       credit: value,
-      debit: value ? "" : undefined,
+      debit: "",
     });
   };
 
-  // -------------------------------------------------------
-  // Add
-  // -------------------------------------------------------
-
   const addLine = () => {
-    setLines((prev) => [...prev, emptyLine()]);
-  };
+    const newLine = emptyLine();
 
-  // -------------------------------------------------------
-  // Remove
-  // -------------------------------------------------------
+    setLines((prev) => [...prev, newLine]);
+
+    setAnimatingLine(newLine.key);
+
+    window.setTimeout(() => {
+      setAnimatingLine(null);
+    }, 450);
+  };
 
   const removeLine = (key) => {
-    setLines((prev) =>
-      prev.length > 2 ? prev.filter((line) => line.key !== key) : prev,
-    );
+    if (lines.length <= 2) {
+      return;
+    }
+
+    setAnimatingLine(`remove-${key}`);
+
+    window.setTimeout(() => {
+      setLines((prev) => prev.filter((line) => line.key !== key));
+
+      setAnimatingLine(null);
+    }, 180);
   };
 
-  // =======================================================
-  // Validation
-  // =======================================================
-
-  const canSave =
-    !isReadOnly &&
-    Boolean(fiscalYearId) &&
-    Boolean(entryDate) &&
-    Boolean(description.trim()) &&
-    isBalanced &&
-    lines.length >= 2 &&
-    lines.every(
-      (line) =>
-        line.accountId &&
-        (toNumber(line.debit) > 0 || toNumber(line.credit) > 0),
-    );
-
-  // =======================================================
-  // Save
-  // =======================================================
-
   const handleSave = async () => {
-    if (!canSave || isSaving) {
+    if (isSaving) {
       return;
     }
 
     const payload = {
       fiscalYearId,
+
       entryDate,
-      description: description.trim(),
+
+      description: description.trim() || undefined,
+
       entryType,
 
-      lines: lines.map((line) => ({
-        accountId: line.accountId,
-        description: line.description?.trim() || undefined,
-        debit: toNumber(line.debit),
-        credit: toNumber(line.credit),
-      })),
+      lines: lines.map((line) => {
+        const payloadLine = {
+          accountId: line.accountId,
+
+          description: line.description?.trim() || undefined,
+
+          debit: toNumber(line.debit),
+
+          credit: toNumber(line.credit),
+        };
+
+        if (
+          line.partyType &&
+          line.partyId !== null &&
+          line.partyId !== undefined
+        ) {
+          payloadLine.partyType = line.partyType;
+
+          payloadLine.partyId = line.partyId;
+        }
+
+        return payloadLine;
+      }),
     };
 
     try {
@@ -448,50 +608,38 @@ export default function JournalEntryFormPage() {
     }
   };
 
-  // =======================================================
-  // Initial Loading
-  // =======================================================
-
   if (isEdit && isLoadingEntry) {
     return (
       <div
         dir="rtl"
-        className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 px-3 py-4 sm:px-5 sm:py-5 lg:px-8 lg:py-6"
+        className="min-h-screen w-full overflow-x-hidden bg-slate-50 px-3 py-5 sm:px-5 lg:px-8 lg:py-7"
       >
-        <div className="mx-auto w-full max-w-[1600px]">
-          {/* Breadcrumb Skeleton */}
+        <div className="mx-auto w-full max-w-[1600px] animate-pulse">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <div>
+              <div className="mb-3 h-7 w-52 rounded-lg bg-slate-200" />
+              <div className="h-4 w-80 rounded bg-slate-100" />
+            </div>
 
-          <div className="mb-4 h-3 w-48 animate-pulse rounded bg-gray-200" />
-
-          {/* Header Skeleton */}
-
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="h-8 w-52 animate-pulse rounded-lg bg-gray-200" />
-
-            <div className="h-10 w-full animate-pulse rounded-lg bg-gray-200 sm:w-32" />
+            <div className="h-10 w-32 rounded-xl bg-slate-200" />
           </div>
 
-          {/* Form Skeleton */}
-
-          <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {Array.from({
                 length: 4,
               }).map((_, index) => (
                 <div key={index}>
-                  <div className="mb-2 h-3 w-24 animate-pulse rounded bg-gray-200" />
-
-                  <div className="h-10 w-full animate-pulse rounded-lg bg-gray-100" />
+                  <div className="mb-2 h-3 w-24 rounded bg-slate-200" />
+                  <div className="h-10 rounded-xl bg-slate-100" />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Lines Skeleton */}
-
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-4 py-4 sm:px-6">
-              <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 p-5">
+              <div className="h-4 w-36 rounded bg-slate-200" />
             </div>
 
             {Array.from({
@@ -499,13 +647,16 @@ export default function JournalEntryFormPage() {
             }).map((_, index) => (
               <div
                 key={index}
-                className="grid grid-cols-1 gap-3 border-b border-gray-50 p-4 md:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_130px_130px_40px]"
+                className="grid grid-cols-1 gap-3 border-b border-slate-50 p-4 md:grid-cols-[minmax(220px,1fr)_minmax(180px,1fr)_130px_130px_44px]"
               >
-                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
-                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
-                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
-                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
-                <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+                {Array.from({
+                  length: 5,
+                }).map((__, childIndex) => (
+                  <div
+                    key={childIndex}
+                    className="h-10 rounded-xl bg-slate-100"
+                  />
+                ))}
               </div>
             ))}
           </div>
@@ -514,137 +665,144 @@ export default function JournalEntryFormPage() {
     );
   }
 
-  // =======================================================
-  // Entry Error
-  // =======================================================
-
   if (isEdit && isEntryError) {
     return (
       <div
         dir="rtl"
-        className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 px-3 py-6 sm:px-5 lg:px-8"
+        className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4"
       >
-        <div className="mx-auto flex min-h-[50vh] max-w-[600px] items-center justify-center">
-          <div className="w-full rounded-2xl border border-red-100 bg-white p-6 text-center shadow-sm">
-            <div className="mb-3 text-3xl">⚠️</div>
+        <div className="w-full max-w-lg animate-[fadeIn_.35s_ease-out] rounded-3xl border border-red-100 bg-white p-7 text-center shadow-xl shadow-red-100/40">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-3xl">
+            ⚠️
+          </div>
 
-            <h2 className="mb-2 text-lg font-bold text-gray-900">
-              تعذر تحميل القيد
-            </h2>
+          <h2 className="mb-2 text-xl font-bold text-slate-900">
+            تعذر تحميل القيد
+          </h2>
 
-            <p className="mb-5 text-sm leading-6 text-gray-500">
-              حصلت مشكلة أثناء تحميل بيانات القيد. حاول مرة أخرى.
-            </p>
+          <p className="mb-6 text-sm leading-6 text-slate-500">
+            حصلت مشكلة أثناء تحميل بيانات القيد. حاول مرة أخرى.
+          </p>
 
-            <div className="flex flex-col justify-center gap-2 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => refetchEntry()}
-                className="rounded-lg bg-emerald-800 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-900"
-              >
-                إعادة المحاولة
-              </button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={() => refetchEntry()}
+              className="rounded-xl bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-700/15 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-800 active:translate-y-0"
+            >
+              إعادة المحاولة
+            </button>
 
-              <button
-                type="button"
-                onClick={() => navigate("/dashboard/journal-entries")}
-                className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm text-gray-600 transition hover:bg-gray-50"
-              >
-                العودة للقيود
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/journal-entries")}
+              className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50"
+            >
+              العودة للقيود
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // =======================================================
-  // Render
-  // =======================================================
-
   return (
     <div
       dir="rtl"
-      className="min-h-screen w-full max-w-full overflow-x-hidden bg-gray-50 px-3 py-4 sm:px-5 sm:py-5 lg:px-8 lg:py-6"
+      className="min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-7"
     >
       <div className="mx-auto w-full max-w-[1600px]">
-        {/* =================================================
-            Header
-        ================================================= */}
-
-        <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-gray-900 sm:text-2xl">
-              {isEdit ? "تعديل قيد" : "قيد يدوي جديد"}
+            <div className="mb-2 flex items-center gap-2">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+
+              <span className="text-xs font-semibold text-emerald-700">
+                المحاسبة
+              </span>
+            </div>
+
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
+              {isEdit ? "تعديل القيد" : "قيد يدوي جديد"}
             </h1>
 
-            <p className="mt-1 text-xs text-gray-500 sm:text-sm">
-              إدخال ومراجعة الحسابات المدينة والدائنة للقيد.
+            <p className="mt-1.5 text-sm text-slate-500">
+              أدخل تفاصيل القيد والحسابات المرتبطة به بطريقة سريعة وواضحة.
             </p>
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
             <button
               type="button"
               onClick={() => navigate("/dashboard/journal-entries")}
-              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 transition hover:bg-gray-50 sm:w-auto"
+              className="group w-full rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md sm:w-auto"
             >
               إلغاء
             </button>
 
             <button
               type="button"
-              disabled={!canSave || isSaving}
+              disabled={isSaving}
               onClick={handleSave}
-              className="w-full rounded-lg bg-emerald-800 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:bg-emerald-800/40 sm:w-auto"
+              className="group relative w-full overflow-hidden rounded-xl bg-emerald-700 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-xl hover:shadow-emerald-700/25 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             >
-              {isSaving ? "جارِ الحفظ..." : "حفظ القيد"}
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                {isSaving && (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                )}
+
+                {isSaving
+                  ? "جارِ الحفظ..."
+                  : isEdit
+                    ? "حفظ التعديلات"
+                    : "حفظ القيد"}
+              </span>
+
+              {!isSaving && (
+                <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0" />
+              )}
             </button>
           </div>
         </div>
 
-        {/* =================================================
-            Automatic Entry Warning
-        ================================================= */}
+        <section className="mb-5 overflow-visible rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-sm transition-shadow duration-300 hover:shadow-md sm:p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="text-sm font-black">01</span>
+            </div>
 
-        {isReadOnly && (
-          <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-            ده قيد تلقائي مولّد من مستند أصلي. تعديله أو حذفه بيتم من المستند
-            نفسه مش من هنا.
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">بيانات القيد</h2>
+
+              <p className="text-xs text-slate-400">
+                البيانات الأساسية للقيد المحاسبي
+              </p>
+            </div>
           </div>
-        )}
 
-        {/* =================================================
-            Entry Header
-        ================================================= */}
-
-        <section className="mb-4 w-full rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {/* Fiscal Year */}
-
-            <div className="min-w-0">
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+            <div className="group min-w-0">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">
                 السنة المالية
               </label>
 
-              <CompactSelect
-                value={fiscalYearId}
-                onChange={handleFiscalYearChange}
-                options={fiscalYearOptions}
-                placeholder={
-                  isLoadingFiscalYears
-                    ? "جارِ تحميل السنوات..."
-                    : "اختر السنة..."
-                }
-                isDisabled={isReadOnly || isLoadingFiscalYears}
-              />
+              <div className="transition-transform duration-200 group-focus-within:-translate-y-0.5">
+                <CompactSelect
+                  value={fiscalYearId}
+                  onChange={handleFiscalYearChange}
+                  options={fiscalYearOptions}
+                  placeholder={
+                    isLoadingFiscalYears
+                      ? "جارِ تحميل السنوات..."
+                      : "اختر السنة..."
+                  }
+                  isDisabled={isLoadingFiscalYears}
+                />
+              </div>
             </div>
 
-            {/* Entry Date */}
-
-            <div className="min-w-0">
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+            <div className="group min-w-0">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">
                 تاريخ القيد
               </label>
 
@@ -652,31 +810,27 @@ export default function JournalEntryFormPage() {
                 type="date"
                 value={entryDate}
                 onChange={(event) => setEntryDate(event.target.value)}
-                disabled={isReadOnly}
-                className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition-all duration-200 hover:border-slate-300 focus:-translate-y-0.5 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               />
             </div>
 
-            {/* Entry Type */}
-
-            <div className="min-w-0">
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+            <div className="group min-w-0">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">
                 نوع القيد
               </label>
 
-              <CompactSelect
-                value={entryType}
-                onChange={setEntryType}
-                options={ENTRY_TYPE_OPTIONS}
-                placeholder="اختر نوع القيد..."
-                isDisabled={isReadOnly}
-              />
+              <div className="transition-transform duration-200 group-focus-within:-translate-y-0.5">
+                <CompactSelect
+                  value={entryType}
+                  onChange={setEntryType}
+                  options={ENTRY_TYPE_OPTIONS}
+                  placeholder="اختر نوع القيد..."
+                />
+              </div>
             </div>
 
-            {/* Description */}
-
-            <div className="min-w-0 sm:col-span-2 xl:col-span-1">
-              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+            <div className="group min-w-0 sm:col-span-2 xl:col-span-1">
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">
                 البيان
               </label>
 
@@ -684,52 +838,43 @@ export default function JournalEntryFormPage() {
                 type="text"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                disabled={isReadOnly}
                 placeholder="وصف القيد..."
-                className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-300 hover:border-slate-300 focus:-translate-y-0.5 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               />
             </div>
           </div>
         </section>
 
-        {/* =================================================
-            Accounts Section
-        ================================================= */}
+        <section className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow duration-300 hover:shadow-md">
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                <span className="text-sm font-black">02</span>
+              </div>
 
-        <section className="w-full min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {/* Section Header */}
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  تفاصيل القيد
+                </h2>
 
-          <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-900">
-                تفاصيل القيد
-              </h2>
-
-              <p className="mt-0.5 text-xs text-gray-400">
-                أضف الحسابات والقيم المدينة والدائنة.
-              </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  اختر الحساب أو الطرف ثم أدخل القيمة المدينة أو الدائنة.
+                </p>
+              </div>
             </div>
 
-            {/* Account Loading */}
-
             {fiscalYearId && (isLoadingAccounts || isFetchingAccounts) && (
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-emerald-700" />
+              <div className="flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 animate-[fadeIn_.25s_ease-out]">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-700" />
                 جارِ تحميل الحسابات...
               </div>
             )}
           </div>
 
-          {/* =================================================
-              Desktop / Tablet Table
-          ================================================= */}
-
           <div className="w-full overflow-x-auto">
             <div className="min-w-[900px]">
-              {/* Table Header */}
-
-              <div className="grid grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_130px_130px_44px] items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-4 py-3 text-xs font-medium text-gray-400 sm:px-6">
-                <span>الحساب</span>
+              <div className="grid grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_130px_130px_44px] items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-3 text-[11px] font-bold text-slate-400 sm:px-6">
+                <span>الحساب / الطرف</span>
 
                 <span>البيان</span>
 
@@ -740,207 +885,241 @@ export default function JournalEntryFormPage() {
                 <span />
               </div>
 
-              {/* =================================================
-                  Lines
-              ================================================= */}
+              {lines.map((line, index) => {
+                const selectedValue = getLineSelectValue(line);
 
-              {lines.map((line) => (
-                <div
-                  key={line.key}
-                  className="grid grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_130px_130px_44px] items-center gap-2 border-b border-gray-50 px-4 py-2.5 transition-colors last:border-b-0 hover:bg-gray-50/50 sm:px-6"
-                >
-                  {/* Account */}
+                const isAdding = animatingLine === line.key;
 
-                  <div className="min-w-0">
-                    <CompactSelect
-                      value={line.accountId}
-                      onChange={(value) =>
-                        updateLine(line.key, {
-                          accountId: normalizeId(value),
-                        })
-                      }
-                      options={accountOptions}
-                      placeholder={
-                        fiscalYearId
-                          ? "اختر الحساب..."
-                          : "اختر السنة المالية أولاً"
-                      }
-                      isDisabled={isReadOnly || !fiscalYearId}
-                    />
+                const isRemoving = animatingLine === `remove-${line.key}`;
+
+                return (
+                  <div
+                    key={line.key}
+                    className={[
+                      "group grid grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_130px_130px_44px] items-center gap-2 border-b border-slate-50 px-4 py-3 transition-all duration-200 last:border-b-0 sm:px-6",
+                      "hover:bg-emerald-50/30",
+                      isAdding ? "animate-[slideIn_.35s_ease-out]" : "",
+                      isRemoving ? "scale-[0.98] opacity-0" : "",
+                    ].join(" ")}
+                  >
+                    <div className="min-w-0">
+                      <CompactSelect
+                        value={selectedValue}
+                        onChange={(value) =>
+                          handleAccountChange(line.key, value)
+                        }
+                        options={accountOptions}
+                        placeholder={
+                          fiscalYearId
+                            ? "اختر الحساب أو الطرف..."
+                            : "اختر السنة المالية أولاً"
+                        }
+                        isDisabled={
+                          !fiscalYearId ||
+                          isLoadingAccounts ||
+                          isFetchingAccounts
+                        }
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <input
+                        type="text"
+                        value={line.description}
+                        onChange={(event) =>
+                          updateLine(line.key, {
+                            description: event.target.value,
+                          })
+                        }
+                        placeholder="بيان السطر (اختياري)"
+                        className="w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-300 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={line.debit}
+                        onChange={(event) =>
+                          handleDebitChange(line.key, event.target.value)
+                        }
+                        placeholder="0.00"
+                        className="num w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-300 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={line.credit}
+                        onChange={(event) =>
+                          handleCreditChange(line.key, event.target.value)
+                        }
+                        placeholder="0.00"
+                        className="num w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm font-medium text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-300 hover:border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      />
+                    </div>
+
+                    <div className="flex justify-center">
+                      <button
+                        type="button"
+                        disabled={lines.length <= 2}
+                        onClick={() => removeLine(line.key)}
+                        className="flex h-8 w-8 items-center justify-center rounded-xl text-lg font-light text-slate-300 opacity-0 transition-all duration-200 hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 disabled:pointer-events-none disabled:opacity-0"
+                        title="حذف السطر"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <div className="pointer-events-none absolute" />
                   </div>
-
-                  {/* Description */}
-
-                  <div className="min-w-0">
-                    <input
-                      type="text"
-                      value={line.description}
-                      onChange={(event) =>
-                        updateLine(line.key, {
-                          description: event.target.value,
-                        })
-                      }
-                      disabled={isReadOnly}
-                      placeholder="بيان السطر (اختياري)"
-                      className="w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
-                    />
-                  </div>
-
-                  {/* Debit */}
-
-                  <div className="min-w-0">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={line.debit}
-                      onChange={(event) =>
-                        handleDebitChange(line.key, event.target.value)
-                      }
-                      disabled={isReadOnly}
-                      placeholder="0.00"
-                      className="num w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
-                    />
-                  </div>
-
-                  {/* Credit */}
-
-                  <div className="min-w-0">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={line.credit}
-                      onChange={(event) =>
-                        handleCreditChange(line.key, event.target.value)
-                      }
-                      disabled={isReadOnly}
-                      placeholder="0.00"
-                      className="num w-full min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-left text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-gray-50"
-                    />
-                  </div>
-
-                  {/* Remove */}
-
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      disabled={isReadOnly || lines.length <= 2}
-                      onClick={() => removeLine(line.key)}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-sm text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-30"
-                      title="حذف السطر"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* =================================================
-              Add Line
-          ================================================= */}
-
-          {!isReadOnly && (
-            <div className="border-b border-gray-50 px-4 py-3 sm:px-6">
-              <button
-                type="button"
-                onClick={addLine}
-                className="rounded-lg px-2 py-1 text-sm font-medium text-emerald-700 transition hover:bg-emerald-50"
-              >
-                + إضافة سطر
-              </button>
-            </div>
-          )}
-
-          {/* =================================================
-              Totals
-          ================================================= */}
-
-          <div className="grid grid-cols-2 gap-3 bg-gray-50 px-4 py-4 sm:grid-cols-[1fr_180px_180px] sm:px-6">
-            <div className="col-span-2 flex items-center text-sm font-semibold text-gray-500 sm:col-span-1">
-              الإجمالي
-            </div>
-
-            <div
-              className={`flex items-center justify-between rounded-lg bg-white px-3 py-2 sm:block sm:text-left ${
-                !isBalanced ? "text-red-600" : "text-gray-900"
-              }`}
+          <div className="border-b border-slate-100 px-4 py-3 sm:px-6">
+            <button
+              type="button"
+              onClick={addLine}
+              className="group flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold text-emerald-700 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-800"
             >
-              <span className="mr-2 text-xs text-gray-400 sm:hidden">مدين</span>
-
-              <span className="num text-sm font-semibold">
-                {totalDebit.toFixed(2)}
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-50 text-base transition-transform duration-200 group-hover:rotate-90 group-hover:bg-emerald-100">
+                +
               </span>
-            </div>
+              إضافة سطر
+            </button>
+          </div>
 
-            <div
-              className={`flex items-center justify-between rounded-lg bg-white px-3 py-2 sm:block sm:text-left ${
-                !isBalanced ? "text-red-600" : "text-gray-900"
-              }`}
-            >
-              <span className="mr-2 text-xs text-gray-400 sm:hidden">دائن</span>
+          <div className="bg-gradient-to-l from-slate-50 to-white px-4 py-4 sm:px-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xs font-black text-slate-500">
+                  Σ
+                </div>
 
-              <span className="num text-sm font-semibold">
-                {totalCredit.toFixed(2)}
-              </span>
+                <div>
+                  <p className="text-xs font-semibold text-slate-400">
+                    إجمالي القيد
+                  </p>
+
+                  <p className="text-sm font-bold text-slate-700">
+                    إجمالي المدين والدائن
+                  </p>
+                </div>
+              </div>
+
+              <div className="group rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-400">
+                    مدين
+                  </span>
+
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 transition-transform duration-200 group-hover:scale-125" />
+                </div>
+
+                <span className="num block text-lg font-black text-slate-900">
+                  {totalDebit.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="group rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-400">
+                    دائن
+                  </span>
+
+                  <span className="h-2 w-2 rounded-full bg-blue-500 transition-transform duration-200 group-hover:scale-125" />
+                </div>
+
+                <span className="num block text-lg font-black text-slate-900">
+                  {totalCredit.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
         </section>
-
-        {/* =================================================
-            Balance Warning
-        ================================================= */}
-
-        {!isBalanced && (
-          <div className="mt-2 flex items-center gap-2 text-xs text-red-600">
-            <span>⚠</span>
-
-            <span>مجموع المدين لازم يساوي مجموع الدائن قبل الحفظ.</span>
-          </div>
-        )}
-
-        {/* =================================================
-            Bottom Save Actions
-        ================================================= */}
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={() => navigate("/dashboard/journal-entries")}
-            className="w-full rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm text-gray-600 transition hover:bg-gray-50 sm:w-auto"
+            className="w-full rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-600 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md sm:w-auto"
           >
             إلغاء
           </button>
 
-          {!isReadOnly && (
-            <button
-              type="button"
-              disabled={!canSave || isSaving}
-              onClick={handleSave}
-              className="w-full rounded-lg bg-emerald-800 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:bg-emerald-800/40 sm:w-auto"
-            >
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={handleSave}
+            className="group relative w-full overflow-hidden rounded-xl bg-emerald-700 px-7 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-700/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-800 hover:shadow-xl active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            <span className="relative z-10 flex items-center justify-center gap-2">
+              {isSaving && (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              )}
+
               {isSaving
                 ? "جارِ الحفظ..."
                 : isEdit
                   ? "حفظ التعديلات"
                   : "حفظ القيد"}
-            </button>
-          )}
+            </span>
+
+            {!isSaving && (
+              <span className="absolute inset-0 -translate-x-full bg-white/10 transition-transform duration-500 group-hover:translate-x-0" />
+            )}
+          </button>
         </div>
 
-        {/* =================================================
-            Background Fetch Indicator
-        ================================================= */}
-
         {isEdit && isFetchingEntry && !isLoadingEntry && (
-          <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
-            <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs text-gray-500 shadow-lg">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-200 border-t-emerald-700" />
+          <div className="pointer-events-none fixed bottom-5 left-1/2 z-50 -translate-x-1/2 animate-[slideUp_.25s_ease-out]">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-medium text-slate-500 shadow-xl shadow-slate-900/10">
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-emerald-700" />
               تحديث البيانات...
             </div>
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translate(-50%, 10px);
+          }
+          to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

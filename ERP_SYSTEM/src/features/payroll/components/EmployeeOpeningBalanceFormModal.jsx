@@ -1,16 +1,14 @@
 // features/payroll/components/EmployeeOpeningBalanceFormModal.jsx
+
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Save, Loader2 } from "lucide-react";
-
 import {
   useCreateEmployeeOpeningBalanceMutation,
   useUpdateEmployeeOpeningBalanceMutation,
   useGetEmployeesSelectQuery,
 } from "../payrollApi";
-
-import { currencyOptions, balanceTypeOptions } from "../payroll.constants";
-
+import { balanceTypeOptions } from "../payroll.constants";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
@@ -21,17 +19,16 @@ function getToday() {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 }
 
 const emptyForm = {
   employeeId: "",
   documentDate: getToday(),
-  currency: "EGP",
   balanceType: "Debit",
   amount: "",
   notes: "",
-  exchangeRate: 1,
 };
 
 export default function EmployeeOpeningBalanceFormModal({
@@ -46,6 +43,7 @@ export default function EmployeeOpeningBalanceFormModal({
 
   const [createBalance, { isLoading: isCreating }] =
     useCreateEmployeeOpeningBalanceMutation();
+
   const [updateBalance, { isLoading: isUpdating }] =
     useUpdateEmployeeOpeningBalanceMutation();
 
@@ -59,19 +57,23 @@ export default function EmployeeOpeningBalanceFormModal({
       setForm({
         employeeId: String(balance.employeeId || ""),
         documentDate: balance.documentDate || getToday(),
-        currency: balance.currency || "EGP",
         balanceType: balance.balanceType || "Debit",
         amount: balance.amount ?? "",
         notes: balance.notes || "",
-        exchangeRate: balance.exchangeRate ?? 1,
       });
     } else {
-      setForm(emptyForm);
+      setForm({
+        ...emptyForm,
+        documentDate: getToday(),
+      });
     }
   }, [isOpen, balance]);
 
   const setField = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
   };
 
   const handleSubmit = async () => {
@@ -93,25 +95,33 @@ export default function EmployeeOpeningBalanceFormModal({
     const payload = {
       employeeId: Number(form.employeeId),
       documentDate: form.documentDate,
-      currency: form.currency,
+
+      // العملة ثابتة بالجنيه المصري
+      currency: "EGP",
+
       balanceType: form.balanceType,
       amount: Number(form.amount),
       notes: form.notes || undefined,
-      exchangeRate: Number(form.exchangeRate) || 1,
     };
 
     try {
       if (isEditing) {
-        await updateBalance({ id: balance.id, ...payload }).unwrap();
+        await updateBalance({
+          id: balance.id,
+          ...payload,
+        }).unwrap();
+
         toast.success("تم تعديل الرصيد الافتتاحي بنجاح");
       } else {
         await createBalance(payload).unwrap();
+
         toast.success("تم إنشاء الرصيد الافتتاحي بنجاح");
       }
 
       onSaved?.();
     } catch (error) {
       console.error("Employee opening balance save error:", error);
+
       toast.error(
         error?.data?.message ||
           error?.data?.title ||
@@ -127,6 +137,7 @@ export default function EmployeeOpeningBalanceFormModal({
       title={isEditing ? "تعديل رصيد افتتاحي" : "رصيد افتتاحي جديد"}
     >
       <div className="space-y-3">
+        {/* الموظف */}
         <div>
           <label className="block text-xs font-medium text-ink-400 mb-1">
             الموظف
@@ -146,6 +157,7 @@ export default function EmployeeOpeningBalanceFormModal({
           />
         </div>
 
+        {/* التاريخ + نوع الرصيد */}
         <div className="grid grid-cols-2 gap-3">
           <Input
             label="تاريخ المستند"
@@ -167,42 +179,29 @@ export default function EmployeeOpeningBalanceFormModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="القيمة"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.amount}
-            onChange={(event) => setField("amount", event.target.value)}
-            placeholder="0.00"
-          />
+        {/* القيمة */}
+        <Input
+          label="القيمة بالجنيه المصري"
+          type="number"
+          min="0"
+          step="0.01"
+          value={form.amount}
+          onChange={(event) => setField("amount", event.target.value)}
+          placeholder="0.00"
+        />
 
-          <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
-              العملة
-            </label>
+        {/* العملة ثابتة */}
+        <div className="rounded-lg bg-ink-50 border border-ink-100 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-ink-500">العملة</span>
 
-            <CompactSelect
-              options={currencyOptions}
-              value={form.currency}
-              onChange={(value) => setField("currency", value)}
-            />
+            <span className="text-sm font-semibold text-ink-900">
+              جنيه مصري (EGP)
+            </span>
           </div>
         </div>
 
-        {form.currency !== "EGP" && (
-          <Input
-            label="سعر الصرف"
-            type="number"
-            min="0"
-            step="0.0001"
-            value={form.exchangeRate}
-            onChange={(event) => setField("exchangeRate", event.target.value)}
-            placeholder="1.00"
-          />
-        )}
-
+        {/* الملاحظات */}
         <div>
           <label className="block text-xs font-medium text-ink-400 mb-1">
             ملاحظات
@@ -217,6 +216,7 @@ export default function EmployeeOpeningBalanceFormModal({
           />
         </div>
 
+        {/* الأزرار */}
         <div className="flex items-center justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             إلغاء
@@ -228,6 +228,7 @@ export default function EmployeeOpeningBalanceFormModal({
             ) : (
               <Save size={14} />
             )}
+
             {isSaving ? "جارِ الحفظ..." : "حفظ"}
           </Button>
         </div>

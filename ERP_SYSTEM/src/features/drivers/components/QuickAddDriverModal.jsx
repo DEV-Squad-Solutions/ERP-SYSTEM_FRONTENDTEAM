@@ -90,9 +90,7 @@ export default function QuickAddDriverModal({
       onSaved?.(saved);
 
       onClose();
-    } catch {
-      toast.error(isEdit ? "فشل تحديث السائق" : "فشل إضافة السائق");
-    }
+    } catch {}
   };
 
   return (

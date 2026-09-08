@@ -298,11 +298,7 @@ export default function StoreInventoryTab({
       <QuickAddItemModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        onCreated={() => {
-          toast.info(
-            "الصنف اتضاف بنجاح. مش هيظهر في رصيد المخزن ده إلا بعد ما تسجّل له رصيد افتتاحي أو أول حركة عليه.",
-          );
-        }}
+        onCreated={() => {}}
       />
 
       {selectedItem && (
@@ -481,325 +477,319 @@ function ItemBalanceModal({
 
   return (
     <Modal isOpen={isOpen} wide onClose={onClose} title="تفاصيل تكلفة الصنف">
+      <div className="py-5 max-h-[70vh] overflow-y-auto">
+        {isLoading && (
+          <div className="py-14 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-7 h-7 text-ink-400 animate-spin mb-3" />
 
+            <p className="text-sm text-ink-500">
+              جاري تحميل تفاصيل تكلفة الصنف...
+            </p>
+          </div>
+        )}
 
-        <div className="py-5 max-h-[70vh] overflow-y-auto">
-          {isLoading && (
-            <div className="py-14 flex flex-col items-center justify-center text-center">
-              <Loader2 className="w-7 h-7 text-ink-400 animate-spin mb-3" />
-
-              <p className="text-sm text-ink-500">
-                جاري تحميل تفاصيل تكلفة الصنف...
-              </p>
+        {isError && !isLoading && (
+          <div className="py-14 text-center">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3">
+              <ReceiptText className="w-5 h-5" />
             </div>
-          )}
 
-          {isError && !isLoading && (
-            <div className="py-14 text-center">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-3">
-                <ReceiptText className="w-5 h-5" />
-              </div>
+            <p className="text-sm font-medium text-rose-600">
+              تعذر تحميل تفاصيل الصنف
+            </p>
 
-              <p className="text-sm font-medium text-rose-600">
-                تعذر تحميل تفاصيل الصنف
-              </p>
+            <p className="text-xs text-ink-400 mt-1">
+              حاول إغلاق النافذة وفتح التفاصيل مرة أخرى.
+            </p>
+          </div>
+        )}
 
-              <p className="text-xs text-ink-400 mt-1">
-                حاول إغلاق النافذة وفتح التفاصيل مرة أخرى.
-              </p>
+        {data && !isLoading && !isError && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <DetailCard label="المخزن" value={data.storeName} />
+
+              <DetailCard label="الوحدة" value={data.itemUnitName} />
+
+              <DetailCard
+                label="الكمية الحالية"
+                value={fmt(data.currentQuantity)}
+              />
+
+              <DetailCard
+                label="تاريخ الرصيد"
+                value={formatDisplayDate(data.asOfDate)}
+              />
             </div>
-          )}
 
-          {data && !isLoading && !isError && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <DetailCard label="المخزن" value={data.storeName} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
+                <p className="text-xs text-ink-500 mb-2">متوسط التكلفة</p>
 
-                <DetailCard label="الوحدة" value={data.itemUnitName} />
-
-                <DetailCard
-                  label="الكمية الحالية"
-                  value={fmt(data.currentQuantity)}
-                />
-
-                <DetailCard
-                  label="تاريخ الرصيد"
-                  value={formatDisplayDate(data.asOfDate)}
-                />
+                <p className="text-lg font-bold text-ink-900">
+                  {fmt(data.averageCost)}
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
-                  <p className="text-xs text-ink-500 mb-2">متوسط التكلفة</p>
+              <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
+                <p className="text-xs text-ink-500 mb-2">قيمة المخزون</p>
 
-                  <p className="text-lg font-bold text-ink-900">
-                    {fmt(data.averageCost)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-ink-100 bg-ink-50/60 p-4">
-                  <p className="text-xs text-ink-500 mb-2">قيمة المخزون</p>
-
-                  <p className="text-lg font-bold text-ink-900">
-                    {fmt(data.inventoryValue)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-4">
-                  <p className="text-xs text-primary-600 mb-2">
-                    التكلفة شاملة مصروفات التسعير
-                  </p>
-
-                  <p className="text-lg font-bold text-primary-700">
-                    {fmt(data.totalCostWithPricingExpenses)}
-                  </p>
-                </div>
+                <p className="text-lg font-bold text-ink-900">
+                  {fmt(data.inventoryValue)}
+                </p>
               </div>
 
-              <div className="rounded-2xl border border-ink-100 overflow-hidden">
-                <div className="px-4 py-3 bg-ink-50/70 border-b border-ink-100">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-ink-900">
-                        {editingId !== null ? "تعديل المصروف" : "إضافة مصروف"}
-                      </h3>
+              <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-4">
+                <p className="text-xs text-primary-600 mb-2">
+                  التكلفة شاملة مصروفات التسعير
+                </p>
 
-                      <p className="text-xs text-ink-400 mt-0.5">
-                        أضف المصروفات التي تدخل ضمن تكلفة تسعير الصنف
-                      </p>
-                    </div>
-
-                    {editingId !== null && (
-                      <button
-                        type="button"
-                        onClick={resetForm}
-                        className="text-xs text-ink-500 hover:text-ink-900"
-                      >
-                        إلغاء التعديل
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-ink-600 mb-1.5">
-                        اسم المصروف
-                      </label>
-
-                      <input
-                        value={expenseForm.name}
-                        onChange={(e) =>
-                          handleFormChange("name", e.target.value)
-                        }
-                        placeholder="مثال: شحن"
-                        className="w-full px-3 py-2 rounded-xl border border-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-ink-200"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-ink-600 mb-1.5">
-                        المبلغ
-                      </label>
-
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={expenseForm.amount}
-                        onChange={(e) =>
-                          handleFormChange("amount", e.target.value)
-                        }
-                        placeholder="0"
-                        className="w-full px-3 py-2 rounded-xl border border-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-ink-200"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-ink-600 mb-1.5">
-                        ملاحظات
-                      </label>
-
-                      <input
-                        value={expenseForm.notes}
-                        onChange={(e) =>
-                          handleFormChange("notes", e.target.value)
-                        }
-                        placeholder="ملاحظات اختيارية"
-                        className="w-full px-3 py-2 rounded-xl border border-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-ink-200"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end mt-3">
-                    <button
-                      type="button"
-                      onClick={handleAddExpense}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 transition-colors"
-                    >
-                      {editingId !== null ? (
-                        <>
-                          <Pencil className="w-4 h-4" />
-                          تحديث المصروف
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="w-4 h-4" />
-                          إضافة المصروف
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
+                <p className="text-lg font-bold text-primary-700">
+                  {fmt(data.totalCostWithPricingExpenses)}
+                </p>
               </div>
+            </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-3">
+            <div className="rounded-2xl border border-ink-100 overflow-hidden">
+              <div className="px-4 py-3 bg-ink-50/70 border-b border-ink-100">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-ink-900">
-                      مصروفات التسعير
+                      {editingId !== null ? "تعديل المصروف" : "إضافة مصروف"}
                     </h3>
 
                     <p className="text-xs text-ink-400 mt-0.5">
-                      المصروفات المرتبطة بهذا الصنف
+                      أضف المصروفات التي تدخل ضمن تكلفة تسعير الصنف
                     </p>
                   </div>
 
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-ink-50 text-ink-600">
-                    {fmt(expenses.length)} مصروف
-                  </span>
+                  {editingId !== null && (
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="text-xs text-ink-500 hover:text-ink-900"
+                    >
+                      إلغاء التعديل
+                    </button>
+                  )}
                 </div>
-
-                {expenses.length ? (
-                  <div className="border border-ink-100 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-ink-50 text-xs text-ink-500">
-                            <th className="py-2.5 px-3 text-right font-medium">
-                              المصروف
-                            </th>
-
-                            <th className="py-2.5 px-3 text-right font-medium">
-                              المبلغ
-                            </th>
-
-                            <th className="py-2.5 px-3 text-right font-medium">
-                              ملاحظات
-                            </th>
-
-                            <th className="py-2.5 px-3 text-center font-medium">
-                              الإجراءات
-                            </th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {expenses.map((expense) => (
-                            <tr
-                              key={expense.id}
-                              className="border-t border-ink-50"
-                            >
-                              <td className="py-3 px-3 font-medium text-ink-800">
-                                {expense.name || "—"}
-                              </td>
-
-                              <td className="py-3 px-3 font-semibold text-ink-900">
-                                {fmt(expense.amount)}
-                              </td>
-
-                              <td className="py-3 px-3 text-ink-500">
-                                {expense.notes || "—"}
-                              </td>
-
-                              <td className="py-3 px-3">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditExpense(expense)}
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-500 hover:bg-ink-50 hover:text-ink-900 transition-colors"
-                                    title="تعديل"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleDeleteExpense(expense.id)
-                                    }
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                                    title="حذف"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-
-                        <tfoot>
-                          <tr className="border-t border-ink-100 bg-ink-50/60">
-                            <td className="py-3 px-3 font-semibold text-ink-800">
-                              إجمالي المصروفات
-                            </td>
-
-                            <td className="py-3 px-3 font-bold text-ink-900">
-                              {fmt(totalExpenses)}
-                            </td>
-
-                            <td />
-
-                            <td />
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-ink-200 py-8 text-center">
-                    <ReceiptText className="w-7 h-7 text-ink-300 mx-auto mb-2" />
-
-                    <p className="text-sm text-ink-400">
-                      لا توجد مصروفات تسعير لهذا الصنف.
-                    </p>
-                  </div>
-                )}
               </div>
 
-              <div className="rounded-xl bg-ink-900 text-white p-4 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs text-white/60">
-                    إجمالي مصروفات التسعير
-                  </p>
+              <div className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1.5">
+                      اسم المصروف
+                    </label>
 
-                  <p className="text-xl font-bold mt-1">{fmt(totalExpenses)}</p>
+                    <input
+                      value={expenseForm.name}
+                      onChange={(e) => handleFormChange("name", e.target.value)}
+                      placeholder="مثال: شحن"
+                      className="w-full px-3 py-2 rounded-xl border border-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-ink-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1.5">
+                      المبلغ
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={expenseForm.amount}
+                      onChange={(e) =>
+                        handleFormChange("amount", e.target.value)
+                      }
+                      placeholder="0"
+                      className="w-full px-3 py-2 rounded-xl border border-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-ink-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-ink-600 mb-1.5">
+                      ملاحظات
+                    </label>
+
+                    <input
+                      value={expenseForm.notes}
+                      onChange={(e) =>
+                        handleFormChange("notes", e.target.value)
+                      }
+                      placeholder="ملاحظات اختيارية"
+                      className="w-full px-3 py-2 rounded-xl border border-ink-100 text-sm focus:outline-none focus:ring-2 focus:ring-ink-200"
+                    />
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleSaveExpenses}
-                  disabled={isSaving}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-ink-900 text-sm font-semibold hover:bg-ink-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      جاري الحفظ...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      حفظ المصروفات
-                    </>
-                  )}
-                </button>
+                <div className="flex justify-end mt-3">
+                  <button
+                    type="button"
+                    onClick={handleAddExpense}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 transition-colors"
+                  >
+                    {editingId !== null ? (
+                      <>
+                        <Pencil className="w-4 h-4" />
+                        تحديث المصروف
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        إضافة المصروف
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-900">
+                    مصروفات التسعير
+                  </h3>
+
+                  <p className="text-xs text-ink-400 mt-0.5">
+                    المصروفات المرتبطة بهذا الصنف
+                  </p>
+                </div>
+
+                <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-ink-50 text-ink-600">
+                  {fmt(expenses.length)} مصروف
+                </span>
+              </div>
+
+              {expenses.length ? (
+                <div className="border border-ink-100 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-ink-50 text-xs text-ink-500">
+                          <th className="py-2.5 px-3 text-right font-medium">
+                            المصروف
+                          </th>
+
+                          <th className="py-2.5 px-3 text-right font-medium">
+                            المبلغ
+                          </th>
+
+                          <th className="py-2.5 px-3 text-right font-medium">
+                            ملاحظات
+                          </th>
+
+                          <th className="py-2.5 px-3 text-center font-medium">
+                            الإجراءات
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {expenses.map((expense) => (
+                          <tr
+                            key={expense.id}
+                            className="border-t border-ink-50"
+                          >
+                            <td className="py-3 px-3 font-medium text-ink-800">
+                              {expense.name || "—"}
+                            </td>
+
+                            <td className="py-3 px-3 font-semibold text-ink-900">
+                              {fmt(expense.amount)}
+                            </td>
+
+                            <td className="py-3 px-3 text-ink-500">
+                              {expense.notes || "—"}
+                            </td>
+
+                            <td className="py-3 px-3">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditExpense(expense)}
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-500 hover:bg-ink-50 hover:text-ink-900 transition-colors"
+                                  title="تعديل"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteExpense(expense.id)
+                                  }
+                                  className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                  title="حذف"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+
+                      <tfoot>
+                        <tr className="border-t border-ink-100 bg-ink-50/60">
+                          <td className="py-3 px-3 font-semibold text-ink-800">
+                            إجمالي المصروفات
+                          </td>
+
+                          <td className="py-3 px-3 font-bold text-ink-900">
+                            {fmt(totalExpenses)}
+                          </td>
+
+                          <td />
+
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-ink-200 py-8 text-center">
+                  <ReceiptText className="w-7 h-7 text-ink-300 mx-auto mb-2" />
+
+                  <p className="text-sm text-ink-400">
+                    لا توجد مصروفات تسعير لهذا الصنف.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl bg-ink-900 text-white p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs text-white/60">إجمالي مصروفات التسعير</p>
+
+                <p className="text-xl font-bold mt-1">{fmt(totalExpenses)}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveExpenses}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-ink-900 text-sm font-semibold hover:bg-ink-100 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري الحفظ...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    حفظ المصروفات
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }

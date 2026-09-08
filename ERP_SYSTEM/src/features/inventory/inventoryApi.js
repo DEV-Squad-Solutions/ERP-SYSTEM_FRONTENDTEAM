@@ -62,10 +62,10 @@ export const inventoryApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-
       invalidatesTags: [
         { type: "Item", id: "LIST" },
         { type: "Item", id: "SELECT" },
+        { type: "StoreStockReport" },
       ],
     }),
 
