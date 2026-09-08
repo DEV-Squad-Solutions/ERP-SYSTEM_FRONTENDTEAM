@@ -561,19 +561,7 @@ export default function InvoiceEditPage() {
       toast.success("تم حفظ التعديلات بنجاح");
 
       navigate(`/dashboard/sales/${id}`);
-    } catch (err) {
-      if (err?.status === 409) {
-        toast.error("الفاتورة اتعدلت من حد تاني، لازم تحمّل النسخة الأحدث", {
-          duration: 6000,
-        });
-
-        refetch();
-      } else {
-        toast.error(
-          err?.data?.message || err?.message || "حصل خطأ أثناء حفظ التعديلات",
-        );
-      }
-    }
+    } catch (err) {}
   };
 
   // =========================================================
