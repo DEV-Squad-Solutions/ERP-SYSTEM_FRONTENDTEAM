@@ -14,6 +14,7 @@ import {
   CalendarClock,
   CheckSquare,
   X,
+  MapPin,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -30,7 +31,6 @@ import {
   ATTENDANCE_STATUS,
 } from "../payroll.constants";
 
-import AttendanceQuickEntry from "../components/AttendanceQuickEntry";
 import AttendanceFormModal from "../components/AttendanceFormModal";
 import AttendanceDetailsModal from "../components/AttendanceDetailsModal";
 
@@ -55,15 +55,12 @@ export default function AttendancePage() {
 
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
-
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
   // =========================================================
   // Modals
   // =========================================================
-
-  const [showQuickEntry, setShowQuickEntry] = useState(false);
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState(null);
@@ -72,7 +69,7 @@ export default function AttendancePage() {
   const [selectedAttendance, setSelectedAttendance] = useState(null);
 
   // =========================================================
-  // Selection (Bulk Delete)
+  // Selection
   // =========================================================
 
   const [selectedIds, setSelectedIds] = useState([]);
@@ -102,6 +99,7 @@ export default function AttendancePage() {
   // =========================================================
 
   const [deleteAttendance] = useDeleteEmployeeAttendanceMutation();
+
   const [bulkDeleteAttendances, { isLoading: isBulkDeleting }] =
     useBulkDeleteEmployeeAttendancesMutation();
 
@@ -119,12 +117,14 @@ export default function AttendancePage() {
   const handleSearch = () => {
     setApplied(draft);
     setPage(1);
+    setSelectedIds([]);
   };
 
   const handleReset = () => {
     setDraft(emptyFilters);
     setApplied(emptyFilters);
     setPage(1);
+    setSelectedIds([]);
   };
 
   // =========================================================
@@ -142,7 +142,7 @@ export default function AttendancePage() {
   };
 
   // =========================================================
-  // Employee Details Page
+  // Employee Details
   // =========================================================
 
   const openEmployeeDetails = (row) => {
@@ -176,7 +176,7 @@ export default function AttendancePage() {
   };
 
   // =========================================================
-  // Delete (single)
+  // Delete Single
   // =========================================================
 
   const handleDelete = (row) => {
@@ -210,7 +210,7 @@ export default function AttendancePage() {
   };
 
   // =========================================================
-  // Delete (bulk)
+  // Delete Bulk
   // =========================================================
 
   const handleBulkDelete = () => {
@@ -248,7 +248,7 @@ export default function AttendancePage() {
   };
 
   // =========================================================
-  // Selection helpers
+  // Selection Helpers
   // =========================================================
 
   const toggleRow = (id) => {
@@ -261,6 +261,7 @@ export default function AttendancePage() {
 
   const toggleAllOnPage = () => {
     const pageIds = rows.map((row) => row.id);
+
     const allSelected = pageIds.every((id) => selectedIds.includes(id));
 
     if (allSelected) {
@@ -274,7 +275,9 @@ export default function AttendancePage() {
     }
   };
 
-  const clearSelection = () => setSelectedIds([]);
+  const clearSelection = () => {
+    setSelectedIds([]);
+  };
 
   // =========================================================
   // Rows
@@ -457,6 +460,7 @@ export default function AttendancePage() {
               disabled={isBulkDeleting}
             >
               <Trash2 size={13} />
+
               {isBulkDeleting ? "جارِ الحذف..." : "حذف المحدد"}
             </Button>
           </div>
@@ -475,9 +479,7 @@ export default function AttendancePage() {
             {Array.from({ length: 6 }).map((_, index) => (
               <div key={index} className="flex items-center gap-4 px-3 py-3">
                 <div className="h-3.5 w-28 rounded bg-ink-400/10 animate-pulse" />
-
                 <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
-
                 <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
               </div>
             ))}
@@ -548,9 +550,11 @@ export default function AttendancePage() {
               ${isFetching ? "opacity-60" : ""}
             `}
           >
-            <table className="w-full text-right border-collapse min-w-[980px]">
+            <table className="w-full text-right border-collapse min-w-[1120px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
+                  {/* Checkbox */}
+
                   <th className="p-2.5 w-10 border-l border-ink-400/5">
                     <input
                       type="checkbox"
@@ -560,33 +564,55 @@ export default function AttendancePage() {
                     />
                   </th>
 
+                  {/* Employee */}
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     الموظف
                   </th>
+
+                  {/* Date */}
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     التاريخ
                   </th>
 
+                  {/* Work Location */}
+
+                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                    مكان العمل
+                  </th>
+
+                  {/* Check In */}
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     وقت الحضور
                   </th>
+
+                  {/* Check Out */}
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     وقت الانصراف
                   </th>
 
+                  {/* Work Hours */}
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     عدد الساعات
                   </th>
+
+                  {/* Status */}
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     الحالة
                   </th>
 
+                  {/* Notes */}
+
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     ملاحظات
                   </th>
+
+                  {/* Actions */}
 
                   <th className="p-2.5 font-medium">الإجراءات</th>
                 </tr>
@@ -599,9 +625,18 @@ export default function AttendancePage() {
                   return (
                     <tr
                       key={row.id}
-                      className={`border-b border-ink-400/5 last:border-0 transition-colors animate-fadeUp ${
-                        selected ? "bg-primary-50/40" : "hover:bg-primary-50/30"
-                      }`}
+                      className={`
+                        border-b
+                        border-ink-400/5
+                        last:border-0
+                        transition-colors
+                        animate-fadeUp
+                        ${
+                          selected
+                            ? "bg-primary-50/40"
+                            : "hover:bg-primary-50/30"
+                        }
+                      `}
                       style={{
                         animationDelay: `${Math.min(index, 12) * 25}ms`,
                       }}
@@ -638,6 +673,25 @@ export default function AttendancePage() {
 
                       <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
                         {row.workDate}
+                      </td>
+
+                      {/* Work Location */}
+
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        {row.workLocation ? (
+                          <div className="inline-flex items-center gap-1.5 rounded-lg bg-ink-400/5 px-2 py-1">
+                            <MapPin
+                              size={13}
+                              className="text-primary-500 shrink-0"
+                            />
+
+                            <span className="text-xs font-medium text-ink-700 whitespace-nowrap">
+                              {row.workLocation}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-ink-400">غير محدد</span>
+                        )}
                       </td>
 
                       {/* Check In */}
@@ -743,6 +797,7 @@ export default function AttendancePage() {
               onPageSizeChange={(size) => {
                 setPageSize(size);
                 setPage(1);
+                setSelectedIds([]);
               }}
             />
           )}
