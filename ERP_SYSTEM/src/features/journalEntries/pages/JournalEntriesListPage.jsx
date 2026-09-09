@@ -1214,27 +1214,17 @@ export default function JournalEntriesListPage() {
       {/* ===================================================
     Hidden Print Content
 =================================================== */}
-      <div
-        ref={printRef}
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "297mm",
-          minHeight: "210mm",
-          background: "#fff",
-          zIndex: -9999,
-          pointerEvents: "none",
-        }}
-      >
-        <JournalEntriesListPrintTemplate
-          entries={entries}
-          filters={{
-            ...filters,
-            fiscalYearName: selectedFiscalYear?.label,
-          }}
-          summary={summary}
-        />
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <JournalEntriesListPrintTemplate
+            entries={entries}
+            filters={{
+              ...filters,
+              fiscalYearName: selectedFiscalYear?.label,
+            }}
+            summary={summary}
+          />
+        </div>
       </div>
     </>
   );

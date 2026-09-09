@@ -88,31 +88,56 @@ const currencyLabels = { EGP: "جنيه مصري", USD: "دولار أمريكي
 // دالة واحدة بيتم النداء عليها من مكانين: أول تحميل للفورم، وزرار
 // "مسح البيانات والبدء من جديد" - عشان الاتنين يفضلوا متزامنين لو
 // اتضافت حقول جديدة مستقبلًا.
+
+const getCairoDate = () => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+};
+
 const getDefaultHeader = () => ({
-  invoiceNumber: "INVS-" + generateInvoiceNumber(),
-  movementType: "sale",
-  date: new Date().toISOString().slice(0, 10),
-  dueDate: new Date().toISOString().slice(0, 10),
+  invoiceNumber: "",
+
+  movementType: "",
+
+  // تاريخ اليوم حسب توقيت القاهرة
+  date: getCairoDate(),
+
+  dueDate: getCairoDate(),
+
   partyId: "",
   partyName: "",
   currency: "EGP",
+
   driverId: "",
   actualDriverName: "",
   driverName: "",
+
   storeId: "",
   countryId: "",
+
   carNumber: "",
   exportInvoiceCode: "",
   partnerInvoiceNo: "",
+
   paymentMethod: "credit",
+
   cashboxId: "",
   cashboxName: "",
   cashboxExchangeRate: "",
+
   discount: "",
   paid: "",
+
   exchangeRate: 1,
+
   invoiceContentType: "items",
+
   generalNotes: "",
+
   WBWeight: "",
   WBScaleDifference: "",
   WBDiscount: "",

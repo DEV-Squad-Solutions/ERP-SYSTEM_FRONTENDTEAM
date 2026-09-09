@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, Receipt, StoreIcon } from "lucide-react";
+import { FileText, Receipt, StoreIcon, Printer } from "lucide-react";
 
 import { useGetPartnerStatementQuery } from "../statementsApi";
 import { useGetPartyByIdQuery } from "../../partners/partiesApi";
@@ -13,6 +13,8 @@ import PartnerItemsTab from "../components/PartnerItemsTab";
 import SalesFiltersCard from "../../sales/components/SalesFiltersCard";
 
 import { usePersistentTab } from "../../../shared/hooks/usePersistentTab";
+import PartnerStatementPrintTemplate from "../../../shared/components/print/PartnerStatementPrintTemplate";
+import usePartnerStatementPrint from "../../../shared/hooks/usePartnerStatementPrint";
 
 // =========================================================
 // Constants
@@ -79,7 +81,7 @@ export default function PartnerAccountPage() {
   // -------------------------------------------------------
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(25);
 
   // -------------------------------------------------------
   // Statement Query
@@ -107,7 +109,9 @@ export default function PartnerAccountPage() {
   const { data: partner } = useGetPartyByIdQuery(partnerId, {
     skip: !partnerId,
   });
-
+  const { printStatement, printRef } = usePartnerStatementPrint({
+    title: `كشف حساب-${partner?.name || partner?.Name || "العميل"}`,
+  });
   // =======================================================
   // Handlers
   // =======================================================
@@ -225,12 +229,13 @@ export default function PartnerAccountPage() {
           Page Header
       =================================================== */}
 
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between   ">
-        {/* Partner selector */}
-        <div className=" flex-1  ">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex-1">
           <PartnerSelectHeader
             partnerId={partnerId}
             onChange={handlePartnerChange}
+            onPrint={printStatement}
+            printDisabled={!partner || isLoading}
           />
         </div>
       </div>
@@ -353,6 +358,15 @@ export default function PartnerAccountPage() {
           )}
         </div>
       )}
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <PartnerStatementPrintTemplate
+            partner={partner}
+            data={data}
+            filters={filters.statement.applied}
+          />
+        </div>
+      </div>
     </div>
   );
 }

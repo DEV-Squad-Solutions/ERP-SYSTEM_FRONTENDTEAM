@@ -82,6 +82,31 @@ export const baseApi = createApi({
     "Treasury",
     "Expense",
     "Asset",
+    // ==================== Employees / Payroll ====================
+    "Employee",
+    "Attendance",
+    "EmployeeMovement",
+    "PayrollEntry",
+    "EmployeeOpeningBalance",
+    "EmployeeStatement",
+
+    // ==================== Accounting (مكمّلة) ====================
+    "Account",
+    "AccountMappings",
+    "FiscalYear",
+    "FinancialStatementLine",
+
+    // ==================== Reports ====================
+    "Dashboard",
+    "OperationalTrialBalance",
+    "IncomeStatement",
+    "FinancialPosition",
+    "CashFlow",
+    "ItemBalance",
+
+    // ==================== Reference Data (مكمّلة) ====================
+    "CurrenciesSelect",
+    "CashVoucherPartySelect",
   ],
 
   endpoints: () => ({}),

@@ -1,12 +1,64 @@
 export default function LedgerPanel({ title, children, className = "" }) {
   return (
-    <div
-      className={`border-2 border-ink-900/15 rounded-xl overflow-hidden bg-white ${className}`}
+    <section
+      className={`
+        overflow-hidden
+        rounded-2xl
+        border
+        border-ink-400/15
+        bg-white
+        shadow-sm
+        transition-shadow
+        duration-200
+        hover:shadow-card
+        ${className}
+      `}
     >
-      <div className="bg-primary-500 text-white text-center py-2.5 font-display font-semibold text-sm">
-        {title}
+      {/* Header */}
+      <div
+        className="
+          relative
+          flex
+          min-h-11
+          items-center
+          justify-center
+          border-b
+          border-primary-600/20
+          bg-primary-500
+          px-4
+          py-2.5
+          text-center
+          text-sm
+          font-semibold
+          text-white
+        "
+      >
+        {/* Subtle highlight */}
+        <span
+          aria-hidden="true"
+          className="
+            pointer-events-none
+            absolute
+            inset-x-0
+            top-0
+            h-px
+            bg-white/20
+          "
+        />
+
+        <h2 className="font-display leading-5 tracking-tight">{title}</h2>
       </div>
-      <div className="divide-y divide-ink-400/10">{children}</div>
-    </div>
+
+      {/* Content */}
+      <div
+        className="
+          divide-y
+          divide-ink-400/10
+          bg-white
+        "
+      >
+        {children}
+      </div>
+    </section>
   );
 }

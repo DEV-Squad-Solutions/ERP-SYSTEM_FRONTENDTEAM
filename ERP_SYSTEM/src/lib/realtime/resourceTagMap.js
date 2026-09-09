@@ -57,7 +57,7 @@ export const resourceTagsMap = {
 
   // ==================== الأصناف ====================
 
-  Item: ["Item", "Inventory", "InventoryCostReport"],
+  Item: ["Item", "Inventory", "InventoryCostReport", "StoreStockReport"],
 
   ItemUnit: ["ItemUnit", "Item"],
 
@@ -90,4 +90,15 @@ export const resourceTagsMap = {
   Company: ["Company"],
 
   ApplicationUser: ["User"],
+  Employee: ["Employee", "EmployeeStatement", "CashVoucherPartySelect"],
+  PayrollEntry: ["PayrollEntry", "Cashbox", "Statement", "EmployeeStatement"],
+  CashVoucher: [
+    "CashVoucher",
+    "Cashbox",
+    "Party",
+    "Driver",
+    "Statement",
+    "PartyStatement",
+    "CashVoucherPartySelect",
+  ],
 };

@@ -55,8 +55,8 @@ import EmployeeOpeningBalancesPage from "../features/payroll/pages/EmployeeOpeni
 import InvoiceItemPricingPage from "../features/invoiceItemPricing/pages/InvoiceItemPricingPage";
 import CurrenciesPage from "../features/exchange-rates/pages/CurrenciesPage";
 import FiscalYearsListPage from "../features/fiscalYears/pages/FiscalYearsListPage";
-import ProfilePage from "../features/features/users/pages/ProfilePage";
-import EditProfilePage from "../features/features/users/pages/EditProfilePage";
+import ProfilePage from "../features/users/pages/ProfilePage";
+import EditProfilePage from "../features/users/pages/EditProfilePage";
 import PayrollReportsPage from "../features/payroll/pages/PayrollReportsPage";
 import PayrollDashboardPage from "../features/payroll/pages/PayrollDashboardPage";
 import AccountsPage from "../features/accounts/pages/AccountsPage";

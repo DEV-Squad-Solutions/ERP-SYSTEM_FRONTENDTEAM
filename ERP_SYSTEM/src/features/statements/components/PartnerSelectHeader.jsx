@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import { useGetPartiesSelectQuery } from "../../../features/partners/partiesApi";
 import PartnerSetupWizard from "../../../features/partners/components/PartnerSetupWizard";
-
+import { Printer } from "lucide-react";
+import Button from "../../../shared/components/ui/Button";
 const CURRENCY_LABELS = {
   EGP: "جنيه مصري",
   USD: "دولار أمريكي",
@@ -15,7 +16,12 @@ const CURRENCY_LABELS = {
   KWD: "دينار كويتي",
 };
 
-function PartnerSelectHeader({ partnerId, onChange }) {
+function PartnerSelectHeader({
+  partnerId,
+  onChange,
+  onPrint,
+  printDisabled = false,
+}) {
   const [showAdd, setShowAdd] = useState(false);
 
   const {
@@ -159,7 +165,17 @@ function PartnerSelectHeader({ partnerId, onChange }) {
                   searchPlaceholder="ابحث باسم العميل أو المورد..."
                 />
               </div>
-
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onPrint}
+                disabled={printDisabled}
+                className="h-10 shrink-0"
+                title="طباعة كشف الحساب"
+              >
+                <Printer size={16} />
+                <span className="hidden sm:inline">طباعة</span>
+              </Button>
               <button
                 type="button"
                 onClick={() => setShowAdd(true)}

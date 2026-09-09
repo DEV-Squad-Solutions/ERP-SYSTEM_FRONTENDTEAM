@@ -9,7 +9,7 @@ import {
   useGetUserByIdQuery,
   useUpdateUserMutation,
 } from "../../../features/users/usersApi";
-import { selectIsAdmin, selectUserId } from "../../../auth/authSlice";
+import { selectIsAdmin, selectUserId } from "../../auth/authSlice";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();

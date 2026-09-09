@@ -67,7 +67,6 @@ function buildLineObject({ line, isReturnInvoice }) {
 
   if (hasCount && hasWeight) {
     withOptionalNumber(lineObj, "count", line.count);
-
     withOptionalNumber(lineObj, "weight", line.weight);
   } else {
     withOptionalNumber(lineObj, "quantity", line.quantity);
@@ -117,14 +116,11 @@ function buildLinesForCreate({ lines, isReturnInvoice }) {
   return result;
 }
 
-function buildContainerLinesForCreate({ containersMovement, isSalesInvoice }) {
-  if (!isSalesInvoice) return [];
-
+// الحاويات متاحة مع جميع أنواع الفواتير
+function buildContainerLinesForCreate({ containersMovement }) {
   return (containersMovement?.items || []).map((item) => ({
     containerId: Number(item.containerId),
-
     outgoingUnits: Number(item.issuedQuantity) || 0,
-
     incomingUnits: Number(item.receivedQuantity) || 0,
   }));
 }
@@ -170,7 +166,6 @@ export function buildCreateInvoiceRequest({
   });
 
   const paidAmount = Number(header.paid) || 0;
-
   const discountAmount = Number(header.discount) || 0;
 
   const payload = {
@@ -202,9 +197,9 @@ export function buildCreateInvoiceRequest({
 
     lines: builtLines,
 
+    // الحاويات متاحة مع جميع أنواع الفواتير
     containerLines: buildContainerLinesForCreate({
       containersMovement,
-      isSalesInvoice,
     }),
   };
 
@@ -212,13 +207,12 @@ export function buildCreateInvoiceRequest({
 
   withOptionalString(payload, "partnerInvoiceNo", header.partnerInvoiceNo);
 
-  if (isSalesInvoice) {
-    withOptionalNumber(
-      payload,
-      "containerStoreId",
-      containersMovement?.containerStoreId,
-    );
-  }
+  // مخزن الحاويات متاح مع جميع أنواع الفواتير
+  withOptionalNumber(
+    payload,
+    "containerStoreId",
+    containersMovement?.containerStoreId,
+  );
 
   withOptionalNumber(payload, "countryId", header.countryId);
 
@@ -300,6 +294,7 @@ export function buildInvoiceUpdateBody({
 
     lines: validLines,
 
+    // الحاويات متاحة مع جميع أنواع الفواتير
     containerLines: (containerLines || []).map((c) => ({
       containerId: Number(c.containerId),
 

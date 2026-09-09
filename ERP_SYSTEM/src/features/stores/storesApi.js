@@ -120,8 +120,10 @@ export const storesApi = baseApi.injectEndpoints({
           ...(hasStock !== undefined && { HasStock: hasStock }),
         },
       }),
+
       providesTags: (result, error, { storeId } = {}) => [
         { type: "StoreStockReport", id: storeId },
+        { type: "StoreStockReport", id: "LIST" },
       ],
     }),
 

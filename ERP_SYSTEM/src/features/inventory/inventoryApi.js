@@ -65,7 +65,7 @@ export const inventoryApi = baseApi.injectEndpoints({
       invalidatesTags: [
         { type: "Item", id: "LIST" },
         { type: "Item", id: "SELECT" },
-        { type: "StoreStockReport" },
+        { type: "StoreStockReport", id: "LIST" },
       ],
     }),
 
@@ -85,7 +85,7 @@ export const inventoryApi = baseApi.injectEndpoints({
         { type: "Item", id: "SELECT" },
 
         // اسم / كود الصنف ممكن يظهر في أرصدة المخازن
-        { type: "StoreStockReport" },
+        { type: "StoreStockReport", id: "LIST" },
       ],
     }),
 
@@ -104,7 +104,7 @@ export const inventoryApi = baseApi.injectEndpoints({
         { type: "Item", id: "SELECT" },
 
         // الصنف المحذوف يختفي من قوائم أرصدة المخازن
-        { type: "StoreStockReport" },
+        { type: "StoreStockReport", id: "LIST" },
       ],
     }),
 

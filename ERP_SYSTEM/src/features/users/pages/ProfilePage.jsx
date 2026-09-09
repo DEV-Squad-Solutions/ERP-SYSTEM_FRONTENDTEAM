@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { useGetUserByIdQuery } from "../../../features/users/usersApi";
-import { selectIsAdmin, selectUserId } from "../../../auth/authSlice";
+import { selectIsAdmin, selectUserId } from "../../auth/authSlice";
 
 export default function ProfilePage() {
   const navigate = useNavigate();

@@ -1,5 +1,3 @@
-// src/features/journalEntries/components/JournalEntriesListPrintTemplate.jsx
-
 import { useSelector } from "react-redux";
 
 // =========================================================
@@ -69,11 +67,12 @@ export default function JournalEntriesListPrintTemplate({
 
   const today = new Date().toLocaleDateString("ar-EG");
 
+  const totalDebit = Number(summary?.totalDebit ?? 0);
+  const totalCredit = Number(summary?.totalCredit ?? 0);
+  const difference = Number(summary?.difference ?? totalDebit - totalCredit);
+
   return (
     <>
-      {/* ===================================================
-          Print CSS
-      =================================================== */}
       <style>
         {`
           @page {
@@ -105,7 +104,6 @@ export default function JournalEntriesListPrintTemplate({
 
             .journal-print-table {
               width: 100% !important;
-              max-width: 100% !important;
               table-layout: fixed !important;
               border-collapse: collapse !important;
             }
@@ -138,13 +136,14 @@ export default function JournalEntriesListPrintTemplate({
               word-break: break-word !important;
               white-space: normal !important;
             }
+
+            .journal-print-filter {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
           }
         `}
       </style>
-
-      {/* ===================================================
-          Page
-      =================================================== */}
 
       <div
         dir="rtl"
@@ -152,29 +151,30 @@ export default function JournalEntriesListPrintTemplate({
         style={{
           width: "100%",
           minHeight: "194mm",
-          boxSizing: "border-box",
-          padding: 0,
           margin: 0,
+          padding: 0,
+          boxSizing: "border-box",
           fontFamily: "'Cairo', 'Tajawal', Arial, sans-serif",
-          color: "#111827",
-          fontSize: "10px",
-          lineHeight: 1.45,
+          color: "#172033",
           background: "#fff",
+          fontSize: "10px",
+          lineHeight: 1.5,
         }}
       >
-        {/* =================================================
+        {/* =====================================================
             Header
-        ================================================= */}
+        ===================================================== */}
 
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
+            alignItems: "stretch",
             width: "100%",
+            minHeight: "58px",
+            marginBottom: "10px",
+            paddingBottom: "9px",
             borderBottom: "2px solid #0F6E5E",
-            paddingBottom: "7px",
-            marginBottom: "9px",
             boxSizing: "border-box",
           }}
         >
@@ -182,179 +182,240 @@ export default function JournalEntriesListPrintTemplate({
 
           <div
             style={{
-              minWidth: 0,
               flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
             }}
           >
-            <h1
+            <div
               style={{
-                margin: 0,
-                fontSize: "17px",
-                lineHeight: 1.3,
-                fontWeight: 700,
+                fontSize: "19px",
+                fontWeight: 800,
                 color: "#111827",
+                lineHeight: 1.2,
               }}
             >
               {company?.name || "—"}
-            </h1>
+            </div>
 
-            <p
+            <div
               style={{
-                margin: "3px 0 0",
+                marginTop: "4px",
                 fontSize: "9px",
                 color: "#6b7280",
               }}
             >
-              تقرير قيود اليومية
-            </p>
+              نظام الإدارة والمحاسبة
+            </div>
+          </div>
+
+          {/* Report Title */}
+
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: "17px",
+                  fontWeight: 800,
+                  color: "#0F6E5E",
+                  lineHeight: 1.2,
+                }}
+              >
+                تقرير قيود اليومية
+              </div>
+
+              <div
+                style={{
+                  marginTop: "3px",
+                  fontSize: "8.5px",
+                  color: "#6b7280",
+                }}
+              >
+                Journal Entries Report
+              </div>
+            </div>
           </div>
 
           {/* Print Info */}
 
           <div
             style={{
-              width: "180px",
-              flexShrink: 0,
-              textAlign: "left",
-              fontSize: "9px",
-              color: "#4b5563",
+              flex: 1,
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
             }}
           >
-            <p
+            <div
               style={{
-                margin: "1px 0",
+                minWidth: "175px",
+                padding: "7px 10px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "5px",
+                background: "#f9fafb",
+                boxSizing: "border-box",
               }}
             >
-              تاريخ الطباعة:{" "}
-              <strong style={{ color: "#111827" }}>{today}</strong>
-            </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  marginBottom: "3px",
+                  fontSize: "8.5px",
+                }}
+              >
+                <span style={{ color: "#6b7280" }}>تاريخ الطباعة</span>
 
-            <p
-              style={{
-                margin: "1px 0",
-              }}
-            >
-              عدد القيود:{" "}
-              <strong style={{ color: "#111827" }}>
-                {Number(entries.length).toLocaleString("ar-EG")}
-              </strong>
-            </p>
+                <strong style={{ color: "#111827" }}>{today}</strong>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  fontSize: "8.5px",
+                }}
+              >
+                <span style={{ color: "#6b7280" }}>عدد القيود</span>
+
+                <strong style={{ color: "#111827" }}>
+                  {Number(entries.length).toLocaleString("ar-EG")}
+                </strong>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* =================================================
+        {/* =====================================================
             Filters
-        ================================================= */}
+        ===================================================== */}
 
         {filters && (
           <div
+            className="journal-print-filter"
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px 16px",
-              flexWrap: "wrap",
+              gap: "6px",
               width: "100%",
-              boxSizing: "border-box",
-              marginBottom: "9px",
-              padding: "5px 8px",
+              minHeight: "30px",
+              marginBottom: "10px",
+              padding: "6px 9px",
               border: "1px solid #e5e7eb",
-              borderRadius: "4px",
-              background: "#f9fafb",
-              fontSize: "9px",
-              color: "#4b5563",
+              borderRadius: "5px",
+              background: "#fafafa",
+              boxSizing: "border-box",
+              fontSize: "8.5px",
             }}
           >
-            {filters.search && (
-              <span>
-                البحث:{" "}
-                <strong style={{ color: "#111827" }}>{filters.search}</strong>
-              </span>
-            )}
+            <div
+              style={{
+                fontWeight: 800,
+                color: "#0F6E5E",
+                paddingLeft: "7px",
+                borderLeft: "1px solid #d1d5db",
+                whiteSpace: "nowrap",
+              }}
+            >
+              معايير التقرير
+            </div>
 
-            {filters.fiscalYearName && (
-              <span>
-                السنة المالية:{" "}
-                <strong style={{ color: "#111827" }}>
-                  {filters.fiscalYearName}
-                </strong>
-              </span>
-            )}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "5px 15px",
+                color: "#4b5563",
+              }}
+            >
+              {filters.search && (
+                <FilterItem label="البحث" value={filters.search} />
+              )}
 
-            {filters.entryType && (
-              <span>
-                نوع القيد:{" "}
-                <strong style={{ color: "#111827" }}>
-                  {getEntryTypeLabel(filters.entryType)}
-                </strong>
-              </span>
-            )}
+              {filters.fiscalYearName && (
+                <FilterItem
+                  label="السنة المالية"
+                  value={filters.fiscalYearName}
+                />
+              )}
 
-            {filters.status && (
-              <span>
-                الحالة:{" "}
-                <strong style={{ color: "#111827" }}>
-                  {getStatusLabel(filters.status)}
-                </strong>
-              </span>
-            )}
+              {filters.entryType && (
+                <FilterItem
+                  label="نوع القيد"
+                  value={getEntryTypeLabel(filters.entryType)}
+                />
+              )}
 
-            {filters.fromDate && (
-              <span>
-                من:{" "}
-                <strong style={{ color: "#111827" }}>{filters.fromDate}</strong>
-              </span>
-            )}
+              {filters.status && (
+                <FilterItem
+                  label="الحالة"
+                  value={getStatusLabel(filters.status)}
+                />
+              )}
 
-            {filters.toDate && (
-              <span>
-                إلى:{" "}
-                <strong style={{ color: "#111827" }}>{filters.toDate}</strong>
-              </span>
-            )}
+              {filters.fromDate && (
+                <FilterItem label="من" value={filters.fromDate} />
+              )}
 
-            {!filters.search &&
-              !filters.fiscalYearName &&
-              !filters.entryType &&
-              !filters.status &&
-              !filters.fromDate &&
-              !filters.toDate && <span>بدون فلاتر</span>}
+              {filters.toDate && (
+                <FilterItem label="إلى" value={filters.toDate} />
+              )}
+
+              {!filters.search &&
+                !filters.fiscalYearName &&
+                !filters.entryType &&
+                !filters.status &&
+                !filters.fromDate &&
+                !filters.toDate && (
+                  <span style={{ color: "#9ca3af" }}>بدون فلاتر</span>
+                )}
+            </div>
           </div>
         )}
 
-        {/* =================================================
+        {/* =====================================================
             Main Table
-        ================================================= */}
+        ===================================================== */}
 
         <table
           className="journal-print-table"
           style={{
             width: "100%",
-            maxWidth: "100%",
             tableLayout: "fixed",
             borderCollapse: "collapse",
             borderSpacing: 0,
-            fontSize: "9.5px",
+            fontSize: "9px",
           }}
         >
-          {/* Explicit column widths */}
-
           <colgroup>
-            <col style={{ width: "5%" }} />
+            <col style={{ width: "4%" }} />
             <col style={{ width: "12%" }} />
             <col style={{ width: "10%" }} />
-            <col style={{ width: "33%" }} />
+            <col style={{ width: "34%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "10%" }} />
             <col style={{ width: "10%" }} />
           </colgroup>
 
-          {/* Table Header */}
-
           <thead>
             <tr
               style={{
-                background: "#f3f4f6",
+                background: "#0F6E5E",
+                color: "#fff",
               }}
             >
               {[
@@ -370,12 +431,11 @@ export default function JournalEntriesListPrintTemplate({
                 <th
                   key={header}
                   style={{
-                    border: "1px solid #d1d5db",
-                    padding: "5px 4px",
+                    border: "1px solid #0F6E5E",
+                    padding: "6px 4px",
                     textAlign: "center",
                     verticalAlign: "middle",
                     fontWeight: 700,
-                    color: "#374151",
                     whiteSpace: "nowrap",
                     boxSizing: "border-box",
                   }}
@@ -386,8 +446,6 @@ export default function JournalEntriesListPrintTemplate({
             </tr>
           </thead>
 
-          {/* Table Body */}
-
           <tbody>
             {entries.map((entry, index) => (
               <tr
@@ -395,19 +453,17 @@ export default function JournalEntriesListPrintTemplate({
                 style={{
                   breakInside: "avoid",
                   pageBreakInside: "avoid",
+                  background: index % 2 === 0 ? "#ffffff" : "#f9fafb",
                 }}
               >
-                {/* # */}
-
                 <td style={cellCenter}>{index + 1}</td>
-
-                {/* Entry Number */}
 
                 <td
                   style={{
                     ...cellCenter,
                     direction: "ltr",
-                    fontSize: "9px",
+                    fontSize: "8.5px",
+                    fontWeight: 600,
                   }}
                 >
                   {entry.entryNumber ||
@@ -416,19 +472,15 @@ export default function JournalEntriesListPrintTemplate({
                     "—"}
                 </td>
 
-                {/* Date */}
-
                 <td
                   style={{
                     ...cellCenter,
                     whiteSpace: "nowrap",
-                    fontSize: "9px",
+                    fontSize: "8.5px",
                   }}
                 >
                   {entry.entryDate || "—"}
                 </td>
-
-                {/* Description */}
 
                 <td
                   className="journal-print-description"
@@ -437,13 +489,11 @@ export default function JournalEntriesListPrintTemplate({
                     whiteSpace: "normal",
                     overflowWrap: "anywhere",
                     wordBreak: "break-word",
-                    lineHeight: 1.5,
+                    lineHeight: 1.45,
                   }}
                 >
                   {entry.description || "—"}
                 </td>
-
-                {/* Type */}
 
                 <td
                   style={{
@@ -454,36 +504,50 @@ export default function JournalEntriesListPrintTemplate({
                   {getEntryTypeLabel(entry.entryType)}
                 </td>
 
-                {/* Status */}
-
                 <td
                   style={{
                     ...cellCenter,
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {getStatusLabel(entry.status)}
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "2px 7px",
+                      borderRadius: "10px",
+                      fontSize: "8px",
+                      fontWeight: 700,
+                      background:
+                        getStatusLabel(entry.status) === "مرحّل"
+                          ? "#ecfdf5"
+                          : "#fef2f2",
+                      color:
+                        getStatusLabel(entry.status) === "مرحّل"
+                          ? "#047857"
+                          : "#b91c1c",
+                    }}
+                  >
+                    {getStatusLabel(entry.status)}
+                  </span>
                 </td>
-
-                {/* Debit */}
 
                 <td
                   style={{
                     ...cellNumber,
-                    whiteSpace: "nowrap",
                     direction: "ltr",
+                    whiteSpace: "nowrap",
+                    fontWeight: 600,
                   }}
                 >
                   {fmt(entry.totalDebit)}
                 </td>
 
-                {/* Credit */}
-
                 <td
                   style={{
                     ...cellNumber,
-                    whiteSpace: "nowrap",
                     direction: "ltr",
+                    whiteSpace: "nowrap",
+                    fontWeight: 600,
                   }}
                 >
                   {fmt(entry.totalCredit)}
@@ -497,7 +561,7 @@ export default function JournalEntriesListPrintTemplate({
                   colSpan={8}
                   style={{
                     border: "1px solid #e5e7eb",
-                    padding: "20px",
+                    padding: "25px",
                     textAlign: "center",
                     color: "#9ca3af",
                   }}
@@ -507,49 +571,154 @@ export default function JournalEntriesListPrintTemplate({
               </tr>
             )}
           </tbody>
+
+          {/* =================================================
+              Table Footer
+          ================================================= */}
+
+          {summary && (
+            <tfoot>
+              <tr
+                style={{
+                  background: "#f3f4f6",
+                  fontWeight: 700,
+                }}
+              >
+                <td
+                  colSpan={6}
+                  style={{
+                    border: "1px solid #d1d5db",
+                    padding: "6px",
+                    textAlign: "right",
+                    color: "#374151",
+                  }}
+                >
+                  إجمالي التقرير
+                </td>
+
+                <td
+                  style={{
+                    border: "1px solid #d1d5db",
+                    padding: "6px",
+                    textAlign: "center",
+                    direction: "ltr",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {fmt(totalDebit)}
+                </td>
+
+                <td
+                  style={{
+                    border: "1px solid #d1d5db",
+                    padding: "6px",
+                    textAlign: "center",
+                    direction: "ltr",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {fmt(totalCredit)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
 
-        {/* =================================================
-            Summary
-        ================================================= */}
+        {/* =====================================================
+            Bottom Section
+        ===================================================== */}
 
         {summary && (
           <div
             className="journal-print-summary"
             style={{
               display: "flex",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "20px",
               width: "100%",
-              marginTop: "12px",
-              boxSizing: "border-box",
+              marginTop: "10px",
             }}
           >
+            {/* Balance Status */}
+
+            <div
+              style={{
+                flex: 1,
+                minHeight: "65px",
+                padding: "8px 10px",
+                border: "1px solid #e5e7eb",
+                borderRadius: "5px",
+                background: difference === 0 ? "#f0fdf4" : "#fef2f2",
+                boxSizing: "border-box",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "8px",
+                  color: "#6b7280",
+                  marginBottom: "3px",
+                }}
+              >
+                حالة التوازن المحاسبي
+              </div>
+
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 800,
+                  color: difference === 0 ? "#15803d" : "#b91c1c",
+                }}
+              >
+                {difference === 0 ? "القيد متوازن ✓" : "يوجد فرق في الأرصدة"}
+              </div>
+
+              <div
+                style={{
+                  marginTop: "2px",
+                  fontSize: "8px",
+                  color: "#6b7280",
+                }}
+              >
+                الفرق:{" "}
+                <strong
+                  style={{
+                    direction: "ltr",
+                    display: "inline-block",
+                  }}
+                >
+                  {fmt(difference)}
+                </strong>
+              </div>
+            </div>
+
+            {/* Summary */}
+
             <table
               style={{
-                width: "280px",
-                maxWidth: "100%",
+                width: "290px",
                 borderCollapse: "collapse",
-                fontSize: "9.5px",
+                fontSize: "9px",
               }}
             >
               <tbody>
                 <tr>
                   <td style={summaryTitle}>إجمالي المدين</td>
 
-                  <td style={summaryValue}>{fmt(summary.totalDebit)}</td>
+                  <td style={summaryValue}>{fmt(totalDebit)}</td>
                 </tr>
 
                 <tr>
                   <td style={summaryTitle}>إجمالي الدائن</td>
 
-                  <td style={summaryValue}>{fmt(summary.totalCredit)}</td>
+                  <td style={summaryValue}>{fmt(totalCredit)}</td>
                 </tr>
 
                 <tr>
                   <td
                     style={{
                       ...summaryTitle,
-                      fontWeight: 700,
+                      fontWeight: 800,
                     }}
                   >
                     الفرق
@@ -558,14 +727,11 @@ export default function JournalEntriesListPrintTemplate({
                   <td
                     style={{
                       ...summaryValue,
-                      fontWeight: 700,
-                      color:
-                        Number(summary.difference) === 0
-                          ? "#16a34a"
-                          : "#dc2626",
+                      fontWeight: 800,
+                      color: difference === 0 ? "#15803d" : "#b91c1c",
                     }}
                   >
-                    {fmt(summary.difference)}
+                    {fmt(difference)}
                   </td>
                 </tr>
 
@@ -573,7 +739,9 @@ export default function JournalEntriesListPrintTemplate({
                   <td style={summaryTitle}>عدد القيود</td>
 
                   <td style={summaryValue}>
-                    {Number(summary.count ?? 0).toLocaleString("ar-EG")}
+                    {Number(summary.count ?? entries.length).toLocaleString(
+                      "ar-EG",
+                    )}
                   </td>
                 </tr>
               </tbody>
@@ -581,35 +749,66 @@ export default function JournalEntriesListPrintTemplate({
           </div>
         )}
 
-        {/* =================================================
+        {/* =====================================================
             Signature
-        ================================================= */}
+        ===================================================== */}
 
         <div
           className="journal-print-signature"
           style={{
             display: "flex",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
             width: "100%",
-            marginTop: "20px",
-            boxSizing: "border-box",
+            marginTop: "24px",
+            paddingTop: "8px",
+            borderTop: "1px solid #e5e7eb",
           }}
         >
           <div
             style={{
-              width: "150px",
+              width: "160px",
               textAlign: "center",
-              fontSize: "9.5px",
+              fontSize: "8.5px",
+              color: "#4b5563",
             }}
           >
             <div
               style={{
-                borderTop: "1px solid #111827",
-                paddingTop: "5px",
+                height: "22px",
+                borderBottom: "1px solid #9ca3af",
+                marginBottom: "4px",
               }}
-            >
-              توقيع المسؤول
-            </div>
+            />
+            توقيع المراجع
+          </div>
+
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: "8px",
+              color: "#9ca3af",
+            }}
+          >
+            تم استخراج التقرير بتاريخ {today}
+          </div>
+
+          <div
+            style={{
+              width: "160px",
+              textAlign: "center",
+              fontSize: "8.5px",
+              color: "#4b5563",
+            }}
+          >
+            <div
+              style={{
+                height: "22px",
+                borderBottom: "1px solid #9ca3af",
+                marginBottom: "4px",
+              }}
+            />
+            توقيع المسؤول
           </div>
         </div>
       </div>
@@ -618,7 +817,20 @@ export default function JournalEntriesListPrintTemplate({
 }
 
 // =========================================================
-// Table Cell Styles
+// Filter Item
+// =========================================================
+
+function FilterItem({ label, value }) {
+  return (
+    <span style={{ whiteSpace: "nowrap" }}>
+      <span style={{ color: "#6b7280" }}>{label}:</span>{" "}
+      <strong style={{ color: "#111827" }}>{value}</strong>
+    </span>
+  );
+}
+
+// =========================================================
+// Table Styles
 // =========================================================
 
 const cellCenter = {
@@ -649,18 +861,19 @@ const cellNumber = {
 const summaryTitle = {
   border: "1px solid #e5e7eb",
   background: "#f9fafb",
-  padding: "6px 8px",
+  padding: "5px 8px",
   textAlign: "right",
-  fontWeight: 700,
+  fontWeight: 600,
   width: "60%",
   boxSizing: "border-box",
 };
 
 const summaryValue = {
   border: "1px solid #e5e7eb",
-  padding: "6px 8px",
+  padding: "5px 8px",
   textAlign: "center",
   fontWeight: 600,
   width: "40%",
+  direction: "ltr",
   boxSizing: "border-box",
 };
