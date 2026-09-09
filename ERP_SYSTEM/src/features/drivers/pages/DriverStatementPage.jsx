@@ -25,7 +25,8 @@ import {
 
 import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
 import QuickAddDriverModal from "../components/QuickAddDriverModal";
-
+import DriverStatementPrintTemplate from "../../../shared/components/print/DriverStatementPrintTemplate";
+import { useDriverStatementPrint } from "../../../shared/hooks/useDriverStatementPrint";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
@@ -209,10 +210,6 @@ export default function DriverStatementPage() {
     setPage(1);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const activeFiltersCount = useMemo(
     () =>
       Object.entries(applied).filter(([key, value]) => {
@@ -230,7 +227,9 @@ export default function DriverStatementPage() {
 
   const selectedDriverName =
     drivers?.find((d) => d.id === driverId)?.name || "";
-
+  const { printStatement, printRef } = useDriverStatementPrint({
+    title: `كشف حساب - ${selectedDriverName || "السائق"}`,
+  });
   return (
     <div className="animate-fadeUp space-y-3">
       {/* ================= HEADER ================= */}
@@ -303,8 +302,8 @@ export default function DriverStatementPage() {
 
           <Button
             variant="outline"
-            onClick={handlePrint}
-            disabled={!driverId || rows.length === 0}
+            onClick={printStatement}
+            disabled={!driverId || rows.length === 0 || isLoading}
             className="h-9 px-3"
           >
             <Printer size={14} />
@@ -832,6 +831,25 @@ export default function DriverStatementPage() {
         onClose={() => setShowAddDriver(false)}
         onCreated={handleDriverCreated}
       />
+      <div
+        style={{
+          position: "absolute",
+          left: "-100000px",
+          top: 0,
+          width: "1200px",
+        }}
+      >
+        <div ref={printRef}>
+          <DriverStatementPrintTemplate
+            driver={{
+              id: driverId,
+              name: selectedDriverName,
+            }}
+            data={data}
+            filters={applied}
+          />
+        </div>
+      </div>
     </div>
   );
 }

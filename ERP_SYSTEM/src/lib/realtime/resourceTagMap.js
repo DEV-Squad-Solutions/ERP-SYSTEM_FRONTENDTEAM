@@ -22,8 +22,6 @@ export const resourceTagsMap = {
 
   CashMovementType: ["CashMovementType"],
 
-  CashVoucher: ["CashVoucher", "Cashbox", "Party", "Driver"],
-
   // ==================== المخزون ====================
 
   Store: ["Store", "Inventory", "StoreStockReport"],

@@ -1,4 +1,3 @@
-// src/features/auth/authApi.js
 import { baseApi } from "../../lib/baseApi";
 import { setCredentials, setCompanySelection } from "./authSlice";
 
@@ -10,9 +9,11 @@ export const authApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
+
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
+
           dispatch(setCredentials(data));
         } catch {}
       },
@@ -24,11 +25,16 @@ export const authApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
+
       async onQueryStarted(arg, { dispatch, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled;
+
           dispatch(
-            setCompanySelection({ ...data, selectedCompanyId: arg.companyId }),
+            setCompanySelection({
+              ...data,
+              selectedCompanyId: arg.companyId,
+            }),
           );
         } catch {}
       },

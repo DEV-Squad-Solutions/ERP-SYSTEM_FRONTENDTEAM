@@ -9,18 +9,22 @@ import {
   LogIn,
 } from "lucide-react";
 import { useLoginMutation } from "../authApi";
-
+import { useDispatch } from "react-redux";
+import { baseApi } from "../../../lib/baseApi";
 export default function LoginForm() {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const [login, { isLoading, error }] = useLoginMutation();
+  const dispatch = useDispatch();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!userName.trim() || !password) return;
+
+    dispatch(baseApi.util.resetApiState());
 
     await login({
       userName: userName.trim(),

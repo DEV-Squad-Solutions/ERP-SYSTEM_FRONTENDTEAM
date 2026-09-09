@@ -6,15 +6,17 @@ import {
   useRef,
   useState,
 } from "react";
-
 import { useDispatch } from "react-redux";
-
-import { getOrCreateConnection, stopConnection } from "./realtimeConnection";
+import {
+  getOrCreateConnection,
+  startConnection,
+  stopConnection,
+  subscribeConnectionStatus,
+} from "./realtimeConnection";
 
 const RealtimeContext = createContext(null);
 
 const BATCH_WINDOW_MS = 300;
-
 const MAX_SEEN_EVENTS = 500;
 
 export function RealtimeProvider({
@@ -30,20 +32,13 @@ export function RealtimeProvider({
   const [externalUpdates, setExternalUpdates] = useState({});
 
   const seenEventsRef = useRef(new Set());
-
   const pendingTagsRef = useRef(new Set());
-
   const batchTimerRef = useRef(null);
-
-  // =========================================================
-  // FLUSH TAGS
-  // =========================================================
 
   const flushPendingTags = useCallback(() => {
     const tags = Array.from(pendingTagsRef.current);
 
     pendingTagsRef.current.clear();
-
     batchTimerRef.current = null;
 
     if (tags.length === 0) {
@@ -52,10 +47,6 @@ export function RealtimeProvider({
 
     dispatch(baseApi.util.invalidateTags(tags));
   }, [dispatch, baseApi]);
-
-  // =========================================================
-  // SCHEDULE INVALIDATION
-  // =========================================================
 
   const scheduleInvalidate = useCallback(
     (tags) => {
@@ -74,10 +65,6 @@ export function RealtimeProvider({
     [flushPendingTags],
   );
 
-  // =========================================================
-  // SIGNALR EVENT
-  // =========================================================
-
   const handleEntityChanged = useCallback(
     (event) => {
       if (!event) {
@@ -89,10 +76,6 @@ export function RealtimeProvider({
       if (!resource) {
         return;
       }
-
-      // -------------------------------------------------------
-      // DEDUPLICATION
-      // -------------------------------------------------------
 
       const dedupeKey = [
         eventId ?? "no-event-id",
@@ -108,12 +91,12 @@ export function RealtimeProvider({
       seenEventsRef.current.add(dedupeKey);
 
       if (seenEventsRef.current.size > MAX_SEEN_EVENTS) {
-        seenEventsRef.current.clear();
-      }
+        const firstKey = seenEventsRef.current.values().next().value;
 
-      // -------------------------------------------------------
-      // RESOURCE → TAGS
-      // -------------------------------------------------------
+        if (firstKey) {
+          seenEventsRef.current.delete(firstKey);
+        }
+      }
 
       const tags = resourceTagsMap[resource];
 
@@ -121,14 +104,9 @@ export function RealtimeProvider({
         scheduleInvalidate(tags);
       }
 
-      // -------------------------------------------------------
-      // EXTERNAL UPDATE INFO
-      // -------------------------------------------------------
-
       if (entityId != null) {
         setExternalUpdates((previous) => ({
           ...previous,
-
           [`${resource}-${entityId}`]: {
             action,
             occurredAtUtc,
@@ -139,12 +117,10 @@ export function RealtimeProvider({
     [resourceTagsMap, scheduleInvalidate],
   );
 
-  // =========================================================
-  // SIGNALR CONNECTION
-  // =========================================================
-
   useEffect(() => {
     if (typeof getAccessToken !== "function") {
+      setIsConnected(false);
+
       console.warn("⏸️ SignalR: getAccessToken is not available");
 
       return undefined;
@@ -166,90 +142,46 @@ export function RealtimeProvider({
       return undefined;
     }
 
-    // -------------------------------------------------------
-    // EVENT
-    // -------------------------------------------------------
+    let cancelled = false;
+
+    const unsubscribeStatus = subscribeConnectionStatus((status) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (status === "connected") {
+        setIsConnected(true);
+        return;
+      }
+
+      if (status === "connecting" || status === "reconnecting") {
+        setIsConnected(false);
+        return;
+      }
+
+      if (status === "disconnected" || status === "failed") {
+        setIsConnected(false);
+      }
+    });
 
     connection.on("ReceiveEntityChanged", handleEntityChanged);
 
-    // -------------------------------------------------------
-    // RECONNECTED
-    // -------------------------------------------------------
-
-    const handleReconnected = () => {
-      console.log("🟢 SignalR: Reconnected");
-
+    if (connection.state === "Connected") {
       setIsConnected(true);
-
-      /*
-       * أثناء انقطاع الاتصال ممكن تكون حصلت
-       * تغييرات missed.
-       *
-       * لذلك نمسح RTK Query cache بعد reconnect
-       * لضمان عدم عرض بيانات قديمة.
-       */
-      dispatch(baseApi.util.resetApiState());
-    };
-
-    connection.onreconnected(handleReconnected);
-
-    // -------------------------------------------------------
-    // RECONNECTING
-    // -------------------------------------------------------
-
-    const handleReconnecting = () => {
-      console.warn("🟡 SignalR: Reconnecting...");
-
-      setIsConnected(false);
-    };
-
-    connection.onreconnecting(handleReconnecting);
-
-    // -------------------------------------------------------
-    // CLOSED
-    // -------------------------------------------------------
-
-    const handleClose = (error) => {
-      console.warn("🔴 SignalR: Connection closed", error);
-
-      setIsConnected(false);
-    };
-
-    connection.onclose(handleClose);
-
-    // -------------------------------------------------------
-    // START
-    // -------------------------------------------------------
-
-    if (connection.state === "Disconnected") {
-      connection
-        .start()
-        .then(() => {
-          console.log("🟢 SignalR: Connected");
-
-          setIsConnected(true);
-        })
-        .catch((error) => {
-          console.error("❌ SignalR connection failed:", error);
-
-          setIsConnected(false);
-        });
-    } else if (connection.state === "Connected") {
-      setIsConnected(true);
+    } else {
+      void startConnection(getAccessToken).then((connected) => {
+        if (!cancelled) {
+          setIsConnected(connected);
+        }
+      });
     }
 
-    // -------------------------------------------------------
-    // CLEANUP
-    // -------------------------------------------------------
-
     return () => {
+      cancelled = true;
+
+      unsubscribeStatus();
+
       connection.off("ReceiveEntityChanged", handleEntityChanged);
-
-      connection.onreconnected(handleReconnected);
-
-      connection.onreconnecting(handleReconnecting);
-
-      connection.onclose(handleClose);
 
       if (batchTimerRef.current) {
         clearTimeout(batchTimerRef.current);
@@ -261,11 +193,7 @@ export function RealtimeProvider({
 
       void stopConnection();
     };
-  }, [getAccessToken, handleEntityChanged, dispatch, baseApi]);
-
-  // =========================================================
-  // CONTEXT
-  // =========================================================
+  }, [getAccessToken, handleEntityChanged]);
 
   return (
     <RealtimeContext.Provider
@@ -279,10 +207,6 @@ export function RealtimeProvider({
   );
 }
 
-// =========================================================
-// EXTERNAL UPDATE ALERT
-// =========================================================
-
 export function useExternalUpdateAlert(resource, entityId) {
   const context = useContext(RealtimeContext);
 
@@ -292,10 +216,6 @@ export function useExternalUpdateAlert(resource, entityId) {
 
   return context.externalUpdates[`${resource}-${entityId}`] ?? null;
 }
-
-// =========================================================
-// REALTIME STATUS
-// =========================================================
 
 export function useRealtimeStatus() {
   const context = useContext(RealtimeContext);

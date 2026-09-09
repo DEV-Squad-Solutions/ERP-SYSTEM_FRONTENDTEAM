@@ -1,11 +1,18 @@
 // features/statements/pages/EmployeeAccountPage.jsx
+
 import { useCallback, useMemo, useState } from "react";
+
 import { useSearchParams } from "react-router-dom";
-import { Wallet } from "lucide-react";
+import { Printer, Wallet } from "lucide-react";
+
 import { useGetEmployeeStatementQuery } from "../employeeStatementApi";
+
 import EmployeeSelectHeader from "../components/EmployeeSelectHeader";
 import EmployeeStatementFilters from "../components/EmployeeStatementFilters";
 import EmployeeStatementTable from "../components/EmployeeStatementTable";
+
+import EmployeeStatementPrintTemplate from "../../../shared/components/print/EmployeeStatementPrintTemplate";
+import useEmployeeStatementPrint from "../../../shared/hooks/useEmployeeStatementPrint";
 
 const EMPTY_FILTERS = {
   Search: "",
@@ -17,12 +24,14 @@ const EMPTY_FILTERS = {
 
 export default function EmployeeAccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+
   const employeeId = searchParams.get("employeeId") || "";
 
   const [filters, setFilters] = useState({
     draft: { ...EMPTY_FILTERS },
     applied: { ...EMPTY_FILTERS },
   });
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -41,15 +50,26 @@ export default function EmployeeAccountPage() {
       skip: !employeeId,
     });
 
+  const { printStatement, printRef } = useEmployeeStatementPrint({
+    title: `كشف حساب - ${data?.employeeName || "الموظف"}`,
+  });
+
   const handleEmployeeChange = useCallback(
     (id) => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
-        if (id) next.set("employeeId", id);
-        else next.delete("employeeId");
+
+        if (id) {
+          next.set("employeeId", id);
+        } else {
+          next.delete("employeeId");
+        }
+
         return next;
       });
+
       setPage(1);
+
       setFilters({
         draft: { ...EMPTY_FILTERS },
         applied: { ...EMPTY_FILTERS },
@@ -59,16 +79,27 @@ export default function EmployeeAccountPage() {
   );
 
   const handleFilterChange = useCallback((value) => {
-    setFilters((prev) => ({ ...prev, draft: value }));
+    setFilters((prev) => ({
+      ...prev,
+      draft: value,
+    }));
   }, []);
 
   const handleSearch = useCallback(() => {
-    setFilters((prev) => ({ ...prev, applied: prev.draft }));
+    setFilters((prev) => ({
+      ...prev,
+      applied: prev.draft,
+    }));
+
     setPage(1);
   }, []);
 
   const handleReset = useCallback(() => {
-    setFilters({ draft: { ...EMPTY_FILTERS }, applied: { ...EMPTY_FILTERS } });
+    setFilters({
+      draft: { ...EMPTY_FILTERS },
+      applied: { ...EMPTY_FILTERS },
+    });
+
     setPage(1);
   }, []);
 
@@ -85,26 +116,58 @@ export default function EmployeeAccountPage() {
           <h2 className="font-display text-xl font-bold text-ink-900 sm:text-2xl">
             كشف حساب موظف
           </h2>
+
           <p className="mt-0.5 text-xs text-ink-400 sm:text-sm">
             كشف حساب متكامل بالسلف والخصومات والمكافآت وتحويلات الراتب
           </p>
         </div>
-        <div className="flex-1">
-          <EmployeeSelectHeader
-            employeeId={employeeId}
-            onChange={handleEmployeeChange}
-          />
+
+        <div className="flex flex-1 items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <EmployeeSelectHeader
+              employeeId={employeeId}
+              onChange={handleEmployeeChange}
+            />
+          </div>
+
+          {employeeId && data && (
+            <button
+              type="button"
+              onClick={printStatement}
+              disabled={isLoading || isFetching}
+              className={[
+                "group inline-flex h-10 shrink-0 items-center gap-2",
+                "rounded-xl border px-4 text-sm font-semibold",
+                "transition-all duration-200",
+                "active:scale-95",
+                "border-primary-500/20 bg-primary-500/10",
+                "text-primary-600",
+                "hover:border-primary-500/30",
+                "hover:bg-primary-500 hover:text-white",
+                "disabled:pointer-events-none disabled:opacity-50",
+              ].join(" ")}
+            >
+              <Printer
+                size={17}
+                className="transition-transform duration-200 group-hover:scale-110"
+              />
+
+              <span>طباعة</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Empty state */}
+      {/* Empty State */}
       {!employeeId ? (
         <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-dashed border-ink-400/20 bg-white/40 px-6 text-center">
           <div>
             <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-primary-500/10">
               <Wallet size={20} className="text-primary-500" />
             </div>
+
             <p className="text-sm font-medium text-ink-700">اختر موظف</p>
+
             <p className="mt-1 text-xs text-ink-400">لعرض كشف حسابه المالي</p>
           </div>
         </div>
@@ -116,6 +179,7 @@ export default function EmployeeAccountPage() {
             onSearch={handleSearch}
             onReset={handleReset}
           />
+
           <div className="min-w-0">
             <EmployeeStatementTable
               data={data}
@@ -131,6 +195,21 @@ export default function EmployeeAccountPage() {
           </div>
         </div>
       )}
+
+      {/* Print Template */}
+      <div
+        style={{
+          display: "none",
+        }}
+      >
+        <div ref={printRef}>
+          <EmployeeStatementPrintTemplate
+            employee={data}
+            data={data}
+            filters={filters.applied}
+          />
+        </div>
+      </div>
     </div>
   );
 }

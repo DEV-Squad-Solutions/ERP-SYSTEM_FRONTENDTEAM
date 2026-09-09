@@ -1,10 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Save, UserCog } from "lucide-react";
 import { toast } from "sonner";
-
 import {
   useGetUserByIdQuery,
   useUpdateUserMutation,
@@ -13,7 +12,6 @@ import { selectIsAdmin, selectUserId } from "../../auth/authSlice";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
   const userId = useSelector(selectUserId);
   const isAdmin = useSelector(selectIsAdmin);
@@ -82,15 +80,6 @@ export default function EditProfilePage() {
         companyIds,
       }).unwrap();
 
-      dispatch(
-        updateProfile({
-          id: userId,
-          fullName: `${values.firstName} ${values.lastName}`.trim(),
-          email: values.email.trim(),
-          roles,
-        }),
-      );
-
       toast.success("تم تحديث الملف الشخصي بنجاح");
 
       navigate("/dashboard/profile");
@@ -115,14 +104,7 @@ export default function EditProfilePage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="p-4 lg:p-6">
-        <div className="animate-pulse space-y-3">
-          <div className="h-20 rounded-2xl bg-ink-100 dark:bg-white/5" />
-          <div className="h-72 rounded-2xl bg-ink-100 dark:bg-white/5" />
-        </div>
-      </div>
-    );
+    return <EditProfileSkeleton />;
   }
 
   if (isError || !user) {
@@ -141,8 +123,9 @@ export default function EditProfilePage() {
     <div className="mx-auto max-w-3xl space-y-4 p-4 lg:p-6">
       <div className="flex items-center gap-3">
         <button
+          type="button"
           onClick={() => navigate(-1)}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-500 transition-all hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 active:scale-95 dark:border-white/[0.07] dark:bg-ink-900 dark:text-ink-400"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-200 bg-white text-ink-500 transition-all hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 active:scale-95 dark:border-white/[0.07] dark:bg-ink-900 dark:text-ink-400"
         >
           <ArrowRight size={17} />
         </button>
@@ -163,7 +146,7 @@ export default function EditProfilePage() {
         className="rounded-2xl border border-ink-200/70 bg-white p-4 shadow-sm dark:border-white/[0.07] dark:bg-ink-900"
       >
         <div className="mb-5 flex items-center gap-3 border-b border-ink-100 pb-4 dark:border-white/[0.06]">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-500 dark:bg-primary-500/10 dark:text-primary-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-500 dark:bg-primary-500/10 dark:text-primary-400">
             <UserCog size={18} />
           </div>
 
@@ -265,6 +248,76 @@ export default function EditProfilePage() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function EditProfileSkeleton() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-4 p-4 lg:p-6">
+      <div className="flex items-center gap-3">
+        <div className="h-9 w-9 animate-pulse rounded-xl bg-ink-100 dark:bg-white/5" />
+
+        <div className="space-y-1.5">
+          <div className="h-5 w-36 animate-pulse rounded-md bg-ink-100 dark:bg-white/5" />
+
+          <div className="h-3 w-28 animate-pulse rounded-md bg-ink-100 dark:bg-white/5" />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-ink-200/70 bg-white p-4 shadow-sm dark:border-white/[0.07] dark:bg-ink-900">
+        <div className="mb-5 flex items-center gap-3 border-b border-ink-100 pb-4 dark:border-white/[0.06]">
+          <div className="h-10 w-10 animate-pulse rounded-xl bg-ink-100 dark:bg-white/5" />
+
+          <div className="space-y-1.5">
+            <div className="h-4 w-24 animate-pulse rounded-md bg-ink-100 dark:bg-white/5" />
+
+            <div className="h-2.5 w-44 animate-pulse rounded-md bg-ink-100 dark:bg-white/5" />
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FieldSkeleton />
+          <FieldSkeleton />
+          <FieldSkeleton />
+          <FieldSkeleton />
+          <FieldSkeleton />
+        </div>
+
+        <div className="mt-4 rounded-xl bg-ink-50 p-3 dark:bg-white/[0.03]">
+          <div className="h-2.5 w-12 animate-pulse rounded bg-ink-200 dark:bg-white/10" />
+
+          <div className="mt-2 flex gap-1.5">
+            <div className="h-5 w-14 animate-pulse rounded-lg bg-ink-100 dark:bg-white/5" />
+            <div className="h-5 w-20 animate-pulse rounded-lg bg-ink-100 dark:bg-white/5" />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-ink-50 p-3 dark:bg-white/[0.03]">
+          <div className="h-2.5 w-14 animate-pulse rounded bg-ink-200 dark:bg-white/10" />
+
+          <div className="mt-2 flex gap-1.5">
+            <div className="h-5 w-24 animate-pulse rounded-lg bg-ink-100 dark:bg-white/5" />
+            <div className="h-5 w-28 animate-pulse rounded-lg bg-ink-100 dark:bg-white/5" />
+          </div>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <div className="h-9 w-16 animate-pulse rounded-xl bg-ink-100 dark:bg-white/5" />
+
+          <div className="h-9 w-28 animate-pulse rounded-xl bg-ink-100 dark:bg-white/5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FieldSkeleton() {
+  return (
+    <div>
+      <div className="mb-1.5 h-2.5 w-20 animate-pulse rounded bg-ink-100 dark:bg-white/5" />
+
+      <div className="h-10 w-full animate-pulse rounded-xl bg-ink-100 dark:bg-white/5" />
     </div>
   );
 }

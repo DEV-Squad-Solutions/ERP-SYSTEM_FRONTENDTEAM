@@ -1,16 +1,48 @@
-import React from "react";
+import { useSelector } from "react-redux";
 
-const formatNumber = (value, maximumFractionDigits = 2) => {
-  const number = Number(value || 0);
+// ============================================================
+// Helpers
+// ============================================================
 
-  return new Intl.NumberFormat("ar-EG", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits,
-  }).format(number);
+const SOURCE_TYPE_LABELS = {
+  OpeningBalance: "رصيد افتتاحي",
+  Invoice: "فاتورة",
+  SalesInvoice: "فاتورة بيع",
+  PurchaseInvoice: "فاتورة شراء",
+  SalesReturn: "مرتجع بيع",
+  PurchaseReturn: "مرتجع شراء",
+  CashVoucher: "سند نقدي",
+  CashMovement: "حركة نقدية",
+  BankMovement: "حركة بنكية",
+  Movement: "حركة",
+  JournalEntry: "قيد يومية",
 };
 
+const MOVEMENT_TYPE_LABELS = {
+  Sale: "بيع",
+  Purchase: "شراء",
+  SalesReturn: "مرتجع بيع",
+  PurchaseReturn: "مرتجع شراء",
+  CashReceipt: "قبض نقدي",
+  CashPayment: "دفع نقدي",
+  Receipt: "قبض",
+  Payment: "دفع",
+};
+
+const fmt = (value) =>
+  Number(value || 0).toLocaleString("ar-EG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const formatRate = (value) =>
+  Number(value || 0).toLocaleString("ar-EG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  });
+
 const formatDate = (value) => {
-  if (!value) return "-";
+  if (!value) return "—";
 
   const date = new Date(value);
 
@@ -18,203 +50,105 @@ const formatDate = (value) => {
     return value;
   }
 
-  return new Intl.DateTimeFormat("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return date.toLocaleDateString("ar-EG");
 };
 
-const formatDateTime = (value = new Date()) => {
-  return new Intl.DateTimeFormat("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(value);
+const getFilterValue = (filters, ...keys) => {
+  if (!filters) return "";
+
+  for (const key of keys) {
+    if (
+      filters[key] !== undefined &&
+      filters[key] !== null &&
+      filters[key] !== ""
+    ) {
+      return filters[key];
+    }
+  }
+
+  return "";
 };
 
-const getMovementLabel = (movementName) => {
-  return movementName || "-";
+const getSourceLabel = (value) => {
+  if (!value) return "—";
+
+  return SOURCE_TYPE_LABELS[value] || value;
 };
 
-function InfoBox({ label, value, highlight = false }) {
-  return (
-    <div
-      style={{
-        border: "1px solid #e2e8f0",
-        borderRadius: "8px",
-        padding: "7px 10px",
-        background: highlight ? "#f8fafc" : "#ffffff",
-        minHeight: "47px",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "8px",
-          color: "#64748b",
-          marginBottom: "3px",
-          fontWeight: 700,
-        }}
-      >
-        {label}
-      </div>
+const getMovementLabel = (value) => {
+  if (!value) return "—";
 
-      <div
-        style={{
-          fontSize: "11px",
-          color: "#0f172a",
-          fontWeight: 800,
-          lineHeight: 1.25,
-          overflowWrap: "anywhere",
-        }}
-      >
-        {value || "-"}
-      </div>
-    </div>
-  );
-}
+  return MOVEMENT_TYPE_LABELS[value] || value;
+};
 
-function SummaryCard({
-  title,
-  amount,
-  description,
-  currency,
-  baseAmount,
-  baseCurrency,
-}) {
-  return (
-    <div
-      style={{
-        border: "1px solid #e2e8f0",
-        borderRadius: "9px",
-        padding: "9px 11px",
-        background: "#ffffff",
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          fontSize: "8px",
-          color: "#64748b",
-          fontWeight: 800,
-          marginBottom: "4px",
-        }}
-      >
-        {title}
-      </div>
+// ============================================================
+// Styles
+// ============================================================
 
-      <div
-        style={{
-          fontSize: "16px",
-          fontWeight: 900,
-          color: "#0f172a",
-          lineHeight: 1.15,
-        }}
-      >
-        {formatNumber(amount)}{" "}
-        <span
-          style={{
-            fontSize: "9px",
-            color: "#64748b",
-            fontWeight: 800,
-          }}
-        >
-          {currency}
-        </span>
-      </div>
+const cellCenter = {
+  border: "1px solid #e5e7eb",
+  padding: "5px",
+  textAlign: "center",
+  verticalAlign: "middle",
+};
 
-      <div
-        style={{
-          marginTop: "4px",
-          fontSize: "8px",
-          color: "#475569",
-          fontWeight: 700,
-          lineHeight: 1.3,
-        }}
-      >
-        {description || "-"}
-      </div>
+const cellRight = {
+  border: "1px solid #e5e7eb",
+  padding: "5px",
+  textAlign: "right",
+  verticalAlign: "middle",
+};
 
-      {baseCurrency && baseCurrency !== currency && (
-        <div
-          style={{
-            marginTop: "5px",
-            paddingTop: "4px",
-            borderTop: "1px dashed #e2e8f0",
-            fontSize: "7.5px",
-            color: "#64748b",
-          }}
-        >
-          العملة الأساسية:{" "}
-          <strong style={{ color: "#334155" }}>
-            {formatNumber(baseAmount)} {baseCurrency}
-          </strong>
-        </div>
-      )}
-    </div>
-  );
-}
+const cellNumber = {
+  border: "1px solid #e5e7eb",
+  padding: "5px",
+  textAlign: "center",
+  verticalAlign: "middle",
+  whiteSpace: "nowrap",
+};
 
-function AmountCell({
-  amount,
-  currency,
-  baseAmount,
-  baseCurrency,
-  strong = false,
-}) {
-  const numericAmount = Number(amount || 0);
+const baseAmount = {
+  marginTop: "2px",
+  fontSize: "8px",
+  color: "#6b7280",
+  fontWeight: 400,
+};
 
-  return (
-    <div
-      style={{
-        textAlign: "left",
-        direction: "ltr",
-        fontWeight: strong && numericAmount > 0 ? 800 : 500,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {numericAmount > 0 ? (
-        <>
-          {formatNumber(numericAmount)}{" "}
-          <span
-            style={{
-              fontSize: "7px",
-              color: "#64748b",
-              fontWeight: 700,
-            }}
-          >
-            {currency}
-          </span>
-        </>
-      ) : (
-        "—"
-      )}
+const summaryTitle = {
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+  padding: "7px 10px",
+  textAlign: "right",
+  fontWeight: 700,
+  width: "60%",
+};
 
-      {baseCurrency !== currency && Number(baseAmount || 0) > 0 && (
-        <div
-          style={{
-            marginTop: "2px",
-            fontSize: "7px",
-            color: "#94a3b8",
-            fontWeight: 500,
-          }}
-        >
-          {formatNumber(baseAmount)} {baseCurrency}
-        </div>
-      )}
-    </div>
-  );
-}
+const summaryValue = {
+  border: "1px solid #e5e7eb",
+  padding: "7px 10px",
+  textAlign: "center",
+  fontWeight: 600,
+  width: "40%",
+};
+
+// ============================================================
+// Component
+// ============================================================
 
 export default function PartnerStatementPrintTemplate({
   partner,
   data,
-  filters = {},
+  filters,
 }) {
-  const items = Array.isArray(data?.items) ? data.items : [];
+  const company = useSelector((state) => state.auth.selectedCompany);
 
+  if (!data) return null;
+
+  // ============================================================
+  // Data
+  // ============================================================
+
+  const items = Array.isArray(data?.items) ? data.items : [];
   const summary = data?.summary || {};
 
   const partnerName =
@@ -224,902 +158,995 @@ export default function PartnerStatementPrintTemplate({
     partner?.businessPartnerName ||
     "العميل / المورد";
 
+  const businessPartnerId =
+    data?.businessPartnerId || partner?.id || partner?.Id || "—";
+
   const currency = data?.currency || partner?.currency || "EGP";
 
   const baseCurrency = data?.baseCurrency || "EGP";
 
-  const businessPartnerId =
-    data?.businessPartnerId || partner?.id || partner?.Id || "-";
+  const isForeignCurrency = currency !== baseCurrency;
 
-  const openingBalance = Number(summary?.openingBalanceAmount || 0);
+  const today = new Date();
 
-  const closingBalance = Number(summary?.closingBalanceAmount || 0);
+  // ============================================================
+  // Calculations
+  // ============================================================
 
-  const baseOpeningBalance = Number(summary?.baseOpeningBalanceAmount || 0);
+  const calculatedOpeningBalance =
+    summary?.openingBalanceAmount ?? summary?.openingBalance ?? 0;
 
-  const baseClosingBalance = Number(summary?.baseClosingBalanceAmount || 0);
+  const calculatedTotalDebits =
+    summary?.totalDebits ??
+    items.reduce((total, item) => total + Number(item?.debitAmount || 0), 0);
 
-  const totalDebit = items.reduce(
-    (sum, item) => sum + Number(item?.debitAmount || 0),
-    0,
+  const calculatedTotalCredits =
+    summary?.totalCredits ??
+    items.reduce((total, item) => total + Number(item?.creditAmount || 0), 0);
+
+  const calculatedClosingBalance =
+    summary?.closingBalanceAmount ??
+    Number(calculatedOpeningBalance) +
+      Number(calculatedTotalDebits) -
+      Number(calculatedTotalCredits);
+
+  // ============================================================
+  // Filters
+  // ============================================================
+
+  const fromDate = getFilterValue(filters, "FromDate", "fromDate");
+
+  const toDate = getFilterValue(filters, "ToDate", "toDate");
+
+  const search = getFilterValue(filters, "Search", "search");
+
+  const sourceType = getFilterValue(filters, "SourceType", "sourceType");
+
+  const movementType = getFilterValue(filters, "MovementType", "movementType");
+
+  const cashMovementTypeId = getFilterValue(
+    filters,
+    "CashMovementTypeId",
+    "cashMovementTypeId",
   );
 
-  const totalCredit = items.reduce(
-    (sum, item) => sum + Number(item?.creditAmount || 0),
-    0,
+  const classification = getFilterValue(
+    filters,
+    "Classification",
+    "classification",
   );
 
-  const totalBaseDebit = items.reduce(
-    (sum, item) => sum + Number(item?.baseDebitAmount || 0),
-    0,
-  );
+  // ============================================================
+  // Company info
+  // ============================================================
 
-  const totalBaseCredit = items.reduce(
-    (sum, item) => sum + Number(item?.baseCreditAmount || 0),
-    0,
-  );
+  const companyName =
+    company?.name || company?.Name || company?.companyName || "—";
 
-  const hasDateFilter = Boolean(filters?.FromDate) || Boolean(filters?.ToDate);
+  const companyPhone =
+    company?.phone || company?.Phone || company?.mobile || "";
 
-  const hasOtherFilters =
-    Boolean(filters?.Search) ||
-    Boolean(filters?.SourceType) ||
-    Boolean(filters?.MovementType) ||
-    Boolean(filters?.CashMovementTypeId) ||
-    Boolean(filters?.Classification);
+  const companyAddress = company?.address || company?.Address || "";
 
   return (
-    <div
-      className="print-page"
-      style={{
-        width: "100%",
-        minHeight: "100%",
-        margin: 0,
-        padding: 10,
-        background: "#ffffff",
-        color: "#0f172a",
-        direction: "rtl",
-        fontFamily: '"Tajawal", "Cairo", Arial, sans-serif',
-        fontSize: "10px",
-        lineHeight: 1.35,
-      }}
-    >
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
+    <>
+      {/* ========================================================
+          Print CSS
+      ======================================================== */}
+
+      <style>
+        {`
+          @page {
+            size: A4 landscape;
+            margin: 0;
+          }
+
+          @media print {
+            html,
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff !important;
+            }
+
+            .partner-statement-print-page {
+              width: 297mm !important;
+              min-height: 210mm !important;
+              margin: 0 !important;
+              padding: 12mm !important;
+              box-sizing: border-box !important;
+            }
+
+            table {
+              page-break-inside: auto;
+            }
+
+            thead {
+              display: table-header-group;
+            }
+
+            tfoot {
+              display: table-footer-group;
+            }
+
+            tr {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+
+            .no-print {
+              display: none !important;
+            }
+          }
+        `}
+      </style>
+
+      {/* ========================================================
+          A4 Page
+      ======================================================== */}
+
       <div
+        className="partner-statement-print-page"
+        dir="rtl"
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "20px",
-          paddingBottom: "8px",
-          marginBottom: "9px",
-          borderBottom: "2px solid #0f172a",
+          width: "297mm",
+          minHeight: "210mm",
+          padding: "12mm",
+          fontFamily: "'Cairo', 'Tajawal', sans-serif",
+          color: "#111827",
+          fontSize: "11px",
+          boxSizing: "border-box",
+          background: "#fff",
         }}
       >
+        {/* ======================================================
+            Header
+        ====================================================== */}
+
         <div
           style={{
-            minWidth: 0,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            borderBottom: "2px solid #0F6E5E",
+            paddingBottom: "10px",
+            marginBottom: "12px",
           }}
         >
-          <div
-            style={{
-              fontSize: "20px",
-              lineHeight: 1.1,
-              fontWeight: 900,
-              color: "#0f172a",
-              letterSpacing: "-0.3px",
-            }}
-          >
-            كشف حساب
-          </div>
+          {/* Company */}
 
-          <div
-            style={{
-              marginTop: "3px",
-              fontSize: "9px",
-              color: "#64748b",
-              fontWeight: 700,
-            }}
-          >
-            كشف حساب تشغيلي للعميل / المورد
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "auto auto",
-            gap: "4px 14px",
-            textAlign: "left",
-            fontSize: "8px",
-            color: "#64748b",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <span>تاريخ الطباعة</span>
-
-          <strong style={{ color: "#0f172a" }}>{formatDateTime()}</strong>
-
-          <span>عدد الحركات</span>
-
-          <strong style={{ color: "#0f172a" }}>{items.length}</strong>
-        </div>
-      </div>
-
-      {/* =====================================================
-          PARTNER INFO
-      ====================================================== */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2.2fr 0.9fr 0.9fr 0.9fr",
-          gap: "6px",
-          marginBottom: "8px",
-        }}
-      >
-        <InfoBox label="العميل / المورد" value={partnerName} highlight />
-
-        <InfoBox label="عملة الحساب" value={currency} />
-
-        <InfoBox label="العملة الأساسية" value={baseCurrency} />
-
-        <InfoBox label="رقم الحساب" value={businessPartnerId} />
-      </div>
-
-      {/* =====================================================
-          FILTERS
-      ====================================================== */}
-      {(hasDateFilter || hasOtherFilters) && (
-        <div
-          style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "8px",
-            padding: "6px 9px",
-            marginBottom: "8px",
-            background: "#f8fafc",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "8px",
-              fontWeight: 900,
-              color: "#334155",
-              marginBottom: "4px",
-            }}
-          >
-            معايير الكشف
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "3px 16px",
-              fontSize: "8px",
-              color: "#64748b",
-            }}
-          >
-            {filters?.FromDate && (
-              <span>
-                من:{" "}
-                <strong style={{ color: "#334155" }}>
-                  {formatDate(filters.FromDate)}
-                </strong>
-              </span>
-            )}
-
-            {filters?.ToDate && (
-              <span>
-                إلى:{" "}
-                <strong style={{ color: "#334155" }}>
-                  {formatDate(filters.ToDate)}
-                </strong>
-              </span>
-            )}
-
-            {filters?.Search && (
-              <span>
-                بحث:{" "}
-                <strong style={{ color: "#334155" }}>{filters.Search}</strong>
-              </span>
-            )}
-
-            {filters?.SourceType && (
-              <span>
-                مصدر الحركة:{" "}
-                <strong style={{ color: "#334155" }}>
-                  {filters.SourceType}
-                </strong>
-              </span>
-            )}
-
-            {filters?.MovementType && (
-              <span>
-                نوع الحركة:{" "}
-                <strong style={{ color: "#334155" }}>
-                  {filters.MovementType}
-                </strong>
-              </span>
-            )}
-
-            {filters?.CashMovementTypeId && (
-              <span>
-                نوع السند:{" "}
-                <strong style={{ color: "#334155" }}>
-                  {filters.CashMovementTypeId}
-                </strong>
-              </span>
-            )}
-
-            {filters?.Classification && (
-              <span>
-                التصنيف:{" "}
-                <strong style={{ color: "#334155" }}>
-                  {filters.Classification}
-                </strong>
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================
-          BALANCE SUMMARY
-      ====================================================== */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "7px",
-          marginBottom: "9px",
-        }}
-      >
-        <SummaryCard
-          title="رصيد أول المدة"
-          amount={openingBalance}
-          description={summary?.openingBalanceDescription}
-          currency={currency}
-          baseAmount={baseOpeningBalance}
-          baseCurrency={baseCurrency}
-        />
-
-        <SummaryCard
-          title="رصيد آخر المدة"
-          amount={closingBalance}
-          description={summary?.closingBalanceDescription}
-          currency={currency}
-          baseAmount={baseClosingBalance}
-          baseCurrency={baseCurrency}
-        />
-      </div>
-
-      {/* =====================================================
-          STATEMENT TABLE
-      ====================================================== */}
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          tableLayout: "fixed",
-          margin: 0,
-        }}
-      >
-        <thead>
-          <tr>
-            <th
-              style={headerStyle({
-                width: "3.5%",
-              })}
-            >
-              #
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "8%",
-              })}
-            >
-              التاريخ
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "10%",
-              })}
-            >
-              المستند
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "17%",
-              })}
-            >
-              الحركة
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "21%",
-              })}
-            >
-              البيان
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "9%",
-              })}
-            >
-              سعر الصرف
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "10.5%",
-              })}
-            >
-              عليه
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "10.5%",
-              })}
-            >
-              له
-            </th>
-
-            <th
-              style={headerStyle({
-                width: "10%",
-              })}
-            >
-              الرصيد
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {/* Opening Balance */}
-          <tr
-            style={{
-              background: "#f8fafc",
-              pageBreakInside: "avoid",
-            }}
-          >
-            <td
-              style={cellStyle({
-                textAlign: "center",
+          <div>
+            <h1
+              style={{
+                fontSize: "18px",
                 fontWeight: 700,
-              })}
+                margin: 0,
+                color: "#111827",
+              }}
             >
-              —
-            </td>
+              {companyName}
+            </h1>
 
-            <td style={cellStyle()}>—</td>
-
-            <td style={cellStyle()}>—</td>
-
-            <td
-              style={cellStyle({
-                fontWeight: 900,
-              })}
+            <p
+              style={{
+                fontSize: "10px",
+                color: "#6b7280",
+                margin: "4px 0 0",
+              }}
             >
-              رصيد أول المدة
-            </td>
+              كشف حساب عميل / مورد
+            </p>
 
-            <td style={cellStyle()}>
-              {summary?.openingBalanceDescription || "-"}
-            </td>
-
-            <td
-              style={cellStyle({
-                textAlign: "center",
-              })}
-            >
-              —
-            </td>
-
-            <td
-              style={cellStyle({
-                textAlign: "left",
-              })}
-            >
-              —
-            </td>
-
-            <td
-              style={cellStyle({
-                textAlign: "left",
-              })}
-            >
-              —
-            </td>
-
-            <td
-              style={cellStyle({
-                textAlign: "left",
-                fontWeight: 900,
-              })}
-            >
-              {formatNumber(openingBalance)}{" "}
-              <span
+            {companyAddress && (
+              <p
                 style={{
-                  fontSize: "7px",
-                  color: "#64748b",
-                }}
-              >
-                {currency}
-              </span>
-            </td>
-          </tr>
-
-          {/* Movements */}
-          {items.map((item, index) => {
-            const debit = Number(item?.debitAmount || 0);
-
-            const credit = Number(item?.creditAmount || 0);
-
-            const balance = Number(item?.balanceAmount || 0);
-
-            return (
-              <tr
-                key={`${item?.documentNumber || "row"}-${index}`}
-                style={{
-                  pageBreakInside: "avoid",
-                }}
-              >
-                <td
-                  style={cellStyle({
-                    textAlign: "center",
-                    color: "#64748b",
-                  })}
-                >
-                  {index + 1}
-                </td>
-
-                <td style={cellStyle()}>{formatDate(item?.date)}</td>
-
-                <td
-                  style={cellStyle({
-                    fontWeight: 800,
-                  })}
-                >
-                  {item?.documentNumber || "-"}
-                </td>
-
-                <td
-                  style={cellStyle({
-                    fontWeight: 800,
-                  })}
-                >
-                  {getMovementLabel(item?.movementName)}
-                </td>
-
-                <td style={cellStyle()}>
-                  <div
-                    style={{
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {item?.description || "-"}
-                  </div>
-
-                  {item?.referenceNumber && (
-                    <div
-                      style={{
-                        marginTop: "2px",
-                        fontSize: "7px",
-                        color: "#94a3b8",
-                      }}
-                    >
-                      مرجع: {item.referenceNumber}
-                    </div>
-                  )}
-                </td>
-
-                <td
-                  style={cellStyle({
-                    textAlign: "center",
-                  })}
-                >
-                  {item?.exchangeRate
-                    ? formatNumber(item.exchangeRate, 4)
-                    : "—"}
-                </td>
-
-                <td
-                  style={cellStyle({
-                    paddingLeft: "7px",
-                  })}
-                >
-                  <AmountCell
-                    amount={debit}
-                    currency={currency}
-                    baseAmount={item?.baseDebitAmount}
-                    baseCurrency={baseCurrency}
-                    strong
-                  />
-                </td>
-
-                <td
-                  style={cellStyle({
-                    paddingLeft: "7px",
-                  })}
-                >
-                  <AmountCell
-                    amount={credit}
-                    currency={currency}
-                    baseAmount={item?.baseCreditAmount}
-                    baseCurrency={baseCurrency}
-                    strong
-                  />
-                </td>
-
-                <td
-                  style={cellStyle({
-                    textAlign: "left",
-                    fontWeight: 900,
-                  })}
-                >
-                  <div
-                    style={{
-                      direction: "ltr",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {formatNumber(balance)}{" "}
-                    <span
-                      style={{
-                        fontSize: "7px",
-                        color: "#64748b",
-                      }}
-                    >
-                      {currency}
-                    </span>
-                  </div>
-
-                  {item?.balanceDescription && (
-                    <div
-                      style={{
-                        marginTop: "2px",
-                        fontSize: "7px",
-                        color: "#64748b",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {item.balanceDescription}
-                    </div>
-                  )}
-
-                  {baseCurrency !== currency &&
-                    Number(item?.baseBalanceAmount || 0) > 0 && (
-                      <div
-                        style={{
-                          marginTop: "2px",
-                          fontSize: "6.5px",
-                          color: "#94a3b8",
-                          direction: "ltr",
-                        }}
-                      >
-                        {formatNumber(item.baseBalanceAmount)} {baseCurrency}
-                      </div>
-                    )}
-                </td>
-              </tr>
-            );
-          })}
-
-          {/* Empty */}
-          {items.length === 0 && (
-            <tr>
-              <td
-                colSpan={9}
-                style={{
-                  padding: "18px 8px",
-                  textAlign: "center",
-                  border: "1px solid #e2e8f0",
-                  color: "#64748b",
                   fontSize: "9px",
-                  background: "#fafafa",
+                  color: "#6b7280",
+                  margin: "2px 0 0",
                 }}
               >
-                لا توجد حركات مطابقة لمعايير البحث
-              </td>
-            </tr>
-          )}
-        </tbody>
+                {companyAddress}
+              </p>
+            )}
 
-        <tfoot>
-          <tr>
-            <td
-              colSpan={6}
-              style={{
-                padding: "7px 6px",
-                borderTop: "2px solid #0f172a",
-                background: "#f1f5f9",
-                fontWeight: 900,
-                fontSize: "9px",
-              }}
-            >
-              إجمالي الحركات
-            </td>
-
-            <td
-              style={{
-                padding: "7px 6px",
-                borderTop: "2px solid #0f172a",
-                background: "#f1f5f9",
-                textAlign: "left",
-                fontWeight: 900,
-                fontSize: "9px",
-              }}
-            >
-              <AmountCell
-                amount={totalDebit}
-                currency={currency}
-                baseAmount={totalBaseDebit}
-                baseCurrency={baseCurrency}
-                strong
-              />
-            </td>
-
-            <td
-              style={{
-                padding: "7px 6px",
-                borderTop: "2px solid #0f172a",
-                background: "#f1f5f9",
-                textAlign: "left",
-                fontWeight: 900,
-                fontSize: "9px",
-              }}
-            >
-              <AmountCell
-                amount={totalCredit}
-                currency={currency}
-                baseAmount={totalBaseCredit}
-                baseCurrency={baseCurrency}
-                strong
-              />
-            </td>
-
-            <td
-              style={{
-                padding: "7px 6px",
-                borderTop: "2px solid #0f172a",
-                background: "#f1f5f9",
-                textAlign: "left",
-                fontWeight: 900,
-                fontSize: "9px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {formatNumber(closingBalance)}{" "}
-              <span
+            {companyPhone && (
+              <p
                 style={{
-                  fontSize: "7px",
-                  color: "#64748b",
+                  fontSize: "9px",
+                  color: "#6b7280",
+                  margin: "2px 0 0",
                 }}
               >
-                {currency}
-              </span>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+                {companyPhone}
+              </p>
+            )}
+          </div>
 
-      {/* =====================================================
-          FINAL SUMMARY
-      ====================================================== */}
-      <div
-        style={{
-          marginTop: "9px",
-          display: "grid",
-          gridTemplateColumns: "1.4fr 1fr 1fr",
-          gap: "7px",
-        }}
-      >
+          {/* Print info */}
+
+          <div
+            style={{
+              textAlign: "left",
+              fontSize: "10px",
+              color: "#374151",
+            }}
+          >
+            <p style={{ margin: "2px 0" }}>
+              تاريخ الطباعة: {formatDate(today)}
+            </p>
+
+            <p style={{ margin: "2px 0" }}>عدد الحركات: {items.length}</p>
+
+            <p style={{ margin: "2px 0" }}>العملة: {currency}</p>
+          </div>
+        </div>
+
+        {/* ======================================================
+            Partner Information
+        ====================================================== */}
+
         <div
           style={{
-            border: "1px solid #cbd5e1",
-            borderRadius: "9px",
-            padding: "9px 11px",
-            background: "#f8fafc",
+            display: "flex",
+            gap: "10px",
+            marginBottom: "12px",
           }}
         >
-          <div
-            style={{
-              fontSize: "8px",
-              color: "#64748b",
-              fontWeight: 800,
-              marginBottom: "3px",
-            }}
-          >
-            الرصيد النهائي
-          </div>
+          {/* Partner */}
 
           <div
             style={{
-              fontSize: "17px",
-              fontWeight: 900,
-              color: "#0f172a",
-              lineHeight: 1.1,
+              flex: 1,
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              padding: "8px 10px",
             }}
           >
-            {formatNumber(closingBalance)}{" "}
-            <span
-              style={{
-                fontSize: "9px",
-                color: "#64748b",
-              }}
-            >
-              {currency}
-            </span>
-          </div>
-
-          <div
-            style={{
-              marginTop: "3px",
-              fontSize: "8px",
-              color: "#475569",
-              fontWeight: 700,
-            }}
-          >
-            {summary?.closingBalanceDescription || "-"}
-          </div>
-
-          {baseCurrency !== currency && (
             <div
               style={{
-                marginTop: "4px",
-                paddingTop: "4px",
-                borderTop: "1px dashed #cbd5e1",
-                fontSize: "7px",
-                color: "#64748b",
+                fontSize: "9px",
+                color: "#6b7280",
+                marginBottom: "3px",
               }}
             >
-              بالعملة الأساسية:{" "}
-              <strong style={{ color: "#334155" }}>
-                {formatNumber(baseClosingBalance)} {baseCurrency}
-              </strong>
+              العميل / المورد
             </div>
-          )}
+
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              {partnerName}
+            </div>
+          </div>
+
+          {/* Account Number */}
+
+          <div
+            style={{
+              width: "150px",
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              padding: "8px 10px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "9px",
+                color: "#6b7280",
+                marginBottom: "3px",
+              }}
+            >
+              رقم الحساب
+            </div>
+
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              {businessPartnerId}
+            </div>
+          </div>
+
+          {/* Account Currency */}
+
+          <div
+            style={{
+              width: "150px",
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              padding: "8px 10px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "9px",
+                color: "#6b7280",
+                marginBottom: "3px",
+              }}
+            >
+              عملة الحساب
+            </div>
+
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              {currency}
+            </div>
+          </div>
+
+          {/* Base Currency */}
+
+          <div
+            style={{
+              width: "150px",
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              padding: "8px 10px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "9px",
+                color: "#6b7280",
+                marginBottom: "3px",
+              }}
+            >
+              العملة الأساسية
+            </div>
+
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+            >
+              {baseCurrency}
+            </div>
+          </div>
         </div>
+
+        {/* ======================================================
+            Filters
+        ====================================================== */}
+
+        {(fromDate ||
+          toDate ||
+          search ||
+          sourceType ||
+          movementType ||
+          cashMovementTypeId ||
+          classification) && (
+          <div
+            style={{
+              marginBottom: "12px",
+              padding: "8px 10px",
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                color: "#374151",
+                marginBottom: "6px",
+              }}
+            >
+              معايير الكشف
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "16px",
+                flexWrap: "wrap",
+                fontSize: "9px",
+                color: "#6b7280",
+              }}
+            >
+              {fromDate && <span>من: {formatDate(fromDate)}</span>}
+
+              {toDate && <span>إلى: {formatDate(toDate)}</span>}
+
+              {sourceType && <span>المصدر: {getSourceLabel(sourceType)}</span>}
+
+              {movementType && (
+                <span>نوع الحركة: {getMovementLabel(movementType)}</span>
+              )}
+
+              {cashMovementTypeId && (
+                <span>نوع الحركة النقدية: {cashMovementTypeId}</span>
+              )}
+
+              {classification && <span>التصنيف: {classification}</span>}
+
+              {search && <span>البحث: {search}</span>}
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================
+            Statement Table
+        ====================================================== */}
+
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "10px",
+            tableLayout: "fixed",
+          }}
+        >
+          <thead>
+            <tr
+              style={{
+                background: "#f3f4f6",
+              }}
+            >
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "4%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                #
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "9%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                التاريخ
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "11%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                رقم المستند
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "14%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                الحركة
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "22%",
+                  fontWeight: 700,
+                }}
+              >
+                البيان
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "9%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                مدين ({currency})
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "9%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                دائن ({currency})
+              </th>
+
+              <th
+                style={{
+                  ...cellCenter,
+                  width: "11%",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                الرصيد ({currency})
+              </th>
+
+              {isForeignCurrency && (
+                <th
+                  style={{
+                    ...cellCenter,
+                    width: "11%",
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  سعر الصرف
+                </th>
+              )}
+            </tr>
+          </thead>
+
+          <tbody>
+            {/* ==================================================
+                Opening Balance
+            ================================================== */}
+
+            <tr>
+              <td
+                style={{
+                  ...cellCenter,
+                  fontWeight: 700,
+                }}
+              >
+                —
+              </td>
+
+              <td style={cellCenter}>—</td>
+
+              <td style={cellCenter}>—</td>
+
+              <td
+                style={{
+                  ...cellRight,
+                  fontWeight: 700,
+                }}
+              >
+                رصيد افتتاحي
+              </td>
+
+              <td
+                style={{
+                  ...cellRight,
+                  fontWeight: 600,
+                }}
+              >
+                {summary?.openingBalanceDescription || "الرصيد الافتتاحي"}
+              </td>
+
+              <td style={cellNumber}>
+                {Number(calculatedOpeningBalance) > 0
+                  ? fmt(calculatedOpeningBalance)
+                  : "—"}
+              </td>
+
+              <td style={cellNumber}>
+                {Number(calculatedOpeningBalance) < 0
+                  ? fmt(Math.abs(calculatedOpeningBalance))
+                  : "—"}
+              </td>
+
+              <td
+                style={{
+                  ...cellNumber,
+                  fontWeight: 700,
+                }}
+              >
+                {fmt(calculatedOpeningBalance)}
+              </td>
+
+              {isForeignCurrency && <td style={cellNumber}>—</td>}
+            </tr>
+
+            {/* ==================================================
+                Transactions
+            ================================================== */}
+
+            {items.map((item, index) => {
+              const debitAmount = Number(item?.debitAmount || 0);
+
+              const creditAmount = Number(item?.creditAmount || 0);
+
+              const balanceAmount = Number(item?.balanceAmount ?? 0);
+
+              const exchangeRate = Number(item?.exchangeRate || 0);
+
+              const documentNumber =
+                item?.invoiceNumber ||
+                item?.referenceNumber ||
+                item?.documentNumber ||
+                item?.voucherNumber ||
+                "—";
+
+              const movement =
+                item?.movementTypeName ||
+                item?.movementType ||
+                item?.sourceName ||
+                item?.sourceType ||
+                "—";
+
+              const description =
+                item?.description ||
+                item?.movementDescription ||
+                item?.notes ||
+                "—";
+
+              return (
+                <tr key={item?.id || item?.Id || index}>
+                  <td style={cellCenter}>{index + 1}</td>
+
+                  <td style={cellCenter}>
+                    {formatDate(
+                      item?.date ||
+                        item?.movementDate ||
+                        item?.invoiceDate ||
+                        item?.createdAt,
+                    )}
+                  </td>
+
+                  <td
+                    style={{
+                      ...cellCenter,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {documentNumber}
+                  </td>
+
+                  <td style={cellRight}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                      }}
+                    >
+                      {getMovementLabel(movement)}
+                    </div>
+
+                    {item?.sourceType && (
+                      <div style={baseAmount}>
+                        {getSourceLabel(item.sourceType)}
+                      </div>
+                    )}
+                  </td>
+
+                  <td style={cellRight}>
+                    <div>{description}</div>
+
+                    {item?.referenceNumber && item?.invoiceNumber && (
+                      <div style={baseAmount}>مرجع: {item.referenceNumber}</div>
+                    )}
+                  </td>
+
+                  <td style={cellNumber}>
+                    {debitAmount > 0 ? fmt(debitAmount) : "—"}
+                  </td>
+
+                  <td
+                    style={{
+                      ...cellNumber,
+                      color: creditAmount > 0 ? "#16a34a" : "#111827",
+                    }}
+                  >
+                    {creditAmount > 0 ? fmt(creditAmount) : "—"}
+                  </td>
+
+                  <td
+                    style={{
+                      ...cellNumber,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {fmt(balanceAmount)}
+                  </td>
+
+                  {isForeignCurrency && (
+                    <td style={cellNumber}>
+                      {exchangeRate > 0 ? formatRate(exchangeRate) : "—"}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+
+            {/* ==================================================
+                Empty State
+            ================================================== */}
+
+            {items.length === 0 && (
+              <tr>
+                <td
+                  colSpan={isForeignCurrency ? 9 : 8}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    padding: "18px",
+                    textAlign: "center",
+                    color: "#6b7280",
+                    background: "#fafafa",
+                  }}
+                >
+                  لا توجد حركات خلال الفترة المحددة
+                </td>
+              </tr>
+            )}
+          </tbody>
+
+          {/* ====================================================
+              Totals
+          ==================================================== */}
+
+          <tfoot>
+            <tr
+              style={{
+                background: "#f9fafb",
+              }}
+            >
+              <td
+                colSpan={5}
+                style={{
+                  ...cellRight,
+                  fontWeight: 700,
+                }}
+              >
+                الإجمالي
+              </td>
+
+              <td
+                style={{
+                  ...cellNumber,
+                  fontWeight: 700,
+                }}
+              >
+                {fmt(calculatedTotalDebits)}
+              </td>
+
+              <td
+                style={{
+                  ...cellNumber,
+                  color: "#16a34a",
+                  fontWeight: 700,
+                }}
+              >
+                {fmt(calculatedTotalCredits)}
+              </td>
+
+              <td
+                style={{
+                  ...cellNumber,
+                  fontWeight: 700,
+                }}
+              >
+                {fmt(calculatedClosingBalance)}
+              </td>
+
+              {isForeignCurrency && <td style={cellNumber}>—</td>}
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* ======================================================
+            Summary
+        ====================================================== */}
 
         <div
           style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "9px",
-            padding: "9px 11px",
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: "18px",
+          }}
+        >
+          <table
+            style={{
+              width: "380px",
+              borderCollapse: "collapse",
+              fontSize: "10.5px",
+            }}
+          >
+            <tbody>
+              <tr>
+                <td style={summaryTitle}>الرصيد الافتتاحي</td>
+
+                <td style={summaryValue}>{fmt(calculatedOpeningBalance)}</td>
+              </tr>
+
+              <tr>
+                <td style={summaryTitle}>إجمالي المدين</td>
+
+                <td style={summaryValue}>{fmt(calculatedTotalDebits)}</td>
+              </tr>
+
+              <tr>
+                <td style={summaryTitle}>إجمالي الدائن</td>
+
+                <td
+                  style={{
+                    ...summaryValue,
+                    color: "#16a34a",
+                    fontWeight: 700,
+                  }}
+                >
+                  {fmt(calculatedTotalCredits)}
+                </td>
+              </tr>
+
+              <tr>
+                <td
+                  style={{
+                    ...summaryTitle,
+                    fontWeight: 700,
+                  }}
+                >
+                  الرصيد الختامي
+                </td>
+
+                <td
+                  style={{
+                    ...summaryValue,
+                    fontWeight: 700,
+                    fontSize: "12px",
+                  }}
+                >
+                  {fmt(calculatedClosingBalance)}
+                </td>
+              </tr>
+
+              <tr>
+                <td
+                  colSpan={2}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#f9fafb",
+                    padding: "6px 10px",
+                    textAlign: "center",
+                    fontSize: "9px",
+                    color: "#6b7280",
+                  }}
+                >
+                  {summary?.closingBalanceDescription || "—"}
+                </td>
+              </tr>
+
+              {/* Foreign Currency Summary */}
+
+              {isForeignCurrency && (
+                <>
+                  {summary?.totalDebitsBaseCurrency !== undefined && (
+                    <tr>
+                      <td style={summaryTitle}>
+                        إجمالي المدين ({baseCurrency})
+                      </td>
+
+                      <td style={summaryValue}>
+                        {fmt(summary.totalDebitsBaseCurrency)}
+                      </td>
+                    </tr>
+                  )}
+
+                  {summary?.totalCreditsBaseCurrency !== undefined && (
+                    <tr>
+                      <td style={summaryTitle}>
+                        إجمالي الدائن ({baseCurrency})
+                      </td>
+
+                      <td style={summaryValue}>
+                        {fmt(summary.totalCreditsBaseCurrency)}
+                      </td>
+                    </tr>
+                  )}
+
+                  {summary?.closingBalanceBaseCurrency !== undefined && (
+                    <tr>
+                      <td
+                        style={{
+                          ...summaryTitle,
+                          fontWeight: 700,
+                        }}
+                      >
+                        الرصيد الختامي ({baseCurrency})
+                      </td>
+
+                      <td
+                        style={{
+                          ...summaryValue,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {fmt(summary.closingBalanceBaseCurrency)}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ======================================================
+            Signature
+        ====================================================== */}
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: "35px",
+            fontSize: "11px",
           }}
         >
           <div
             style={{
-              fontSize: "8px",
-              color: "#64748b",
-              fontWeight: 800,
-              marginBottom: "3px",
+              textAlign: "center",
+              width: "180px",
             }}
           >
-            إجمالي عليه
+            <div
+              style={{
+                borderTop: "1px solid #111827",
+                paddingTop: "6px",
+              }}
+            >
+              توقيع العميل / المورد
+            </div>
           </div>
 
           <div
             style={{
-              fontSize: "15px",
-              fontWeight: 900,
-              color: "#0f172a",
+              textAlign: "center",
+              width: "180px",
             }}
           >
-            {formatNumber(totalDebit)}{" "}
-            <span
+            <div
               style={{
-                fontSize: "8px",
-                color: "#64748b",
+                borderTop: "1px solid #111827",
+                paddingTop: "6px",
               }}
             >
-              {currency}
-            </span>
+              توقيع المسؤول
+            </div>
           </div>
         </div>
+
+        {/* ======================================================
+            Footer
+        ====================================================== */}
 
         <div
           style={{
-            border: "1px solid #e2e8f0",
-            borderRadius: "9px",
-            padding: "9px 11px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: "18px",
+            paddingTop: "8px",
+            borderTop: "1px solid #e5e7eb",
+            fontSize: "8.5px",
+            color: "#6b7280",
           }}
         >
-          <div
-            style={{
-              fontSize: "8px",
-              color: "#64748b",
-              fontWeight: 800,
-              marginBottom: "3px",
-            }}
-          >
-            إجمالي له
-          </div>
+          <span>كشف حساب تشغيلي — {partnerName}</span>
 
-          <div
-            style={{
-              fontSize: "15px",
-              fontWeight: 900,
-              color: "#0f172a",
-            }}
-          >
-            {formatNumber(totalCredit)}{" "}
-            <span
-              style={{
-                fontSize: "8px",
-                color: "#64748b",
-              }}
-            >
-              {currency}
-            </span>
-          </div>
+          <span>
+            العملة: {currency}
+            {isForeignCurrency ? ` | الأساسية: ${baseCurrency}` : ""}
+          </span>
+
+          <span>عدد السجلات: {items.length}</span>
         </div>
       </div>
-
-      {/* =====================================================
-          FOOTER
-      ====================================================== */}
-      <div
-        style={{
-          marginTop: "10px",
-          paddingTop: "6px",
-          borderTop: "1px solid #e2e8f0",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "15px",
-          fontSize: "7px",
-          color: "#94a3b8",
-        }}
-      >
-        <span>كشف حساب تشغيلي — {partnerName}</span>
-
-        <span>
-          {currency}
-          {baseCurrency !== currency ? ` / ${baseCurrency}` : ""}
-        </span>
-
-        <span>إجمالي السجلات: {items.length}</span>
-      </div>
-    </div>
+    </>
   );
 }
-
-const headerStyle = ({ width }) => ({
-  width,
-  padding: "6px 5px",
-  background: "#0f172a",
-  color: "#ffffff",
-  border: "1px solid #0f172a",
-  fontSize: "8px",
-  fontWeight: 900,
-  textAlign: "center",
-  whiteSpace: "nowrap",
-  lineHeight: 1.2,
-});
-
-const cellStyle = ({
-  textAlign = "right",
-  fontWeight = 500,
-  color = "#0f172a",
-} = {}) => ({
-  padding: "5px 5px",
-  border: "1px solid #e2e8f0",
-  fontSize: "8px",
-  lineHeight: 1.35,
-  verticalAlign: "middle",
-  textAlign,
-  fontWeight,
-  color,
-  wordBreak: "break-word",
-  overflowWrap: "anywhere",
-});
