@@ -98,5 +98,6 @@ export const resourceTagsMap = {
     "Statement",
     "PartyStatement",
     "CashVoucherPartySelect",
+    "EmployeeMovement",
   ],
 };
