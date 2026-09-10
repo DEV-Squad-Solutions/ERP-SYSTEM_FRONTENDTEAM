@@ -136,20 +136,42 @@ export default function LoginPage() {
                 </span>{" "}
               </div>{" "}
               <div className="flex shrink-0 items-center gap-2 text-white/35">
-                {" "}
-                <img
-                  src={logo}
-                  alt="DEV Squad Solutions"
-                  className=" h-8 w-8 rounded-lg object-contain opacity-75 transition-[transform,opacity] duration-300 hover:scale-105 hover:opacity-100 "
-                />{" "}
-                <div className="hidden flex-col leading-tight xl:flex">
-                  {" "}
-                  <span className="text-[9px]"> Developed by </span>{" "}
-                  <span className="text-[10px] font-medium text-white/55">
-                    {" "}
-                    DEV Squad Solutions{" "}
-                  </span>{" "}
-                </div>{" "}
+                <a
+                  href="https://dev-squad-orpin.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={[
+                    "group flex items-center gap-2.5",
+                    "rounded-lg px-2 py-2",
+                    "transition-colors duration-200",
+                    "hover:bg-white/[0.04]",
+                    "outline-none",
+                    "focus-visible:ring-2",
+                    "focus-visible:ring-gold-500/40",
+                  ].join(" ")}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.035]">
+                    <img
+                      src="/logo.jpg"
+                      alt="Dev Squad Solutions"
+                      className="h-full w-full object-contain opacity-80 transition-opacity group-hover:opacity-100"
+                    />
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[10px] font-semibold text-white/55 transition-colors group-hover:text-white/75">
+                      Dev Squad Solutions
+                    </span>
+
+                    <span className="mt-0.5 block text-[8px] text-white/35">
+                      © {new Date().getFullYear()} جميع الحقوق محفوظة
+                    </span>
+                  </span>
+
+                  <span className="text-[11px] text-white/30 transition-colors group-hover:text-gold-400">
+                    ↗
+                  </span>
+                </a>
               </div>{" "}
             </div>{" "}
           </div>{" "}
