@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const accountsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -45,12 +46,9 @@ export const accountsApi = baseApi.injectEndpoints({
 
     createAccount: builder.mutation({
       query: (body) => ({ url: "/Accounts", method: "POST", body }),
-      invalidatesTags: [
-        { type: "Account", id: "TREE" },
-        { type: "Account", id: "LIST" },
-        { type: "Account", id: "SELECT" },
-        { type: "Account", id: "JOURNAL_SELECT" },
-      ],
+      // tagsFor("Account") بيغطي TREE/LIST/SELECT/JOURNAL_SELECT وأي id
+      // فردي مرة واحدة - مش محتاج تسردهم يدوي زي الأول.
+      invalidatesTags: tagsFor("Account"),
     }),
 
     updateAccount: builder.mutation({
@@ -60,23 +58,12 @@ export const accountsApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Account", id },
-        { type: "Account", id: "TREE" },
-        { type: "Account", id: "LIST" },
-        { type: "Account", id: "SELECT" },
-        { type: "Account", id: "JOURNAL_SELECT" },
-      ],
+      invalidatesTags: tagsFor("Account"),
     }),
 
     deleteAccount: builder.mutation({
       query: (id) => ({ url: `/Accounts/${id}`, method: "DELETE" }),
-      invalidatesTags: [
-        { type: "Account", id: "TREE" },
-        { type: "Account", id: "LIST" },
-        { type: "Account", id: "SELECT" },
-        { type: "Account", id: "JOURNAL_SELECT" },
-      ],
+      invalidatesTags: tagsFor("Account"),
     }),
   }),
   overrideExisting: false,

@@ -66,8 +66,3 @@ function generateInvoices(count) {
 }
 
 export const mockSalesInvoices = generateInvoices(83); // رقم كبير شوية عشان نجرب الـ pagination فعليًا
-
-export const generateInvoiceNumber = () => {
-  const year = new Date().getFullYear();
-  return `${year}`;
-};

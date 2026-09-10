@@ -1,8 +1,8 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const containersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // GET Containers يرجع { items, pageNumber, pageSize, totalCount, totalPages }
     getContainers: builder.query({
       query: (params) => ({ url: "/Containers", method: "GET", params }),
       providesTags: (result) =>
@@ -17,22 +17,14 @@ export const containersApi = baseApi.injectEndpoints({
     // Company-isolated select list used by the Allowed Containers step.
     // Always refetch on wizard open / company switch (no caching assumptions).
     getContainersSelect: builder.query({
-      query: (params) => ({
-        url: "Containers/select",
-        method: "GET",
-        params,
-      }),
+      query: (params) => ({ url: "Containers/select", method: "GET", params }),
       providesTags: ["Container"],
     }),
 
     // Admin only. Inline creation from the Allowed Containers step.
     createContainer: builder.mutation({
-      query: (data) => ({
-        url: "Containers",
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: [{ type: "Container", id: "LIST" }, "Container"],
+      query: (data) => ({ url: "Containers", method: "POST", body: data }),
+      invalidatesTags: tagsFor("Container"),
     }),
 
     updateContainer: builder.mutation({
@@ -41,19 +33,12 @@ export const containersApi = baseApi.injectEndpoints({
         method: "PUT",
         body: changes,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Container", id },
-        { type: "Container", id: "LIST" },
-        "Container",
-      ],
+      invalidatesTags: tagsFor("Container"),
     }),
 
     deleteContainer: builder.mutation({
-      query: (id) => ({
-        url: `Containers/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: [{ type: "Container", id: "LIST" }, "Container"],
+      query: (id) => ({ url: `Containers/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("Container"),
     }),
   }),
 });

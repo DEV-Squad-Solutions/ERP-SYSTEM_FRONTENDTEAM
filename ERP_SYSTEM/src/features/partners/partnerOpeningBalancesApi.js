@@ -1,5 +1,6 @@
 // features/partners/partnerOpeningBalancesApi.js
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const partnerOpeningBalancesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -51,7 +52,9 @@ export const partnerOpeningBalancesApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: [{ type: "PartnerOpeningBalance", id: "LIST" }],
+      // كانت بتعمل invalidate لـ LIST بس - مش بتحدّث كشف حساب الشريك
+      // اللي فعليًا بيتأثر برصيد أول مدة.
+      invalidatesTags: tagsFor("PartnerOpeningBalance"),
     }),
 
     updatePartnerOpeningBalance: builder.mutation({
@@ -60,10 +63,7 @@ export const partnerOpeningBalancesApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, arg) => [
-        { type: "PartnerOpeningBalance", id: arg.id },
-        { type: "PartnerOpeningBalance", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("PartnerOpeningBalance"),
     }),
 
     deletePartnerOpeningBalance: builder.mutation({
@@ -71,10 +71,7 @@ export const partnerOpeningBalancesApi = baseApi.injectEndpoints({
         url: `/PartnerOpeningBalances/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "PartnerOpeningBalance", id },
-        { type: "PartnerOpeningBalance", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("PartnerOpeningBalance"),
     }),
   }),
 });

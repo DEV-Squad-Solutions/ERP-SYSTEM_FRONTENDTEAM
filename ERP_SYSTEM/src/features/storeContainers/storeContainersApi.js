@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const storeContainersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -8,7 +9,6 @@ export const storeContainersApi = baseApi.injectEndpoints({
         url: `StoreContainers/${storeId}`,
         method: "GET",
       }),
-
       providesTags: (result, error, storeId) => [
         { type: "StoreContainer", id: storeId },
       ],
@@ -20,16 +20,15 @@ export const storeContainersApi = baseApi.injectEndpoints({
       query: ({ storeId, containerIds }) => ({
         url: "StoreContainers/upsert",
         method: "PUT",
-        body: {
-          storeId,
-          containerIds,
-        },
+        body: { storeId, containerIds },
       }),
-
-      invalidatesTags: (result, error, { storeId }) => [
-        { type: "StoreContainer", id: storeId },
-        "ContainerStoreStatement",
-      ],
+      // كانت بتعمل invalidate لتاج اسمه "ContainerStoreStatement" -
+      // التاج ده محدش بيوفره في أي query في المشروع (اللي بيتوفر فعلاً
+      // هو "ContainerStore" من partiesApi.getPartyContainerStore).
+      // يعني كانت dead invalidation. صححناها لـ tagsFor("StoreContainer")
+      // اللي بتغطي StoreContainer/ContainerStore/Inventory مع بعض.
+      invalidatesTags: (result, error, { storeId }) =>
+        tagsFor("StoreContainer", [{ type: "StoreContainer", id: storeId }]),
     }),
   }),
 });

@@ -1,5 +1,6 @@
 // features/inventory/stockOpeningBalancesApi.js
-import { baseApi } from "../../lib/baseApi"; // عدّل المسار لو مختلف
+import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const stockOpeningBalancesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -42,12 +43,10 @@ export const stockOpeningBalancesApi = baseApi.injectEndpoints({
     }),
 
     createStockOpeningBalance: builder.mutation({
-      query: (body) => ({
-        url: "/StockOpeningBalances",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: [{ type: "StockOpeningBalance", id: "LIST" }],
+      query: (body) => ({ url: "/StockOpeningBalances", method: "POST", body }),
+      // كانت بتعمل invalidate لـ LIST بس - مش بتأثر على تقارير المخزون
+      // (StoreStockReport/InventoryCostReport) اللي فعليًا بتتغيّر برصيد أول مدة.
+      invalidatesTags: tagsFor("StockOpeningBalance"),
     }),
 
     updateStockOpeningBalance: builder.mutation({
@@ -56,21 +55,12 @@ export const stockOpeningBalancesApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, arg) => [
-        { type: "StockOpeningBalance", id: arg.id },
-        { type: "StockOpeningBalance", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("StockOpeningBalance"),
     }),
 
     deleteStockOpeningBalance: builder.mutation({
-      query: (id) => ({
-        url: `/StockOpeningBalances/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "StockOpeningBalance", id },
-        { type: "StockOpeningBalance", id: "LIST" },
-      ],
+      query: (id) => ({ url: `/StockOpeningBalances/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("StockOpeningBalance"),
     }),
   }),
 });

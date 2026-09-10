@@ -1,12 +1,10 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const partiesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getParties: builder.query({
-      query: (params) => ({
-        url: "BusinessPartners",
-        params,
-      }),
+      query: (params) => ({ url: "BusinessPartners", params }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -15,11 +13,9 @@ export const partiesApi = baseApi.injectEndpoints({
             ]
           : [{ type: "Party", id: "LIST" }],
     }),
+
     getPartiesSelect: builder.query({
-      query: (params) => ({
-        url: "BusinessPartners/select",
-        params,
-      }),
+      query: (params) => ({ url: "BusinessPartners/select", params }),
       providesTags: (result) =>
         Array.isArray(result)
           ? [
@@ -40,7 +36,8 @@ export const partiesApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [{ type: "Party", id: "LIST" }],
+      // شريك جديد لازم يظهر في party-select بتاع سند القبض/الصرف كمان
+      invalidatesTags: tagsFor("Party"),
     }),
 
     updateParty: builder.mutation({
@@ -49,29 +46,19 @@ export const partiesApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Party", id },
-        { type: "Party", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("Party"),
     }),
 
     deleteParty: builder.mutation({
-      query: (id) => ({
-        url: `BusinessPartners/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Party", id },
-        { type: "Party", id: "LIST" },
-      ],
+      query: (id) => ({ url: `BusinessPartners/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("Party"),
     }),
 
     getPartyById: builder.query({
-      query: (id) => ({
-        url: `BusinessPartners/${id}`,
-      }),
+      query: (id) => ({ url: `BusinessPartners/${id}` }),
       providesTags: (result, error, id) => [{ type: "Party", id }],
     }),
+
     getPartyContainerStore: builder.query({
       query: (businessPartnerId) =>
         `/BusinessPartners/${businessPartnerId}/container-store`,

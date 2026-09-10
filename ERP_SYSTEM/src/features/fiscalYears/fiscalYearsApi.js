@@ -1,12 +1,10 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const fiscalYearsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getFiscalYears: builder.query({
-      query: (params) => ({
-        url: "FiscalYears",
-        params,
-      }),
+      query: (params) => ({ url: "FiscalYears", params }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -27,12 +25,8 @@ export const fiscalYearsApi = baseApi.injectEndpoints({
     }),
 
     createFiscalYear: builder.mutation({
-      query: (data) => ({
-        url: "FiscalYears",
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: [{ type: "FiscalYear", id: "LIST" }],
+      query: (data) => ({ url: "FiscalYears", method: "POST", body: data }),
+      invalidatesTags: tagsFor("FiscalYear"),
     }),
 
     updateFiscalYear: builder.mutation({
@@ -41,43 +35,22 @@ export const fiscalYearsApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "FiscalYear", id },
-        { type: "FiscalYear", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("FiscalYear"),
     }),
 
     deleteFiscalYear: builder.mutation({
-      query: (id) => ({
-        url: `FiscalYears/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "FiscalYear", id },
-        { type: "FiscalYear", id: "LIST" },
-      ],
+      query: (id) => ({ url: `FiscalYears/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("FiscalYear"),
     }),
 
     closeFiscalYear: builder.mutation({
-      query: (id) => ({
-        url: `FiscalYears/${id}/close`,
-        method: "POST",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "FiscalYear", id },
-        { type: "FiscalYear", id: "LIST" },
-      ],
+      query: (id) => ({ url: `FiscalYears/${id}/close`, method: "POST" }),
+      invalidatesTags: tagsFor("FiscalYear"),
     }),
 
     reopenFiscalYear: builder.mutation({
-      query: (id) => ({
-        url: `FiscalYears/${id}/reopen`,
-        method: "POST",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "FiscalYear", id },
-        { type: "FiscalYear", id: "LIST" },
-      ],
+      query: (id) => ({ url: `FiscalYears/${id}/reopen`, method: "POST" }),
+      invalidatesTags: tagsFor("FiscalYear"),
     }),
   }),
 });

@@ -1,5 +1,4 @@
 // features/currencies/currenciesApi.js
-
 import { baseApi } from "../../lib/baseApi";
 
 export const currenciesApi = baseApi.injectEndpoints({
@@ -10,7 +9,9 @@ export const currenciesApi = baseApi.injectEndpoints({
     // =========================================================
     getCurrenciesSelect: builder.query({
       query: () => "Currencies/select",
-
+      // "CurrenciesSelect" مكانتش متسجلة في tagTypes خالص - اتضافت في
+      // baseApi.js الجديد. من غير كده كان بيدي console warning وممكن
+      // الـ invalidation ميشتغلش صح مع نسخ RTK Query الأحدث.
       providesTags: ["CurrenciesSelect"],
     }),
   }),

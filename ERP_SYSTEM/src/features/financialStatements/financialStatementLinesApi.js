@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const financialStatementLinesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -30,10 +31,7 @@ export const financialStatementLinesApi = baseApi.injectEndpoints({
     }),
 
     getFinancialStatementLineById: builder.query({
-      query: (id) => ({
-        url: `/FinancialStatementLines/${id}`,
-        method: "GET",
-      }),
+      query: (id) => ({ url: `/FinancialStatementLines/${id}`, method: "GET" }),
       providesTags: (result, error, id) => [
         { type: "FinancialStatementLine", id },
       ],
@@ -45,7 +43,7 @@ export const financialStatementLinesApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["FinancialStatementLine"],
+      invalidatesTags: tagsFor("FinancialStatementLine"),
     }),
 
     updateFinancialStatementLine: builder.mutation({
@@ -64,7 +62,7 @@ export const financialStatementLinesApi = baseApi.injectEndpoints({
           rowVersion: body.rowVersion,
         },
       }),
-      invalidatesTags: ["FinancialStatementLine"],
+      invalidatesTags: tagsFor("FinancialStatementLine"),
     }),
 
     deleteFinancialStatementLine: builder.mutation({
@@ -72,7 +70,7 @@ export const financialStatementLinesApi = baseApi.injectEndpoints({
         url: `/FinancialStatementLines/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["FinancialStatementLine"],
+      invalidatesTags: tagsFor("FinancialStatementLine"),
     }),
   }),
 });

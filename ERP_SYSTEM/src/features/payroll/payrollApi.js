@@ -1,12 +1,10 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const payrollApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getEmployees: builder.query({
-      query: (params) => ({
-        url: "Employees/GetAll",
-        params,
-      }),
+      query: (params) => ({ url: "Employees/GetAll", params }),
       providesTags: (result) =>
         result?.employees
           ? [
@@ -30,12 +28,11 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     createEmployee: builder.mutation({
-      query: (data) => ({
-        url: "Employees",
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: [{ type: "Employee", id: "LIST" }],
+      query: (data) => ({ url: "Employees", method: "POST", body: data }),
+      // موظف جديد لازم يظهر فورًا في: قائمة الموظفين + party-select
+      // بتاع سند القبض/الصرف + كشف حساب الموظفين. tagsFor("Employee")
+      // بتغطيهم الثلاثة من مكان واحد.
+      invalidatesTags: tagsFor("Employee"),
     }),
 
     updateEmployee: builder.mutation({
@@ -44,28 +41,16 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Employee", id },
-        { type: "Employee", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("Employee"),
     }),
 
     deleteEmployee: builder.mutation({
-      query: (id) => ({
-        url: `Employees/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Employee", id },
-        { type: "Employee", id: "LIST" },
-      ],
+      query: (id) => ({ url: `Employees/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("Employee"),
     }),
 
     getEmployeeAttendances: builder.query({
-      query: (params) => ({
-        url: "EmployeeAttendances",
-        params,
-      }),
+      query: (params) => ({ url: "EmployeeAttendances", params }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -84,7 +69,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [{ type: "Attendance", id: "LIST" }],
+      invalidatesTags: tagsFor("Attendance"),
     }),
 
     updateEmployeeAttendance: builder.mutation({
@@ -93,10 +78,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Attendance", id },
-        { type: "Attendance", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("Attendance"),
     }),
 
     bulkCreateEmployeeAttendances: builder.mutation({
@@ -105,18 +87,12 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [{ type: "Attendance", id: "LIST" }],
+      invalidatesTags: tagsFor("Attendance"),
     }),
 
     deleteEmployeeAttendance: builder.mutation({
-      query: (id) => ({
-        url: `EmployeeAttendances/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "Attendance", id },
-        { type: "Attendance", id: "LIST" },
-      ],
+      query: (id) => ({ url: `EmployeeAttendances/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("Attendance"),
     }),
 
     bulkDeleteEmployeeAttendances: builder.mutation({
@@ -125,18 +101,14 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: { attendanceIds },
       }),
-      invalidatesTags: ["Attendance"],
+      invalidatesTags: tagsFor("Attendance"),
     }),
 
     // ============================================================
     // Employee Movements (بديل EmployeeTransactions القديمة)
     // ============================================================
-
     getEmployeeMovements: builder.query({
-      query: (params) => ({
-        url: "EmployeeMovements",
-        params,
-      }),
+      query: (params) => ({ url: "EmployeeMovements", params }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -160,11 +132,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [
-        { type: "EmployeeMovement", id: "LIST" },
-        "Cashbox",
-        "Statement",
-      ],
+      invalidatesTags: tagsFor("EmployeeMovement"),
     }),
 
     bulkCreateEmployeeMovements: builder.mutation({
@@ -173,11 +141,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [
-        { type: "EmployeeMovement", id: "LIST" },
-        "Cashbox",
-        "Statement",
-      ],
+      invalidatesTags: tagsFor("EmployeeMovement"),
     }),
 
     bulkCreatePayrollEntries: builder.mutation({
@@ -209,11 +173,7 @@ export const payrollApi = baseApi.injectEndpoints({
             : undefined,
         },
       }),
-      invalidatesTags: [
-        { type: "PayrollEntry", id: "LIST" },
-        "Cashbox",
-        "Statement",
-      ],
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     moveSalary: builder.mutation({
@@ -222,12 +182,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "PayrollEntry", id },
-        { type: "PayrollEntry", id: "LIST" },
-        "Cashbox",
-        "Statement",
-      ],
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     bulkMoveSalary: builder.mutation({
@@ -236,11 +191,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [
-        { type: "PayrollEntry", id: "LIST" },
-        "Cashbox",
-        "Statement",
-      ],
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     recalculatePayrollEntry: builder.mutation({
@@ -248,17 +199,11 @@ export const payrollApi = baseApi.injectEndpoints({
         url: `PayrollEntries/${id}/recalculate`,
         method: "POST",
       }),
-      invalidatesTags: (result, error, id) => [
-        { type: "PayrollEntry", id },
-        { type: "PayrollEntry", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     getPayrollEntries: builder.query({
-      query: (params) => ({
-        url: "PayrollEntries",
-        params,
-      }),
+      query: (params) => ({ url: "PayrollEntries", params }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -277,12 +222,8 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     createPayrollEntry: builder.mutation({
-      query: (data) => ({
-        url: "PayrollEntries",
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: [{ type: "PayrollEntry", id: "LIST" }],
+      query: (data) => ({ url: "PayrollEntries", method: "POST", body: data }),
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     payPayrollEntry: builder.mutation({
@@ -291,36 +232,21 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "PayrollEntry", id },
-        { type: "PayrollEntry", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     deletePayrollEntry: builder.mutation({
-      query: (id) => ({
-        url: `PayrollEntries/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "PayrollEntry", id },
-        { type: "PayrollEntry", id: "LIST" },
-      ],
+      query: (id) => ({ url: `PayrollEntries/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     bulkDeletePayrollEntries: builder.mutation({
       query: (data) => ({
         url: "PayrollEntries/bulk/delete",
         method: "POST",
-        body: {
-          payrollEntryIds: data.payrollEntryIds.map(Number),
-        },
+        body: { payrollEntryIds: data.payrollEntryIds.map(Number) },
       }),
-      invalidatesTags: [
-        { type: "PayrollEntry", id: "LIST" },
-        "Cashbox",
-        "Statement",
-      ],
+      invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     getEmployeeOpeningBalances: builder.query({
@@ -338,7 +264,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["EmployeeOpeningBalance"],
+      invalidatesTags: tagsFor("EmployeeOpeningBalance"),
     }),
 
     updateEmployeeOpeningBalance: builder.mutation({
@@ -347,7 +273,7 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: ["EmployeeOpeningBalance"],
+      invalidatesTags: tagsFor("EmployeeOpeningBalance"),
     }),
 
     deleteEmployeeOpeningBalance: builder.mutation({
@@ -355,8 +281,9 @@ export const payrollApi = baseApi.injectEndpoints({
         url: `/EmployeeOpeningBalances/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["EmployeeOpeningBalance"],
+      invalidatesTags: tagsFor("EmployeeOpeningBalance"),
     }),
+
     getPayrollDashboard: builder.query({
       query: (params) => ({
         url: "PayrollEntries/dashboard",
@@ -365,14 +292,12 @@ export const payrollApi = baseApi.injectEndpoints({
       }),
       providesTags: [{ type: "PayrollEntry", id: "DASHBOARD" }],
     }),
+
     getPayrollReport: builder.query({
       query: ({ StartDate, EndDate }) => ({
         url: "PayrollEntries/report",
         method: "GET",
-        params: {
-          StartDate,
-          EndDate,
-        },
+        params: { StartDate, EndDate },
       }),
       providesTags: [{ type: "PayrollEntry", id: "REPORT" }],
     }),
@@ -392,12 +317,10 @@ export const {
   useBulkCreateEmployeeAttendancesMutation,
   useDeleteEmployeeAttendanceMutation,
   useBulkDeleteEmployeeAttendancesMutation,
-
   useGetEmployeeMovementsQuery,
   useGetEmployeeMovementByIdQuery,
   useCreateEmployeeMovementMutation,
   useBulkCreateEmployeeMovementsMutation,
-
   useGetPayrollEntriesQuery,
   useGetPayrollEntryByIdQuery,
   useCreatePayrollEntryMutation,

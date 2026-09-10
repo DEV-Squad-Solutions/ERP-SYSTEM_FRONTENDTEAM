@@ -10,6 +10,11 @@ export const dashboardApi = baseApi.injectEndpoints({
         const qs = params.toString();
         return `/Dashboard${qs ? `?${qs}` : ""}`;
       },
+      // "Dashboard" اتضافت لـ tagTypes. ملحوظة: الداشبورد بتتأثر عمليًا
+      // بكل حاجة (فواتير/سندات/رواتب...) لكن مفيش داعي تعمل invalidate
+      // ليها من كل موديول - أفضل حل إنها تعمل polling خفيف
+      // (pollingInterval في الـ component) أو تتوصل بالـ realtimeSync
+      // لو حابب تحديث فوري.
       providesTags: ["Dashboard"],
       keepUnusedDataFor: 30,
     }),

@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const exchangeRatesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -30,10 +31,7 @@ export const exchangeRatesApi = baseApi.injectEndpoints({
     resolveExchangeRate: builder.query({
       query: ({ currency, date }) => ({
         url: "ExchangeRates/resolve",
-        params: {
-          currency,
-          date,
-        },
+        params: { currency, date },
       }),
     }),
 
@@ -49,7 +47,7 @@ export const exchangeRatesApi = baseApi.injectEndpoints({
           notes: data.notes?.trim() || undefined,
         },
       }),
-      invalidatesTags: [{ type: "ExchangeRate", id: "LIST" }],
+      invalidatesTags: tagsFor("ExchangeRate"),
     }),
 
     updateExchangeRate: builder.mutation({
@@ -67,13 +65,9 @@ export const exchangeRatesApi = baseApi.injectEndpoints({
           updateLinkedTransactions: !!data.updateLinkedTransactions,
         },
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "ExchangeRate", id },
-        { type: "ExchangeRate", id: "LIST" },
-        "CashVoucher",
-        "Statement",
-        "Cashbox",
-      ],
+      // كان بيعمل invalidate لـ CashVoucher/Statement/Cashbox يدوي -
+      // دلوقتي جوه resourceTagsMap.ExchangeRate.
+      invalidatesTags: tagsFor("ExchangeRate"),
     }),
 
     deleteExchangeRate: builder.mutation({
@@ -82,10 +76,7 @@ export const exchangeRatesApi = baseApi.injectEndpoints({
         method: "DELETE",
         params: { rowVersion },
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "ExchangeRate", id },
-        { type: "ExchangeRate", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("ExchangeRate"),
     }),
 
     previewImportExchangeRates: builder.mutation({
@@ -112,7 +103,7 @@ export const exchangeRatesApi = baseApi.injectEndpoints({
             !!data.replaceUnreferencedImportedRates,
         },
       }),
-      invalidatesTags: [{ type: "ExchangeRate", id: "LIST" }],
+      invalidatesTags: tagsFor("ExchangeRate"),
     }),
   }),
 });

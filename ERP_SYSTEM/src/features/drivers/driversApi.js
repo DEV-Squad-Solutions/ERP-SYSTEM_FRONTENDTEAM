@@ -1,20 +1,14 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const driversApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getDrivers: builder.query({
-      query: (params) => ({
-        url: "Drivers",
-        params,
-      }),
-
+      query: (params) => ({ url: "Drivers", params }),
       providesTags: (result) =>
         result?.items
           ? [
-              ...result.items.map((d) => ({
-                type: "Driver",
-                id: d.id,
-              })),
+              ...result.items.map((d) => ({ type: "Driver", id: d.id })),
               { type: "Driver", id: "LIST" },
             ]
           : [{ type: "Driver", id: "LIST" }],
@@ -22,39 +16,18 @@ export const driversApi = baseApi.injectEndpoints({
 
     getDriversSelect: builder.query({
       query: () => "Drivers/select",
-
-      providesTags: [
-        {
-          type: "Driver",
-          id: "LIST",
-        },
-      ],
+      providesTags: [{ type: "Driver", id: "LIST" }],
     }),
 
     getDriverById: builder.query({
       query: (id) => `Drivers/${id}`,
-
-      providesTags: (result, error, id) => [
-        {
-          type: "Driver",
-          id,
-        },
-      ],
+      providesTags: (result, error, id) => [{ type: "Driver", id }],
     }),
 
     createDriver: builder.mutation({
-      query: (data) => ({
-        url: "Drivers",
-        method: "POST",
-        body: data,
-      }),
-
-      invalidatesTags: [
-        {
-          type: "Driver",
-          id: "LIST",
-        },
-      ],
+      query: (data) => ({ url: "Drivers", method: "POST", body: data }),
+      // سائق جديد لازم يظهر في party-select بتاع سند القبض/الصرف كمان
+      invalidatesTags: tagsFor("Driver"),
     }),
 
     updateDriver: builder.mutation({
@@ -63,52 +36,21 @@ export const driversApi = baseApi.injectEndpoints({
         method: "PUT",
         body: data,
       }),
-
-      invalidatesTags: (result, error, { id }) => [
-        {
-          type: "Driver",
-          id,
-        },
-        {
-          type: "Driver",
-          id: "LIST",
-        },
-      ],
+      invalidatesTags: tagsFor("Driver"),
     }),
 
     deleteDriver: builder.mutation({
-      query: (id) => ({
-        url: `Drivers/${id}`,
-        method: "DELETE",
-      }),
-
-      invalidatesTags: (result, error, id) => [
-        {
-          type: "Driver",
-          id,
-        },
-        {
-          type: "Driver",
-          id: "LIST",
-        },
-      ],
+      query: (id) => ({ url: `Drivers/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("Driver"),
     }),
 
     getDriverStatement: builder.query({
-      query: (params) => ({
-        url: "/Statements/driver",
-        params,
-      }),
-
+      query: (params) => ({ url: "/Statements/driver", params }),
       providesTags: ["DriverStatement"],
     }),
 
     getDriverTripsCostEntry: builder.query({
-      query: (params) => ({
-        url: "/DriverTrips/cost-entry",
-        params,
-      }),
-
+      query: (params) => ({ url: "/DriverTrips/cost-entry", params }),
       providesTags: ["DriverTripCost"],
     }),
 
@@ -118,8 +60,7 @@ export const driversApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-
-      invalidatesTags: ["DriverTripCost", "DriverStatement"],
+      invalidatesTags: tagsFor("DriverTrip"),
     }),
   }),
 });

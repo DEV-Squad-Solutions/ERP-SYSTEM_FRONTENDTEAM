@@ -8,12 +8,10 @@ export const baseApi = createApi({
 
   tagTypes: [
     // ==================== Auth / Administration ====================
-
     "Company",
     "User",
 
     // ==================== Partners ====================
-
     "Party",
     "PartyStatement",
     "Statement",
@@ -21,20 +19,26 @@ export const baseApi = createApi({
     "PartnerOpeningBalance",
 
     // ==================== Drivers ====================
-
     "Driver",
     "DriverStatement",
     "DriverTripCost",
 
-    // ==================== Items ====================
+    // ==================== Employees / Payroll (كانت ناقصة بالكامل) ====================
+    "Employee",
+    "Attendance",
+    "EmployeeMovement",
+    "PayrollEntry",
+    "EmployeeOpeningBalance",
+    "EmployeeStatement",
 
+    // ==================== Items ====================
     "Item",
     "ItemUnit",
     "PackagingUnit",
     "ItemsCategory",
+    "ItemBalance",
 
     // ==================== Inventory / Stores ====================
-
     "Inventory",
     "Store",
     "StoreContainer",
@@ -47,11 +51,9 @@ export const baseApi = createApi({
     "InventoryCount",
 
     // ==================== Containers ====================
-
     "Container",
 
     // ==================== Invoices ====================
-
     "Invoice",
     "Sale",
     "Purchase",
@@ -61,52 +63,36 @@ export const baseApi = createApi({
     "InvoicePackaging",
 
     // ==================== Cashboxes ====================
-
     "Cashbox",
     "CashMovementType",
     "CashVoucher",
     "CashboxTransfer",
+    "CashVoucherPartySelect",
 
     // ==================== Banking ====================
-
     "Bank",
 
     // ==================== Countries / Exchange ====================
-
     "Country",
     "ExchangeRate",
+    "CurrenciesSelect",
 
-    // ==================== Accounting ====================
-
+    // ==================== Accounting (كانت ناقصة بالكامل) ====================
     "JournalEntry",
-    "Treasury",
-    "Expense",
-    "Asset",
-    // ==================== Employees / Payroll ====================
-    "Employee",
-    "Attendance",
-    "EmployeeMovement",
-    "PayrollEntry",
-    "EmployeeOpeningBalance",
-    "EmployeeStatement",
-
-    // ==================== Accounting (مكمّلة) ====================
     "Account",
     "AccountMappings",
     "FiscalYear",
     "FinancialStatementLine",
+    "Treasury",
+    "Expense",
+    "Asset",
 
-    // ==================== Reports ====================
+    // ==================== Reports (كانت ناقصة بالكامل) ====================
     "Dashboard",
     "OperationalTrialBalance",
     "IncomeStatement",
     "FinancialPosition",
     "CashFlow",
-    "ItemBalance",
-
-    // ==================== Reference Data (مكمّلة) ====================
-    "CurrenciesSelect",
-    "CashVoucherPartySelect",
   ],
 
   endpoints: () => ({}),

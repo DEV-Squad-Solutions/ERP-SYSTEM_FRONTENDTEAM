@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import {
   useGetStoreStockReportQuery,
-  useLazyGetItemBalanceQuery,
   usePutItemPricingExpensesMutation,
 } from "../storesApi";
 import Pagination from "../../../shared/components/ui/Pagination";
 import QuickAddItemModal from "../../inventory/components/QuickAddItemModal";
 import Modal from "../../../shared/components/ui/Modal";
+import { useLazyGetItemBalanceQuery } from "../../invoices/invoicesApi";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 

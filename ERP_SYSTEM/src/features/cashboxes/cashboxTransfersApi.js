@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const cashboxTransfersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -37,10 +38,7 @@ export const cashboxTransfersApi = baseApi.injectEndpoints({
           type: "CashboxTransfer",
           id: transfer.id,
         })) ?? []),
-        {
-          type: "CashboxTransfer",
-          id: "LIST",
-        },
+        { type: "CashboxTransfer", id: "LIST" },
       ],
     }),
 
@@ -48,17 +46,8 @@ export const cashboxTransfersApi = baseApi.injectEndpoints({
     // Get Transfer By Id
     // =========================================================
     getCashboxTransferById: builder.query({
-      query: (id) => ({
-        url: `/CashboxTransfers/${id}`,
-        method: "GET",
-      }),
-
-      providesTags: (result, error, id) => [
-        {
-          type: "CashboxTransfer",
-          id,
-        },
-      ],
+      query: (id) => ({ url: `/CashboxTransfers/${id}`, method: "GET" }),
+      providesTags: (result, error, id) => [{ type: "CashboxTransfer", id }],
     }),
 
     // =========================================================
@@ -90,39 +79,29 @@ export const cashboxTransfersApi = baseApi.injectEndpoints({
           ...(conversionRate !== undefined &&
           conversionRate !== null &&
           conversionRate !== ""
-            ? {
-                conversionRate: Number(conversionRate),
-              }
+            ? { conversionRate: Number(conversionRate) }
             : {}),
 
           // اختياري - نرسله فقط إذا تم تحديده
           ...(destinationAmount !== undefined &&
           destinationAmount !== null &&
           destinationAmount !== ""
-            ? {
-                destinationAmount: Number(destinationAmount),
-              }
+            ? { destinationAmount: Number(destinationAmount) }
             : {}),
 
-          // لا نرسله عادة من الواجهة لأن الـ API يحله
-          // حسب تاريخ التحويل، لكن نتركه مدعومًا إذا احتجناه.
+          // لا نرسله عادة من الواجهة لأن الـ API يحله حسب تاريخ التحويل،
+          // لكن نتركه مدعومًا إذا احتجناه.
           ...(exchangeRate !== undefined &&
           exchangeRate !== null &&
           exchangeRate !== ""
-            ? {
-                exchangeRate: Number(exchangeRate),
-              }
+            ? { exchangeRate: Number(exchangeRate) }
             : {}),
         },
       }),
 
-      invalidatesTags: [
-        {
-          type: "CashboxTransfer",
-          id: "LIST",
-        },
-        "Cashbox",
-      ],
+      // كان بيعمل invalidate لـ LIST + "Cashbox" يدوي. دلوقتي بيغطي كمان
+      // أي حاجة تانية مرتبطة بالخزنة (statements..) من resourceTagsMap.
+      invalidatesTags: tagsFor("CashboxTransfer"),
     }),
 
     // =========================================================
@@ -155,66 +134,38 @@ export const cashboxTransfersApi = baseApi.injectEndpoints({
           ...(conversionRate !== undefined &&
           conversionRate !== null &&
           conversionRate !== ""
-            ? {
-                conversionRate: Number(conversionRate),
-              }
+            ? { conversionRate: Number(conversionRate) }
             : {}),
 
           ...(destinationAmount !== undefined &&
           destinationAmount !== null &&
           destinationAmount !== ""
-            ? {
-                destinationAmount: Number(destinationAmount),
-              }
+            ? { destinationAmount: Number(destinationAmount) }
             : {}),
 
           ...(exchangeRate !== undefined &&
           exchangeRate !== null &&
           exchangeRate !== ""
-            ? {
-                exchangeRate: Number(exchangeRate),
-              }
+            ? { exchangeRate: Number(exchangeRate) }
             : {}),
 
           ...(rowVersion !== undefined &&
           rowVersion !== null &&
           rowVersion !== ""
-            ? {
-                rowVersion,
-              }
+            ? { rowVersion }
             : {}),
         },
       }),
 
-      invalidatesTags: (result, error, { id }) => [
-        {
-          type: "CashboxTransfer",
-          id,
-        },
-        {
-          type: "CashboxTransfer",
-          id: "LIST",
-        },
-        "Cashbox",
-      ],
+      invalidatesTags: tagsFor("CashboxTransfer"),
     }),
 
     // =========================================================
     // Delete Transfer
     // =========================================================
     deleteCashboxTransfer: builder.mutation({
-      query: (id) => ({
-        url: `/CashboxTransfers/${id}`,
-        method: "DELETE",
-      }),
-
-      invalidatesTags: [
-        {
-          type: "CashboxTransfer",
-          id: "LIST",
-        },
-        "Cashbox",
-      ],
+      query: (id) => ({ url: `/CashboxTransfers/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("CashboxTransfer"),
     }),
   }),
 

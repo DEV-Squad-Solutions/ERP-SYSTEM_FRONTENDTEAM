@@ -1,5 +1,6 @@
 // src/features/accounting/api/accountMappingsApi.js
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const AccountingMappingType = {
   Cashbox: "Cashbox",
@@ -51,7 +52,6 @@ export const accountMappingsApi = baseApi.injectEndpoints({
         body: {
           mappings: mappings.map((m) => ({
             mappingType: m.mappingType,
-            // sourceId is required for Cashbox / CashMovementType, omit otherwise
             ...(SOURCED_MAPPING_TYPES.has(m.mappingType)
               ? { sourceId: m.sourceId }
               : {}),
@@ -59,9 +59,7 @@ export const accountMappingsApi = baseApi.injectEndpoints({
           })),
         },
       }),
-      invalidatesTags: (result, error, { fiscalYearId }) => [
-        { type: "AccountMappings", id: fiscalYearId },
-      ],
+      invalidatesTags: tagsFor("AccountMappings"),
     }),
   }),
   overrideExisting: false,

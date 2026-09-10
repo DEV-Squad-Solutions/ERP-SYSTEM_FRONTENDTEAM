@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const countriesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -7,7 +8,6 @@ export const countriesApi = baseApi.injectEndpoints({
       providesTags: ["Country"],
     }),
 
-    // GET Countries يرجع { items, pageNumber, pageSize, totalCount, totalPages }
     getCountries: builder.query({
       query: (params) => ({ url: "Countries", params }),
       providesTags: (result) =>
@@ -25,12 +25,8 @@ export const countriesApi = baseApi.injectEndpoints({
     }),
 
     createCountry: builder.mutation({
-      query: (body) => ({
-        url: "Countries",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: [{ type: "Country", id: "LIST" }, "Country"],
+      query: (body) => ({ url: "Countries", method: "POST", body }),
+      invalidatesTags: tagsFor("Country"),
     }),
 
     updateCountry: builder.mutation({
@@ -39,19 +35,12 @@ export const countriesApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Country", id },
-        { type: "Country", id: "LIST" },
-        "Country",
-      ],
+      invalidatesTags: tagsFor("Country"),
     }),
 
     deleteCountry: builder.mutation({
-      query: (id) => ({
-        url: `Countries/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: [{ type: "Country", id: "LIST" }, "Country"],
+      query: (id) => ({ url: `Countries/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("Country"),
     }),
   }),
 });

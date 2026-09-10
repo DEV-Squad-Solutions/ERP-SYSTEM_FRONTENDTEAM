@@ -1,5 +1,6 @@
 // src/features/journalEntries/journalEntriesApi.js
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const JournalEntryType = {
   Manual: "Manual",
@@ -19,12 +20,7 @@ export const MANUAL_ENTRY_TYPES = [
 export const journalEntriesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getJournalEntries: builder.query({
-      // GET /JournalEntries?search=&fiscalYearId=&entryType=&status=&fromDate=&toDate=&pageNumber=&pageSize=
-      query: (params) => ({
-        url: "/JournalEntries",
-        method: "GET",
-        params,
-      }),
+      query: (params) => ({ url: "/JournalEntries", method: "GET", params }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -42,7 +38,7 @@ export const journalEntriesApi = baseApi.injectEndpoints({
     createJournalEntry: builder.mutation({
       // body: { fiscalYearId, entryDate, description, entryType, lines: [{accountId, description, debit, credit}] }
       query: (body) => ({ url: "/JournalEntries", method: "POST", body }),
-      invalidatesTags: [{ type: "JournalEntry", id: "LIST" }],
+      invalidatesTags: tagsFor("JournalEntry"),
     }),
 
     updateJournalEntry: builder.mutation({
@@ -51,10 +47,7 @@ export const journalEntriesApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "JournalEntry", id },
-        { type: "JournalEntry", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("JournalEntry"),
     }),
 
     deleteJournalEntry: builder.mutation({
@@ -64,10 +57,7 @@ export const journalEntriesApi = baseApi.injectEndpoints({
         method: "DELETE",
         params: { rowVersion },
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "JournalEntry", id },
-        { type: "JournalEntry", id: "LIST" },
-      ],
+      invalidatesTags: tagsFor("JournalEntry"),
     }),
   }),
   overrideExisting: false,

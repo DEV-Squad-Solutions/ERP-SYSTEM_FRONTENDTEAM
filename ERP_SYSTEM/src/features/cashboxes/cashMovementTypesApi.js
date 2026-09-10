@@ -1,10 +1,9 @@
 // features/cashboxes/cashMovementTypesApi.js
-
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const cashMovementTypesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // GET /api/v1/CashMovementTypes
     getCashMovementTypes: builder.query({
       query: (params = {}) => ({
         url: "/CashMovementTypes",
@@ -22,24 +21,6 @@ export const cashMovementTypesApi = baseApi.injectEndpoints({
       providesTags: [{ type: "CashMovementType", id: "LIST" }],
     }),
 
-    // GET /api/v1/CashMovementTypes/select
-    //
-    // Filters:
-    // Direction
-    // Classification
-    // ForPartner
-    //
-    // Example:
-    // {
-    //   direction: "Payment",
-    //   classification: "Expense",
-    //   forPartner: false
-    // }
-    //
-    // => /CashMovementTypes/select
-    //    ?Direction=Payment
-    //    &Classification=Expense
-    //    &ForPartner=false
     getCashMovementTypeOptions: builder.query({
       query: ({ direction, classification, forPartner } = {}) => ({
         url: "/CashMovementTypes/select",
@@ -49,7 +30,6 @@ export const cashMovementTypesApi = baseApi.injectEndpoints({
           ForPartner: forPartner,
         },
       }),
-
       providesTags: (result, error, arg) => [
         {
           type: "CashMovementType",
@@ -59,12 +39,9 @@ export const cashMovementTypesApi = baseApi.injectEndpoints({
     }),
 
     createCashMovementType: builder.mutation({
-      query: (body) => ({
-        url: "/CashMovementTypes",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: [{ type: "CashMovementType", id: "LIST" }],
+      query: (body) => ({ url: "/CashMovementTypes", method: "POST", body }),
+      // تصنيف جديد (مصروف/إيراد) لازم يظهر فورًا في قائمة الحساب بسند القبض/الصرف
+      invalidatesTags: tagsFor("CashMovementType"),
     }),
 
     updateCashMovementType: builder.mutation({
@@ -73,15 +50,12 @@ export const cashMovementTypesApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: [{ type: "CashMovementType", id: "LIST" }],
+      invalidatesTags: tagsFor("CashMovementType"),
     }),
 
     deleteCashMovementType: builder.mutation({
-      query: (id) => ({
-        url: `/CashMovementTypes/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: [{ type: "CashMovementType", id: "LIST" }],
+      query: (id) => ({ url: `/CashMovementTypes/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("CashMovementType"),
     }),
   }),
 });

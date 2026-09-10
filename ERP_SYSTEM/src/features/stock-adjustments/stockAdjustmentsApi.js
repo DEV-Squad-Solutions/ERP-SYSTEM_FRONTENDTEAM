@@ -1,4 +1,5 @@
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const stockAdjustmentsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -42,16 +43,8 @@ export const stockAdjustmentsApi = baseApi.injectEndpoints({
     }),
 
     createStockAdjustment: builder.mutation({
-      query: (body) => ({
-        url: "/StockAdjustments",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: [
-        { type: "StockAdjustment", id: "LIST" },
-        { type: "StoreStockReport" },
-        { type: "InventoryCostReport" },
-      ],
+      query: (body) => ({ url: "/StockAdjustments", method: "POST", body }),
+      invalidatesTags: tagsFor("StockAdjustment"),
     }),
 
     // لازم الـ body يحتوي rowVersion من آخر GET عشان الـ optimistic concurrency.
@@ -61,25 +54,12 @@ export const stockAdjustmentsApi = baseApi.injectEndpoints({
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "StockAdjustment", id },
-        { type: "StockAdjustment", id: "LIST" },
-        { type: "StoreStockReport" },
-        { type: "InventoryCostReport" },
-      ],
+      invalidatesTags: tagsFor("StockAdjustment"),
     }),
 
     deleteStockAdjustment: builder.mutation({
-      query: (id) => ({
-        url: `StockAdjustments/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: "StockAdjustment", id },
-        { type: "StockAdjustment", id: "LIST" },
-        { type: "StoreStockReport" },
-        { type: "InventoryCostReport" },
-      ],
+      query: (id) => ({ url: `StockAdjustments/${id}`, method: "DELETE" }),
+      invalidatesTags: tagsFor("StockAdjustment"),
     }),
   }),
 });

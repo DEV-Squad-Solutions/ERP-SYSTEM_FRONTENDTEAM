@@ -30,7 +30,6 @@ import QuickAddDriverModal from "../../../drivers/components/QuickAddDriverModal
 import PackagingDrawer from "../PackagingDrawer";
 import { useCreateInvoiceMutation } from "../../../invoices/invoicesApi";
 import { buildCreateInvoiceRequest } from "../../../invoices/components/buildInvoicePayload";
-import { generateInvoiceNumber } from "../../../../mocks/data/sales";
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
@@ -97,9 +96,12 @@ const getCairoDate = () => {
     day: "2-digit",
   }).format(new Date());
 };
-
+const generateInvoiceNumber = () => {
+  const year = new Date().getFullYear();
+  return `INV-${year}-${Math.floor(Math.random() * 10000)}`;
+};
 const getDefaultHeader = () => ({
-  invoiceNumber: "",
+  invoiceNumber: generateInvoiceNumber(),
 
   movementType: "",
 

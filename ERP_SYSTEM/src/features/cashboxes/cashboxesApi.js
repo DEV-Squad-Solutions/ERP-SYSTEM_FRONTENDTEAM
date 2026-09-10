@@ -1,5 +1,6 @@
 // features/cashboxes/cashboxesApi.js
 import { baseApi } from "../../lib/baseApi";
+import { tagsFor } from "../../lib/invalidation";
 
 export const cashboxesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -18,22 +19,12 @@ export const cashboxesApi = baseApi.injectEndpoints({
         params: {
           pageNumber,
           pageSize,
-          ...(search?.trim() && {
-            search: search.trim(),
-          }),
-          ...(code?.trim() && {
-            code: code.trim(),
-          }),
-          ...(name?.trim() && {
-            name: name.trim(),
-          }),
-          ...(currency && {
-            currency,
-          }),
+          ...(search?.trim() && { search: search.trim() }),
+          ...(code?.trim() && { code: code.trim() }),
+          ...(name?.trim() && { name: name.trim() }),
+          ...(currency && { currency }),
           ...(isActive !== undefined &&
-            isActive !== "" && {
-              isActive: isActive === "true",
-            }),
+            isActive !== "" && { isActive: isActive === "true" }),
         },
       }),
 
@@ -44,17 +35,9 @@ export const cashboxesApi = baseApi.injectEndpoints({
                 type: "Cashbox",
                 id: cashbox.id,
               })),
-              {
-                type: "Cashbox",
-                id: "LIST",
-              },
+              { type: "Cashbox", id: "LIST" },
             ]
-          : [
-              {
-                type: "Cashbox",
-                id: "LIST",
-              },
-            ],
+          : [{ type: "Cashbox", id: "LIST" }],
     }),
 
     getCashboxOptions: builder.query({
@@ -69,33 +52,23 @@ export const cashboxesApi = baseApi.injectEndpoints({
 
     createCashbox: builder.mutation({
       query: (body) => ({ url: "/Cashboxes", method: "POST", body }),
-      invalidatesTags: [
-        { type: "Cashbox", id: "LIST" },
-        { type: "Cashbox", id: "OPTIONS" },
-      ],
+      // كان بيعمل invalidate لـ LIST/OPTIONS بس. tagsFor بتغطي كل حاجة
+      // مرتبطة بالخزنة (statements/vouchers/transfers) من مصدر واحد.
+      invalidatesTags: tagsFor("Cashbox"),
     }),
 
-    // PUT /api/v1/Cashboxes/{id}
     updateCashbox: builder.mutation({
       query: ({ id, ...body }) => ({
         url: `/Cashboxes/${id}`,
         method: "PUT",
         body,
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: "Cashbox", id },
-        { type: "Cashbox", id: "LIST" },
-        { type: "Cashbox", id: "OPTIONS" },
-      ],
+      invalidatesTags: tagsFor("Cashbox"),
     }),
 
-    // DELETE /api/v1/Cashboxes/{id}
     deleteCashbox: builder.mutation({
       query: (id) => ({ url: `/Cashboxes/${id}`, method: "DELETE" }),
-      invalidatesTags: [
-        { type: "Cashbox", id: "LIST" },
-        { type: "Cashbox", id: "OPTIONS" },
-      ],
+      invalidatesTags: tagsFor("Cashbox"),
     }),
   }),
   overrideExisting: false,
