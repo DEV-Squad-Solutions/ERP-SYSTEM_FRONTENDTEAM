@@ -27,6 +27,7 @@ import Button from "../../../shared/components/ui/Button";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 const emptyLine = () => ({
+  _key: crypto.randomUUID(),
   itemId: null,
   itemName: "",
   itemUnitName: "",
@@ -77,6 +78,7 @@ export default function StockOpeningBalanceForm({
       });
       setLines(
         (editingItem.lines || []).map((l) => ({
+          _key: crypto.randomUUID(),
           itemId: l.itemId,
           itemName: l.itemName,
           itemUnitName: l.itemUnitName,
@@ -247,7 +249,7 @@ export default function StockOpeningBalanceForm({
             <tbody>
               {linesWithTotals.map((line, index) => (
                 <tr
-                  key={index}
+                  key={line._key}
                   className="border-b border-ink-400/5 last:border-0"
                 >
                   <td className="p-2 text-xs text-ink-400 num">{index + 1}</td>

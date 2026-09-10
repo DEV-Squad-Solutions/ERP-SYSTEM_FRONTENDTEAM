@@ -8,22 +8,17 @@ import { toast } from "sonner";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
-import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 
 import { useMoveSalaryMutation } from "../payrollApi";
 
 const schema = z.object({
   postingDate: z.string().min(1, "التاريخ مطلوب"),
-  cashboxId: z.string().min(1, "الخزينة مطلوبة"),
-  cashMovementTypeId: z.string().min(1, "نوع الحركة مطلوب"),
   notes: z.string().optional(),
 });
 
 const defaultValues = {
   postingDate: "",
-  cashboxId: "",
-  cashMovementTypeId: "",
   notes: "",
 };
 
@@ -83,55 +78,6 @@ export default function MoveSalaryModal({
           {...register("postingDate")}
           error={errors.postingDate?.message}
         />
-
-        <div>
-          <label className="block text-xs font-medium text-ink-400 mb-1">
-            الخزينة
-          </label>
-          <Controller
-            name="cashboxId"
-            control={control}
-            render={({ field }) => (
-              <CompactSelect
-                options={cashboxes.map((c) => ({ value: c.id, label: c.name }))}
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="اختر الخزينة"
-              />
-            )}
-          />
-          {errors.cashboxId && (
-            <p className="text-xs text-negative mt-1">
-              {errors.cashboxId.message}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-ink-400 mb-1">
-            نوع الحركة
-          </label>
-          <Controller
-            name="cashMovementTypeId"
-            control={control}
-            render={({ field }) => (
-              <CompactSelect
-                options={cashMovementTypes.map((t) => ({
-                  value: t.id,
-                  label: t.name,
-                }))}
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="اختر نوع الحركة"
-              />
-            )}
-          />
-          {errors.cashMovementTypeId && (
-            <p className="text-xs text-negative mt-1">
-              {errors.cashMovementTypeId.message}
-            </p>
-          )}
-        </div>
 
         <Input
           label="ملاحظات"

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import {
   Search,
@@ -83,6 +84,26 @@ export default function BulkCreatePayrollEntriesPage() {
       return name.includes(value) || id.includes(value);
     });
   }, [employeeRows, search]);
+
+  // نفس مبدأ صفحة تسجيل الحضور: القائمة دي بتيجي كاملة من غير pagination
+  // من السيرفر، فبنستخدم react-virtual عشان نرندر بس الصفوف الظاهرة فعليًا.
+  const scrollContainerRef = useRef(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredRows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 56,
+    overscan: 10,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+
+  const paddingBottom =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
 
   const selectedRows = useMemo(() => {
     const selectedSet = new Set(selectedIds);
@@ -511,9 +532,12 @@ export default function BulkCreatePayrollEntriesPage() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card">
+          <div
+            ref={scrollContainerRef}
+            className="overflow-x-auto overflow-y-auto max-h-[65vh] custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card"
+          >
             <table className="w-full text-right border-collapse min-w-[900px]">
-              <thead>
+              <thead className="sticky top-0 z-[1] bg-white">
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
                   <th className="p-2.5 w-10">
                     <input
@@ -535,7 +559,14 @@ export default function BulkCreatePayrollEntriesPage() {
               </thead>
 
               <tbody>
-                {filteredRows.map((employee, index) => {
+                {paddingTop > 0 && (
+                  <tr aria-hidden="true">
+                    <td colSpan={6} style={{ height: paddingTop }} />
+                  </tr>
+                )}
+
+                {virtualRows.map((virtualRow) => {
+                  const employee = filteredRows[virtualRow.index];
                   const selected = selectedIds.includes(employee.id);
                   const net =
                     normalizeNumber(employee.bonus) -
@@ -544,12 +575,11 @@ export default function BulkCreatePayrollEntriesPage() {
                   return (
                     <tr
                       key={employee.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
                       className={`border-b border-ink-400/5 last:border-0 transition-colors ${
                         selected ? "bg-primary-50/50" : "hover:bg-primary-50/20"
-                      } animate-fadeUp`}
-                      style={{
-                        animationDelay: `${Math.min(index, 12) * 20}ms`,
-                      }}
+                      }`}
                     >
                       <td className="p-2.5">
                         <input
@@ -645,6 +675,12 @@ export default function BulkCreatePayrollEntriesPage() {
                     </tr>
                   );
                 })}
+
+                {paddingBottom > 0 && (
+                  <tr aria-hidden="true">
+                    <td colSpan={6} style={{ height: paddingBottom }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

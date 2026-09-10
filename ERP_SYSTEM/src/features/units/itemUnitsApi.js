@@ -5,6 +5,9 @@ export const itemUnitsApi = baseApi.injectEndpoints({
     getItemUnitsSelect: builder.query({
       query: () => "ItemUnits/select",
       providesTags: ["ItemUnit"],
+      // بيانات وحدات القياس بتتغير نادر جدًا، فنسيبها في الكاش لمدة أطول
+      // بدل الافتراضي (60 ثانية) عشان نقلل النداءات المتكررة كل ما ندخل فورم فيه select
+      keepUnusedDataFor: 300,
     }),
 
     // GET ItemUnits يرجع { items, pageNumber, pageSize, totalCount, totalPages }

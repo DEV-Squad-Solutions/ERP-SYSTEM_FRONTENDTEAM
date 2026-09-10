@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Search,
   RotateCcw,
@@ -594,15 +595,11 @@ export default function SalariesPage() {
 }
 
 function toastSuccess(message) {
-  import("sonner").then(({ toast }) => {
-    toast.success(message);
-  });
+  toast.success(message);
 }
 
 function toastError(message) {
-  import("sonner").then(({ toast }) => {
-    toast.error(message);
-  });
+  toast.error(message);
 }
 
 function LoadingTable() {

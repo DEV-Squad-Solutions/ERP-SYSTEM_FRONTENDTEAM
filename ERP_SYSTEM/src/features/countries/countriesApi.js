@@ -6,6 +6,7 @@ export const countriesApi = baseApi.injectEndpoints({
     getCountriesSelect: builder.query({
       query: () => "/Countries/select",
       providesTags: ["Country"],
+      keepUnusedDataFor: 300,
     }),
 
     getCountries: builder.query({

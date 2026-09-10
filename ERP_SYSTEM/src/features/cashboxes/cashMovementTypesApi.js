@@ -36,6 +36,7 @@ export const cashMovementTypesApi = baseApi.injectEndpoints({
           id: `SELECT-${arg?.direction}-${arg?.classification}-${arg?.forPartner}`,
         },
       ],
+      keepUnusedDataFor: 300,
     }),
 
     createCashMovementType: builder.mutation({

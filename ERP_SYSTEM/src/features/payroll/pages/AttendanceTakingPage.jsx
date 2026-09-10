@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import {
   Search,
@@ -243,6 +244,27 @@ export default function AttendanceTakingPage() {
       return matchesSearch && matchesStatus;
     });
   }, [employeeRows, search, statusFilter]);
+
+  // الجدول ده بيرندر كل الموظفين مرة واحدة (مفيش pagination من السيرفر)،
+  // فبنستخدم react-virtual عشان نرندر بس الصفوف الظاهرة فعليًا على الشاشة
+  // بدل ما نحط مئات الصفوف في الـ DOM دفعة واحدة.
+  const scrollContainerRef = useRef(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredRows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 64,
+    overscan: 10,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+
+  const paddingBottom =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
 
   const summary = useMemo(() => {
     let present = 0;
@@ -854,8 +876,11 @@ export default function AttendanceTakingPage() {
       ) : (
         <>
           <div
+            ref={scrollContainerRef}
             className={`
               overflow-x-auto
+              overflow-y-auto
+              max-h-[65vh]
               custom-scroll
               rounded-2xl
               border
@@ -868,7 +893,7 @@ export default function AttendanceTakingPage() {
             `}
           >
             <table className="w-full text-right border-collapse min-w-[1100px]">
-              <thead>
+              <thead className="sticky top-0 z-[1] bg-white">
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
                   <th className="p-2.5 w-10">
                     <input
@@ -915,7 +940,15 @@ export default function AttendanceTakingPage() {
               </thead>
 
               <tbody>
-                {filteredRows.map((row, index) => {
+                {paddingTop > 0 && (
+                  <tr aria-hidden="true">
+                    <td colSpan={9} style={{ height: paddingTop }} />
+                  </tr>
+                )}
+
+                {virtualRows.map((virtualRow) => {
+                  const row = filteredRows[virtualRow.index];
+
                   const present = row.status === STATUS.PRESENT;
 
                   const absent = row.status === STATUS.ABSENT;
@@ -925,6 +958,8 @@ export default function AttendanceTakingPage() {
                   return (
                     <tr
                       key={row.id}
+                      data-index={virtualRow.index}
+                      ref={rowVirtualizer.measureElement}
                       className={`
                         border-b
                         border-ink-400/5
@@ -935,11 +970,7 @@ export default function AttendanceTakingPage() {
                             ? "bg-primary-50/50"
                             : "hover:bg-primary-50/20"
                         }
-                        animate-fadeUp
                       `}
-                      style={{
-                        animationDelay: `${Math.min(index, 12) * 20}ms`,
-                      }}
                     >
                       <td className="p-2.5">
                         <input
@@ -1119,6 +1150,12 @@ export default function AttendanceTakingPage() {
                     </tr>
                   );
                 })}
+
+                {paddingBottom > 0 && (
+                  <tr aria-hidden="true">
+                    <td colSpan={9} style={{ height: paddingBottom }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -19,6 +19,7 @@ export const itemsCategoriesApi = baseApi.injectEndpoints({
     getItemsCategoriesSelect: builder.query({
       query: () => ({ url: "ItemsCategories/select" }),
       providesTags: ["ItemsCategory"],
+      keepUnusedDataFor: 300,
     }),
 
     createItemCategory: builder.mutation({

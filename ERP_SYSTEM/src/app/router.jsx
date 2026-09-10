@@ -1,74 +1,200 @@
+import { lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import LoginPage from "../features/auth/pages/LoginPage";
 import ProtectedRoute from "../shared/components/ProtectedRoute";
 import RoleRoute from "../shared/components/RoleRoute";
 import DashboardLayout from "../shared/components/layout/DashboardLayout";
-import DashboardHome from "../features/dashboard/pages/DashboardHome";
-import SalesPage from "../features/sales/pages/SalesPage";
-import InvoiceCreatePage from "../features/sales/pages/InvoiceCreatePage";
-import InvoiceDetailsPage from "../features/sales/pages/InvoiceDetailsPage";
-import InvoiceEditPage from "../features/sales/pages/InvoiceEditPage";
 import Error404 from "../shared/components/Error404";
-import BankPage from "../features/bank/Pages/BankPage";
-import PartnerAccountPage from "../features/statements/pages/PartnerAccountPage";
-import CashboxesListPage from "../features/cashboxes/pages/CashboxesListPage";
-import CashboxDetailPage from "../features/cashboxes/pages/CashboxDetailPage";
-import CashboxTransferDetailsPage from "../features/cashboxes/pages/CashboxTransferDetailsPage";
-import CashboxTransfersPage from "../features/cashboxes/pages/CashboxTransfersPage";
-import DriverTripCostEntryPage from "../features/drivers/pages/DriverTripCostEntryPage";
-import DriverStatementPage from "../features/drivers/pages/DriverStatementPage";
-import DriverDetailPage from "../features/drivers/pages/DriverDetailPage";
-import DriversListPage from "../features/drivers/pages/DriversListPage";
-import PartnerOpeningBalancesPage from "../features/partners/pages/PartnerOpeningBalancesPage";
-import PartnersListPage from "../features/partners/pages/PartnersListPage";
-import PartnerDetailPage from "../features/partners/pages/PartnerDetailPage";
-import StoreDetailPage from "../features/stores/pages/StoreDetailPage";
-import StoresListPage from "../features/stores/pages/StoresListPage";
-import StockOpeningBalancesPage from "../features/stores/pages/StockOpeningBalancesPage";
-import ItemDetailPage from "../features/inventory/pages/ItemDetailPage";
-import StockAdjustmentsListPage from "../features/stock-adjustments/pages/StockAdjustmentsListPage";
-import StockAdjustmentCreatePage from "../features/stock-adjustments/pages/StockAdjustmentCreatePage";
-import StockAdjustmentEditPage from "../features/stock-adjustments/pages/StockAdjustmentEditPage";
-import StockAdjustmentDetailPage from "../features/stock-adjustments/pages/StockAdjustmentDetailPage";
-import PermissionsPage from "../features/permissions/pages/PermissionsPage";
-import CashMovementTypesListPage from "../features/cashMovementTypes/pages/CashMovementTypesListPage";
-import UnitsPage from "../features/units/pages/UnitsPage";
-import PackagingUnitsPage from "../features/containers/pages/PackagingUnitsPage";
-import CountriesPage from "../features/countries/pages/CountriesPage";
-import EmployeesPage from "../features/payroll/pages/EmployeesPage";
-import EmployeeDetailPage from "../features/payroll/pages/EmployeeDetailPage";
-import SalariesPage from "../features/payroll/pages/SalariesPage";
-import SalaryDetailPage from "../features/payroll/pages/SalaryDetailPage";
-import AttendancePage from "../features/payroll/pages/AttendancePage";
-import EmployeeMovementsPage from "../features/payroll/pages/EmployeeMovementsPage";
-import ContainerStoreStatement from "../features/storeContainers/pages/ContainerStoreStatement";
-import ExpensesPage from "../features/expenses/pages/ExpensesPage";
-import ItemProfitabilityPage from "../features/reports/pages/ItemProfitabilityPage";
-import InvoiceProfitabilityDetailsPage from "../features/reports/pages/InvoiceProfitabilityDetailsPage";
-import InvoiceProfitabilityPage from "../features/reports/pages/InvoiceProfitabilityPage";
-import StockTransfersPage from "../features/inventory/pages/StockTransfersPage";
-import AttendanceTakingPage from "../features/payroll/pages/AttendanceTakingPage";
-import EmployeeAccountPage from "../features/statements/pages/EmployeeAccountPage";
-import BulkCreatePayrollEntriesPage from "../features/payroll/pages/BulkCreatePayrollEntriesPage";
-import EmployeeOpeningBalancesPage from "../features/payroll/pages/EmployeeOpeningBalancesPage";
-import InvoiceItemPricingPage from "../features/invoiceItemPricing/pages/InvoiceItemPricingPage";
-import CurrenciesPage from "../features/exchange-rates/pages/CurrenciesPage";
-import FiscalYearsListPage from "../features/fiscalYears/pages/FiscalYearsListPage";
-import ProfilePage from "../features/users/pages/ProfilePage";
-import EditProfilePage from "../features/users/pages/EditProfilePage";
-import PayrollReportsPage from "../features/payroll/pages/PayrollReportsPage";
-import PayrollDashboardPage from "../features/payroll/pages/PayrollDashboardPage";
-import AccountsPage from "../features/accounts/pages/AccountsPage";
-import AccountMappingsPage from "../features/accounting/pages/AccountMappingsPage";
-import JournalEntriesListPage from "../features/journalEntries/pages/JournalEntriesListPage";
-import JournalEntryFormPage from "../features/journalEntries/pages/JournalEntryFormPage";
-import AfterAdjustmentTrialBalancePage from "../features/TrialBalance/pages/AfterAdjustmentTrialBalancePage.jsx";
-import BeforeAdjustmentTrialBalancePage from "../features/TrialBalance/pages/BeforeAdjustmentTrialBalancePage.jsx";
-import IncomeStatementPage from "../features/statements/pages/IncomeStatementPage.jsx";
-import FinancialPositionPage from "../features/statements/pages/FinancialPositionPage.jsx";
-import CashFlowPage from "../features/statements/pages/CashFlowPage.jsx";
-import FinancialStatementsPage from "../features/financialStatements/pages/FinancialStatementsPage.jsx";
+
+// Route pages are lazy-loaded so each feature module ships as its own
+// chunk instead of bloating the single main bundle (was ~2.7MB / 690KB gzip).
+const DashboardHome = lazy(
+  () => import("../features/dashboard/pages/DashboardHome"),
+);
+const SalesPage = lazy(() => import("../features/sales/pages/SalesPage"));
+const InvoiceCreatePage = lazy(
+  () => import("../features/sales/pages/InvoiceCreatePage"),
+);
+const InvoiceDetailsPage = lazy(
+  () => import("../features/sales/pages/InvoiceDetailsPage"),
+);
+const InvoiceEditPage = lazy(
+  () => import("../features/sales/pages/InvoiceEditPage"),
+);
+const PartnerAccountPage = lazy(
+  () => import("../features/statements/pages/PartnerAccountPage"),
+);
+const CashboxesListPage = lazy(
+  () => import("../features/cashboxes/pages/CashboxesListPage"),
+);
+const CashboxDetailPage = lazy(
+  () => import("../features/cashboxes/pages/CashboxDetailPage"),
+);
+const CashboxTransferDetailsPage = lazy(
+  () => import("../features/cashboxes/pages/CashboxTransferDetailsPage"),
+);
+const CashboxTransfersPage = lazy(
+  () => import("../features/cashboxes/pages/CashboxTransfersPage"),
+);
+const DriverTripCostEntryPage = lazy(
+  () => import("../features/drivers/pages/DriverTripCostEntryPage"),
+);
+const DriverStatementPage = lazy(
+  () => import("../features/drivers/pages/DriverStatementPage"),
+);
+const DriverDetailPage = lazy(
+  () => import("../features/drivers/pages/DriverDetailPage"),
+);
+const DriversListPage = lazy(
+  () => import("../features/drivers/pages/DriversListPage"),
+);
+const PartnerOpeningBalancesPage = lazy(
+  () => import("../features/partners/pages/PartnerOpeningBalancesPage"),
+);
+const PartnersListPage = lazy(
+  () => import("../features/partners/pages/PartnersListPage"),
+);
+const PartnerDetailPage = lazy(
+  () => import("../features/partners/pages/PartnerDetailPage"),
+);
+const StoreDetailPage = lazy(
+  () => import("../features/stores/pages/StoreDetailPage"),
+);
+const StoresListPage = lazy(
+  () => import("../features/stores/pages/StoresListPage"),
+);
+const StockOpeningBalancesPage = lazy(
+  () => import("../features/stores/pages/StockOpeningBalancesPage"),
+);
+const ItemDetailPage = lazy(
+  () => import("../features/inventory/pages/ItemDetailPage"),
+);
+const StockAdjustmentsListPage = lazy(
+  () => import("../features/stock-adjustments/pages/StockAdjustmentsListPage"),
+);
+const StockAdjustmentCreatePage = lazy(
+  () => import("../features/stock-adjustments/pages/StockAdjustmentCreatePage"),
+);
+const StockAdjustmentEditPage = lazy(
+  () => import("../features/stock-adjustments/pages/StockAdjustmentEditPage"),
+);
+const StockAdjustmentDetailPage = lazy(
+  () => import("../features/stock-adjustments/pages/StockAdjustmentDetailPage"),
+);
+const PermissionsPage = lazy(
+  () => import("../features/permissions/pages/PermissionsPage"),
+);
+const CashMovementTypesListPage = lazy(
+  () => import("../features/cashMovementTypes/pages/CashMovementTypesListPage"),
+);
+const UnitsPage = lazy(() => import("../features/units/pages/UnitsPage"));
+const PackagingUnitsPage = lazy(
+  () => import("../features/containers/pages/PackagingUnitsPage"),
+);
+const CountriesPage = lazy(
+  () => import("../features/countries/pages/CountriesPage"),
+);
+const EmployeesPage = lazy(
+  () => import("../features/payroll/pages/EmployeesPage"),
+);
+const EmployeeDetailPage = lazy(
+  () => import("../features/payroll/pages/EmployeeDetailPage"),
+);
+const SalariesPage = lazy(
+  () => import("../features/payroll/pages/SalariesPage"),
+);
+const SalaryDetailPage = lazy(
+  () => import("../features/payroll/pages/SalaryDetailPage"),
+);
+const AttendancePage = lazy(
+  () => import("../features/payroll/pages/AttendancePage"),
+);
+const EmployeeMovementsPage = lazy(
+  () => import("../features/payroll/pages/EmployeeMovementsPage"),
+);
+const ContainerStoreStatement = lazy(
+  () => import("../features/storeContainers/pages/ContainerStoreStatement"),
+);
+const ExpensesPage = lazy(
+  () => import("../features/expenses/pages/ExpensesPage"),
+);
+const ItemProfitabilityPage = lazy(
+  () => import("../features/reports/pages/ItemProfitabilityPage"),
+);
+const InvoiceProfitabilityDetailsPage = lazy(
+  () => import("../features/reports/pages/InvoiceProfitabilityDetailsPage"),
+);
+const InvoiceProfitabilityPage = lazy(
+  () => import("../features/reports/pages/InvoiceProfitabilityPage"),
+);
+const StockTransfersPage = lazy(
+  () => import("../features/inventory/pages/StockTransfersPage"),
+);
+const AttendanceTakingPage = lazy(
+  () => import("../features/payroll/pages/AttendanceTakingPage"),
+);
+const EmployeeAccountPage = lazy(
+  () => import("../features/statements/pages/EmployeeAccountPage"),
+);
+const BulkCreatePayrollEntriesPage = lazy(
+  () => import("../features/payroll/pages/BulkCreatePayrollEntriesPage"),
+);
+const EmployeeOpeningBalancesPage = lazy(
+  () => import("../features/payroll/pages/EmployeeOpeningBalancesPage"),
+);
+const InvoiceItemPricingPage = lazy(
+  () => import("../features/invoiceItemPricing/pages/InvoiceItemPricingPage"),
+);
+const CurrenciesPage = lazy(
+  () => import("../features/exchange-rates/pages/CurrenciesPage"),
+);
+const FiscalYearsListPage = lazy(
+  () => import("../features/fiscalYears/pages/FiscalYearsListPage"),
+);
+const ProfilePage = lazy(() => import("../features/users/pages/ProfilePage"));
+const EditProfilePage = lazy(
+  () => import("../features/users/pages/EditProfilePage"),
+);
+const PayrollReportsPage = lazy(
+  () => import("../features/payroll/pages/PayrollReportsPage"),
+);
+const PayrollDashboardPage = lazy(
+  () => import("../features/payroll/pages/PayrollDashboardPage"),
+);
+const AccountsPage = lazy(
+  () => import("../features/accounts/pages/AccountsPage"),
+);
+const AccountMappingsPage = lazy(
+  () => import("../features/accounting/pages/AccountMappingsPage"),
+);
+const JournalEntriesListPage = lazy(
+  () => import("../features/journalEntries/pages/JournalEntriesListPage"),
+);
+const JournalEntryFormPage = lazy(
+  () => import("../features/journalEntries/pages/JournalEntryFormPage"),
+);
+const AfterAdjustmentTrialBalancePage = lazy(
+  () =>
+    import("../features/TrialBalance/pages/AfterAdjustmentTrialBalancePage.jsx"),
+);
+const BeforeAdjustmentTrialBalancePage = lazy(
+  () =>
+    import("../features/TrialBalance/pages/BeforeAdjustmentTrialBalancePage.jsx"),
+);
+const IncomeStatementPage = lazy(
+  () => import("../features/statements/pages/IncomeStatementPage.jsx"),
+);
+const FinancialPositionPage = lazy(
+  () => import("../features/statements/pages/FinancialPositionPage.jsx"),
+);
+const CashFlowPage = lazy(
+  () => import("../features/statements/pages/CashFlowPage.jsx"),
+);
+const FinancialStatementsPage = lazy(
+  () =>
+    import("../features/financialStatements/pages/FinancialStatementsPage.jsx"),
+);
 
 const ROLES = {
   ADMIN: "Admin",
@@ -312,14 +438,6 @@ export const router = createBrowserRouter([
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
             <ExpensesPage />
-          </Role>
-        ),
-      },
-      {
-        path: "bank",
-        element: (
-          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
-            <BankPage />
           </Role>
         ),
       },

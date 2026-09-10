@@ -17,7 +17,7 @@ function fmt(n) {
 }
 
 function emptyRow() {
-  return { name: "", amount: "", notes: "" };
+  return { _key: crypto.randomUUID(), name: "", amount: "", notes: "" };
 }
 
 export default function InvoiceLineExpensesModal({
@@ -36,6 +36,7 @@ export default function InvoiceLineExpensesModal({
 
     const existing = line?.expenses?.length
       ? line.expenses.map((expense) => ({
+          _key: crypto.randomUUID(),
           name: expense.name || "",
           amount: expense.amount ?? "",
           notes: expense.notes || "",
@@ -138,7 +139,7 @@ export default function InvoiceLineExpensesModal({
             <div className="space-y-2">
               {rows.map((row, index) => (
                 <div
-                  key={index}
+                  key={row._key}
                   className="grid grid-cols-12 gap-2 items-start rounded-xl border border-ink-400/10 p-2.5"
                 >
                   <div className="col-span-4">
