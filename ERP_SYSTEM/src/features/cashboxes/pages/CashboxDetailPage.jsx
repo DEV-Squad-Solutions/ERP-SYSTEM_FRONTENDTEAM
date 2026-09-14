@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Filter,
   ChevronDown,
+  HandCoins,
 } from "lucide-react";
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -41,6 +42,7 @@ import { useCashboxLedgerPrint } from "../../../shared/hooks/useCashboxLedgerPri
 import CashboxLedgerPrintTemplate from "../../../shared/components/print/CashboxLedgerPrintTemplate";
 
 import { selectIsAdmin } from "../../auth/authSlice";
+import CashHandoverReportModal from "../components/CashHandoverReportModal";
 
 const currencySymbols = {
   EGP: "ج.م",
@@ -152,6 +154,7 @@ export default function CashboxDetailPage() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [showHandover, setShowHandover] = useState(false);
 
   const { data: cashbox, isFetching: isFetchingCashbox } =
     useGetCashboxByIdQuery(cashboxId);
@@ -389,7 +392,10 @@ export default function CashboxDetailPage() {
                 )}
               </div>
             )}
-
+            <Button variant="outline" onClick={() => setShowHandover(true)}>
+              <HandCoins size={16} />
+              تسليم العهدة
+            </Button>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={printList}>
                 <Printer size={16} />
@@ -693,6 +699,14 @@ export default function CashboxDetailPage() {
           onPageSizeChange={handlePageSizeChange}
         />
       </div>
+      {showHandover && (
+        <CashHandoverReportModal
+          isOpen={showHandover}
+          onClose={() => setShowHandover(false)}
+          cashboxId={cashboxId}
+          cashboxName={cashbox?.name || "الخزنة"}
+        />
+      )}
       <div className="hidden">
         <div ref={printRef}>
           <CashboxLedgerPrintTemplate

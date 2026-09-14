@@ -197,6 +197,7 @@ export const {
   useGetInvoicesForSummaryQuery,
   useGetInvoiceByIdQuery,
   useCreateInvoiceMutation,
+  useLazyGetInvoiceByIdQuery,
   useUpdateInvoiceMutation,
   useDeleteInvoiceMutation,
   useGetItemBalanceQuery,

@@ -141,6 +141,21 @@ export const cashVouchersApi = baseApi.injectEndpoints({
         params: { rowVersion },
       }),
       invalidatesTags: tagsFor("CashVoucher"),
+    }), // cashVouchersApi.js — إضافة جوه injectEndpoints بتاع نفس السلايس
+    getCashHandoverReport: builder.query({
+      query: (params) => ({
+        url: "/CashVouchers/handover-report",
+        params: {
+          pageNumber: params.pageNumber ?? 1,
+          pageSize: params.pageSize ?? 50,
+          cashboxId: params.cashboxId || undefined,
+          fromDate: params.fromDate || undefined,
+          toDate: params.toDate || undefined,
+          direction: params.direction || undefined,
+          search: params.search || undefined,
+        },
+      }),
+      providesTags: ["CashVoucher"],
     }),
   }),
 });
@@ -152,4 +167,5 @@ export const {
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
   useDeleteCashVoucherMutation,
+  useGetCashHandoverReportQuery,
 } = cashVouchersApi;

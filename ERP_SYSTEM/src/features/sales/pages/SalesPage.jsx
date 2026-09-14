@@ -5,6 +5,7 @@ import { Plus, RefreshCw, FileSpreadsheet, Printer } from "lucide-react";
 import {
   useGetInvoicesForSummaryQuery,
   useGetInvoicesQuery,
+  useLazyGetInvoiceByIdQuery, // ← جديد
 } from "../../invoices/invoicesApi";
 import SalesStatsCards from "../components/SalesStatsCards";
 import SalesFiltersCard from "../components/SalesFiltersCard";
@@ -35,6 +36,10 @@ export default function SalesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [triggerExport, setTriggerExport] = useState(false);
+
+  // بيانات الفواتير التفصيلية (بأصنافها) — بتتجهز وقت الطباعة بس
+  const [printInvoices, setPrintInvoices] = useState(null);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
 
   const { data: exportData, isFetching: isExporting } =
     useGetInvoicesForSummaryQuery(appliedFilters, {
@@ -91,6 +96,51 @@ export default function SalesPage() {
     }`,
   });
 
+  const [fetchInvoiceById] = useLazyGetInvoiceByIdQuery();
+
+  // بيتنفذ لما printInvoices تتجهز، بعد ما الـ DOM يتحدث بالتفاصيل الجديدة
+  useEffect(() => {
+    if (printInvoices) {
+      printList();
+      setPrintInvoices(null);
+    }
+  }, [printInvoices, printList]);
+
+  const handlePrint = async () => {
+    const items = data?.items || [];
+
+    if (!items.length) {
+      toast.info("لا توجد فواتير للطباعة");
+      return;
+    }
+
+    setIsPreparingPrint(true);
+
+    try {
+      // بنجيب تفاصيل كل فاتورة (بأصنافها) بالتوازي
+      const detailedInvoices = await Promise.all(
+        items.map(
+          (invoice) =>
+            fetchInvoiceById(invoice.id)
+              .unwrap()
+              .catch(() => null), // لو فاتورة معينة فشلت، منوقفش باقي الطباعة
+        ),
+      );
+
+      // fallback للفاتورة اللي فشل تحميلها: نستخدم بيانات القايمة بس من غير أصناف
+      const merged = detailedInvoices.map(
+        (detail, index) => detail ?? { ...items[index], lines: [] },
+      );
+
+      setPrintInvoices(merged);
+    } catch (error) {
+      console.error("فشل تجهيز بيانات الطباعة", error);
+      toast.error("حصلت مشكلة أثناء تجهيز الفواتير للطباعة");
+    } finally {
+      setIsPreparingPrint(false);
+    }
+  };
+
   const Summary = data?.summary;
 
   return (
@@ -111,9 +161,16 @@ export default function SalesPage() {
           {isExporting ? "جاري التصدير..." : "تصدير Excel"}
         </Button>
 
-        <Button variant="outline" onClick={printList}>
-          <Printer size={16} />
-          طباعة
+        <Button
+          variant="outline"
+          onClick={handlePrint}
+          disabled={isPreparingPrint}
+        >
+          <Printer
+            size={16}
+            className={isPreparingPrint ? "animate-pulse" : ""}
+          />
+          {isPreparingPrint ? "جاري تجهيز الطباعة..." : "طباعة"}
         </Button>
       </div>
 
@@ -144,7 +201,7 @@ export default function SalesPage() {
       <div style={{ display: "none" }}>
         <div ref={printRef}>
           <InvoiceListPrintTemplate
-            invoices={data?.items || []}
+            invoices={printInvoices || []}
             filters={appliedFilters}
             summary={Summary}
           />

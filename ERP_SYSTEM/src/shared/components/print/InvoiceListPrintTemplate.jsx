@@ -16,7 +16,7 @@ const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 
 /**
  * @param {{ invoices: Array, filters: Object, summary: Object }} props
- * تصميم A4 لطباعة قائمة فواتير كتقرير
+ * تصميم A4 لطباعة قائمة فواتير كتقرير — كل فاتورة معاها جدول فرعي بأصنافها
  */
 export default function InvoiceListPrintTemplate({
   invoices,
@@ -71,7 +71,7 @@ export default function InvoiceListPrintTemplate({
               margin: "4px 0 0",
             }}
           >
-            تقرير الفواتير
+            تقرير الفواتير التفصيلي
           </p>
         </div>
 
@@ -119,73 +119,142 @@ export default function InvoiceListPrintTemplate({
         </div>
       )}
 
-      {/* جدول الفواتير */}
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: "10.5px",
-        }}
-      >
-        <thead>
-          <tr style={{ background: "#f3f4f6" }}>
-            {[
-              "#",
-              "رقم الفاتورة",
-              "التاريخ",
-              "النوع",
-              "العميل",
-              "المخزن",
-              "الدفع",
-              "الإجمالي",
-              "المدفوع",
-              "المتبقي",
-            ].map((h) => (
-              <th
-                key={h}
-                style={{
-                  border: "1px solid #e5e7eb",
-                  padding: "5px",
-                  textAlign: "center",
-                  fontWeight: 700,
-                }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
+      {/* كل فاتورة: هيدر + جدول أصنافها */}
+      {invoices.map((inv, i) => (
+        <div
+          key={inv.id ?? i}
+          style={{
+            marginBottom: "14px",
+            breakInside: "avoid",
+            border: "1px solid #e5e7eb",
+            borderRadius: "4px",
+            overflow: "hidden",
+          }}
+        >
+          {/* هيدر الفاتورة */}
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: "10.5px",
+              background: "#f3f4f6",
+            }}
+          >
+            <thead>
+              <tr>
+                {[
+                  "#",
+                  "رقم الفاتورة",
+                  "التاريخ",
+                  "النوع",
+                  "العميل",
+                  "المخزن",
+                  "الدفع",
+                  "الإجمالي",
+                  "المدفوع",
+                  "المتبقي",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      padding: "5px",
+                      textAlign: "center",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
 
-        <tbody>
-          {invoices.map((inv, i) => (
-            <tr key={inv.id ?? i} style={{ breakInside: "avoid" }}>
-              <td style={cellCenter}>{i + 1}</td>
+            <tbody>
+              <tr>
+                <td style={cellCenter}>{i + 1}</td>
+                <td style={cellCenter}>{inv.invoiceNumber || "—"}</td>
+                <td style={cellCenter}>{inv.invoiceDate || "—"}</td>
+                <td style={cellCenter}>
+                  {typeLabels[inv.invoiceType] || inv.invoiceType || "—"}
+                </td>
+                <td style={cellRight}>{inv.businessPartnerName || "—"}</td>
+                <td style={cellRight}>{inv.storeName || "—"}</td>
+                <td style={cellCenter}>
+                  {paymentLabels[inv.paymentTerm] || "—"}
+                </td>
+                <td style={cellCenter}>{fmt(inv.total)}</td>
+                <td style={cellCenter}>{fmt(inv.paidAmount)}</td>
+                <td style={cellCenter}>{fmt(inv.remainingAmount)}</td>
+              </tr>
+            </tbody>
+          </table>
 
-              <td style={cellCenter}>{inv.invoiceNumber || "—"}</td>
+          {/* جدول أصناف الفاتورة */}
+          {inv.lines?.length > 0 ? (
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "10px",
+              }}
+            >
+              <thead>
+                <tr style={{ background: "#fafafa" }}>
+                  {[
+                    "كود الصنف",
+                    "اسم الصنف",
+                    "الوحدة",
+                    "العدد",
+                    "الوزن",
+                    "الكمية",
+                    "السعر",
+                    "الإجمالي",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        border: "1px solid #f0f0f0",
+                        padding: "4px",
+                        textAlign: "center",
+                        fontWeight: 600,
+                        color: "#374151",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
 
-              <td style={cellCenter}>{inv.invoiceDate || "—"}</td>
-
-              <td style={cellCenter}>
-                {typeLabels[inv.invoiceType] || inv.invoiceType || "—"}
-              </td>
-
-              <td style={cellRight}>{inv.businessPartnerName || "—"}</td>
-
-              <td style={cellRight}>{inv.storeName || "—"}</td>
-
-              <td style={cellCenter}>
-                {paymentLabels[inv.paymentTerm] || "—"}
-              </td>
-
-              <td style={cellCenter}>{fmt(inv.total)}</td>
-
-              <td style={cellCenter}>{fmt(inv.paidAmount)}</td>
-
-              <td style={cellCenter}>{fmt(inv.remainingAmount)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              <tbody>
+                {inv.lines.map((line, li) => (
+                  <tr key={line.id ?? li}>
+                    <td style={cellSubCenter}>{line.itemCode || "—"}</td>
+                    <td style={cellSubRight}>{line.itemName || "—"}</td>
+                    <td style={cellSubCenter}>{line.itemUnitName || "—"}</td>
+                    <td style={cellSubCenter}>{fmt(line.count)}</td>
+                    <td style={cellSubCenter}>{fmt(line.weight)}</td>
+                    <td style={cellSubCenter}>{fmt(line.quantity)}</td>
+                    <td style={cellSubCenter}>{fmt(line.price)}</td>
+                    <td style={cellSubCenter}>{fmt(line.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p
+              style={{
+                fontSize: "10px",
+                color: "#9ca3af",
+                padding: "6px 10px",
+                margin: 0,
+              }}
+            >
+              لا توجد أصناف مسجلة لهذه الفاتورة
+            </p>
+          )}
+        </div>
+      ))}
 
       {/* ملخص التقرير */}
       {summary && (
@@ -284,6 +353,7 @@ export default function InvoiceListPrintTemplate({
     </div>
   );
 }
+
 const cellCenter = {
   border: "1px solid #e5e7eb",
   padding: "5px",
@@ -296,6 +366,22 @@ const cellRight = {
   padding: "5px",
   textAlign: "right",
   verticalAlign: "middle",
+};
+
+const cellSubCenter = {
+  border: "1px solid #f0f0f0",
+  padding: "4px",
+  textAlign: "center",
+  verticalAlign: "middle",
+  color: "#4b5563",
+};
+
+const cellSubRight = {
+  border: "1px solid #f0f0f0",
+  padding: "4px",
+  textAlign: "right",
+  verticalAlign: "middle",
+  color: "#4b5563",
 };
 
 const summaryTitle = {
