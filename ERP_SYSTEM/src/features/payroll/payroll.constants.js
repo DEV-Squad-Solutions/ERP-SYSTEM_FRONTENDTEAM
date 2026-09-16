@@ -4,6 +4,17 @@
 // Employee Types
 // ============================================================
 
+export const workPlaceStatusOptions = [
+  { value: "InCompany", label: "داخل الشركة" },
+  { value: "OutCompany", label: "خارج الشركة" },
+];
+
+export const employeeStatusOptions = [
+  { value: "", label: "الكل" },
+  { value: "true", label: "نشط" },
+  { value: "false", label: "غير نشط" },
+];
+
 export const EMPLOYEE_TYPE = {
   Daily: "يومي",
   Monthly: "شهري",
@@ -19,19 +30,15 @@ export const employeeTypeOptions = Object.entries(EMPLOYEE_TYPE).map(
 // ============================================================
 // Attendance Status
 // ============================================================
-// EmployeeAttendances API:
-// Present = 0
-// Absent  = 1
-//
-// مهم:
-// الـ API الحالي لا يدعم Late أو Vacation كـ status.
-// التأخير يتم التعامل معه من خلال أوقات الحضور أو
-// workOverTimeRatio / workDaysDeductionRatio حسب الـ backend.
-// ============================================================
 
 export const ATTENDANCE_STATUS = {
-  Present: "حاضر",
   Absent: "غائب",
+  Present: "حاضر",
+};
+
+export const ATTENDANCE_STATUS_VALUE = {
+  Absent: 0,
+  Present: 1,
 };
 
 export const attendanceStatusOptions = Object.entries(ATTENDANCE_STATUS).map(
@@ -49,35 +56,63 @@ export const attendanceStatusBadge = {
 // ============================================================
 // Day Ratios
 // ============================================================
-//
-// القيم الظاهرة في EmployeeAttendances response:
-//
-// FullDay
-//
-// وهناك QuarterDay مؤكد حسب التكامل الحالي.
-// باقي القيم مستخدمة في الواجهة كـ enum متوقع.
-// ============================================================
 
 export const DAY_RATIO = {
-  QuarterDay: "ربع يوم",
-  HalfDay: "نصف يوم",
-  ThreeQuarterDay: "ثلاثة أرباع يوم",
-  FullDay: "يوم كامل",
-  None: "بدون",
+  OneDay: 1,
+  FullDay: 1,
+  TwoDays: 2,
+  ThreeDays: 3,
+  FourDays: 4,
+  FiveDays: 5,
+  ThreeQuarterDay: 6,
+  TwoThirdsDay: 7,
+  HalfDay: 8,
+  ThirdDay: 9,
+  QuarterDay: 10,
 };
 
-export const dayRatioOptions = Object.entries(DAY_RATIO).map(
-  ([value, label]) => ({
-    value,
-    label,
-  }),
-);
+export const DAY_RATIO_LABELS = {
+  OneDay: "يوم كامل",
+  FullDay: "يوم كامل",
+  TwoDays: "يومان",
+  ThreeDays: "ثلاثة أيام",
+  FourDays: "أربعة أيام",
+  FiveDays: "خمسة أيام",
+  ThreeQuarterDay: "ثلاثة أرباع يوم",
+  TwoThirdsDay: "ثلثا يوم",
+  HalfDay: "نصف يوم",
+  ThirdDay: "ثلث يوم",
+  QuarterDay: "ربع يوم",
+};
+
+export const dayRatioOptions = [
+  { value: 1, label: "يوم كامل" },
+  { value: 2, label: "يومان" },
+  { value: 3, label: "ثلاثة أيام" },
+  { value: 4, label: "أربعة أيام" },
+  { value: 5, label: "خمسة أيام" },
+  { value: 6, label: "ثلاثة أرباع يوم" },
+  { value: 7, label: "ثلثا يوم" },
+  { value: 8, label: "نصف يوم" },
+  { value: 9, label: "ثلث يوم" },
+  { value: 10, label: "ربع يوم" },
+];
+
+export const DAY_RATIO_BY_VALUE = {
+  1: "يوم كامل",
+  2: "يومان",
+  3: "ثلاثة أيام",
+  4: "أربعة أيام",
+  5: "خمسة أيام",
+  6: "ثلاثة أرباع يوم",
+  7: "ثلثا يوم",
+  8: "نصف يوم",
+  9: "ثلث يوم",
+  10: "ربع يوم",
+};
 
 // ============================================================
 // Employee Movement Type
-// ============================================================
-// EmployeeMovements API:
-// Debit = 1, Credit = 2, Advance = 3, Deduction = 4, Bonus = 5, Withdrawal = 6
 // ============================================================
 
 export const MOVEMENT_TYPE_LABELS = {
@@ -108,11 +143,6 @@ export const movementTypeBadge = {
 // ============================================================
 // Payroll Status
 // ============================================================
-//
-// TODO INTEGRATION:
-// يتم الإبقاء عليها لأن هذه حالات Payroll وليست Attendance.
-// يجب تأكيدها من PayrollEntries API.
-// ============================================================
 
 export const PAYROLL_STATUS = {
   Draft: "مسودة",
@@ -128,6 +158,10 @@ export const payrollStatusBadge = {
   Disbursed: "text-positive bg-positive/10",
 };
 
+// ============================================================
+// Currency
+// ============================================================
+
 export const currencyOptions = [
   { value: "EGP", label: "جنيه مصري" },
   { value: "USD", label: "دولار أمريكي" },
@@ -137,6 +171,10 @@ export const currencyOptions = [
   { value: "AED", label: "درهم إماراتي" },
   { value: "KWD", label: "دينار كويتي" },
 ];
+
+// ============================================================
+// Balance Type
+// ============================================================
 
 export const balanceTypeOptions = [
   { value: "Debit", label: "مدين" },

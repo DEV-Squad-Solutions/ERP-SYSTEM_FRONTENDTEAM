@@ -1,22 +1,14 @@
 import { useState } from "react";
-import {
-  Receipt,
-  FileWarning,
-  ExternalLink,
-  Plus,
-  Eye,
-  Pencil,
-} from "lucide-react";
+import { Receipt, FileWarning, ExternalLink, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { useGetCashVouchersQuery } from "../../cashboxes/cashVouchersApi";
 import { useGetCashboxesQuery } from "../../cashboxes/cashboxesApi";
 import { useGetCashMovementTypesQuery } from "../../cashboxes/cashMovementTypesApi";
+import { useGetExpenseAccountsSelectQuery } from "../../accounts/accountsApi";
 
 import ExpenseFilters from "../components/ExpenseFilters";
-import ExpenseQuickEntryModal from "../../cashboxes/components/ExpenseQuickEntryModal";
 import ExpenseDetailsModal from "../components/ExpenseDetailsModal";
-
 import Pagination from "../../../shared/components/ui/Pagination";
 
 const emptyFilters = {
@@ -24,6 +16,8 @@ const emptyFilters = {
   voucherNumber: "",
   cashboxId: "",
   cashMovementTypeId: "",
+  accountId: "",
+  includeSubAccounts: false,
   fromDate: "",
   toDate: "",
   isDraft: "",
@@ -52,7 +46,7 @@ function partyLabel(v) {
 
     case "Driver":
       return v.driverTripInvoiceNumber
-        ? `${v.driverName} (رحلة ${v.driverTripInvoiceNumber})`
+        ? `${v.driverName ?? "—"} (رحلة ${v.driverTripInvoiceNumber})`
         : (v.driverName ?? "—");
 
     case "Employee":
@@ -69,21 +63,15 @@ function partyLabel(v) {
 export default function ExpensesPage() {
   const navigate = useNavigate();
 
-  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
-  const [editingVoucher, setEditingVoucher] = useState(null);
   const [viewingVoucher, setViewingVoucher] = useState(null);
 
   const [filters, setFilters] = useState({
-    draft: emptyFilters,
-    applied: emptyFilters,
+    draft: { ...emptyFilters },
+    applied: { ...emptyFilters },
   });
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-
-  // =========================================================
-  // Cashboxes
-  // =========================================================
 
   const { data: cashboxesData } = useGetCashboxesQuery();
 
@@ -91,61 +79,47 @@ export default function ExpensesPage() {
     ? cashboxesData
     : (cashboxesData?.items ?? []);
 
-  // =========================================================
-  // Cash Movement Types
-  // =========================================================
-
   const { data: movementTypesData } = useGetCashMovementTypesQuery();
 
   const cashMovementTypes = Array.isArray(movementTypesData)
     ? movementTypesData
     : (movementTypesData?.items ?? []);
 
-  // =========================================================
-  // Expenses
-  // =========================================================
-  // Classification=Expense هي الفلتر الحقيقي لـ "المصاريف"
-  // (مش Direction=Payment اللي ممكن يشمل تسويات شركاء أو حركات تانية)
+  const { data: expenseAccountsData } = useGetExpenseAccountsSelectQuery();
+
+  const expenseAccounts = Array.isArray(expenseAccountsData)
+    ? expenseAccountsData
+    : (expenseAccountsData?.items ?? []);
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetCashVouchersQuery({
       classification: "Expense",
-
       pageNumber: page,
-      pageSize: pageSize,
-
+      pageSize,
       ...filters.applied,
     });
-
-  // =========================================================
-  // Search
-  // =========================================================
 
   function handleSearch() {
     setFilters((prev) => ({
       ...prev,
-      applied: prev.draft,
+      applied: {
+        ...prev.draft,
+      },
     }));
 
     setPage(1);
   }
 
-  // =========================================================
-  // Reset
-  // =========================================================
-
   function handleReset() {
+    const reset = { ...emptyFilters };
+
     setFilters({
-      draft: emptyFilters,
-      applied: emptyFilters,
+      draft: reset,
+      applied: reset,
     });
 
     setPage(1);
   }
-
-  // =========================================================
-  // Open Voucher (inside cashbox / treasury view)
-  // =========================================================
 
   function openVoucher(voucher) {
     if (!voucher?.cashboxId || !voucher?.id) {
@@ -172,11 +146,11 @@ export default function ExpensesPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <ExpenseFilters
         draft={filters.draft}
         cashboxes={cashboxes}
         cashMovementTypes={cashMovementTypes}
+        expenseAccounts={expenseAccounts}
         onChange={(value) =>
           setFilters((prev) => ({
             ...prev,
@@ -187,15 +161,11 @@ export default function ExpensesPage() {
         onReset={handleReset}
       />
 
-      {/* ==================== Loading ==================== */}
-
       {isLoading && (
         <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center text-ink-400">
           جاري تحميل المصاريف...
         </div>
       )}
-
-      {/* ==================== Error ==================== */}
 
       {isError && (
         <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
@@ -211,8 +181,6 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* ==================== Data ==================== */}
-
       {data && (
         <div
           className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
@@ -221,19 +189,20 @@ export default function ExpensesPage() {
         >
           <div className="overflow-x-auto">
             <table
-              className="w-full min-w-[980px] table-fixed text-sm"
+              className="w-full min-w-[1150px] table-fixed text-sm"
               dir="rtl"
             >
               <colgroup>
-                <col className="w-[10%]" />
                 <col className="w-[9%]" />
+                <col className="w-[8%]" />
+                <col className="w-[11%]" />
                 <col className="w-[12%]" />
-                <col className="w-[14%]" />
+                <col className="w-[15%]" />
                 <col className="w-[13%]" />
                 <col className="w-[11%]" />
-                <col className="w-[13%]" />
+                <col className="w-[10%]" />
                 <col className="w-[7%]" />
-                <col className="w-[11%]" />
+                <col className="w-[8%]" />
               </colgroup>
 
               <thead>
@@ -241,19 +210,31 @@ export default function ExpensesPage() {
                   <th className="px-3 py-2.5 text-right font-medium">
                     رقم السند
                   </th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
                     التاريخ
                   </th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
                     الخزينة
                   </th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
                     نوع الحركة
                   </th>
+
+                  <th className="px-3 py-2.5 text-right font-medium">
+                    حساب المصروف
+                  </th>
+
                   <th className="px-3 py-2.5 text-right font-medium">الجهة</th>
+
                   <th className="px-3 py-2.5 text-right font-medium">المبلغ</th>
+
                   <th className="px-3 py-2.5 text-right font-medium">الوصف</th>
+
                   <th className="px-3 py-2.5 text-right font-medium">الحالة</th>
+
                   <th className="px-3 py-2.5 text-right font-medium">
                     إجراءات
                   </th>
@@ -264,7 +245,7 @@ export default function ExpensesPage() {
                 {data.items?.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-3 py-14 text-center text-ink-400"
                     >
                       لا توجد مصاريف مطابقة
@@ -276,7 +257,6 @@ export default function ExpensesPage() {
                       key={v.id}
                       className="border-t border-ink-400/10 transition-colors hover:bg-ink-900/[0.015]"
                     >
-                      {/* Voucher */}
                       <td className="px-3 py-2.5">
                         <button
                           type="button"
@@ -287,6 +267,7 @@ export default function ExpensesPage() {
                           <span className="truncate font-semibold text-primary-600 transition-colors group-hover:text-primary-800 group-hover:underline">
                             {v.voucherNumber || `#${v.id}`}
                           </span>
+
                           <ExternalLink
                             size={12}
                             className="shrink-0 text-ink-300 opacity-0 transition-opacity group-hover:opacity-100"
@@ -303,38 +284,59 @@ export default function ExpensesPage() {
                         )}
                       </td>
 
-                      {/* Date */}
                       <td className="whitespace-nowrap px-3 py-2.5 text-xs text-ink-600">
                         {fmtDate(v.voucherDate)}
                       </td>
 
-                      {/* Cashbox */}
                       <td className="px-3 py-2.5" title={v.cashboxName || ""}>
                         <span className="block truncate font-medium text-ink-800">
                           {v.cashboxName || "—"}
                         </span>
                       </td>
 
-                      {/* Movement Type */}
                       <td
                         className="px-3 py-2.5"
                         title={v.cashMovementTypeName || ""}
                       >
                         <span className="block truncate text-ink-700">
-                          {v.cashMovementTypeName ?? "—"}
+                          {v.cashMovementTypeName || "—"}
                         </span>
                       </td>
 
-                      {/* Party */}
+                      <td
+                        className="px-3 py-2.5"
+                        title={
+                          v.accountName
+                            ? `${v.accountCode || ""} - ${v.accountName}`
+                            : ""
+                        }
+                      >
+                        {v.accountName ? (
+                          <div className="min-w-0">
+                            <span className="block truncate font-medium text-ink-800">
+                              {v.accountName}
+                            </span>
+
+                            {v.accountCode && (
+                              <span className="block truncate text-[10px] text-ink-400">
+                                {v.accountCode}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-ink-300">—</span>
+                        )}
+                      </td>
+
                       <td className="px-3 py-2.5" title={partyLabel(v)}>
                         <span className="block truncate text-ink-700">
                           {partyLabel(v)}
                         </span>
                       </td>
 
-                      {/* Amount */}
                       <td className="whitespace-nowrap px-3 py-2.5 font-bold text-rose-600">
                         {fmtAmount(v.amount, v.currency)}
+
                         {v.baseCurrency &&
                           v.baseCurrency !== v.currency &&
                           v.baseAmount != null && (
@@ -344,7 +346,6 @@ export default function ExpensesPage() {
                           )}
                       </td>
 
-                      {/* Description */}
                       <td
                         className="px-3 py-2.5 text-ink-400"
                         title={v.description || ""}
@@ -354,7 +355,6 @@ export default function ExpensesPage() {
                         </span>
                       </td>
 
-                      {/* Status */}
                       <td className="px-3 py-2.5">
                         {v.isDraft ? (
                           <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-500/10 px-2 py-1 text-[11px] text-amber-600">
@@ -368,7 +368,6 @@ export default function ExpensesPage() {
                         )}
                       </td>
 
-                      {/* Actions */}
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1.5">
                           <button
@@ -388,7 +387,6 @@ export default function ExpensesPage() {
             </table>
           </div>
 
-          {/* Pagination */}
           {data.totalCount > 0 && (
             <Pagination
               page={data.pageNumber || page}
@@ -405,15 +403,10 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* View Details Modal */}
       <ExpenseDetailsModal
         voucher={viewingVoucher}
         onClose={() => setViewingVoucher(null)}
-        onEdit={(v) => {
-          setViewingVoucher(null);
-          setEditingVoucher(v);
-          setExpenseModalOpen(true);
-        }}
+        onEdit={() => {}}
       />
     </div>
   );

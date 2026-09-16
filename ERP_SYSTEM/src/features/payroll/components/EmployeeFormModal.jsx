@@ -1,17 +1,11 @@
 // features/payroll/components/EmployeeFormModal.jsx
 //
-// TODO INTEGRATION: بيفترض وجود Modal.jsx في shared/components/ui/Modal
-// بنفس نمط Button/Input/CompactSelect (مش متأكد من الـprops بتاعته بالظبط،
-// اتبنى على افتراض isOpen/onClose/title/children - عدّل الاستيراد والـprops
-// لو مختلفة عندك).
-//
-// ملحوظة مهمة (متوافقة مع Swagger فعلي): الـcode بيتولّد تلقائيًا من
-// السيرفر ومش موجود في الفورم خالص. حقل النوع اسمه "type" في الـrequest
-// (مش employeeType)، لكن استجابة GET بترجعه "employeeType" - فبنعمل mapping
-// بينهم عند فتح فورم التعديل.
+// لو النوع "Daily": حقل أيام العمل المطلوبة بيتعطل بصريًا ومايتبعتش
+// في الـpayload خالص عند الإرسال (مش بيتبعت 0 ولا undefined - بيتشال
+// من الجسم تمامًا).
 
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -23,7 +17,10 @@ import {
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
 } from "../payrollApi";
-import { employeeTypeOptions } from "../payroll.constants";
+import {
+  employeeTypeOptions,
+  workPlaceStatusOptions,
+} from "../payroll.constants";
 
 const schema = z.object({
   name: z.string().min(1, "اسم الموظف مطلوب"),
@@ -38,6 +35,8 @@ const schema = z.object({
   type: z.string().min(1, "نوع الأجر مطلوب"),
   salary: z.coerce.number().min(0, "لازم تكون قيمة موجبة"),
   requiredWorkingDaysPerMonth: z.coerce.number().min(0).optional(),
+  workPlaceStatus: z.string().min(1, "مكان العمل مطلوب"),
+  placeName: z.string().optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -50,6 +49,8 @@ const defaultValues = {
   type: "Daily",
   salary: 0,
   requiredWorkingDaysPerMonth: 0,
+  workPlaceStatus: "InCompany",
+  placeName: "",
   isActive: true,
 };
 
@@ -71,11 +72,22 @@ export default function EmployeeFormModal({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues,
   });
+
+  const watchedType = useWatch({ control, name: "type" });
+  const isDaily = watchedType === "Daily";
+
+  // لما ينتقل لـ"يومي" امسح قيمة أيام العمل عشان ميتلخبطش لو رجع شهري
+  useEffect(() => {
+    if (isDaily) {
+      setValue("requiredWorkingDaysPerMonth", 0);
+    }
+  }, [isDaily, setValue]);
 
   // reset فقط عند closed -> open (نفس pattern الحفاظ على تعديلات المستخدم أثناء SignalR refetch)
   const wasOpenRef = { current: false };
@@ -93,6 +105,8 @@ export default function EmployeeFormModal({
               salary: employee.salary,
               requiredWorkingDaysPerMonth:
                 employee.requiredWorkingDaysPerMonth || 0,
+              workPlaceStatus: employee.workPlaceStatus || "InCompany",
+              placeName: employee.placeName || "",
               isActive: employee.isActive,
             }
           : defaultValues,
@@ -103,12 +117,18 @@ export default function EmployeeFormModal({
   }, [isOpen]);
 
   const onSubmit = async (data) => {
+    const payload = { ...data };
+    // لو يومي: منبعتش الحقل خالص
+    if (payload.type === "Daily") {
+      delete payload.requiredWorkingDaysPerMonth;
+    }
+
     try {
       if (isEdit) {
-        await updateEmployee({ id: employee.id, ...data }).unwrap();
+        await updateEmployee({ id: employee.id, ...payload }).unwrap();
         toast.success("تم تحديث بيانات الموظف بنجاح");
       } else {
-        await createEmployee(data).unwrap();
+        await createEmployee(payload).unwrap();
         toast.success("تم إضافة الموظف بنجاح");
       }
       onSaved?.();
@@ -186,11 +206,49 @@ export default function EmployeeFormModal({
             {...register("salary")}
             error={errors.salary?.message}
           />
+
+          <div>
+            <Input
+              label="أيام العمل المطلوبة بالشهر"
+              type="number"
+              disabled={isDaily}
+              {...register("requiredWorkingDaysPerMonth")}
+              error={errors.requiredWorkingDaysPerMonth?.message}
+              className={isDaily ? "opacity-50 cursor-not-allowed" : ""}
+            />
+            {isDaily && (
+              <p className="text-[11px] text-ink-400 mt-1">
+                غير مطلوب للموظف اليومي
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-ink-400 mb-1">
+              مكان العمل
+            </label>
+            <Controller
+              name="workPlaceStatus"
+              control={control}
+              render={({ field }) => (
+                <CompactSelect
+                  options={workPlaceStatusOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+            {errors.workPlaceStatus && (
+              <p className="text-xs text-negative mt-1">
+                {errors.workPlaceStatus.message}
+              </p>
+            )}
+          </div>
+
           <Input
-            label="أيام العمل المطلوبة بالشهر"
-            type="number"
-            {...register("requiredWorkingDaysPerMonth")}
-            error={errors.requiredWorkingDaysPerMonth?.message}
+            label="اسم المكان"
+            {...register("placeName")}
+            error={errors.placeName?.message}
           />
         </div>
 

@@ -104,6 +104,7 @@ const EmployeeDetailPage = lazy(
 const SalariesPage = lazy(
   () => import("../features/payroll/pages/SalariesPage"),
 );
+
 const SalaryDetailPage = lazy(
   () => import("../features/payroll/pages/SalaryDetailPage"),
 );
@@ -610,6 +611,7 @@ export const router = createBrowserRouter([
           </Role>
         ),
       },
+
       {
         path: "payroll/salaries/:salaryId",
         element: (

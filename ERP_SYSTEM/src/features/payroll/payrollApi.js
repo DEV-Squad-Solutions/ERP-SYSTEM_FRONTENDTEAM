@@ -4,7 +4,10 @@ import { tagsFor } from "../../lib/invalidation";
 export const payrollApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getEmployees: builder.query({
-      query: (params) => ({ url: "Employees/GetAll", params }),
+      query: (params) => ({
+        url: "Employees/GetAll",
+        params,
+      }),
       providesTags: (result) =>
         result?.employees
           ? [
@@ -23,15 +26,50 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     getEmployeesSelect: builder.query({
-      query: () => "Employees/select",
+      query: (params) => ({
+        url: "Employees/select",
+        params,
+      }),
       providesTags: [{ type: "Employee", id: "LIST" }],
     }),
 
+    getOutCompanyEmployees: builder.query({
+      query: (params = {}) => ({
+        url: "Employees/GetAll",
+        params: {
+          PageNumber: params.PageNumber || 1,
+          PageSize: params.PageSize || 1000,
+          Search: params.Search || undefined,
+          WorkPlaceStatus: "OutCompany",
+          IsActive: params.IsActive ?? true,
+        },
+      }),
+      providesTags: (result) =>
+        result?.employees
+          ? [
+              ...result.employees.map((employee) => ({
+                type: "Employee",
+                id: employee.id,
+              })),
+              {
+                type: "Employee",
+                id: "OUT_COMPANY_LIST",
+              },
+            ]
+          : [
+              {
+                type: "Employee",
+                id: "OUT_COMPANY_LIST",
+              },
+            ],
+    }),
+
     createEmployee: builder.mutation({
-      query: (data) => ({ url: "Employees", method: "POST", body: data }),
-      // موظف جديد لازم يظهر فورًا في: قائمة الموظفين + party-select
-      // بتاع سند القبض/الصرف + كشف حساب الموظفين. tagsFor("Employee")
-      // بتغطيهم الثلاثة من مكان واحد.
+      query: (data) => ({
+        url: "Employees",
+        method: "POST",
+        body: data,
+      }),
       invalidatesTags: tagsFor("Employee"),
     }),
 
@@ -45,12 +83,18 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     deleteEmployee: builder.mutation({
-      query: (id) => ({ url: `Employees/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `Employees/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: tagsFor("Employee"),
     }),
 
     getEmployeeAttendances: builder.query({
-      query: (params) => ({ url: "EmployeeAttendances", params }),
+      query: (params) => ({
+        url: "EmployeeAttendances",
+        params,
+      }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -58,11 +102,24 @@ export const payrollApi = baseApi.injectEndpoints({
                 type: "Attendance",
                 id: attendance.id,
               })),
-              { type: "Attendance", id: "LIST" },
+              {
+                type: "Attendance",
+                id: "LIST",
+              },
             ]
-          : [{ type: "Attendance", id: "LIST" }],
+          : [
+              {
+                type: "Attendance",
+                id: "LIST",
+              },
+            ],
     }),
-
+    getEmployeeAttendancesSelect: builder.query({
+      query: () => ({
+        url: "EmployeeAttendances/select",
+        method: "GET",
+      }),
+    }),
     createEmployeeAttendance: builder.mutation({
       query: (data) => ({
         url: "EmployeeAttendances",
@@ -85,30 +142,80 @@ export const payrollApi = baseApi.injectEndpoints({
       query: (data) => ({
         url: "EmployeeAttendances/bulk",
         method: "POST",
+        body: {
+          attendances: (data?.attendances || []).map((attendance) => ({
+            employeeId: Number(attendance.employeeId),
+
+            status:
+              attendance.status === "Present" ||
+              attendance.status === 1 ||
+              attendance.status === "1"
+                ? 1
+                : 0,
+
+            workDate: attendance.workDate,
+
+            checkIn: attendance.checkIn || null,
+
+            checkOut: attendance.checkOut || null,
+
+            workDayRatio:
+              attendance.workDayRatio == null
+                ? null
+                : Number(attendance.workDayRatio),
+
+            workOverTimeRatio:
+              attendance.workOverTimeRatio == null
+                ? null
+                : Number(attendance.workOverTimeRatio),
+
+            workDaysDeductionRatio:
+              attendance.workDaysDeductionRatio == null
+                ? null
+                : Number(attendance.workDaysDeductionRatio),
+
+            workLocation: attendance.workLocation || null,
+
+            notes: attendance.notes || null,
+          })),
+        },
+      }),
+      invalidatesTags: tagsFor("Attendance"),
+    }),
+
+    bulkUpdateEmployeeAttendances: builder.mutation({
+      query: (data) => ({
+        url: "EmployeeAttendances/bulk",
+        method: "PUT",
         body: data,
       }),
       invalidatesTags: tagsFor("Attendance"),
     }),
 
     deleteEmployeeAttendance: builder.mutation({
-      query: (id) => ({ url: `EmployeeAttendances/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `EmployeeAttendances/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: tagsFor("Attendance"),
     }),
 
     bulkDeleteEmployeeAttendances: builder.mutation({
       query: (attendanceIds) => ({
-        url: "/EmployeeAttendances/bulk/delete",
-        method: "POST",
-        body: { attendanceIds },
+        url: "EmployeeAttendances/bulk",
+        method: "DELETE",
+        body: {
+          attendanceIds: attendanceIds.map(Number),
+        },
       }),
       invalidatesTags: tagsFor("Attendance"),
     }),
 
-    // ============================================================
-    // Employee Movements (بديل EmployeeTransactions القديمة)
-    // ============================================================
     getEmployeeMovements: builder.query({
-      query: (params) => ({ url: "EmployeeMovements", params }),
+      query: (params) => ({
+        url: "EmployeeMovements",
+        params,
+      }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -116,14 +223,27 @@ export const payrollApi = baseApi.injectEndpoints({
                 type: "EmployeeMovement",
                 id: movement.id,
               })),
-              { type: "EmployeeMovement", id: "LIST" },
+              {
+                type: "EmployeeMovement",
+                id: "LIST",
+              },
             ]
-          : [{ type: "EmployeeMovement", id: "LIST" }],
+          : [
+              {
+                type: "EmployeeMovement",
+                id: "LIST",
+              },
+            ],
     }),
 
     getEmployeeMovementById: builder.query({
       query: (id) => `EmployeeMovements/${id}`,
-      providesTags: (result, error, id) => [{ type: "EmployeeMovement", id }],
+      providesTags: (result, error, id) => [
+        {
+          type: "EmployeeMovement",
+          id,
+        },
+      ],
     }),
 
     createEmployeeMovement: builder.mutation({
@@ -176,6 +296,66 @@ export const payrollApi = baseApi.injectEndpoints({
       invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
+    createOutCompanyPayrollEntry: builder.mutation({
+      query: (data) => ({
+        url: "PayrollEntries/out-company",
+        method: "POST",
+        body: {
+          employeeId: Number(data.employeeId),
+          startDate: data.startDate,
+          endDate: data.endDate,
+          presentDays: Number(data.presentDays) || 0,
+          workedDaysByDayUnit: Number(data.workedDaysByDayUnit) || 0,
+          overtimeByDayUnit: Number(data.overtimeByDayUnit) || 0,
+          deductionByDayUnit: Number(data.deductionByDayUnit) || 0,
+          bonus: Number(data.bonus) || 0,
+          deduction: Number(data.deduction) || 0,
+        },
+      }),
+      invalidatesTags: tagsFor("PayrollEntry"),
+    }),
+
+    bulkCreateOutCompanyPayrollEntries: builder.mutation({
+      query: (data) => ({
+        url: "PayrollEntries/out-company/bulk",
+        method: "POST",
+        body: {
+          entries: (data.entries || []).map((entry) => ({
+            employeeId: Number(entry.employeeId),
+            presentDays: Number(entry.presentDays) || 0,
+            workedDaysByDayUnit: Number(entry.workedDaysByDayUnit) || 0,
+            startDate: entry.startDate,
+            endDate: entry.endDate,
+            overtimeByDayUnit: Number(entry.overtimeByDayUnit) || 0,
+            deductionByDayUnit: Number(entry.deductionByDayUnit) || 0,
+            bonus: Number(entry.bonus) || 0,
+            deduction: Number(entry.deduction) || 0,
+          })),
+          defaultStartDate: data.defaultStartDate || undefined,
+          defaultEndDate: data.defaultEndDate || undefined,
+        },
+      }),
+      invalidatesTags: tagsFor("PayrollEntry"),
+    }),
+
+    updateOutCompanyPayrollEntry: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `PayrollEntries/out-company/${id}`,
+        method: "PUT",
+        body: {
+          startDate: data.startDate,
+          endDate: data.endDate,
+          presentDays: Number(data.presentDays) || 0,
+          workedDaysByDayUnit: Number(data.workedDaysByDayUnit) || 0,
+          overtimeByDayUnit: Number(data.overtimeByDayUnit) || 0,
+          deductionByDayUnit: Number(data.deductionByDayUnit) || 0,
+          bonus: Number(data.bonus) || 0,
+          deduction: Number(data.deduction) || 0,
+        },
+      }),
+      invalidatesTags: tagsFor("PayrollEntry"),
+    }),
+
     moveSalary: builder.mutation({
       query: ({ id, ...data }) => ({
         url: `PayrollEntries/${id}/move-salary`,
@@ -203,7 +383,10 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     getPayrollEntries: builder.query({
-      query: (params) => ({ url: "PayrollEntries", params }),
+      query: (params) => ({
+        url: "PayrollEntries",
+        params,
+      }),
       providesTags: (result) =>
         result?.items
           ? [
@@ -211,18 +394,35 @@ export const payrollApi = baseApi.injectEndpoints({
                 type: "PayrollEntry",
                 id: entry.id,
               })),
-              { type: "PayrollEntry", id: "LIST" },
+              {
+                type: "PayrollEntry",
+                id: "LIST",
+              },
             ]
-          : [{ type: "PayrollEntry", id: "LIST" }],
+          : [
+              {
+                type: "PayrollEntry",
+                id: "LIST",
+              },
+            ],
     }),
 
     getPayrollEntryById: builder.query({
       query: (id) => `PayrollEntries/${id}`,
-      providesTags: (result, error, id) => [{ type: "PayrollEntry", id }],
+      providesTags: (result, error, id) => [
+        {
+          type: "PayrollEntry",
+          id,
+        },
+      ],
     }),
 
     createPayrollEntry: builder.mutation({
-      query: (data) => ({ url: "PayrollEntries", method: "POST", body: data }),
+      query: (data) => ({
+        url: "PayrollEntries",
+        method: "POST",
+        body: data,
+      }),
       invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
@@ -236,15 +436,20 @@ export const payrollApi = baseApi.injectEndpoints({
     }),
 
     deletePayrollEntry: builder.mutation({
-      query: (id) => ({ url: `PayrollEntries/${id}`, method: "DELETE" }),
+      query: (id) => ({
+        url: `PayrollEntries/${id}`,
+        method: "DELETE",
+      }),
       invalidatesTags: tagsFor("PayrollEntry"),
     }),
 
     bulkDeletePayrollEntries: builder.mutation({
       query: (data) => ({
-        url: "PayrollEntries/bulk/delete",
-        method: "POST",
-        body: { payrollEntryIds: data.payrollEntryIds.map(Number) },
+        url: "PayrollEntries/bulk",
+        method: "DELETE",
+        body: {
+          payrollEntryIds: data.payrollEntryIds.map(Number),
+        },
       }),
       invalidatesTags: tagsFor("PayrollEntry"),
     }),
@@ -290,16 +495,29 @@ export const payrollApi = baseApi.injectEndpoints({
         method: "GET",
         params,
       }),
-      providesTags: [{ type: "PayrollEntry", id: "DASHBOARD" }],
+      providesTags: [
+        {
+          type: "PayrollEntry",
+          id: "DASHBOARD",
+        },
+      ],
     }),
 
     getPayrollReport: builder.query({
       query: ({ StartDate, EndDate }) => ({
         url: "PayrollEntries/report",
         method: "GET",
-        params: { StartDate, EndDate },
+        params: {
+          StartDate,
+          EndDate,
+        },
       }),
-      providesTags: [{ type: "PayrollEntry", id: "REPORT" }],
+      providesTags: [
+        {
+          type: "PayrollEntry",
+          id: "REPORT",
+        },
+      ],
     }),
   }),
 });
@@ -308,13 +526,16 @@ export const {
   useGetEmployeesQuery,
   useGetEmployeeByIdQuery,
   useGetEmployeesSelectQuery,
+  useGetOutCompanyEmployeesQuery,
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
   useDeleteEmployeeMutation,
   useGetEmployeeAttendancesQuery,
   useCreateEmployeeAttendanceMutation,
   useUpdateEmployeeAttendanceMutation,
+  useGetEmployeeAttendancesSelectQuery,
   useBulkCreateEmployeeAttendancesMutation,
+  useBulkUpdateEmployeeAttendancesMutation,
   useDeleteEmployeeAttendanceMutation,
   useBulkDeleteEmployeeAttendancesMutation,
   useGetEmployeeMovementsQuery,
@@ -324,6 +545,9 @@ export const {
   useGetPayrollEntriesQuery,
   useGetPayrollEntryByIdQuery,
   useCreatePayrollEntryMutation,
+  useCreateOutCompanyPayrollEntryMutation,
+  useBulkCreateOutCompanyPayrollEntriesMutation,
+  useUpdateOutCompanyPayrollEntryMutation,
   usePayPayrollEntryMutation,
   useDeletePayrollEntryMutation,
   useBulkCreatePayrollEntriesMutation,
