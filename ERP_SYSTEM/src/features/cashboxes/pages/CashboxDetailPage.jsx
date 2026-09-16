@@ -394,7 +394,6 @@ export default function CashboxDetailPage() {
             )}
             <Button variant="outline" onClick={() => setShowHandover(true)}>
               <HandCoins size={16} />
-              تسليم العهدة
             </Button>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={printList}>
