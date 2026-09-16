@@ -50,6 +50,10 @@ export const accountsApi = baseApi.injectEndpoints({
       // فردي مرة واحدة - مش محتاج تسردهم يدوي زي الأول.
       invalidatesTags: tagsFor("Account"),
     }),
+    getExpenseAccountsSelect: builder.query({
+      query: () => ({ url: "/Accounts/expense-select", method: "GET" }),
+      providesTags: [{ type: "Account", id: "EXPENSE_SELECT" }],
+    }),
 
     updateAccount: builder.mutation({
       // متوقع body يحتوي على rowVersion للـ optimistic concurrency زي باقي الموديولات
@@ -110,6 +114,7 @@ export const {
   useGetAccountsTreeQuery,
   useGetAccountsQuery,
   useGetAccountsSelectQuery,
+  useGetExpenseAccountsSelectQuery,
   useGetAccountJournalSelectQuery,
   useGetAccountByIdQuery,
   useLazyGetAccountByIdQuery,

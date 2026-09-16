@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 
 import {
   useGetEmployeeAttendancesQuery,
-  useGetEmployeesSelectQuery,
+  useGetEmployeeAttendancesSelectQuery,
   useDeleteEmployeeAttendanceMutation,
   useBulkDeleteEmployeeAttendancesMutation,
 } from "../payrollApi";
@@ -29,11 +29,11 @@ import {
   attendanceStatusOptions,
   attendanceStatusBadge,
   ATTENDANCE_STATUS,
+  ATTENDANCE_STATUS_VALUE,
 } from "../payroll.constants";
 
 import AttendanceFormModal from "../components/AttendanceFormModal";
 import AttendanceDetailsModal from "../components/AttendanceDetailsModal";
-
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
@@ -49,18 +49,10 @@ const emptyFilters = {
 export default function AttendancePage() {
   const navigate = useNavigate();
 
-  // =========================================================
-  // Filters
-  // =========================================================
-
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-
-  // =========================================================
-  // Modals
-  // =========================================================
 
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingAttendance, setEditingAttendance] = useState(null);
@@ -68,21 +60,10 @@ export default function AttendancePage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState(null);
 
-  // =========================================================
-  // Selection
-  // =========================================================
-
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // =========================================================
-  // Employees
-  // =========================================================
-
-  const { data: employees } = useGetEmployeesSelectQuery();
-
-  // =========================================================
-  // Attendance
-  // =========================================================
+  const { data: employeesData = [], isLoading: employeesLoading } =
+    useGetEmployeeAttendancesSelectQuery();
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetEmployeeAttendancesQuery({
@@ -94,18 +75,32 @@ export default function AttendancePage() {
       Status: applied.status || undefined,
     });
 
-  // =========================================================
-  // Delete
-  // =========================================================
-
   const [deleteAttendance] = useDeleteEmployeeAttendanceMutation();
 
   const [bulkDeleteAttendances, { isLoading: isBulkDeleting }] =
     useBulkDeleteEmployeeAttendancesMutation();
 
-  // =========================================================
-  // Filters
-  // =========================================================
+  const employees = useMemo(() => {
+    if (!Array.isArray(employeesData)) {
+      return [];
+    }
+
+    return employeesData
+      .filter((employee) => employee?.id !== null && employee?.id !== undefined)
+      .map((employee) => ({
+        id: Number(employee.id),
+        name: employee.name || `موظف #${employee.id}`,
+      }));
+  }, [employeesData]);
+
+  const employeeOptions = useMemo(
+    () =>
+      employees.map((employee) => ({
+        value: String(employee.id),
+        label: employee.name,
+      })),
+    [employees],
+  );
 
   const setField = (key, value) => {
     setDraft((current) => ({
@@ -127,10 +122,6 @@ export default function AttendancePage() {
     setSelectedIds([]);
   };
 
-  // =========================================================
-  // Details Modal
-  // =========================================================
-
   const openDetails = (row) => {
     setSelectedAttendance(row);
     setShowDetailsModal(true);
@@ -141,19 +132,13 @@ export default function AttendancePage() {
     setSelectedAttendance(null);
   };
 
-  // =========================================================
-  // Employee Details
-  // =========================================================
-
   const openEmployeeDetails = (row) => {
-    if (!row?.employeeId) return;
+    if (row?.employeeId === null || row?.employeeId === undefined) {
+      return;
+    }
 
     navigate(`/dashboard/payroll/employees/${row.employeeId}`);
   };
-
-  // =========================================================
-  // Edit
-  // =========================================================
 
   const openEdit = (row) => {
     setEditingAttendance(row);
@@ -175,17 +160,11 @@ export default function AttendancePage() {
     }
   };
 
-  // =========================================================
-  // Delete Single
-  // =========================================================
-
   const handleDelete = (row) => {
     toast(`حذف سجل حضور "${row.employeeName}"؟`, {
       description: "الإجراء ده لا يمكن التراجع عنه",
-
       action: {
         label: "تأكيد الحذف",
-
         onClick: async () => {
           try {
             await deleteAttendance(row.id).unwrap();
@@ -200,28 +179,22 @@ export default function AttendancePage() {
           }
         },
       },
-
       cancel: {
         label: "إلغاء",
       },
-
       duration: 6000,
     });
   };
 
-  // =========================================================
-  // Delete Bulk
-  // =========================================================
-
   const handleBulkDelete = () => {
-    if (!selectedIds.length) return;
+    if (!selectedIds.length) {
+      return;
+    }
 
     toast(`حذف ${selectedIds.length} سجل حضور؟`, {
       description: "الإجراء ده لا يمكن التراجع عنه",
-
       action: {
         label: "تأكيد الحذف",
-
         onClick: async () => {
           try {
             await bulkDeleteAttendances(selectedIds).unwrap();
@@ -238,18 +211,12 @@ export default function AttendancePage() {
           }
         },
       },
-
       cancel: {
         label: "إلغاء",
       },
-
       duration: 6000,
     });
   };
-
-  // =========================================================
-  // Selection Helpers
-  // =========================================================
 
   const toggleRow = (id) => {
     setSelectedIds((current) =>
@@ -259,10 +226,13 @@ export default function AttendancePage() {
     );
   };
 
+  const rows = data?.items || [];
+
   const toggleAllOnPage = () => {
     const pageIds = rows.map((row) => row.id);
 
-    const allSelected = pageIds.every((id) => selectedIds.includes(id));
+    const allSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
 
     if (allSelected) {
       setSelectedIds((current) =>
@@ -279,25 +249,23 @@ export default function AttendancePage() {
     setSelectedIds([]);
   };
 
-  // =========================================================
-  // Rows
-  // =========================================================
-
-  const rows = data?.items || [];
-
   const allOnPageSelected =
     rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
-
-  // =========================================================
-  // Summary
-  // =========================================================
 
   const summary = useMemo(() => {
     const workDays = rows.length;
 
-    const present = rows.filter((row) => row.status === "Present").length;
+    const present = rows.filter(
+      (row) =>
+        row.status === "Present" ||
+        row.status === ATTENDANCE_STATUS_VALUE.Present,
+    ).length;
 
-    const absent = rows.filter((row) => row.status === "Absent").length;
+    const absent = rows.filter(
+      (row) =>
+        row.status === "Absent" ||
+        row.status === ATTENDANCE_STATUS_VALUE.Absent,
+    ).length;
 
     return {
       workDays,
@@ -306,23 +274,53 @@ export default function AttendancePage() {
     };
   }, [rows]);
 
-  // =========================================================
-  // Render
-  // =========================================================
+  const normalizeRowStatus = (status) => {
+    if (
+      status === "Present" ||
+      status === ATTENDANCE_STATUS_VALUE.Present ||
+      status === 1 ||
+      status === "1"
+    ) {
+      return "Present";
+    }
+
+    if (
+      status === "Absent" ||
+      status === ATTENDANCE_STATUS_VALUE.Absent ||
+      status === 0 ||
+      status === "0"
+    ) {
+      return "Absent";
+    }
+
+    return status;
+  };
+
+  const getStatusLabel = (status) => {
+    const normalizedStatus = normalizeRowStatus(status);
+
+    return (
+      ATTENDANCE_STATUS[normalizedStatus] || normalizedStatus || "غير محدد"
+    );
+  };
+
+  const getStatusBadge = (status) => {
+    const normalizedStatus = normalizeRowStatus(status);
+
+    return (
+      attendanceStatusBadge[normalizedStatus] || "text-ink-400 bg-ink-400/10"
+    );
+  };
 
   return (
     <div className="animate-fadeUp space-y-4">
-      {/* =====================================================
-          Header
-      ====================================================== */}
-
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold text-ink-900">
             الحضور والانصراف
           </h2>
 
-          <p className="text-sm text-ink-400 mt-1">
+          <p className="mt-1 text-sm text-ink-400">
             متابعة حضور وانصراف الموظفين
           </p>
         </div>
@@ -333,11 +331,7 @@ export default function AttendancePage() {
         </Button>
       </div>
 
-      {/* =====================================================
-          Summary
-      ====================================================== */}
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SummaryCard label="أيام العمل" value={summary.workDays} />
 
         <SummaryCard
@@ -353,33 +347,23 @@ export default function AttendancePage() {
         />
       </div>
 
-      {/* =====================================================
-          Filters
-      ====================================================== */}
-
-      <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Employee */}
-
+      <div className="rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-ink-400">
               الموظف
             </label>
 
             <CompactSelect
-              options={
-                employees?.map((employee) => ({
-                  value: String(employee.id),
-                  label: employee.name,
-                })) || []
-              }
+              options={employeeOptions}
               value={draft.employeeId}
               onChange={(value) => setField("employeeId", value)}
-              placeholder="كل الموظفين"
+              placeholder={
+                employeesLoading ? "جاري تحميل الموظفين..." : "كل الموظفين"
+              }
+              isDisabled={employeesLoading}
             />
           </div>
-
-          {/* From */}
 
           <Input
             label="من تاريخ"
@@ -388,8 +372,6 @@ export default function AttendancePage() {
             onChange={(event) => setField("fromDate", event.target.value)}
           />
 
-          {/* To */}
-
           <Input
             label="إلى تاريخ"
             type="date"
@@ -397,10 +379,8 @@ export default function AttendancePage() {
             onChange={(event) => setField("toDate", event.target.value)}
           />
 
-          {/* Status */}
-
           <div>
-            <label className="block text-xs font-medium text-ink-400 mb-1">
+            <label className="mb-1 block text-xs font-medium text-ink-400">
               الحالة
             </label>
 
@@ -413,7 +393,7 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-3">
+        <div className="mt-3 flex justify-end gap-2">
           <Button onClick={handleSearch} className="h-9">
             <Search size={14} />
             بحث
@@ -425,10 +405,6 @@ export default function AttendancePage() {
           </Button>
         </div>
       </div>
-
-      {/* =====================================================
-          Bulk Selection Bar
-      ====================================================== */}
 
       {selectedIds.length > 0 && (
         <div className="flex items-center justify-between rounded-2xl border border-primary-500/15 bg-primary-50/40 px-4 py-2.5">
@@ -467,55 +443,43 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* =====================================================
-          Loading
-      ====================================================== */}
-
       {isLoading ? (
-        <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card overflow-hidden">
-          <div className="h-10 bg-ink-900/[0.03] border-b border-ink-400/10" />
+        <div className="overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card">
+          <div className="h-10 border-b border-ink-400/10 bg-ink-900/[0.03]" />
 
           <div className="divide-y divide-ink-400/5">
             {Array.from({ length: 6 }).map((_, index) => (
               <div key={index} className="flex items-center gap-4 px-3 py-3">
-                <div className="h-3.5 w-28 rounded bg-ink-400/10 animate-pulse" />
-                <div className="h-3.5 w-20 rounded bg-ink-400/10 animate-pulse" />
-                <div className="h-3.5 w-16 rounded bg-ink-400/10 animate-pulse" />
+                <div className="h-3.5 w-28 animate-pulse rounded bg-ink-400/10" />
+                <div className="h-3.5 w-20 animate-pulse rounded bg-ink-400/10" />
+                <div className="h-3.5 w-16 animate-pulse rounded bg-ink-400/10" />
               </div>
             ))}
           </div>
         </div>
       ) : isError ? (
-        /* =====================================================
-            Error
-        ====================================================== */
-
-        <div className="text-center py-14 border border-dashed border-negative/25 bg-negative/[0.02] rounded-2xl">
+        <div className="rounded-2xl border border-dashed border-negative/25 bg-negative/[0.02] py-14 text-center">
           <AlertCircle
             size={32}
-            className="mx-auto text-negative/70 mb-3"
+            className="mx-auto mb-3 text-negative/70"
             strokeWidth={1.6}
           />
 
-          <p className="text-ink-900 font-medium text-sm mb-1">
+          <p className="mb-1 text-sm font-medium text-ink-900">
             حدث خطأ في تحميل بيانات الحضور
           </p>
 
           <button
             onClick={refetch}
-            className="inline-flex items-center gap-2 text-xs font-medium text-primary-500 hover:text-primary-600 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-lg transition-colors mt-2"
+            className="mt-2 inline-flex items-center gap-2 rounded-lg bg-primary-50 px-4 py-2 text-xs font-medium text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-600"
           >
             <RefreshCw size={13} />
             إعادة المحاولة
           </button>
         </div>
       ) : rows.length === 0 ? (
-        /* =====================================================
-            Empty
-        ====================================================== */
-
-        <div className="text-center py-16 border border-dashed border-ink-400/20 rounded-2xl">
-          <div className="w-14 h-14 rounded-full bg-ink-400/5 flex items-center justify-center mx-auto mb-3">
+        <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-ink-400/5">
             <CalendarClock
               size={24}
               className="text-ink-400/50"
@@ -523,7 +487,7 @@ export default function AttendancePage() {
             />
           </div>
 
-          <p className="text-ink-900 font-medium text-sm mb-1">
+          <p className="mb-1 text-sm font-medium text-ink-900">
             لا توجد سجلات حضور
           </p>
 
@@ -533,29 +497,15 @@ export default function AttendancePage() {
         </div>
       ) : (
         <>
-          {/* =================================================
-              Table
-          ================================================== */}
-
           <div
-            className={`
-              overflow-x-auto
-              custom-scroll
-              rounded-2xl
-              border border-ink-400/10
-              bg-white
-              shadow-card
-              transition-opacity
-              duration-200
-              ${isFetching ? "opacity-60" : ""}
-            `}
+            className={`overflow-x-auto rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 ${
+              isFetching ? "opacity-60" : ""
+            }`}
           >
-            <table className="w-full text-right border-collapse min-w-[1120px]">
+            <table className="w-full min-w-[1120px] border-collapse text-right">
               <thead>
-                <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
-                  {/* Checkbox */}
-
-                  <th className="p-2.5 w-10 border-l border-ink-400/5">
+                <tr className="border-b border-ink-400/10 bg-ink-900/[0.03] text-[11px] text-ink-400">
+                  <th className="w-10 border-l border-ink-400/5 p-2.5">
                     <input
                       type="checkbox"
                       checked={allOnPageSelected}
@@ -564,55 +514,37 @@ export default function AttendancePage() {
                     />
                   </th>
 
-                  {/* Employee */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     الموظف
                   </th>
 
-                  {/* Date */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     التاريخ
                   </th>
 
-                  {/* Work Location */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     مكان العمل
                   </th>
 
-                  {/* Check In */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     وقت الحضور
                   </th>
 
-                  {/* Check Out */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     وقت الانصراف
                   </th>
 
-                  {/* Work Hours */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     عدد الساعات
                   </th>
 
-                  {/* Status */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     الحالة
                   </th>
 
-                  {/* Notes */}
-
-                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                  <th className="border-l border-ink-400/5 p-2.5 font-medium">
                     ملاحظات
                   </th>
-
-                  {/* Actions */}
 
                   <th className="p-2.5 font-medium">الإجراءات</th>
                 </tr>
@@ -622,28 +554,19 @@ export default function AttendancePage() {
                 {rows.map((row, index) => {
                   const selected = selectedIds.includes(row.id);
 
+                  const normalizedStatus = normalizeRowStatus(row.status);
+
                   return (
                     <tr
                       key={row.id}
-                      className={`
-                        border-b
-                        border-ink-400/5
-                        last:border-0
-                        transition-colors
-                        animate-fadeUp
-                        ${
-                          selected
-                            ? "bg-primary-50/40"
-                            : "hover:bg-primary-50/30"
-                        }
-                      `}
+                      className={`animate-fadeUp border-b border-ink-400/5 transition-colors last:border-0 ${
+                        selected ? "bg-primary-50/40" : "hover:bg-primary-50/30"
+                      }`}
                       style={{
                         animationDelay: `${Math.min(index, 12) * 25}ms`,
                       }}
                     >
-                      {/* Checkbox */}
-
-                      <td className="p-2.5 border-l border-ink-400/5">
+                      <td className="border-l border-ink-400/5 p-2.5">
                         <input
                           type="checkbox"
                           checked={selected}
@@ -652,40 +575,34 @@ export default function AttendancePage() {
                         />
                       </td>
 
-                      {/* Employee */}
-
-                      <td className="p-2.5 border-l border-ink-400/5">
+                      <td className="border-l border-ink-400/5 p-2.5">
                         <button
                           type="button"
                           onClick={() => openEmployeeDetails(row)}
-                          className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline underline-offset-2 transition-colors text-right"
+                          className="text-right text-sm font-medium text-primary-600 underline-offset-2 transition-colors hover:text-primary-700 hover:underline"
                           title="عرض تفاصيل الموظف"
                         >
-                          {row.employeeName}
+                          {row.employeeName || `موظف #${row.employeeId}`}
                         </button>
 
-                        <p className="text-[10px] text-ink-400 num mt-0.5">
+                        <p className="num mt-0.5 text-[10px] text-ink-400">
                           #{row.employeeId}
                         </p>
                       </td>
 
-                      {/* Date */}
-
-                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                        {row.workDate}
+                      <td className="num border-l border-ink-400/5 p-2.5 text-[13px]">
+                        {row.workDate || "—"}
                       </td>
 
-                      {/* Work Location */}
-
-                      <td className="p-2.5 border-l border-ink-400/5">
+                      <td className="border-l border-ink-400/5 p-2.5">
                         {row.workLocation ? (
                           <div className="inline-flex items-center gap-1.5 rounded-lg bg-ink-400/5 px-2 py-1">
                             <MapPin
                               size={13}
-                              className="text-primary-500 shrink-0"
+                              className="shrink-0 text-primary-500"
                             />
 
-                            <span className="text-xs font-medium text-ink-700 whitespace-nowrap">
+                            <span className="whitespace-nowrap text-xs font-medium text-ink-700">
                               {row.workLocation}
                             </span>
                           </div>
@@ -694,83 +611,56 @@ export default function AttendancePage() {
                         )}
                       </td>
 
-                      {/* Check In */}
-
-                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                      <td className="num border-l border-ink-400/5 p-2.5 text-[13px]">
                         {row.checkIn || "—"}
                       </td>
 
-                      {/* Check Out */}
-
-                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                      <td className="num border-l border-ink-400/5 p-2.5 text-[13px]">
                         {row.checkOut || "—"}
                       </td>
 
-                      {/* Work Hours */}
-
-                      <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
+                      <td className="num border-l border-ink-400/5 p-2.5 text-[13px]">
                         {row.workHours || "—"}
                       </td>
 
-                      {/* Status */}
-
-                      <td className="p-2.5 border-l border-ink-400/5">
+                      <td className="border-l border-ink-400/5 p-2.5">
                         <span
-                          className={`
-                            inline-block
-                            text-xs
-                            font-semibold
-                            px-2
-                            py-0.5
-                            rounded-full
-                            ${
-                              attendanceStatusBadge[row.status] ||
-                              "text-ink-400 bg-ink-400/10"
-                            }
-                          `}
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getStatusBadge(
+                            normalizedStatus,
+                          )}`}
                         >
-                          {ATTENDANCE_STATUS[row.status] || row.status}
+                          {getStatusLabel(normalizedStatus)}
                         </span>
                       </td>
 
-                      {/* Notes */}
-
-                      <td className="p-2.5 text-xs text-ink-600 max-w-[160px] truncate border-l border-ink-400/5">
+                      <td className="max-w-[160px] truncate border-l border-ink-400/5 p-2.5 text-xs text-ink-600">
                         {row.notes || "—"}
                       </td>
 
-                      {/* Actions */}
-
                       <td className="p-2.5">
                         <div className="flex items-center gap-1">
-                          {/* Details */}
-
                           <button
                             type="button"
                             onClick={() => openDetails(row)}
-                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
                             title="تفاصيل السجل"
                           >
                             <Eye size={15} />
                           </button>
 
-                          {/* Edit */}
-
                           <button
                             type="button"
                             onClick={() => openEdit(row)}
-                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
                             title="تعديل"
                           >
                             <Pencil size={15} />
                           </button>
 
-                          {/* Delete */}
-
                           <button
                             type="button"
                             onClick={() => handleDelete(row)}
-                            className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
+                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative"
                             title="حذف"
                           >
                             <Trash2 size={15} />
@@ -784,16 +674,15 @@ export default function AttendancePage() {
             </table>
           </div>
 
-          {/* =================================================
-              Pagination
-          ================================================== */}
-
           {data?.totalCount > 0 && (
             <Pagination
               page={page}
               pageSize={pageSize}
               totalCount={data.totalCount}
-              onPageChange={setPage}
+              onPageChange={(nextPage) => {
+                setPage(nextPage);
+                setSelectedIds([]);
+              }}
               onPageSizeChange={(size) => {
                 setPageSize(size);
                 setPage(1);
@@ -804,19 +693,11 @@ export default function AttendancePage() {
         </>
       )}
 
-      {/* =====================================================
-          Attendance Details Modal
-      ====================================================== */}
-
       <AttendanceDetailsModal
         isOpen={showDetailsModal}
         onClose={closeDetails}
         attendance={selectedAttendance}
       />
-
-      {/* =====================================================
-          Edit Attendance Modal
-      ====================================================== */}
 
       <AttendanceFormModal
         isOpen={showFormModal}
@@ -828,28 +709,19 @@ export default function AttendancePage() {
   );
 }
 
-// =========================================================
-// Summary Card
-// =========================================================
-
 function SummaryCard({ label, value, tone }) {
   return (
     <div className="rounded-2xl border border-ink-400/10 bg-white p-3.5 shadow-card">
-      <p className="text-xs text-ink-400 mb-1">{label}</p>
+      <p className="mb-1 text-xs text-ink-400">{label}</p>
 
       <p
-        className={`
-          text-lg
-          font-bold
-          num
-          ${
-            tone === "positive"
-              ? "text-positive"
-              : tone === "negative"
-                ? "text-negative"
-                : "text-ink-900"
-          }
-        `}
+        className={`num text-lg font-bold ${
+          tone === "positive"
+            ? "text-positive"
+            : tone === "negative"
+              ? "text-negative"
+              : "text-ink-900"
+        }`}
       >
         {value}
       </p>

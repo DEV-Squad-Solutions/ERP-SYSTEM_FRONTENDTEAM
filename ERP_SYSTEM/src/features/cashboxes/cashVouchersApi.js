@@ -90,6 +90,16 @@ export const cashVouchersApi = baseApi.injectEndpoints({
                 : undefined,
           FromDate: filters.fromDate || undefined,
           ToDate: filters.toDate || undefined,
+          AccountId:
+            filters.accountId !== "" && filters.accountId != null
+              ? Number(filters.accountId)
+              : undefined,
+
+          IncludeSubAccounts:
+            filters.includeSubAccounts === true ||
+            filters.includeSubAccounts === "true"
+              ? true
+              : undefined,
         },
       }),
 

@@ -1,13 +1,12 @@
-// features/payroll/components/AttendanceDetailsModal.jsx
-
 import { Clock3, MapPin, CalendarDays, UserRound } from "lucide-react";
 
 import Modal from "../../../shared/components/ui/Modal";
 
 import {
   ATTENDANCE_STATUS,
+  ATTENDANCE_STATUS_VALUE,
   attendanceStatusBadge,
-  DAY_RATIO,
+  DAY_RATIO_BY_VALUE,
 } from "../payroll.constants";
 
 export default function AttendanceDetailsModal({
@@ -17,15 +16,11 @@ export default function AttendanceDetailsModal({
 }) {
   if (!attendance) return null;
 
-  const status = attendance.status;
+  const status = normalizeStatus(attendance.status);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="تفاصيل سجل الحضور">
       <div className="space-y-5">
-        {/* =====================================================
-            Employee Header
-        ====================================================== */}
-
         <div className="flex items-center gap-3 p-4 rounded-xl bg-ink-900/[0.03] border border-ink-400/10">
           <div className="w-11 h-11 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
             <UserRound
@@ -56,10 +51,6 @@ export default function AttendanceDetailsModal({
           </span>
         </div>
 
-        {/* =====================================================
-            Basic Information
-        ====================================================== */}
-
         <SectionTitle title="بيانات الحضور" />
 
         <div className="grid grid-cols-2 gap-3">
@@ -78,20 +69,16 @@ export default function AttendanceDetailsModal({
 
           <InfoCard
             label="وقت الحضور"
-            value={attendance.checkIn || "—"}
+            value={formatTime(attendance.checkIn)}
             numeric
           />
 
           <InfoCard
             label="وقت الانصراف"
-            value={attendance.checkOut || "—"}
+            value={formatTime(attendance.checkOut)}
             numeric
           />
         </div>
-
-        {/* =====================================================
-            Ratios
-        ====================================================== */}
 
         <SectionTitle title="نسب العمل" />
 
@@ -106,10 +93,6 @@ export default function AttendanceDetailsModal({
           />
         </div>
 
-        {/* =====================================================
-            Location
-        ====================================================== */}
-
         <div>
           <SectionTitle title="مكان العمل" />
 
@@ -122,10 +105,6 @@ export default function AttendanceDetailsModal({
           </div>
         </div>
 
-        {/* =====================================================
-            Notes
-        ====================================================== */}
-
         <div>
           <SectionTitle title="الملاحظات" />
 
@@ -135,10 +114,6 @@ export default function AttendanceDetailsModal({
             </p>
           </div>
         </div>
-
-        {/* =====================================================
-            Record ID
-        ====================================================== */}
 
         <div className="pt-3 border-t border-ink-400/10 flex items-center justify-between">
           <span className="text-xs text-ink-400">رقم السجل</span>
@@ -152,23 +127,16 @@ export default function AttendanceDetailsModal({
   );
 }
 
-// ============================================================
-// Section Title
-// ============================================================
-
 function SectionTitle({ title }) {
   return <h4 className="text-xs font-semibold text-ink-900 mb-2">{title}</h4>;
 }
-
-// ============================================================
-// Info Card
-// ============================================================
 
 function InfoCard({ icon, label, value, numeric = false }) {
   return (
     <div className="rounded-xl border border-ink-400/10 bg-white p-3">
       <div className="flex items-center gap-1.5 text-ink-400 mb-1">
         {icon}
+
         <span className="text-[11px]">{label}</span>
       </div>
 
@@ -181,30 +149,89 @@ function InfoCard({ icon, label, value, numeric = false }) {
   );
 }
 
-// ============================================================
-// Ratio Card
-// ============================================================
-
 function RatioCard({ label, value }) {
+  const normalizedValue = normalizeRatioValue(value);
+
   return (
     <div className="rounded-xl border border-ink-400/10 bg-white p-3">
       <p className="text-[11px] text-ink-400 mb-1">{label}</p>
 
       <p className="text-sm font-semibold text-ink-900">
-        {DAY_RATIO[value] || value || "—"}
+        {normalizedValue
+          ? DAY_RATIO_BY_VALUE[normalizedValue] || String(value)
+          : "—"}
       </p>
     </div>
   );
 }
 
-// ============================================================
-// Date Formatter
-// ============================================================
+function normalizeStatus(status) {
+  if (
+    status === "Present" ||
+    status === ATTENDANCE_STATUS_VALUE.Present ||
+    status === 1 ||
+    status === "1"
+  ) {
+    return "Present";
+  }
+
+  if (
+    status === "Absent" ||
+    status === ATTENDANCE_STATUS_VALUE.Absent ||
+    status === 0 ||
+    status === "0"
+  ) {
+    return "Absent";
+  }
+
+  return status;
+}
+
+function normalizeRatioValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (!Number.isNaN(Number(value))) {
+    return Number(value);
+  }
+
+  const map = {
+    OneDay: 1,
+    FullDay: 1,
+    TwoDays: 2,
+    ThreeDays: 3,
+    FourDays: 4,
+    FiveDays: 5,
+    ThreeQuarterDay: 6,
+    TwoThirdsDay: 7,
+    HalfDay: 8,
+    ThirdDay: 9,
+    QuarterDay: 10,
+  };
+
+  return map[value] ?? null;
+}
+
+function formatTime(value) {
+  if (!value) return "—";
+
+  if (typeof value !== "string") {
+    return String(value);
+  }
+
+  return value.length >= 5 ? value.slice(0, 5) : value;
+}
 
 function formatDate(value) {
   if (!value) return "—";
 
-  const date = new Date(`${value}T00:00:00`);
+  const rawValue = String(value).split("T")[0];
+  const date = new Date(`${rawValue}T00:00:00`);
 
   if (Number.isNaN(date.getTime())) {
     return value;
