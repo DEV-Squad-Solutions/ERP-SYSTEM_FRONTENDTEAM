@@ -104,6 +104,19 @@ const EmployeeDetailPage = lazy(
 const SalariesPage = lazy(
   () => import("../features/payroll/pages/SalariesPage"),
 );
+const CreateOutCompanyPayrollEntryPage = lazy(
+  () =>
+    import("../features/payroll/pages/BulkCreateOutCompanyPayrollEntriesPage.jsx"),
+);
+
+const BulkCreateOutCompanyPayrollEntriesPage = lazy(
+  () =>
+    import("../features/payroll/pages/BulkCreateOutCompanyPayrollEntriesPage.jsx"),
+);
+
+const EditOutCompanyPayrollEntryPage = lazy(
+  () => import("../features/payroll/pages/EditOutCompanyPayrollEntryPage.jsx"),
+);
 const SalaryDetailPage = lazy(
   () => import("../features/payroll/pages/SalaryDetailPage"),
 );
@@ -607,6 +620,30 @@ export const router = createBrowserRouter([
         element: (
           <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
             <BulkCreatePayrollEntriesPage />
+          </Role>
+        ),
+      },
+      {
+        path: "payroll/salaries/out-company/create",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <CreateOutCompanyPayrollEntryPage />
+          </Role>
+        ),
+      },
+      {
+        path: "payroll/salaries/out-company/bulk-create",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <BulkCreateOutCompanyPayrollEntriesPage />
+          </Role>
+        ),
+      },
+      {
+        path: "payroll/salaries/out-company/:id/edit",
+        element: (
+          <Role roles={[ROLES.ADMIN, ROLES.HR, ROLES.ACCOUNTANT]}>
+            <EditOutCompanyPayrollEntryPage />
           </Role>
         ),
       },

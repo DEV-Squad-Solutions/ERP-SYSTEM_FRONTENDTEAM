@@ -47,6 +47,14 @@ const emptyFilters = {
   search: "",
 };
 
+// الـAPI بترجع الحقلين isSalaryMoveToEmployeeAccount و isSalaryMovedToEmployeeAccount
+// مع بعض (تسمية مزدوجة في الـSwagger) - بنتعامل مع الاتنين عشان الأمان
+function isRowMoved(row) {
+  return Boolean(
+    row?.isSalaryMoveToEmployeeAccount ?? row?.isSalaryMovedToEmployeeAccount,
+  );
+}
+
 export default function SalariesPage() {
   const navigate = useNavigate();
 
@@ -91,9 +99,8 @@ export default function SalariesPage() {
 
   const rows = data?.items || [];
 
-  const deletableRows = rows.filter(
-    (row) => !row.isSalaryMoveToEmployeeAccount,
-  );
+  // كل القيود بقت قابلة للتحديد والحذف - حتى المُرحّلة
+  const selectableRows = rows;
 
   const setField = (key, value) => {
     setDraft((prev) => ({
@@ -116,12 +123,6 @@ export default function SalariesPage() {
   };
 
   function toggleRow(id) {
-    const row = rows.find((item) => item.id === id);
-
-    if (row?.isSalaryMoveToEmployeeAccount) {
-      return;
-    }
-
     setSelectedIds((prev) => {
       const next = new Set(prev);
 
@@ -136,7 +137,7 @@ export default function SalariesPage() {
   }
 
   function toggleAll() {
-    const ids = deletableRows.map((row) => row.id);
+    const ids = selectableRows.map((row) => row.id);
 
     setSelectedIds((prev) => {
       const allSelected = ids.length > 0 && ids.every((id) => prev.has(id));
@@ -170,7 +171,15 @@ export default function SalariesPage() {
       return;
     }
 
-    if (!window.confirm(`هل أنت متأكد من حذف ${ids.length} سجل مرتب؟`)) {
+    const selectedMovedCount = rows.filter(
+      (row) => selectedIds.has(row.id) && isRowMoved(row),
+    ).length;
+
+    const confirmMessage = selectedMovedCount
+      ? `تنبيه: من بين السجلات المحددة ${selectedMovedCount} سجل تم ترحيله بالفعل لحساب الموظف. هل أنت متأكد من حذف ${ids.length} سجل مرتب؟`
+      : `هل أنت متأكد من حذف ${ids.length} سجل مرتب؟`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
@@ -197,9 +206,9 @@ export default function SalariesPage() {
     }
   }
 
-  const allDeletableSelected =
-    deletableRows.length > 0 &&
-    deletableRows.every((row) => selectedIds.has(row.id));
+  const allSelectableSelected =
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selectedIds.has(row.id));
 
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
@@ -320,7 +329,8 @@ export default function SalariesPage() {
               </p>
 
               <p className="text-xs text-ink-400 mt-0.5">
-                يمكنك ترحيل أو حذف السجلات المحددة
+                يمكنك ترحيل أو حذف السجلات المحددة (حتى لو كان فيها سجلات
+                مُرحّلة بالفعل)
               </p>
             </div>
 
@@ -356,13 +366,13 @@ export default function SalariesPage() {
               ${isFetching || isDeleting ? "opacity-60" : ""}
             `}
           >
-            <table className="w-full text-right border-collapse min-w-[1100px]">
+            <table className="w-full text-right border-collapse min-w-[1200px]">
               <thead>
                 <tr className="bg-ink-900/[0.03] text-ink-400 text-[11px]">
                   <th className="p-2.5 border-l border-ink-400/5 w-8">
                     <input
                       type="checkbox"
-                      checked={allDeletableSelected}
+                      checked={allSelectableSelected}
                       onChange={toggleAll}
                       className="rounded border-ink-400/30"
                     />
@@ -374,6 +384,10 @@ export default function SalariesPage() {
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
                     النوع
+                  </th>
+
+                  <th className="p-2.5 font-medium border-l border-ink-400/5">
+                    مكان العمل
                   </th>
 
                   <th className="p-2.5 font-medium border-l border-ink-400/5">
@@ -406,7 +420,7 @@ export default function SalariesPage() {
 
               <tbody>
                 {rows.map((row, index) => {
-                  const isMoved = !!row.isSalaryMoveToEmployeeAccount;
+                  const isMoved = isRowMoved(row);
 
                   const isSelected = selectedIds.has(row.id);
 
@@ -433,7 +447,7 @@ export default function SalariesPage() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleRow(row.id)}
-                          disabled={isMoved || isDeleting}
+                          disabled={isDeleting}
                           className="rounded border-ink-400/30 disabled:opacity-30"
                         />
                       </td>
@@ -468,6 +482,14 @@ export default function SalariesPage() {
                           {EMPLOYEE_TYPE[row.employeeType] ||
                             row.employeeType ||
                             "—"}
+                        </span>
+                      </td>
+
+                      <td className="p-2.5 border-l border-ink-400/5">
+                        <span className="text-xs text-ink-700">
+                          {row.workPlaceStatus === "OutCompany"
+                            ? "خارج الشركة"
+                            : "داخل الشركة"}
                         </span>
                       </td>
 
