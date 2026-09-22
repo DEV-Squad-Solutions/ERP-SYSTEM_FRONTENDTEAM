@@ -737,6 +737,24 @@ function InvoiceLineRow({
   }, [line.itemName, onRemove]);
 
   /* =========================================================
+     المرتجع - سعر مختلف عن الفاتورة الأصلية
+  ========================================================= */
+
+  const isReturnPriceModified =
+    isReturnLine &&
+    line.originalPrice !== undefined &&
+    line.originalPrice !== null &&
+    Number(line.price) !== Number(line.originalPrice);
+
+  const handleResetReturnPrice = useCallback(() => {
+    onChange({
+      ...line,
+      price: line.originalPrice,
+      returnPriceDifferenceReason: "",
+    });
+  }, [line, onChange]);
+
+  /* =========================================================
      الإجمالي
 
      Total = Quantity × Price
@@ -951,17 +969,50 @@ function InvoiceLineRow({
 
       {/* =====================================================
           السعر
+
+          في المرتجع: السعر قابل للتعديل. لو اتغيّر عن السعر
+          الأصلي في الفاتورة المصدر (originalPrice)، بيظهر حقل
+          سبب الاختلاف تحته مباشرة، وزرار صغير للرجوع للسعر
+          الأصلي.
       ===================================================== */}
 
-      <td className="p-2 w-[120px]">
+      <td className="p-2 w-[140px]">
         <NumericInput
           value={line.price ?? ""}
           decimals
           maxDecimals={2}
           placeholder="السعر"
-          disabled={isReturnLine}
           onChange={(value) => set("price", value === "" ? null : value)}
         />
+
+        {isReturnPriceModified && (
+          <div className="mt-1 space-y-1">
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={line.returnPriceDifferenceReason ?? ""}
+                onChange={(e) =>
+                  set("returnPriceDifferenceReason", e.target.value)
+                }
+                placeholder="سبب اختلاف السعر"
+                className="min-w-0 flex-1 rounded-lg border border-gold-300 bg-gold-50/50 px-2 py-1 text-[11px] outline-none transition-colors focus:border-gold-500 focus:ring-2 focus:ring-gold-100"
+              />
+
+              <button
+                type="button"
+                onClick={handleResetReturnPrice}
+                title="استرجاع السعر الأصلي"
+                className="shrink-0 rounded-md p-1 text-ink-400 transition-colors hover:bg-gold-100 hover:text-gold-700"
+              >
+                <Undo2 size={12} />
+              </button>
+            </div>
+
+            <p className="text-[10px] text-ink-400">
+              السعر الأصلي: {fmtNumber(line.originalPrice)}
+            </p>
+          </div>
+        )}
       </td>
 
       {/* =====================================================

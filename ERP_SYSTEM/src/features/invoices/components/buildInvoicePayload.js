@@ -80,6 +80,20 @@ function buildLineObject({ line, isReturnInvoice }) {
     );
 
     withOptionalNumber(lineObj, "returnUnitCost", line.returnUnitCost);
+
+    // لو السعر اتغيّر عن السعر الأصلي في الفاتورة المصدر، لازم يبقى
+    // ManualPrice ومعاه سبب الاختلاف. غير كده OriginalPrice من غير سبب.
+    const priceChanged =
+      line.originalPrice !== undefined &&
+      line.originalPrice !== null &&
+      Number(line.price) !== Number(line.originalPrice);
+
+    lineObj.returnPriceMode = priceChanged ? "ManualPrice" : "OriginalPrice";
+
+    if (priceChanged) {
+      lineObj.returnPriceDifferenceReason =
+        line.returnPriceDifferenceReason?.trim() || "";
+    }
   }
 
   return lineObj;

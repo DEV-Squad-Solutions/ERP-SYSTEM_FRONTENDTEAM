@@ -54,6 +54,8 @@ const emptyLine = () => ({
   weight: null,
   quantity: null,
   price: null,
+  originalPrice: null, // السعر الأصلي وقت الإضافة من فاتورة مصدر (مرتجع فقط)
+  returnPriceDifferenceReason: "", // سبب اختلاف السعر عن الأصلي (مرتجع فقط)
   notes: "",
   sourceInvoiceLineId: null,
   sourceInvoiceId: null,
@@ -323,6 +325,20 @@ export default function CreateInvoiceForm({ onSuccess }) {
   );
   const activeSourceInvoiceId = returnLines[0]?.sourceInvoiceId ?? null;
 
+  // سطور المرتجع اللي سعرها اتغيّر عن السعر الأصلي في الفاتورة
+  // المصدر - محتاجة سبب قبل ما نقدر نحفظ الفاتورة.
+  const priceModifiedReturnLines = useMemo(
+    () =>
+      lines.filter(
+        (l) =>
+          l.isReturnLine &&
+          l.originalPrice !== undefined &&
+          l.originalPrice !== null &&
+          Number(l.price) !== Number(l.originalPrice),
+      ),
+    [lines],
+  );
+
   const setHeaderField = useCallback(
     (key, value) => setHeader((h) => ({ ...h, [key]: value })),
     [],
@@ -563,7 +579,16 @@ export default function CreateInvoiceForm({ onSuccess }) {
           return prev;
         }
         const nonEmpty = prev.filter((l) => l.itemId || l.isTemporaryItem);
-        return [...nonEmpty, ...newLines];
+
+        // نحفظ سعر الفاتورة الأصلية كـ originalPrice، عشان نقدر نكتشف
+        // لو المستخدم غيّر السعر بعدين ونطلب سبب الاختلاف.
+        const linesWithOriginalPrice = newLines.map((l) => ({
+          ...l,
+          originalPrice: l.price ?? null,
+          returnPriceDifferenceReason: l.returnPriceDifferenceReason || "",
+        }));
+
+        return [...nonEmpty, ...linesWithOriginalPrice];
       });
 
       if (rejected) {
@@ -647,6 +672,17 @@ export default function CreateInvoiceForm({ onSuccess }) {
     async (shouldPrint = false) => {
       if (isLoading) return;
 
+      // لازم سبب لكل سطر مرتجع اتغيّر سعره عن السعر الأصلي في
+      // الفاتورة المصدر، قبل ما نبعت أي حاجة للباك.
+      const missingReason = priceModifiedReturnLines.some(
+        (l) => !l.returnPriceDifferenceReason?.trim(),
+      );
+
+      if (missingReason) {
+        toast.error("لازم تكتب سبب لكل صنف اتغيّر سعر مرتجعه");
+        return;
+      }
+
       // التحقق من صحة الفاتورة (عميل، مخزن، أصناف، خزنة نقدي...) بقى
       // مسؤولية الباك بالكامل، وأي رفض بيوصل هنا في الـ catch تحت.
       const payload = buildCreateInvoiceRequest({
@@ -678,6 +714,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       wbTotal,
       containersMovement,
       isTemporaryDriver,
+      priceModifiedReturnLines,
       createInvoice,
       onSuccess,
       printInvoice,
@@ -1103,7 +1140,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
             onChange={(e) => setHeaderField("WBDiscount", e.target.value)}
           />
           <div className="flex items-stretch">
-            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+            <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               الإجمالي
             </div>
             <div className="flex flex-1 items-center gap-1.5 bg-ink-400/5 px-3 py-2.5 text-sm num text-ink-600">
@@ -1157,6 +1194,16 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 <p className="text-sm text-primary-700">
                   اختر أصناف المرتجع من الفاتورة الأصلية فوق
                 </p>
+              </div>
+            )}
+
+            {isReturnInvoice && priceModifiedReturnLines.length > 0 && (
+              <div className="mb-3 flex items-center gap-2 rounded-2xl border border-gold-200 bg-gold-50/40 px-4 py-2.5 text-xs text-gold-700">
+                <span>
+                  في {priceModifiedReturnLines.length} صنف سعره مختلف عن
+                  الفاتورة الأصلية — اكتب سبب الاختلاف جنب السعر في الجدول تحت
+                  قبل الحفظ
+                </span>
               </div>
             )}
 
