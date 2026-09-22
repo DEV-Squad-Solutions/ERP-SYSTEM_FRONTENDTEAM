@@ -8,6 +8,8 @@ import {
   X,
   Loader2,
   Trash2,
+  Landmark,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
@@ -56,6 +58,18 @@ function normalizeVoucherDate(value) {
   }
 
   return value;
+}
+
+// صفوف مالهاش توصيف/حساب أصلاً وميتعدلش/يتمسحش من هنا:
+// الرصيد الافتتاحي (isOpeningBalance) والتحويل بين الخزائن
+// (cashboxTransferId). دول مش سندات عادية - الرصيد الافتتاحي حتى
+// مالوش rowVersion حقيقي من الباك.
+function isNonDescribableRow(row) {
+  return Boolean(row?.isOpeningBalance) || Boolean(row?.cashboxTransferId);
+}
+
+function isNonEditableRow(row) {
+  return Boolean(row?.isOpeningBalance);
 }
 
 // Posting target fields, in priority order. The API requires exactly ONE
@@ -256,7 +270,7 @@ export default function CashboxLedgerTable({
 
   const handleDescriptionChange = useCallback(
     async (row, selectedValue) => {
-      if (!selectedValue || !onUpdateVoucher) {
+      if (!selectedValue || !onUpdateVoucher || isNonDescribableRow(row)) {
         return;
       }
 
@@ -540,6 +554,11 @@ export default function CashboxLedgerTable({
 
       if (row.invoiceId) {
         toast.error("السند المولد من فاتورة لا يمكن حذفه من هنا.");
+        return;
+      }
+
+      if (isNonEditableRow(row)) {
+        toast.error("الرصيد الافتتاحي لا يمكن حذفه من هنا.");
         return;
       }
 
@@ -964,6 +983,18 @@ export default function CashboxLedgerTable({
 
                 const isInvoiceGenerated = Boolean(row.invoiceId);
 
+                const isOpeningBalanceRow = Boolean(row.isOpeningBalance);
+
+                const isCashboxTransferRow = Boolean(row.cashboxTransferId);
+
+                const isDescriptionLocked = isNonDescribableRow(row);
+
+                const isRowEditable =
+                  !isInvoiceGenerated && !isNonEditableRow(row);
+
+                const isRowDeletable =
+                  isAdmin && !isInvoiceGenerated && !isNonEditableRow(row);
+
                 const descriptionGroups = getDescriptionGroups(row.direction);
 
                 const selectedDescription = getCurrentDescriptionValue(row);
@@ -1033,24 +1064,46 @@ export default function CashboxLedgerTable({
 
                     <td className="min-w-0 border-l border-ink-400/5 px-2 py-2">
                       <div className="min-w-[240px]">
-                        <DescriptionCascadeSelect
-                          groups={descriptionGroups}
-                          value={selectedDescription}
-                          onChange={(value) =>
-                            handleDescriptionChange(row, value)
-                          }
-                          isLoading={
-                            loadingPartySelect || isDescriptionUpdating
-                          }
-                          isDisabled={
-                            isDescriptionUpdating || isInvoiceGenerated
-                          }
-                          placeholder={
-                            row.isDescribed
-                              ? "تغيير الحساب / التوصيف"
-                              : "اختر الحساب أو التوصيف"
-                          }
-                        />
+                        {isDescriptionLocked ? (
+                          <div className="flex items-center gap-1.5 rounded-lg border border-ink-400/10 bg-ink-400/5 px-2.5 py-2 text-[11px] text-ink-500">
+                            {isOpeningBalanceRow ? (
+                              <Landmark
+                                size={13}
+                                className="shrink-0 text-ink-400"
+                              />
+                            ) : (
+                              <ArrowLeftRight
+                                size={13}
+                                className="shrink-0 text-ink-400"
+                              />
+                            )}
+
+                            <span className="truncate">
+                              {isOpeningBalanceRow
+                                ? "رصيد افتتاحي — لا يحتاج توصيف"
+                                : "تحويل بين الخزائن — لا يحتاج توصيف"}
+                            </span>
+                          </div>
+                        ) : (
+                          <DescriptionCascadeSelect
+                            groups={descriptionGroups}
+                            value={selectedDescription}
+                            onChange={(value) =>
+                              handleDescriptionChange(row, value)
+                            }
+                            isLoading={
+                              loadingPartySelect || isDescriptionUpdating
+                            }
+                            isDisabled={
+                              isDescriptionUpdating || isInvoiceGenerated
+                            }
+                            placeholder={
+                              row.isDescribed
+                                ? "تغيير الحساب / التوصيف"
+                                : "اختر الحساب أو التوصيف"
+                            }
+                          />
+                        )}
 
                         {row.description && (
                           <div
@@ -1104,7 +1157,7 @@ export default function CashboxLedgerTable({
                           </span>
                         </div>
 
-                        {isAdmin && !isInvoiceGenerated && (
+                        {isRowDeletable && (
                           <button
                             type="button"
                             title="حذف السند"
@@ -1124,7 +1177,7 @@ export default function CashboxLedgerTable({
                         )}
                       </div>
 
-                      {!isInvoiceGenerated && (
+                      {isRowEditable && (
                         <button
                           type="button"
                           disabled={isUpdating || isDeleting}
@@ -1139,56 +1192,6 @@ export default function CashboxLedgerTable({
                 );
               })}
             </tbody>
-
-            {rows.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-primary-100 bg-primary-50/50 font-semibold text-ink-900">
-                  <td className="num px-2 py-2 text-sm">
-                    {fmt(finalBalance)}
-
-                    {isForeign && (
-                      <div className="mt-0.5 text-[9px] font-normal text-ink-400">
-                        {fmt(finalBaseBalance)} {baseCurrency}
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="num px-2 py-2 text-sm text-positive">
-                    {fmt(totals.credit)}
-
-                    {isForeign && (
-                      <div className="mt-0.5 text-[9px] font-normal text-ink-400">
-                        {fmt(totals.baseCredit)} {baseCurrency}
-                      </div>
-                    )}
-                  </td>
-
-                  <td className="num px-2 py-2 text-sm text-negative">
-                    {fmt(totals.debit)}
-
-                    {isForeign && (
-                      <div className="mt-0.5 text-[9px] font-normal text-ink-400">
-                        {fmt(totals.baseDebit)} {baseCurrency}
-                      </div>
-                    )}
-                  </td>
-
-                  {isForeign && <td />}
-
-                  <td className="px-2 py-2 text-[10px]" colSpan={3}>
-                    <div className="flex items-center gap-2">
-                      <span>الإجمالي</span>
-
-                      <span className="font-normal text-ink-400">•</span>
-
-                      <span className="font-normal text-ink-400">
-                        {rows.length} حركة
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              </tfoot>
-            )}
           </table>
         </div>
 

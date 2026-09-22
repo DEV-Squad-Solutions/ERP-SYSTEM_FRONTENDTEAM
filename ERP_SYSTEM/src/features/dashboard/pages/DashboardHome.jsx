@@ -20,6 +20,7 @@ import {
   Clock,
   Landmark,
   Sparkles,
+  Printer,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -36,6 +37,8 @@ import {
   Legend,
 } from "recharts";
 import { useGetDashboardSummaryQuery } from "../dashboardApi";
+import useDashboardPrint from "../../../shared/hooks/useDashboardPrint";
+import DashboardPrintTemplate from "../../../shared/components/print/DashboardPrintTemplate";
 
 /* ------------------------------------------------------------------ */
 /* توكنز التصميم — هوية "دفتر أستاذ" (Ledger): تيل داكن كأساس ماليّ    */
@@ -316,7 +319,9 @@ export default function DashboardPage() {
     useGetDashboardSummaryQuery(
       range.fromDate && range.toDate ? range : undefined,
     );
-
+  const { printDashboard, printRef } = useDashboardPrint({
+    title: `تقرير لوحة التحكم - ${data?.fiscalYearName || "التقرير"}`,
+  });
   const monthlyChartData = useMemo(() => {
     if (!data?.monthlyActivity) return [];
     return data.monthlyActivity.map((m) => ({
@@ -394,7 +399,7 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold">لوحة التحكم</h1>
             </div>
             <p className="mt-1 text-sm text-teal-100">
-              {data?.fiscalYearName} • {data?.fromDate} إلى {data?.toDate} •{" "}
+              {data?.fiscalYearName} • {data?.fromDate} إلى {data?.toDate} •
               {getCurrencyLabel(data?.baseCurrency)}
             </p>
           </div>
@@ -425,6 +430,13 @@ export default function DashboardPage() {
                 جاري التحديث...
               </motion.span>
             )}
+            <button
+              type="button"
+              onClick={printDashboard}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition hover:bg-white/25"
+            >
+              <Printer size={16} /> طباعة
+            </button>
           </div>
         </div>
       </motion.div>
@@ -674,6 +686,11 @@ export default function DashboardPage() {
           ))}
         </div>
       </SectionCard>
+      <div className="hidden">
+        <div ref={printRef}>
+          <DashboardPrintTemplate data={data} />
+        </div>
+      </div>
     </motion.div>
   );
 }
