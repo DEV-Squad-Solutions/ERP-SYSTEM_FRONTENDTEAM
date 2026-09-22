@@ -340,9 +340,7 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <Role
-            roles={[ROLES.ADMIN, ROLES.ACCOUNTANT, ROLES.USER, ROLES.CASHIER]}
-          >
+          <Role roles={[ROLES.ADMIN, ROLES.ACCOUNTANT]}>
             <DashboardHome />
           </Role>
         ),

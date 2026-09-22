@@ -51,7 +51,7 @@ export const navigationItems = [
     path: "/dashboard",
     icon: LayoutDashboard,
     end: true,
-    roles: ["Admin", "Accountant", "User", "Cashier"],
+    roles: FULL_ACCESS_ROLES,
   },
 
   {
