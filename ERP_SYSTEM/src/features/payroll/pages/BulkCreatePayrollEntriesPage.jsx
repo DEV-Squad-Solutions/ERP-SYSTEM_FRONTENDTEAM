@@ -23,12 +23,11 @@ import {
   Building2,
   Building,
 } from "lucide-react";
-
 import {
   useBulkCreatePayrollEntriesMutation,
+  useBulkCreateOutCompanyPayrollEntriesMutation,
   useGetEmployeesSelectQuery,
 } from "../payrollApi";
-
 import Button from "../../../shared/components/ui/Button";
 import Input from "../../../shared/components/ui/Input";
 
@@ -54,13 +53,11 @@ function normalizeNumber(value) {
 export default function BulkCreatePayrollEntriesPage() {
   const navigate = useNavigate();
 
-  const [startDate, setStartDate] = useState(getToday()); // بيتستخدم لخارج الشركة بس
+  const [startDate, setStartDate] = useState(getToday());
   const [endDate, setEndDate] = useState(getToday());
   const [workPlaceStatus, setWorkPlaceStatus] = useState("InCompany");
-
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
-
   const [amounts, setAmounts] = useState({});
 
   const [bulkPresentDays, setBulkPresentDays] = useState("");
@@ -80,12 +77,19 @@ export default function BulkCreatePayrollEntriesPage() {
     setAmounts({});
   };
 
-  // الموظفين بيظهروا فورًا حسب التاب المختار، من غير أي شرط على الفترة
   const { data: employees, isLoading: employeesLoading } =
-    useGetEmployeesSelectQuery({ WorkPlaceStatus: workPlaceStatus });
+    useGetEmployeesSelectQuery({
+      WorkPlaceStatus: workPlaceStatus,
+      IsActive: true,
+    });
 
-  const [bulkCreate, { isLoading: isSaving }] =
+  const [bulkCreate, { isLoading: isSavingInCompany }] =
     useBulkCreatePayrollEntriesMutation();
+
+  const [bulkCreateOutCompany, { isLoading: isSavingOutCompany }] =
+    useBulkCreateOutCompanyPayrollEntriesMutation();
+
+  const isSaving = isSavingInCompany || isSavingOutCompany;
 
   const employeeRows = useMemo(() => {
     return (employees || []).map((employee) => {
@@ -284,7 +288,6 @@ export default function BulkCreatePayrollEntriesPage() {
     setSearch("");
     setSelectedIds([]);
     setAmounts({});
-
     setBulkPresentDays("");
     setBulkWorkedDaysByDayUnit("");
     setBulkOvertimeByDayUnit("");
@@ -328,7 +331,6 @@ export default function BulkCreatePayrollEntriesPage() {
         deduction: normalizeNumber(employee.deduction),
       };
 
-      // "من" بتتبعت لخارج الشركة بس - داخل الشركة مالهاش لازمة
       if (isOutCompany) {
         entry.startDate = startDate;
       }
@@ -339,13 +341,27 @@ export default function BulkCreatePayrollEntriesPage() {
     const payload = {
       entries,
       defaultEndDate: endDate,
-      ...(isOutCompany ? { defaultStartDate: startDate } : {}),
+      ...(isOutCompany
+        ? {
+            defaultStartDate: startDate,
+          }
+        : {}),
     };
 
     try {
-      await bulkCreate(payload).unwrap();
+      if (isOutCompany) {
+        await bulkCreateOutCompany(payload).unwrap();
 
-      toast.success(`تم إنشاء قيود مرتبات ${selectedIds.length} موظف بنجاح`);
+        toast.success(
+          `تم إنشاء قيود مرتبات ${selectedIds.length} موظف خارج الشركة بنجاح`,
+        );
+      } else {
+        await bulkCreate(payload).unwrap();
+
+        toast.success(
+          `تم إنشاء قيود مرتبات ${selectedIds.length} موظف داخل الشركة بنجاح`,
+        );
+      }
 
       navigate("/dashboard/payroll/salaries");
     } catch (error) {
@@ -408,7 +424,6 @@ export default function BulkCreatePayrollEntriesPage() {
         </div>
       </div>
 
-      {/* تبويب داخل الشركة / خارج الشركة */}
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <p className="text-xs font-semibold text-ink-900 shrink-0">
@@ -456,7 +471,9 @@ export default function BulkCreatePayrollEntriesPage() {
           </div>
 
           <div
-            className={`grid gap-2 ${isOutCompany ? "grid-cols-2" : "grid-cols-1"}`}
+            className={`grid gap-2 ${
+              isOutCompany ? "grid-cols-2" : "grid-cols-1"
+            }`}
           >
             {isOutCompany && (
               <div>
@@ -904,10 +921,12 @@ export default function BulkCreatePayrollEntriesPage() {
                             <p className="text-sm font-medium text-ink-900 truncate max-w-[220px]">
                               {employee.name}
                             </p>
-
-                            <p className="text-[10px] text-ink-400 num">
-                              #{employee.id}
-                            </p>
+                            {employee.lastDayOfReceivingSalary && (
+                              <p className="text-[10px] text-ink-400 num">
+                                تاريخ اخر صرف:
+                                {employee.lastDayOfReceivingSalary}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </td>
