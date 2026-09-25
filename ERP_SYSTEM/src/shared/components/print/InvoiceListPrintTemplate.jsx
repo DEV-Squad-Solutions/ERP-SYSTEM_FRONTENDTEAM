@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useSelector } from "react-redux";
 
 const typeLabels = {
@@ -14,9 +15,21 @@ const paymentLabels = {
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
 
+const ITEM_COLUMNS = [
+  "كود الصنف",
+  "اسم الصنف",
+  "الوحدة",
+  "العدد",
+  "الوزن",
+  "الكمية",
+  "السعر",
+  "الإجمالي",
+];
+
 /**
  * @param {{ invoices: Array, filters: Object, summary: Object }} props
- * تصميم A4 لطباعة قائمة فواتير كتقرير — كل فاتورة معاها جدول فرعي بأصنافها
+ * تصميم A4 لطباعة قائمة فواتير كتقرير — جدول واحد مستمر: كل فاتورة صف
+ * فاصل بعرض الجدول كامل، وتحته أصنافها مباشرة كصفوف عادية بنفس أعمدة الجدول
  */
 export default function InvoiceListPrintTemplate({
   invoices,
@@ -28,6 +41,13 @@ export default function InvoiceListPrintTemplate({
   if (!invoices) return null;
 
   const today = new Date().toLocaleDateString("ar-EG");
+
+  // إجمالي الكمية عبر كل أصناف كل الفواتير المعروضة في التقرير
+  const totalQuantity = invoices.reduce(
+    (sum, inv) =>
+      sum + (inv.lines?.reduce((s, l) => s + Number(l.quantity || 0), 0) || 0),
+    0,
+  );
 
   return (
     <div
@@ -84,6 +104,8 @@ export default function InvoiceListPrintTemplate({
           <p style={{ margin: "2px 0" }}>تاريخ الطباعة: {today}</p>
 
           <p style={{ margin: "2px 0" }}>عدد الفواتير: {invoices.length}</p>
+
+          <p style={{ margin: "2px 0" }}>إجمالي الكمية: {fmt(totalQuantity)}</p>
         </div>
       </div>
 
@@ -119,142 +141,111 @@ export default function InvoiceListPrintTemplate({
         </div>
       )}
 
-      {/* كل فاتورة: هيدر + جدول أصنافها */}
-      {invoices.map((inv, i) => (
-        <div
-          key={inv.id ?? i}
-          style={{
-            marginBottom: "14px",
-            breakInside: "avoid",
-            border: "1px solid #e5e7eb",
-            borderRadius: "4px",
-            overflow: "hidden",
-          }}
-        >
-          {/* هيدر الفاتورة */}
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "10.5px",
-              background: "#f3f4f6",
-            }}
-          >
-            <thead>
-              <tr>
-                {[
-                  "#",
-                  "رقم الفاتورة",
-                  "التاريخ",
-                  "النوع",
-                  "العميل",
-                  "المخزن",
-                  "الدفع",
-                  "الإجمالي",
-                  "المدفوع",
-                  "المتبقي",
-                ].map((h) => (
-                  <th
-                    key={h}
+      {/* جدول واحد مستمر: صف فاصل لكل فاتورة، وتحته صفوف أصنافها مباشرة */}
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: "10px",
+        }}
+      >
+        <thead>
+          <tr style={{ background: "#0F6E5E" }}>
+            {ITEM_COLUMNS.map((h) => (
+              <th
+                key={h}
+                style={{
+                  border: "1px solid #0b5546",
+                  padding: "5px",
+                  textAlign: "center",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody>
+          {invoices.map((inv, i) => (
+            <Fragment key={inv.id ?? i}>
+              {/* صف فاصل بعرض الجدول كامل - بيانات الفاتورة نفسها */}
+              <tr style={{ breakInside: "avoid" }}>
+                <td
+                  colSpan={ITEM_COLUMNS.length}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    background: "#f3f4f6",
+                    padding: "6px 8px",
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                  }}
+                >
+                  <div
                     style={{
-                      border: "1px solid #e5e7eb",
-                      padding: "5px",
-                      textAlign: "center",
-                      fontWeight: 700,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      justifyContent: "space-between",
+                      gap: "10px",
                     }}
                   >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody>
-              <tr>
-                <td style={cellCenter}>{i + 1}</td>
-                <td style={cellCenter}>{inv.invoiceNumber || "—"}</td>
-                <td style={cellCenter}>{inv.invoiceDate || "—"}</td>
-                <td style={cellCenter}>
-                  {typeLabels[inv.invoiceType] || inv.invoiceType || "—"}
+                    <span>
+                      #{i + 1} — فاتورة {inv.invoiceNumber || "—"} —{" "}
+                      {typeLabels[inv.invoiceType] || inv.invoiceType || "—"}
+                    </span>
+                    <span style={{ fontWeight: 400, color: "#4b5563" }}>
+                      {inv.invoiceDate || "—"}
+                      {" · "}
+                      {inv.businessPartnerName || "—"}
+                      {" · "}
+                      {inv.storeName || "—"}
+                      {" · "}
+                      {paymentLabels[inv.paymentTerm] || "—"}
+                    </span>
+                    <span>
+                      إجمالي: {fmt(inv.total)}
+                      {" · "}مدفوع: {fmt(inv.paidAmount)}
+                      {" · "}متبقي: {fmt(inv.remainingAmount)}
+                    </span>
+                  </div>
                 </td>
-                <td style={cellRight}>{inv.businessPartnerName || "—"}</td>
-                <td style={cellRight}>{inv.storeName || "—"}</td>
-                <td style={cellCenter}>
-                  {paymentLabels[inv.paymentTerm] || "—"}
-                </td>
-                <td style={cellCenter}>{fmt(inv.total)}</td>
-                <td style={cellCenter}>{fmt(inv.paidAmount)}</td>
-                <td style={cellCenter}>{fmt(inv.remainingAmount)}</td>
               </tr>
-            </tbody>
-          </table>
 
-          {/* جدول أصناف الفاتورة */}
-          {inv.lines?.length > 0 ? (
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "10px",
-              }}
-            >
-              <thead>
-                <tr style={{ background: "#fafafa" }}>
-                  {[
-                    "كود الصنف",
-                    "اسم الصنف",
-                    "الوحدة",
-                    "العدد",
-                    "الوزن",
-                    "الكمية",
-                    "السعر",
-                    "الإجمالي",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        border: "1px solid #f0f0f0",
-                        padding: "4px",
-                        textAlign: "center",
-                        fontWeight: 600,
-                        color: "#374151",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {inv.lines.map((line, li) => (
+              {/* أصناف الفاتورة - صفوف عادية بنفس أعمدة الجدول */}
+              {inv.lines?.length > 0 ? (
+                inv.lines.map((line, li) => (
                   <tr key={line.id ?? li}>
-                    <td style={cellSubCenter}>{line.itemCode || "—"}</td>
-                    <td style={cellSubRight}>{line.itemName || "—"}</td>
-                    <td style={cellSubCenter}>{line.itemUnitName || "—"}</td>
-                    <td style={cellSubCenter}>{fmt(line.count)}</td>
-                    <td style={cellSubCenter}>{fmt(line.weight)}</td>
-                    <td style={cellSubCenter}>{fmt(line.quantity)}</td>
-                    <td style={cellSubCenter}>{fmt(line.price)}</td>
-                    <td style={cellSubCenter}>{fmt(line.total)}</td>
+                    <td style={cellCenter}>{line.itemCode || "—"}</td>
+                    <td style={cellRight}>{line.itemName || "—"}</td>
+                    <td style={cellCenter}>{line.itemUnitName || "—"}</td>
+                    <td style={cellCenter}>{fmt(line.count)}</td>
+                    <td style={cellCenter}>{fmt(line.weight)}</td>
+                    <td style={cellCenter}>{fmt(line.quantity)}</td>
+                    <td style={cellCenter}>{fmt(line.price)}</td>
+                    <td style={cellCenter}>{fmt(line.total)}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p
-              style={{
-                fontSize: "10px",
-                color: "#9ca3af",
-                padding: "6px 10px",
-                margin: 0,
-              }}
-            >
-              لا توجد أصناف مسجلة لهذه الفاتورة
-            </p>
-          )}
-        </div>
-      ))}
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={ITEM_COLUMNS.length}
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      padding: "6px 10px",
+                      color: "#9ca3af",
+                      textAlign: "center",
+                    }}
+                  >
+                    لا توجد أصناف مسجلة لهذه الفاتورة
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
 
       {/* ملخص التقرير */}
       {summary && (
@@ -273,6 +264,13 @@ export default function InvoiceListPrintTemplate({
             }}
           >
             <tbody>
+              <tr>
+                <td style={summaryTitle}>إجمالي الكمية</td>
+                <td style={{ ...summaryValue, fontWeight: 700 }}>
+                  {fmt(totalQuantity)}
+                </td>
+              </tr>
+
               <tr>
                 <td style={summaryTitle}>إجمالي قبل الخصم</td>
                 <td style={summaryValue}>{fmt(summary.subtotal)}</td>
@@ -366,22 +364,6 @@ const cellRight = {
   padding: "5px",
   textAlign: "right",
   verticalAlign: "middle",
-};
-
-const cellSubCenter = {
-  border: "1px solid #f0f0f0",
-  padding: "4px",
-  textAlign: "center",
-  verticalAlign: "middle",
-  color: "#4b5563",
-};
-
-const cellSubRight = {
-  border: "1px solid #f0f0f0",
-  padding: "4px",
-  textAlign: "right",
-  verticalAlign: "middle",
-  color: "#4b5563",
 };
 
 const summaryTitle = {

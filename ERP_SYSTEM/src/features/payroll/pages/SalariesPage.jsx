@@ -37,6 +37,8 @@ import Pagination from "../../../shared/components/ui/Pagination";
 
 import MoveSalaryModal from "../components/MoveSalaryModal";
 import BulkMoveSalaryModal from "../components/BulkMoveSalaryModal";
+import { usePayrollListPrint } from "../../../shared/hooks/usePayrollListPrint";
+import PayrollListPrintTemplate from "../../../shared/components/print/PayrollListPrintTemplate";
 
 const currentYear = new Date().getFullYear();
 
@@ -209,7 +211,9 @@ export default function SalariesPage() {
   const allSelectableSelected =
     selectableRows.length > 0 &&
     selectableRows.every((row) => selectedIds.has(row.id));
-
+  const { printList, printRef } = usePayrollListPrint({
+    title: "تقرير-المرتبات",
+  });
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -254,7 +258,13 @@ export default function SalariesPage() {
 
           <Button
             variant="outline"
-            onClick={() => window.print()}
+            onClick={() => {
+              if (!rows.length) {
+                toastError("لا توجد بيانات للطباعة");
+                return;
+              }
+              printList();
+            }}
             className="h-9"
           >
             <Printer size={14} />
@@ -612,6 +622,11 @@ export default function SalariesPage() {
           refetch();
         }}
       />
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <PayrollListPrintTemplate rows={rows} filters={applied} />
+        </div>
+      </div>
     </div>
   );
 }

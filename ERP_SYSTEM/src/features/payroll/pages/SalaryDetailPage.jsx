@@ -21,6 +21,8 @@ import Button from "../../../shared/components/ui/Button";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import PayrollDetailPrintTemplate from "../../../shared/components/print/PayrollDetailPrintTemplate";
+import { usePayrollDetailPrint } from "../../../shared/hooks/usePayrollDetailPrint";
 
 export default function SalaryDetailPage() {
   const { salaryId } = useParams();
@@ -143,7 +145,9 @@ export default function SalaryDetailPage() {
   }
 
   const attendance = entry.attendanceSummary || {};
-
+  const { print, printRef } = usePayrollDetailPrint({
+    title: `إيصال-مرتب-${entry?.employeeCode || ""}`,
+  });
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
       <button
@@ -182,7 +186,7 @@ export default function SalaryDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => window.print()}>
+            <Button variant="outline" onClick={print}>
               <Printer size={14} />
               طباعة
             </Button>
@@ -367,6 +371,11 @@ export default function SalaryDetailPage() {
           </div>
         </div>
       </Modal>
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <PayrollDetailPrintTemplate entry={entry} />
+        </div>
+      </div>
     </div>
   );
 }
