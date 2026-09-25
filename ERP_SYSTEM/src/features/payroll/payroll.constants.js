@@ -114,6 +114,10 @@ export const DAY_RATIO_BY_VALUE = {
 // ============================================================
 // Employee Movement Type
 // ============================================================
+// ملاحظة: MOVEMENT_TYPE_LABELS / movementTypeOptions فيها كل القيم
+// (بما فيها Advance و Withdrawal) وتُستخدم في العرض والفلترة فقط.
+// الـ API (POST /EmployeeMovements) بيقبل 4 قيم بس، عشان كده فيه
+// createMovementTypeOptions منفصلة تُستخدم في فورم الإنشاء.
 
 export const MOVEMENT_TYPE_LABELS = {
   Debit: "مدين",
@@ -139,6 +143,21 @@ export const movementTypeBadge = {
   Bonus: "text-positive bg-positive/10",
   Withdrawal: "text-negative bg-negative/10",
 };
+
+// القيم المسموح بيها فعليًا في POST /EmployeeMovements
+export const CREATE_MOVEMENT_TYPE_LABELS = {
+  Deduction: "خصم",
+  Bonus: "مكافأة",
+  Debit: "مدين",
+  Credit: "دائن",
+};
+
+export const createMovementTypeOptions = Object.entries(
+  CREATE_MOVEMENT_TYPE_LABELS,
+).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 // ============================================================
 // Payroll Status

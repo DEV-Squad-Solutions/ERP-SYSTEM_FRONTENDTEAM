@@ -51,6 +51,11 @@ export default function SalaryDetailPage() {
 
   const [notes, setNotes] = useState("");
 
+  // ✅ لازم يتنادى هنا مع باقي الـ hooks، قبل أي return شرطي تحت
+  const { print, printRef } = usePayrollDetailPrint({
+    title: `إيصال-مرتب-${entry?.employeeCode || ""}`,
+  });
+
   const cashboxOptions = Array.isArray(cashboxesData)
     ? cashboxesData
     : cashboxesData?.items ||
@@ -121,6 +126,7 @@ export default function SalaryDetailPage() {
     }
   };
 
+  // ✅ الـ early returns بعد ما كل الـ hooks اتنادت
   if (isLoading) {
     return (
       <div className="p-6 text-sm text-ink-400" dir="rtl">
@@ -145,9 +151,7 @@ export default function SalaryDetailPage() {
   }
 
   const attendance = entry.attendanceSummary || {};
-  const { print, printRef } = usePayrollDetailPrint({
-    title: `إيصال-مرتب-${entry?.employeeCode || ""}`,
-  });
+
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
       <button

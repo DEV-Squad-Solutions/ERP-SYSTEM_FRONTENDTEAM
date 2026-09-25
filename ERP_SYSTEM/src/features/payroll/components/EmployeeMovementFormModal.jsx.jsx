@@ -10,37 +10,46 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 
 import { useCreateEmployeeMovementMutation } from "../payrollApi";
-import { movementTypeOptions } from "../payroll.constants";
+import {
+  currencyOptions,
+  createMovementTypeOptions,
+} from "../payroll.constants";
 
 function getToday() {
   const d = new Date();
-
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
     2,
     "0",
   )}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const schema = z.object({
-  employeeId: z.string().min(1, "اختر الموظف"),
-
-  type: z.string().min(1, "نوع الحركة مطلوب"),
-
-  amount: z.coerce.number().positive("أدخل مبلغ صحيح"),
-
-  movementDate: z.string().min(1, "تاريخ الحركة مطلوب"),
-
-  cashboxId: z.string().min(1, "اختر الخزينة"),
-
-  notes: z.string().optional(),
-});
+const schema = z
+  .object({
+    employeeId: z.string().min(1, "اختر الموظف"),
+    type: z.string().min(1, "نوع الحركة مطلوب"),
+    amount: z.coerce.number().positive("أدخل مبلغ صحيح"),
+    currency: z.string().min(1, "اختر العملة"),
+    exchangeRate: z.coerce.number().optional(),
+    movementDate: z.string().min(1, "تاريخ الحركة مطلوب"),
+    notes: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.currency !== "EGP" && !(data.exchangeRate > 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["exchangeRate"],
+        message: "أدخل سعر الصرف",
+      });
+    }
+  });
 
 const defaultValues = {
   employeeId: "",
-  type: "Debit",
+  type: "Deduction", // الأكثر استخدامًا يوميًا
   amount: "",
+  currency: "EGP",
+  exchangeRate: "",
   movementDate: getToday(),
-  cashboxId: "",
   notes: "",
 };
 
@@ -48,8 +57,8 @@ export default function EmployeeMovementFormModal({
   isOpen,
   onClose,
   employeeOptions = [],
-  cashboxOptions = [],
   onSaved,
+  defaultType, // اختياري: تقدر تفتح المودال بنوع محدد مسبقًا (مثلاً من زرار "خصم سريع")
 }) {
   const [createMovement, { isLoading: isSubmitting }] =
     useCreateEmployeeMovementMutation();
@@ -59,45 +68,46 @@ export default function EmployeeMovementFormModal({
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues,
   });
 
+  const currency = watch("currency");
   const wasOpenRef = useRef(false);
 
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
       reset({
         ...defaultValues,
+        type: defaultType || defaultValues.type,
         movementDate: getToday(),
       });
     }
-
     wasOpenRef.current = isOpen;
-  }, [isOpen, reset]);
+  }, [isOpen, reset, defaultType]);
 
   const onSubmit = async (data) => {
     const payload = {
       employeeId: Number(data.employeeId),
       type: data.type,
       amount: Number(data.amount),
+      currency: data.currency,
+      exchangeRate: data.currency === "EGP" ? 1 : Number(data.exchangeRate),
       movementDate: data.movementDate,
-      cashboxId: Number(data.cashboxId),
       notes: data.notes?.trim() || null,
     };
 
     try {
       await createMovement(payload).unwrap();
-
       toast.success("تم تسجيل الحركة بنجاح");
-
       onSaved?.();
       onClose();
     } catch (error) {
       console.error("Create employee movement error:", error);
-
       toast.error(
         error?.data?.message ||
           error?.data?.title ||
@@ -105,6 +115,8 @@ export default function EmployeeMovementFormModal({
       );
     }
   };
+
+  const quickAmounts = [100, 200, 500, 1000];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="تسجيل حركة موظف">
@@ -115,7 +127,6 @@ export default function EmployeeMovementFormModal({
             <label className="mb-1 block text-xs font-medium text-ink-400">
               الموظف
             </label>
-
             <Controller
               name="employeeId"
               control={control}
@@ -128,7 +139,6 @@ export default function EmployeeMovementFormModal({
                 />
               )}
             />
-
             {errors.employeeId && (
               <p className="mt-1 text-xs text-negative">
                 {errors.employeeId.message}
@@ -141,20 +151,18 @@ export default function EmployeeMovementFormModal({
             <label className="mb-1 block text-xs font-medium text-ink-400">
               نوع الحركة
             </label>
-
             <Controller
               name="type"
               control={control}
               render={({ field }) => (
                 <CompactSelect
-                  options={movementTypeOptions}
+                  options={createMovementTypeOptions}
                   value={field.value}
                   onChange={field.onChange}
                   placeholder="اختر نوع الحركة"
                 />
               )}
             />
-
             {errors.type && (
               <p className="mt-1 text-xs text-negative">
                 {errors.type.message}
@@ -171,57 +179,70 @@ export default function EmployeeMovementFormModal({
           />
 
           {/* Amount */}
-          <Input
-            label="المبلغ"
-            type="number"
-            step="0.01"
-            min="0"
-            {...register("amount")}
-            error={errors.amount?.message}
-          />
-
-          {/* Cashbox */}
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-ink-400">
-              الخزينة <span className="text-negative">*</span>
-            </label>
+            <Input
+              label="المبلغ"
+              type="number"
+              step="0.01"
+              min="0"
+              {...register("amount")}
+              error={errors.amount?.message}
+            />
+            <div className="mt-1.5 flex gap-1.5">
+              {quickAmounts.map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setValue("amount", amt)}
+                  className="rounded-md border border-ink-400/15 px-2 py-1 text-[11px] text-ink-500 hover:border-primary-500 hover:text-primary-600"
+                >
+                  {amt}
+                </button>
+              ))}
+            </div>
+          </div>
 
+          {/* Currency */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-400">
+              العملة
+            </label>
             <Controller
-              name="cashboxId"
+              name="currency"
               control={control}
               render={({ field }) => (
                 <CompactSelect
-                  options={cashboxOptions}
+                  options={currencyOptions}
                   value={field.value}
                   onChange={field.onChange}
-                  placeholder="اختر خزينة الموظف"
+                  placeholder="اختر العملة"
                 />
               )}
             />
-
-            {errors.cashboxId && (
+            {errors.currency && (
               <p className="mt-1 text-xs text-negative">
-                {errors.cashboxId.message}
+                {errors.currency.message}
               </p>
             )}
-
-            {!cashboxOptions.length && (
-              <p className="mt-1 text-xs text-warning">
-                لا توجد خزائن مصرية متاحة للاختيار
-              </p>
-            )}
-
-            <p className="mt-1 text-[11px] text-ink-400">
-              جميع حركات الموظفين يتم تسجيلها على خزينة بالجنيه المصري.
-            </p>
           </div>
+
+          {/* Exchange Rate - يظهر بس لو العملة مش EGP */}
+          {currency !== "EGP" && (
+            <Input
+              label="سعر الصرف"
+              type="number"
+              step="0.0001"
+              min="0"
+              {...register("exchangeRate")}
+              error={errors.exchangeRate?.message}
+            />
+          )}
 
           {/* Notes */}
           <div className="sm:col-span-2">
             <label className="mb-1 block text-xs font-medium text-ink-400">
               ملاحظات
             </label>
-
             <textarea
               {...register("notes")}
               rows={2}
@@ -241,11 +262,7 @@ export default function EmployeeMovementFormModal({
           >
             إلغاء
           </Button>
-
-          <Button
-            type="submit"
-            disabled={isSubmitting || !cashboxOptions.length}
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "جارِ الحفظ..." : "حفظ الحركة"}
           </Button>
         </div>

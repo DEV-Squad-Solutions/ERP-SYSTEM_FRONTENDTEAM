@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
-import { Search, RotateCcw, Plus, AlertCircle, FileSearch } from "lucide-react";
+import {
+  Search,
+  RotateCcw,
+  Plus,
+  AlertCircle,
+  FileSearch,
+  MinusCircle,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import {
   useGetEmployeeMovementsQuery,
   useGetEmployeesSelectQuery,
+  useDeleteEmployeeMovementMutation,
 } from "../payrollApi";
-import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi"; // عدّل المسار/الاسم حسب الملف الفعلي عندك
 import {
   MOVEMENT_TYPE_LABELS,
   movementTypeBadge,
@@ -17,6 +26,7 @@ import EmployeeMovementFormModal from "../components/EmployeeMovementFormModal.j
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
 
 const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
 
@@ -30,23 +40,18 @@ export default function EmployeeMovementsPage() {
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formDefaultType, setFormDefaultType] = useState(undefined);
+  const [movementToDelete, setMovementToDelete] = useState(null);
 
   const { data: employees } = useGetEmployeesSelectQuery();
-  const { data: cashboxes } = useGetCashboxOptionsQuery();
+
+  const [deleteMovement, { isLoading: isDeleting }] =
+    useDeleteEmployeeMovementMutation();
 
   const employeeOptions = useMemo(
     () =>
       (employees || []).map((e) => ({ value: String(e.id), label: e.name })),
     [employees],
-  );
-
-  const cashboxOptions = useMemo(
-    () =>
-      (cashboxes?.items || cashboxes || []).map((c) => ({
-        value: String(c.id),
-        label: c.name,
-      })),
-    [cashboxes],
   );
 
   const queryParams = useMemo(
@@ -78,6 +83,28 @@ export default function EmployeeMovementsPage() {
     setPage(1);
   };
 
+  const openForm = (defaultType) => {
+    setFormDefaultType(defaultType);
+    setIsFormOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!movementToDelete) return;
+
+    try {
+      await deleteMovement(movementToDelete.id).unwrap();
+      toast.success("تم حذف الحركة بنجاح");
+      setMovementToDelete(null);
+      refetch();
+    } catch (error) {
+      toast.error(
+        error?.data?.message ||
+          error?.data?.title ||
+          "حدث خطأ أثناء حذف الحركة",
+      );
+    }
+  };
+
   return (
     <div className="animate-fadeUp space-y-4">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -90,10 +117,16 @@ export default function EmployeeMovementsPage() {
           </p>
         </div>
 
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus size={15} />
-          تسجيل حركة جديدة
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => openForm("Deduction")}>
+            <MinusCircle size={15} />
+            خصم سريع
+          </Button>
+          <Button onClick={() => openForm(undefined)}>
+            <Plus size={15} />
+            تسجيل حركة جديدة
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-4">
@@ -265,6 +298,7 @@ export default function EmployeeMovementsPage() {
                   <th className="min-w-[200px] px-4 py-3 text-right">
                     ملاحظات
                   </th>
+                  <th className="w-16 px-4 py-3 text-center">إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -316,6 +350,17 @@ export default function EmployeeMovementsPage() {
                     <td className="px-4 py-3 text-right text-ink-500">
                       {item.notes || "—"}
                     </td>
+
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setMovementToDelete(item)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative/70 hover:bg-negative/10 hover:text-negative transition-colors"
+                        title="حذف الحركة"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -344,8 +389,22 @@ export default function EmployeeMovementsPage() {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         employeeOptions={employeeOptions}
-        cashboxOptions={cashboxOptions}
+        defaultType={formDefaultType}
         onSaved={refetch}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!movementToDelete}
+        onClose={() => setMovementToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        title="تأكيد حذف الحركة"
+        itemName={
+          movementToDelete
+            ? `${MOVEMENT_TYPE_LABELS[movementToDelete.type] || movementToDelete.type} - ${movementToDelete.employeeName}`
+            : ""
+        }
+        description="سيتم حذف هذه الحركة نهائيًا من سجل حركات الموظف. هذا الإجراء لا يمكن التراجع عنه."
       />
     </div>
   );

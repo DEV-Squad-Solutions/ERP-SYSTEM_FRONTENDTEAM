@@ -254,7 +254,13 @@ export const payrollApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: tagsFor("EmployeeMovement"),
     }),
-
+    deleteEmployeeMovement: builder.mutation({
+      query: (id) => ({
+        url: `/EmployeeMovements/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["EmployeeMovements"],
+    }),
     bulkCreateEmployeeMovements: builder.mutation({
       query: (data) => ({
         url: "EmployeeMovements/bulk",
@@ -541,6 +547,8 @@ export const {
   useGetEmployeeMovementsQuery,
   useGetEmployeeMovementByIdQuery,
   useCreateEmployeeMovementMutation,
+  useDeleteEmployeeMovementMutation,
+
   useBulkCreateEmployeeMovementsMutation,
   useGetPayrollEntriesQuery,
   useGetPayrollEntryByIdQuery,
