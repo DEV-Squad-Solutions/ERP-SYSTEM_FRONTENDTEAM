@@ -308,7 +308,13 @@ export const navigationItems = [
     label: "المحاسبة",
     roles: FULL_ACCESS_ROLES,
   },
-
+  {
+    label: "مراقبة الجاهزية المحاسبية",
+    path: "/dashboard/accounting-readiness",
+    icon: ShieldCheck,
+    end: true,
+    roles: FULL_ACCESS_ROLES,
+  },
   {
     label: "السنوات المالية",
     path: "/dashboard/fiscal-years",

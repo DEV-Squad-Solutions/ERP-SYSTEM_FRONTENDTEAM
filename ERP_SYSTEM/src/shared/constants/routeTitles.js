@@ -59,6 +59,7 @@ export const routeTitles = {
   "/dashboard/payroll/reports": "تقارير المرتبات",
 
   "/dashboard/fiscal-years": "السنوات المالية",
+  "/dashboard/accounting-readiness": "مراقبة الجاهزية المحاسبية",
   "/dashboard/accounts": "دليل الحسابات",
   "/dashboard/account-mappings": "إعدادات الربط المحاسبي",
   "/dashboard/journal-entries": "قيود اليومية",

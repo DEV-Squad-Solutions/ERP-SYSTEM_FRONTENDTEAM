@@ -29,6 +29,7 @@ function buildInvoiceParams({
   country,
   itemsCategoryId,
   currency,
+  itemId, // ← جديد
   fromDate,
   toDate,
 } = {}) {
@@ -43,6 +44,7 @@ function buildInvoiceParams({
     CountryId: country || undefined,
     itemsCategoryId: itemsCategoryId || undefined,
     currency: currency || undefined,
+    ItemId: itemId || undefined, // ← جديد، مطابق لاسم البراميتر في الـ API
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
   };

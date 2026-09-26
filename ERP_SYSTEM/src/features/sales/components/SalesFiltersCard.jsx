@@ -8,7 +8,7 @@ import { useGetCountriesSelectQuery } from "../../countries/countriesApi";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
-
+import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 const typeOptions = [
   { value: "sale", label: "بيع" },
   { value: "purchase", label: "شراء" },
@@ -45,6 +45,7 @@ export default function SalesFiltersCard({
 
   const { data: countries, isLoading: isLoadingCountries } =
     useGetCountriesSelectQuery();
+  const { data: items, isLoading: isLoadingItems } = useGetItemsSelectQuery();
 
   const set = (key, value) =>
     onChange({
@@ -207,7 +208,24 @@ export default function SalesFiltersCard({
                     placeholder="الكل"
                   />
                 </div>
+                <div>
+                  <label className="block mb-1.5 text-sm font-medium">
+                    الصنف
+                  </label>
 
+                  <CompactSelect
+                    options={
+                      items?.map((i) => ({
+                        value: i.id,
+                        label: i.name,
+                      })) || []
+                    }
+                    value={draft.itemId}
+                    onChange={(v) => set("itemId", v)}
+                    isLoading={isLoadingItems}
+                    placeholder="الكل"
+                  />
+                </div>
                 <div>
                   <label className="block mb-1.5 text-sm font-medium">
                     طريقة الدفع

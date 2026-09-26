@@ -6,15 +6,17 @@ import {
   ArrowUp,
   ArrowDown,
   Package,
+  Printer,
 } from "lucide-react";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
-
+import { useItemMovementsPrint } from "../../../shared/hooks/useItemMovementsPrint"; // ← بدل useInvoiceListPrint
 import { useGetCountriesSelectQuery } from "../../countries/countriesApi";
 import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 import { useGetPartnerItemMovementsQuery } from "../statementsApi";
 import { useNavigate } from "react-router-dom";
+import PartnerItemMovementsPrintTemplate from "../../../shared/components/print/PartnerItemMovementsPrintTemplate";
 const emptyItemFilters = {
   fromDate: "",
   toDate: "",
@@ -131,13 +133,19 @@ export default function PartnerItemsTab({ partnerId }) {
         return "bg-ink-900/5 text-ink-500";
     }
   };
+  const { printList, printRef } = useItemMovementsPrint({
+    title: `حركة-صنف-${data?.itemName || ""}`,
+  });
 
+  const handlePrint = () => {
+    if (!rows.length) return;
+    printList();
+  };
   return (
     <div className="space-y-4">
       {/* =========================
           Filters
       ========================= */}
-
       <div className="rounded-2xl border border-ink-400/10 bg-white p-3 shadow-card">
         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {/* From Date */}
@@ -216,18 +224,23 @@ export default function PartnerItemsTab({ partnerId }) {
               <Search size={14} />
               بحث
             </Button>
-
+            <Button
+              variant="outline"
+              onClick={handlePrint}
+              disabled={!rows.length}
+            >
+              <Printer size={16} />
+              طباعة
+            </Button>
             <Button variant="outline" onClick={handleReset} className="h-9">
               <RotateCcw size={14} />
             </Button>
           </div>
         </div>
       </div>
-
       {/* =========================
           Empty State
       ========================= */}
-
       {!applied.itemId ? (
         <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center">
           <Package size={32} className="mx-auto mb-3 text-ink-400" />
@@ -474,7 +487,12 @@ export default function PartnerItemsTab({ partnerId }) {
             </table>
           </div>
         </>
-      )}
+      )}{" "}
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <PartnerItemMovementsPrintTemplate data={data} filters={applied} />
+        </div>
+      </div>
     </div>
   );
 }

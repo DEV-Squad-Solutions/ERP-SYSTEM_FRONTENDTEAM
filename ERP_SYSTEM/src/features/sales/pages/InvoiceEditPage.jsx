@@ -1,3 +1,5 @@
+// features/sales/pages/InvoiceEditPage.jsx
+
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -176,6 +178,37 @@ export default function InvoiceEditPage() {
     }));
   }, [items]);
 
+  // =========================================================
+  // خيارات القوائم المنسدلة — تتحسب مرة واحدة لحد ما المصدر يتغير
+  // بدل ما تتبني array جديد في كل render (بيقلل إعادة رندر الأبناء
+  // وبيمنع مشاكل reference-equality في أي مكون بيقارن props)
+  // =========================================================
+
+  const partyOptions = useMemo(
+    () => parties?.map((p) => ({ value: p.id, label: p.name })) || [],
+    [parties],
+  );
+
+  const storeOptions = useMemo(
+    () => stores?.map((s) => ({ value: s.id, label: s.name })) || [],
+    [stores],
+  );
+
+  const countryOptions = useMemo(
+    () => countries?.map((c) => ({ value: c.id, label: c.name })) || [],
+    [countries],
+  );
+
+  const driverOptions = useMemo(
+    () => drivers?.map((d) => ({ value: d.id, label: d.name })) || [],
+    [drivers],
+  );
+
+  const itemsCategoryOptions = useMemo(
+    () => itemsCategories?.map((c) => ({ value: c.id, label: c.name })) || [],
+    [itemsCategories],
+  );
+
   const [form, setForm] = useState(null);
 
   const [lines, setLines] = useState([]);
@@ -203,6 +236,15 @@ export default function InvoiceEditPage() {
     {
       skip: !hasPayment,
     },
+  );
+
+  const cashboxOptions = useMemo(
+    () =>
+      cashboxes?.map((c) => ({
+        value: c.id,
+        label: `${c.name} (${currencyLabels[c.currency] || c.currency})`,
+      })) || [],
+    [cashboxes],
   );
 
   // =========================================================
@@ -520,15 +562,21 @@ export default function InvoiceEditPage() {
     // =====================================================
     // مهم:
     //
-    // ممنوع نمنع itemId === null
-    //
-    // لأن الـ API بالفعل يسمح بسطر يدوي:
-    //
-    // itemId: null
-    // itemName: "lohvhfg"
-    //
-    // وبالتالي التحقق يكون على البيانات الأساسية فقط.
+    // بعض حقول الأسطر (زي السعر) ممكن تتحدّث في الـ state بتاعها
+    // على onBlur جوه InvoiceLineRow. لو المستخدم كتب في السعر
+    // ودوس "حفظ" على طول من غير ما يخرج من الحقل (Tab/كليك برا)،
+    // الـ blur ميحصلش قبل ما handleSubmit يشتغل، فآخر قيمة كتبها
+    // متوصلش لـ lines state. الحل: نشيل الـ focus من أي input
+    // نشط يدوي عشان نجبر أي onBlur commit يحصل الأول.
     // =====================================================
+
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
+    // بننتظر تكة واحدة عشان أي setState جوه onBlur يتطبق فعليًا
+    // قبل ما نقرأ lines وننادي buildInvoiceUpdateBody
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const hasInvalidLine = lines.some((line) => {
       const hasAnyData =
@@ -544,6 +592,13 @@ export default function InvoiceEditPage() {
 
       return Number(line.count) <= 0 || Number(line.weight) <= 0;
     });
+
+    if (hasInvalidLine) {
+      toast.error(
+        "في سطر ناقص بيانات (العدد أو الوزن لازم يكونوا أكبر من صفر)",
+      );
+      return;
+    }
 
     try {
       const body = buildInvoiceUpdateBody({
@@ -561,7 +616,13 @@ export default function InvoiceEditPage() {
       toast.success("تم حفظ التعديلات بنجاح");
 
       navigate(`/dashboard/sales/${id}`);
-    } catch (err) {}
+    } catch (error) {
+      toast.error(
+        error?.data?.detail ||
+          error?.data?.title ||
+          "حدث خطأ أثناء حفظ التعديلات، حاول تاني",
+      );
+    }
   };
 
   // =========================================================
@@ -605,10 +666,11 @@ export default function InvoiceEditPage() {
   return (
     <div className="animate-fadeUp pb-24" dir="rtl">
       {/* =====================================================
-          Header
+          Header — sticky عشان زرار الحفظ يفضل ظاهر مع الاسكرول
+          في فاتورة طويلة (أداء/UX)
       ====================================================== */}
 
-      <div className="flex items-center justify-between mb-5">
+      <div className="sticky top-0 z-10 flex items-center justify-between mb-5 bg-slate-50/95 backdrop-blur py-2 -mx-1 px-1">
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
@@ -699,12 +761,7 @@ export default function InvoiceEditPage() {
             </label>
 
             <CompactSelect
-              options={
-                parties?.map((p) => ({
-                  value: p.id,
-                  label: p.name,
-                })) || []
-              }
+              options={partyOptions}
               value={form.businessPartnerId}
               onChange={(v) => setField("businessPartnerId", v)}
               isLoading={isLoadingParties}
@@ -718,12 +775,7 @@ export default function InvoiceEditPage() {
             </label>
 
             <CompactSelect
-              options={
-                stores?.map((s) => ({
-                  value: s.id,
-                  label: s.name,
-                })) || []
-              }
+              options={storeOptions}
               value={form.storeId}
               onChange={(v) => setField("storeId", v)}
               isLoading={isLoadingStores}
@@ -756,12 +808,7 @@ export default function InvoiceEditPage() {
             </label>
 
             <CompactSelect
-              options={
-                countries?.map((c) => ({
-                  value: c.id,
-                  label: c.name,
-                })) || []
-              }
+              options={countryOptions}
               value={form.countryId}
               onChange={(v) => setField("countryId", v)}
               isLoading={isLoadingCountries}
@@ -775,12 +822,7 @@ export default function InvoiceEditPage() {
             </label>
 
             <CompactSelect
-              options={
-                drivers?.map((d) => ({
-                  value: d.id,
-                  label: d.name,
-                })) || []
-              }
+              options={driverOptions}
               value={form.driverId}
               onChange={(v) => setField("driverId", v)}
               isLoading={isLoadingDrivers}
@@ -823,12 +865,7 @@ export default function InvoiceEditPage() {
             </label>
 
             <CompactSelect
-              options={
-                itemsCategories?.map((c) => ({
-                  value: c.id,
-                  label: c.name,
-                })) || []
-              }
+              options={itemsCategoryOptions}
               value={form.itemsCategoryId}
               onChange={(v) => setField("itemsCategoryId", v)}
               isLoading={isLoadingCategories}
@@ -879,14 +916,7 @@ export default function InvoiceEditPage() {
               </label>
 
               <CompactSelect
-                options={
-                  cashboxes?.map((c) => ({
-                    value: c.id,
-                    label: `${c.name} (${
-                      currencyLabels[c.currency] || c.currency
-                    })`,
-                  })) || []
-                }
+                options={cashboxOptions}
                 value={form.cashboxId}
                 onChange={handleCashboxChange}
                 placeholder="اختر الخزنة"
@@ -964,7 +994,7 @@ export default function InvoiceEditPage() {
             </p>
           </div>
 
-          <Button variant="outline" onClick={addLine}>
+          <Button variant="outline" onClick={addLine} disabled={isSaving}>
             <Plus size={15} />
             إضافة صنف
           </Button>
@@ -1048,7 +1078,11 @@ export default function InvoiceEditPage() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-display font-bold text-ink-900">العبوات</h3>
 
-          <Button variant="outline" onClick={addContainerLine}>
+          <Button
+            variant="outline"
+            onClick={addContainerLine}
+            disabled={isSaving}
+          >
             <Plus size={15} />
             إضافة عبوة
           </Button>

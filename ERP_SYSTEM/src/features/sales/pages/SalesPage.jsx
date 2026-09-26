@@ -24,6 +24,7 @@ const emptyFilters = {
   driverId: "",
   paymentMethod: "",
   status: "",
+  itemId: "",
   fromDate: "",
   toDate: "",
 };
@@ -45,7 +46,6 @@ export default function SalesPage() {
     useGetInvoicesForSummaryQuery(appliedFilters, {
       skip: !triggerExport,
     });
-
   useEffect(() => {
     if (triggerExport && exportData) {
       const fileName =

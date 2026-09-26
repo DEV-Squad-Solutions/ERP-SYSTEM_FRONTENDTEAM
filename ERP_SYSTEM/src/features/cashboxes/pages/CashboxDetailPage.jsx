@@ -69,6 +69,9 @@ const emptyFilters = {
   isDraft: "",
   fromDate: "",
   toDate: "",
+  // جديد: بيتدعموا في الإندبوينت الجديد GET /api/v1/CashVouchers
+  accountId: "",
+  includeSubAccounts: "",
 };
 
 const directionOptions = [
@@ -213,6 +216,10 @@ export default function CashboxDetailPage() {
             : undefined,
       fromDate: filters.applied.fromDate || undefined,
       toDate: filters.applied.toDate || undefined,
+      // جديد: AccountId / IncludeSubAccounts من الإندبوينت الجديد
+      accountId: filters.applied.accountId || undefined,
+      includeSubAccounts:
+        filters.applied.includeSubAccounts === "true" ? "true" : undefined,
     }),
     [cashboxId, page, pageSize, filters.applied],
   );
@@ -627,6 +634,34 @@ export default function CashboxDetailPage() {
                     }
                   />
 
+                  <Input
+                    label="رقم الحساب (AccountId)"
+                    placeholder="اختياري"
+                    value={filters.draft.accountId}
+                    onChange={(event) =>
+                      setFilter("accountId", event.target.value)
+                    }
+                  />
+
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium">
+                      تضمين الحسابات الفرعية
+                    </label>
+
+                    <CompactSelect
+                      options={[
+                        { value: "true", label: "نعم" },
+                        { value: "false", label: "لا" },
+                      ]}
+                      value={filters.draft.includeSubAccounts}
+                      onChange={(value) =>
+                        setFilter("includeSubAccounts", value)
+                      }
+                      isDisabled={!filters.draft.accountId}
+                      placeholder="الكل"
+                    />
+                  </div>
+
                   <div>
                     <label className="mb-1.5 block text-sm font-medium">
                       حالة السند
@@ -711,7 +746,6 @@ export default function CashboxDetailPage() {
           <CashboxLedgerPrintTemplate
             cashbox={cashbox}
             items={data?.items || []}
-            summary={data?.summary}
             fromDate={filters.applied.fromDate}
             toDate={filters.applied.toDate}
           />

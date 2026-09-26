@@ -198,7 +198,9 @@ const ROLES = {
   CASHIER: "Cashier",
   USER: "User",
 };
-
+const AccountingReadinessPage = lazy(
+  () => import("../features/accountingReadiness/pages/AccountingReadinessPage"),
+);
 const FULL_ACCESS_ROLES = [ROLES.ADMIN, ROLES.ACCOUNTANT];
 const INVOICE_ROLES = [
   ROLES.ADMIN,
@@ -815,6 +817,16 @@ export const router = createBrowserRouter([
           <LazyPage>
             <Role roles={FULL_ACCESS_ROLES}>
               <FinancialStatementsPage />
+            </Role>
+          </LazyPage>
+        ),
+      },
+      {
+        path: "accounting-readiness",
+        element: (
+          <LazyPage>
+            <Role roles={FULL_ACCESS_ROLES}>
+              <AccountingReadinessPage />
             </Role>
           </LazyPage>
         ),

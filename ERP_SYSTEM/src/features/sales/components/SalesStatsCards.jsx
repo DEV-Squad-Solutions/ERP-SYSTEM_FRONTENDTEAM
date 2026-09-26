@@ -4,6 +4,7 @@ import {
   Wallet,
   AlertCircle,
   BadgePercent,
+  Boxes,
 } from "lucide-react";
 
 /**
@@ -50,10 +51,17 @@ export default function SalesStatsCards({ summary, isLoading }) {
       icon: AlertCircle,
       tone: "text-negative bg-negative/10",
     },
+    {
+      label: "إجمالي الكمية",
+      value: summary?.totalQuantity,
+      icon: Boxes,
+      tone: "text-blue-500 bg-blue-50",
+      isQuantity: true,
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
       {cards.map((card) => (
         <div
           key={card.label}
@@ -73,10 +81,10 @@ export default function SalesStatsCards({ summary, isLoading }) {
             ) : (
               <p className="num font-bold text-ink-900 text-sm truncate">
                 {(Number(card.value) || 0).toLocaleString("ar-EG", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                ج.م
+                  minimumFractionDigits: card.isQuantity ? 0 : 2,
+                  maximumFractionDigits: card.isQuantity ? 0 : 2,
+                })}
+                {card.isQuantity ? "" : " ج.م"}
               </p>
             )}
           </div>

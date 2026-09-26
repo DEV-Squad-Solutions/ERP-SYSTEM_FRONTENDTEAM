@@ -236,30 +236,6 @@ export default function CashboxLedgerTable({
 
   const isForeign = currency !== baseCurrency;
 
-  const openingBalance = useMemo(
-    () =>
-      toNumber(
-        data?.summary?.openingBalance ??
-          data?.summary?.openingCashboxBalance ??
-          data?.summary?.previousBalance ??
-          data?.openingBalance ??
-          0,
-      ),
-    [data],
-  );
-
-  const openingBaseBalance = useMemo(
-    () =>
-      toNumber(
-        data?.summary?.openingBaseBalance ??
-          data?.summary?.openingBaseCashboxBalance ??
-          data?.summary?.previousBaseBalance ??
-          data?.openingBaseBalance ??
-          0,
-      ),
-    [data],
-  );
-
   const getDescriptionGroups = useCallback(
     (direction) =>
       buildDescriptionGroups(partySelect, {
@@ -576,137 +552,79 @@ export default function CashboxLedgerTable({
     [executeDeleteVoucher, isAdmin, onDeleteVoucher],
   );
 
-  const rows = useMemo(() => {
-    const chronological = [...vouchers].sort((a, b) => {
-      const dateCompare = String(a.voucherDate || "").localeCompare(
-        String(b.voucherDate || ""),
-      );
+  // الرصيد بقى بييجي جاهز من الباك (cashboxBalance) — سواء كان الترتيب
+  // زمني أو صفحة معينة، الباك هو اللي بيحسب التراكم مش الفرونت.
+  // برضو baseAmount بقى راجع من الـ API مباشرة بدل ما يتحسب هنا بضرب
+  // amount * exchangeRate.
+  const rows = useMemo(
+    () =>
+      vouchers.map((voucher) => {
+        const amount = toNumber(voucher.amount);
 
-      if (dateCompare !== 0) {
-        return dateCompare;
-      }
+        const exchangeRate =
+          toNumber(voucher.exchangeRate ?? voucher.rate ?? 1) || 1;
 
-      return String(a.voucherNumber || "").localeCompare(
-        String(b.voucherNumber || ""),
-        undefined,
-        {
-          numeric: true,
-        },
-      );
-    });
+        const baseAmount = toNumber(
+          voucher.baseAmount ?? amount * exchangeRate,
+        );
 
-    let running = openingBalance;
-    let baseRunning = openingBaseBalance;
+        const debit = voucher.direction === "Receipt" ? amount : 0;
+        const credit = voucher.direction === "Payment" ? amount : 0;
+        const baseDebit = voucher.direction === "Receipt" ? baseAmount : 0;
+        const baseCredit = voucher.direction === "Payment" ? baseAmount : 0;
 
-    const calculatedRows = new Map();
+        const isDescribed = Boolean(
+          voucher.cashMovementTypeId ||
+          voucher.accountId ||
+          voucher.employeeId ||
+          voucher.businessPartnerId ||
+          voucher.driverId ||
+          voucher.externalPartyName,
+        );
 
-    chronological.forEach((voucher) => {
-      const amount = toNumber(voucher.amount);
+        const isDraft =
+          typeof voucher.isDraft === "boolean" ? voucher.isDraft : !isDescribed;
 
-      const exchangeRate =
-        toNumber(voucher.exchangeRate ?? voucher.rate ?? 1) || 1;
-
-      const baseAmount = toNumber(voucher.baseAmount ?? amount * exchangeRate);
-
-      const debit = voucher.direction === "Receipt" ? amount : 0;
-
-      const credit = voucher.direction === "Payment" ? amount : 0;
-
-      const baseDebit = voucher.direction === "Receipt" ? baseAmount : 0;
-
-      const baseCredit = voucher.direction === "Payment" ? baseAmount : 0;
-
-      running += debit - credit;
-      baseRunning += baseDebit - baseCredit;
-
-      const isDescribed = Boolean(
-        voucher.cashMovementTypeId ||
-        voucher.accountId ||
-        voucher.employeeId ||
-        voucher.businessPartnerId ||
-        voucher.driverId ||
-        voucher.externalPartyName,
-      );
-
-      const isDraft =
-        typeof voucher.isDraft === "boolean" ? voucher.isDraft : !isDescribed;
-
-      calculatedRows.set(String(voucher.id), {
-        ...voucher,
-        amount,
-        exchangeRate,
-        baseAmount,
-        debit,
-        credit,
-        baseDebit,
-        baseCredit,
-        balance: running,
-        baseBalance: baseRunning,
-        isDescribed,
-        isDraft,
-      });
-    });
-
-    return vouchers.map(
-      (voucher) =>
-        calculatedRows.get(String(voucher.id)) || {
+        return {
           ...voucher,
-          amount: toNumber(voucher.amount),
-          exchangeRate:
-            toNumber(voucher.exchangeRate ?? voucher.rate ?? 1) || 1,
-          baseAmount: toNumber(voucher.baseAmount ?? voucher.amount ?? 0),
-          debit: voucher.direction === "Receipt" ? toNumber(voucher.amount) : 0,
-          credit:
-            voucher.direction === "Payment" ? toNumber(voucher.amount) : 0,
-          baseDebit:
-            voucher.direction === "Receipt"
-              ? toNumber(voucher.baseAmount ?? voucher.amount)
-              : 0,
-          baseCredit:
-            voucher.direction === "Payment"
-              ? toNumber(voucher.baseAmount ?? voucher.amount)
-              : 0,
-          balance: 0,
-          baseBalance: 0,
-          isDescribed: Boolean(
-            voucher.cashMovementTypeId ||
-            voucher.accountId ||
-            voucher.employeeId ||
-            voucher.businessPartnerId ||
-            voucher.driverId ||
-            voucher.externalPartyName,
-          ),
-          isDraft:
-            typeof voucher.isDraft === "boolean"
-              ? voucher.isDraft
-              : !voucher.cashMovementTypeId,
+          amount,
+          exchangeRate,
+          baseAmount,
+          debit,
+          credit,
+          baseDebit,
+          baseCredit,
+          // مفيش تراكم بيتحسب في الفرونت خالص، الرقم ده جاي زي ما هو من الباك
+          balance: toNumber(voucher.cashboxBalance),
+          isDescribed,
+          isDraft,
+        };
+      }),
+    [vouchers],
+  );
+
+  // إجمالي وارد/صادر الصفحة المعروضة فقط (مش رصيد افتتاحي/ختامي —
+  // ده بقى مسؤولية الباك بالكامل).
+  const totals = useMemo(
+    () =>
+      rows.reduce(
+        (result, row) => {
+          result.debit += row.debit;
+          result.credit += row.credit;
+          result.baseDebit += row.baseDebit;
+          result.baseCredit += row.baseCredit;
+
+          return result;
         },
-    );
-  }, [openingBalance, openingBaseBalance, vouchers]);
-
-  const totals = useMemo(() => {
-    return rows.reduce(
-      (result, row) => {
-        result.debit += row.debit;
-        result.credit += row.credit;
-        result.baseDebit += row.baseDebit;
-        result.baseCredit += row.baseCredit;
-
-        return result;
-      },
-      {
-        debit: 0,
-        credit: 0,
-        baseDebit: 0,
-        baseCredit: 0,
-      },
-    );
-  }, [rows]);
-
-  const finalBalance = openingBalance + totals.debit - totals.credit;
-
-  const finalBaseBalance =
-    openingBaseBalance + totals.baseDebit - totals.baseCredit;
+        {
+          debit: 0,
+          credit: 0,
+          baseDebit: 0,
+          baseCredit: 0,
+        },
+      ),
+    [rows],
+  );
 
   const showEmptyState = !isFetching && rows.length === 0 && !isAdding;
 
@@ -1014,12 +932,6 @@ export default function CashboxLedgerTable({
                       }`}
                     >
                       {fmt(row.balance)}
-
-                      {isForeign && (
-                        <div className="mt-0.5 truncate text-[9px] font-normal text-ink-400">
-                          {fmt(row.baseBalance)} {baseCurrency}
-                        </div>
-                      )}
                     </td>
 
                     <td className="num border-l border-ink-400/5 px-2 py-2 text-sm text-positive">

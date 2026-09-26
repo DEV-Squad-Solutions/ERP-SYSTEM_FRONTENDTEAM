@@ -1,14 +1,6 @@
 // features/fiscalYears/components/FiscalYearFormModal.jsx
-//
-// TODO INTEGRATION: نفس نمط EmployeeFormModal - بيفترض Modal.jsx بنفس
-// الـprops (isOpen/onClose/title/children).
-//
-// ملحوظة مهمة: الـPUT بيتطلب rowVersion (concurrency token) - لازم نبعت
-// نفس القيمة اللي جاية من fiscalYear.rowVersion في الـGET/list، وإلا
-// السيرفر بيرفض بـ400 Validation.Failed. الحقل ده مش ظاهر للمستخدم،
-// بيتبعت hidden جوه الفورم.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,6 +13,13 @@ import {
   useCreateFiscalYearMutation,
   useUpdateFiscalYearMutation,
 } from "../fiscalYearsApi";
+
+const getDefaultDates = (year = new Date().getFullYear()) => ({
+  startDate: `${year}-01-01`,
+  endDate: `${year}-12-31`,
+});
+
+const currentYearDates = getDefaultDates();
 
 const schema = z
   .object({
@@ -45,9 +44,8 @@ const schema = z
   });
 
 const defaultValues = {
-  name: "",
-  startDate: "",
-  endDate: "",
+  name: String(new Date().getFullYear()),
+  ...currentYearDates,
   isCurrent: true,
   rowVersion: "",
 };
@@ -59,40 +57,87 @@ export default function FiscalYearFormModal({
   onSaved,
 }) {
   const isEdit = Boolean(fiscalYear);
+
   const [createFiscalYear, { isLoading: isCreating }] =
     useCreateFiscalYearMutation();
+
   const [updateFiscalYear, { isLoading: isUpdating }] =
     useUpdateFiscalYearMutation();
+
   const isSubmitting = isCreating || isUpdating;
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues,
   });
 
-  const wasOpenRef = { current: false };
+  const wasOpenRef = useRef(false);
+  const previousYearRef = useRef(defaultValues.name);
+
+  const name = watch("name");
+  const startDate = watch("startDate");
+  const endDate = watch("endDate");
+
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
-      reset(
-        fiscalYear
-          ? {
-              name: fiscalYear.name,
-              startDate: fiscalYear.startDate,
-              endDate: fiscalYear.endDate,
-              isCurrent: fiscalYear.isCurrent,
-              rowVersion: fiscalYear.rowVersion || "",
-            }
-          : defaultValues,
-      );
+      if (fiscalYear) {
+        reset({
+          name: fiscalYear.name || "",
+          startDate: fiscalYear.startDate || "",
+          endDate: fiscalYear.endDate || "",
+          isCurrent: fiscalYear.isCurrent ?? false,
+          rowVersion: fiscalYear.rowVersion || "",
+        });
+
+        previousYearRef.current = fiscalYear.name || "";
+      } else {
+        const year = new Date().getFullYear();
+
+        reset({
+          name: String(year),
+          ...getDefaultDates(year),
+          isCurrent: true,
+          rowVersion: "",
+        });
+
+        previousYearRef.current = String(year);
+      }
     }
+
     wasOpenRef.current = isOpen;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, fiscalYear, reset]);
+
+  useEffect(() => {
+    if (isEdit || !isOpen) return;
+
+    const year = String(name || "").trim();
+
+    if (!/^\d{4}$/.test(year)) return;
+
+    const previousYear = previousYearRef.current;
+
+    const previousDates = getDefaultDates(Number(previousYear));
+
+    const datesAreDefault =
+      startDate === previousDates.startDate &&
+      endDate === previousDates.endDate;
+
+    if (datesAreDefault) {
+      const newDates = getDefaultDates(Number(year));
+
+      setValue("startDate", newDates.startDate);
+      setValue("endDate", newDates.endDate);
+    }
+
+    previousYearRef.current = year;
+  }, [name, startDate, endDate, isEdit, isOpen, setValue]);
 
   const onSubmit = async (data) => {
     try {
@@ -124,6 +169,7 @@ export default function FiscalYearFormModal({
 
         toast.success("تم إنشاء السنة المالية بنجاح");
       }
+
       onSaved?.();
       onClose();
     } catch (error) {
@@ -153,6 +199,7 @@ export default function FiscalYearFormModal({
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600">
             <CalendarRange size={17} />
           </div>
+
           <p className="text-xs leading-relaxed text-ink-600">
             حدد اسم السنة المالية وفترتها الزمنية. لن يمكن تعديل هذه البيانات
             بعد إغلاق السنة.
@@ -166,13 +213,14 @@ export default function FiscalYearFormModal({
           error={errors.name?.message}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="تاريخ البداية"
             type="date"
             {...register("startDate")}
             error={errors.startDate?.message}
           />
+
           <Input
             label="تاريخ النهاية"
             type="date"
@@ -181,7 +229,7 @@ export default function FiscalYearFormModal({
           />
         </div>
 
-        <label className="flex items-center gap-2.5 rounded-xl border border-ink-400/10 bg-ink-400/[0.02] px-3.5 py-3 text-sm text-ink-700 cursor-pointer select-none transition-colors hover:bg-ink-400/5">
+        <label className="flex cursor-pointer select-none items-center gap-2.5 rounded-xl border border-ink-400/10 bg-ink-400/[0.02] px-3.5 py-3 text-sm text-ink-700 transition-colors hover:bg-ink-400/5">
           <input
             type="checkbox"
             {...register("isCurrent")}
@@ -190,7 +238,7 @@ export default function FiscalYearFormModal({
           جعلها السنة المالية الحالية
         </label>
 
-        <div className="flex justify-end gap-2 pt-3 border-t border-ink-400/10">
+        <div className="flex justify-end gap-2 border-t border-ink-400/10 pt-3">
           <Button
             type="button"
             variant="outline"
@@ -199,6 +247,7 @@ export default function FiscalYearFormModal({
           >
             إلغاء
           </Button>
+
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "جارِ الحفظ..." : "حفظ"}
           </Button>

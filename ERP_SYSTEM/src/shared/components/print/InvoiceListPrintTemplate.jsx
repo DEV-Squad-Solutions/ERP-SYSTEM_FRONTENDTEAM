@@ -42,13 +42,6 @@ export default function InvoiceListPrintTemplate({
 
   const today = new Date().toLocaleDateString("ar-EG");
 
-  // إجمالي الكمية عبر كل أصناف كل الفواتير المعروضة في التقرير
-  const totalQuantity = invoices.reduce(
-    (sum, inv) =>
-      sum + (inv.lines?.reduce((s, l) => s + Number(l.quantity || 0), 0) || 0),
-    0,
-  );
-
   return (
     <div
       dir="rtl"
@@ -104,8 +97,6 @@ export default function InvoiceListPrintTemplate({
           <p style={{ margin: "2px 0" }}>تاريخ الطباعة: {today}</p>
 
           <p style={{ margin: "2px 0" }}>عدد الفواتير: {invoices.length}</p>
-
-          <p style={{ margin: "2px 0" }}>إجمالي الكمية: {fmt(totalQuantity)}</p>
         </div>
       </div>
 
@@ -267,7 +258,7 @@ export default function InvoiceListPrintTemplate({
               <tr>
                 <td style={summaryTitle}>إجمالي الكمية</td>
                 <td style={{ ...summaryValue, fontWeight: 700 }}>
-                  {fmt(totalQuantity)}
+                  {fmt(summary.totalQuantity)}
                 </td>
               </tr>
 

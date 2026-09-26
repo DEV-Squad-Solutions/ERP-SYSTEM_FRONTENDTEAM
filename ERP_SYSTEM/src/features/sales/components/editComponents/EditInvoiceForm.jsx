@@ -1,35 +1,84 @@
-import { useEffect, memo } from "react";
+import { useEffect, useMemo, memo, useCallback } from "react";
 import { Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
 import { useGetItemUnitsSelectQuery } from "../../../units/itemUnitsApi";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 
+/* =========================================================
+   Helpers — نفس المنطق المستخدم في نسخة التعديل (NewInvoiceLineRow)
+   عشان الحسابات والـ payload يتصرفوا بنفس الطريقة في الإنشاء والتعديل
+========================================================= */
+
+const round2 = (value) => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+
+  return Math.round((number + Number.EPSILON) * 100) / 100;
+};
+
+const toNumber = (value) => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  return Number.isFinite(number) ? number : null;
+};
+
 /**
  * @param {{
  * line: Object,
- * onChange: (line:Object)=>void,
- * onRemove: ()=>void,
  * index:number
  * }} props
+ *
+ * ملحوظة أداء:
+ * بنستقبل updateLine/removeLine (مراجع ثابتة عبر useCallback من الأب)
+ * بدل onChange/onRemove جاهزين ومربوطين بالـ index. لو الأب بيبعتهم
+ * كـ (newLine) => updateLine(index, newLine) inline جوه .map()، بيتبنوا
+ * من جديد كل render ويلغوا فايدة memo() هنا تمامًا. لو الأب (على
+ * الأغلب CreateInvoiceForm) لسه بيبعت onChange/onRemove زي ما هما،
+ * لازم يتعدّل هو كمان بنفس الباتيرن اللي اتعمل في InvoiceEditPage.
  */
 
-function InvoiceLineRow({ line, onChange, onRemove, index }) {
+function InvoiceLineRow({ line, updateLine, removeLine, index }) {
+  const onChange = useCallback(
+    (newLine) => updateLine(index, newLine),
+    [updateLine, index],
+  );
+
+  const onRemove = useCallback(() => removeLine(index), [removeLine, index]);
+
   const {
     data: items,
     isLoading: isLoadingItems,
     isError: isItemsError,
   } = useGetItemsSelectQuery();
 
+  // الفيكس الأساسي: بنبعت line.itemId ونعمل skip لو مفيش صنف مختار،
+  // بدل ما نجيب وحدات مش متربطة بالصنف خالص.
   const { data: itemUnits, isLoading: isLoadingUnits } =
-    useGetItemUnitsSelectQuery();
-
-  const set = (key, value) => {
-    onChange({
-      ...line,
-      [key]: value,
+    useGetItemUnitsSelectQuery(line.itemId, {
+      skip: !line.itemId,
     });
-  };
+
+  const set = useCallback(
+    (key, value) => {
+      onChange({
+        ...line,
+        [key]: value,
+      });
+    },
+    [line, onChange],
+  );
 
   /**
    * تحديث بيانات الصنف فقط
@@ -40,6 +89,13 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
     const selected = items.find((i) => i.id === line.itemId);
 
     if (!selected) return;
+
+    // ما ننادوش onChange غير لو الاسم/الكود فعلاً مختلفين، عشان
+    // مانعملش تحديث بلا داعي كل مرة الـ items array يتغيّر reference
+    // بتاعها (زي refetch وقت العودة للتاب).
+    if (line.itemName === selected.name && line.itemCode === selected.code) {
+      return;
+    }
 
     onChange({
       ...line,
@@ -62,6 +118,8 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
 
     if (!unit) return;
 
+    if (unit.name === line.itemUnitName) return;
+
     onChange({
       ...line,
       itemUnitName: unit.name,
@@ -72,51 +130,90 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
 
   /**
    * تغيير العدد
+   *
+   * مهم: لما الحقل يتفضّى بنسيب count = "" مش 0، عشان buildInvoicePayload
+   * (hasCount check) يعتبره "مش موجود" ويرجع لوضع "الكمية فقط" بدل ما
+   * يبعت count:0 للسيرفر غصب عنك.
    */
-  const handleCountChange = (count) => {
-    const weight = Number(line.weight) || 0;
+  const handleCountChange = useCallback(
+    (rawValue) => {
+      if (rawValue === "") {
+        onChange({
+          ...line,
+          count: "",
+          quantity: toNumber(line.weight) !== null ? 0 : line.quantity,
+        });
 
-    onChange({
-      ...line,
-      count,
-      quantity: count * weight,
-    });
-  };
+        return;
+      }
+
+      const count = Number(rawValue);
+      const weight = toNumber(line.weight) ?? 0;
+
+      onChange({
+        ...line,
+        count,
+        quantity: round2(count * weight),
+      });
+    },
+    [line, onChange],
+  );
 
   /**
    * تغيير الوزن يدويا
    */
-  const handleWeightChange = (weight) => {
-    const count = Number(line.count) || 0;
+  const handleWeightChange = useCallback(
+    (rawValue) => {
+      if (rawValue === "") {
+        onChange({
+          ...line,
+          weight: "",
+          quantity: toNumber(line.count) !== null ? 0 : line.quantity,
+        });
 
-    onChange({
-      ...line,
-      weight,
-      quantity: count * weight,
-    });
-  };
+        return;
+      }
 
-  const handleRemove = () => {
+      const weight = Number(rawValue);
+      const count = toNumber(line.count) ?? 0;
+
+      onChange({
+        ...line,
+        weight,
+        quantity: round2(count * weight),
+      });
+    },
+    [line, onChange],
+  );
+
+  const handleRemove = useCallback(() => {
     onRemove();
 
     toast.success("تم حذف الصنف من الفاتورة", {
       description: line.itemName || "صنف بدون اسم",
     });
-  };
+  }, [line.itemName, onRemove]);
 
-  const total = (Number(line.quantity) || 0) * (Number(line.price) || 0);
+  const total =
+    round2((toNumber(line.quantity) ?? 0) * (toNumber(line.price) ?? 0)) ?? 0;
 
-  const itemOptions =
-    items?.map((i) => ({
-      value: i.id,
-      label: i.name,
-    })) || [];
+  const itemOptions = useMemo(
+    () =>
+      items?.map((i) => ({
+        value: i.id,
+        label: i.name,
+      })) || [],
+    [items],
+  );
 
-  const unitOptions =
-    itemUnits?.map((u) => ({
-      value: u.id,
-      label: u.name,
-    })) || [];
+  const unitOptions = useMemo(
+    () =>
+      itemUnits?.map((u) => ({
+        value: u.id,
+        label: u.name,
+      })) || [],
+    [itemUnits],
+  );
 
   const inputCls =
     "w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm num text-center bg-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/10 transition-shadow";
@@ -141,13 +238,9 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
         ) : (
           <CompactSelect
             options={itemOptions}
-
             value={line.itemId}
-
             onChange={(value) => set("itemId", value)}
-
             isLoading={isLoadingItems}
-
             placeholder="اختر الصنف"
           />
         )}
@@ -157,15 +250,10 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
       <td className="p-2 min-w-[120px]">
         <CompactSelect
           options={unitOptions}
-
           value={line.itemUnitId}
-
           onChange={(value) => set("itemUnitId", value)}
-
           isLoading={isLoadingUnits}
-
           isDisabled={!line.itemId}
-
           placeholder={line.itemId ? "الوحدة" : "اختر الصنف أولاً"}
         />
       </td>
@@ -174,13 +262,9 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
       <td className="p-2 w-20">
         <input
           type="number"
-
           value={line.count ?? ""}
-
-          onChange={(e) => handleCountChange(Number(e.target.value))}
-
+          onChange={(e) => handleCountChange(e.target.value)}
           className={inputCls}
-
           placeholder="0"
         />
       </td>
@@ -189,13 +273,9 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
       <td className="p-2 w-24">
         <input
           type="number"
-
           value={line.weight ?? ""}
-
-          onChange={(e) => handleWeightChange(Number(e.target.value))}
-
+          onChange={(e) => handleWeightChange(e.target.value)}
           className={inputCls}
-
           placeholder="0"
         />
       </td>
@@ -211,15 +291,11 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
       <td className="p-2 w-28">
         <input
           type="number"
-
           value={line.price ?? ""}
-
           onChange={(e) =>
-            set("price", e.target.value ? Number(e.target.value) : 0)
+            set("price", e.target.value === "" ? "" : Number(e.target.value))
           }
-
           className={inputCls}
-
           placeholder="بدون سعر"
         />
       </td>
@@ -241,11 +317,8 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
       <td className="p-2 min-w-[130px]">
         <input
           value={line.notes || ""}
-
           onChange={(e) => set("notes", e.target.value)}
-
           placeholder="ملاحظة اختيارية"
-
           className="w-full rounded-lg border border-ink-400/15 px-2.5 py-2 text-sm bg-white focus:outline-none"
         />
       </td>
@@ -254,11 +327,8 @@ function InvoiceLineRow({ line, onChange, onRemove, index }) {
       <td className="p-2 w-12 text-center">
         <button
           type="button"
-
           onClick={handleRemove}
-
           className="p-2 rounded-lg text-ink-400 opacity-60 group-hover:opacity-100 hover:text-negative hover:bg-negative/10 transition-all"
-
           title="حذف الصنف"
         >
           <Trash2 size={15} />
