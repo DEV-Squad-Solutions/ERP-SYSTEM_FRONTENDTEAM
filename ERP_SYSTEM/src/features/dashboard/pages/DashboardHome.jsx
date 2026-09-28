@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { motion, animate } from "framer-motion";
 import {
@@ -38,6 +39,7 @@ import {
 } from "recharts";
 import { useGetDashboardSummaryQuery } from "../dashboardApi";
 import useDashboardPrint from "../../../shared/hooks/useDashboardPrint";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import DashboardPrintTemplate from "../../../shared/components/print/DashboardPrintTemplate";
 
 /* ------------------------------------------------------------------ */
@@ -315,9 +317,26 @@ function ChartTooltip({ active, payload, label, currency }) {
 export default function DashboardPage() {
   const [range, setRange] = useState({ fromDate: "", toDate: "" });
 
+  const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
+  const selectedFiscalYear = useSelector((state) =>
+    state.fiscalYear?.fiscalYears?.find((y) => y.id === selectedFiscalYearId),
+  );
+
+  // فلتر التواريخ لازم يفضل جوه حدود السنة — لما السنة تتغير بنصفّره
+  // والباك إند يرجّع نطاق السنة الجديدة كله
+  useEffect(() => {
+    setRange({ fromDate: "", toDate: "" });
+  }, [selectedFiscalYearId]);
+
+  // مانبعتش الطلب قبل ما السنة المختارة تتحدد (بدل طلب من غير سنة
+  // وبعدين طلب تاني بعد ما تتحدد)
   const { data, isLoading, isFetching, isError, error, refetch } =
     useGetDashboardSummaryQuery(
-      range.fromDate && range.toDate ? range : undefined,
+      {
+        fiscalYearId: selectedFiscalYearId ?? undefined,
+        ...(range.fromDate && range.toDate ? range : {}),
+      },
+      { skip: !selectedFiscalYearId },
     );
   const { printDashboard, printRef } = useDashboardPrint({
     title: `تقرير لوحة التحكم - ${data?.fiscalYearName || "التقرير"}`,
@@ -346,7 +365,7 @@ export default function DashboardPage() {
     ].filter((d) => d.value > 0);
   }, [data]);
 
-  if (isLoading) {
+  if (isLoading || !selectedFiscalYearId) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3 text-slate-400">
         <motion.div
@@ -406,6 +425,8 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <input
               type="date"
+              min={selectedFiscalYear?.startDate?.slice(0, 10)}
+              max={selectedFiscalYear?.endDate?.slice(0, 10)}
               value={range.fromDate}
               onChange={(e) =>
                 setRange((r) => ({ ...r, fromDate: e.target.value }))
@@ -415,6 +436,8 @@ export default function DashboardPage() {
             <span className="text-sm text-teal-100">إلى</span>
             <input
               type="date"
+              min={selectedFiscalYear?.startDate?.slice(0, 10)}
+              max={selectedFiscalYear?.endDate?.slice(0, 10)}
               value={range.toDate}
               onChange={(e) =>
                 setRange((r) => ({ ...r, toDate: e.target.value }))

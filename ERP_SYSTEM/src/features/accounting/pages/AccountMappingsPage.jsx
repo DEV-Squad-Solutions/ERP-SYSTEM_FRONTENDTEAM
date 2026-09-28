@@ -14,6 +14,8 @@ import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
 import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
 import { useGetAccountsSelectQuery } from "../../accounts/accountsApi";
 import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 
 // تسميات الأنواع اللي مفردة (بدون مصدر)
 const SINGLE_TYPE_LABELS = {
@@ -84,13 +86,20 @@ function buildSourceRows({ cashboxes, cashMovementTypes }) {
 
 export default function AccountMappingsPage() {
   const { data: fiscalYears } = useGetFiscalYearsSelectQuery();
+  const globalFiscalYearId = useSelector(selectSelectedFiscalYearId);
   const [fiscalYearId, setFiscalYearId] = useState(null);
 
   useEffect(() => {
-    if (!fiscalYearId && fiscalYears?.length) {
-      setFiscalYearId(fiscalYears[0].id);
-    }
-  }, [fiscalYears, fiscalYearId]);
+    if (fiscalYearId || !fiscalYears?.length) return;
+
+    // اتصال بالسنة المالية المختارة عمومًا من الـ Navbar لو موجودة
+    // ومتاحة ضمن سنوات الشركة، وإلا الرجوع لأول سنة في القائمة.
+    const matchesGlobal = fiscalYears.some(
+      (fy) => fy.id === globalFiscalYearId,
+    );
+
+    setFiscalYearId(matchesGlobal ? globalFiscalYearId : fiscalYears[0].id);
+  }, [fiscalYears, fiscalYearId, globalFiscalYearId]);
 
   const selectedFiscalYear = fiscalYears?.find((fy) => fy.id === fiscalYearId);
   const canEdit = selectedFiscalYear?.status === "Open";

@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { Search, RotateCcw, Plus, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +14,8 @@ import {
 
 import StockOpeningBalancesTable from "../../inventory/components/StockOpeningBalancesTable";
 import StockOpeningBalanceForm from "../../inventory/components/StockOpeningBalanceForm";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 const emptyFilters = {
   documentNumber: "",
@@ -21,9 +25,18 @@ const emptyFilters = {
 };
 
 export default function StockOpeningBalancesPage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const [view, setView] = useState("list"); // "list" | "form"
@@ -123,11 +136,15 @@ export default function StockOpeningBalancesPage() {
           </p>
         </div>
 
-        <Button onClick={openCreateForm} className="h-9">
+        <Button onClick={openCreateForm} className="h-9" disabled={isFiscalYearReadOnly}>
           <Plus size={14} />
           إضافة رصيد افتتاحي
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       <div className="rounded-2xl border border-ink-400/10 bg-white p-3 shadow-card">
         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">

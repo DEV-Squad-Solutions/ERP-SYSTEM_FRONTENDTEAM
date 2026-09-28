@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // features/exchange-rates/components/ImportExchangeRatesModal.jsx
 
 import { useEffect, useState } from "react";
@@ -32,6 +35,7 @@ function todayISO() {
 }
 
 export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [step, setStep] = useState("form"); // form | preview | result
   const [rateDate, setRateDate] = useState(todayISO());
   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
@@ -63,6 +67,15 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
   }
 
   async function handlePreview() {
+    const fiscalYearWarning = [rateDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     try {
       await previewImport({
         rateDate,
@@ -78,6 +91,15 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
   }
 
   async function handleConfirmImport() {
+    const fiscalYearWarning = [rateDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     try {
       await runImport({
         rateDate,
@@ -114,6 +136,8 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
             </label>
             <input
               type="date"
+                            min={selectedFiscalYear?.startDate}
+              max={selectedFiscalYear?.endDate}
               value={rateDate}
               onChange={(e) => setRateDate(e.target.value)}
               className="w-full rounded-xl border border-ink-400/15 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-primary-500"

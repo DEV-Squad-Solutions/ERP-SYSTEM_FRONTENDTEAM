@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import CashVoucherEditModal from "./CashVoucherEditModal";
 import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
@@ -215,6 +216,7 @@ export default function CashboxLedgerTable({
   onPageSizeChange,
 }) {
   const isAdmin = useSelector(selectIsAdmin);
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const [isAdding, setIsAdding] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -684,7 +686,7 @@ export default function CashboxLedgerTable({
         </div>
       )}
 
-      {!isAdding && (
+      {!isAdding && !isFiscalYearReadOnly && (
         <div className="mb-2">
           <button
             type="button"
@@ -697,6 +699,13 @@ export default function CashboxLedgerTable({
             />
             إضافة حركة جديدة
           </button>
+        </div>
+      )}
+
+      {isFiscalYearReadOnly && (
+        <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
+          السنة المالية "{fiscalYear?.name}" مغلقة أو ليست السنة الحالية — الشاشة للعرض فقط ولا
+          يمكن إضافة أو تعديل حركات عليها.
         </div>
       )}
 
@@ -908,10 +917,15 @@ export default function CashboxLedgerTable({
                 const isDescriptionLocked = isNonDescribableRow(row);
 
                 const isRowEditable =
-                  !isInvoiceGenerated && !isNonEditableRow(row);
+                  !isFiscalYearReadOnly &&
+                  !isInvoiceGenerated &&
+                  !isNonEditableRow(row);
 
                 const isRowDeletable =
-                  isAdmin && !isInvoiceGenerated && !isNonEditableRow(row);
+                  !isFiscalYearReadOnly &&
+                  isAdmin &&
+                  !isInvoiceGenerated &&
+                  !isNonEditableRow(row);
 
                 const descriptionGroups = getDescriptionGroups(row.direction);
 

@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 // features/statements/pages/EmployeeAccountPage.jsx
 
 import { useCallback, useMemo, useState } from "react";
@@ -33,6 +35,16 @@ export default function EmployeeAccountPage() {
   });
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    setFilters((prev) => ({
+      ...prev,
+      draft: clampFilterDates(prev.draft, ["FromDate", "ToDate"], fy),
+      applied: clampFilterDates(prev.applied, ["FromDate", "ToDate"], fy),
+    }));
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const statementParams = useMemo(

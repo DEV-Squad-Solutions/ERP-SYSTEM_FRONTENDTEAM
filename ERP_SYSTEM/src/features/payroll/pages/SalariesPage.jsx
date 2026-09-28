@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -33,6 +35,8 @@ import { useGetCashMovementTypesQuery } from "../../cashboxes/cashMovementTypesA
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Pagination from "../../../shared/components/ui/Pagination";
 
 import MoveSalaryModal from "../components/MoveSalaryModal";
@@ -59,11 +63,25 @@ function isRowMoved(row) {
 
 export default function SalariesPage() {
   const navigate = useNavigate();
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وردّ الفترة لحدود السنة لو خرجت منها
+  useOnFiscalYearChange((fy) => {
+    const bounds = {
+      startDate: String(fy.startDate).slice(0, 10),
+      endDate: String(fy.endDate).slice(0, 10),
+    };
+    const fix = (f) =>
+      clampFilterDates(f, ["startDate", "endDate"], fy, bounds);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -231,7 +249,7 @@ export default function SalariesPage() {
               <Button
                 onClick={() => setBulkMoveOpen(true)}
                 className="h-9"
-                disabled={isDeleting}
+                disabled={isDeleting || isFiscalYearReadOnly}
               >
                 <Send size={14} />
                 ترحيل المحدد ({selectedIds.size})
@@ -240,7 +258,7 @@ export default function SalariesPage() {
               <Button
                 variant="outline"
                 onClick={handleBulkDelete}
-                disabled={isDeleting}
+                disabled={isDeleting || isFiscalYearReadOnly}
                 className="h-9 text-negative hover:text-negative"
               >
                 {isDeleting ? (
@@ -274,6 +292,7 @@ export default function SalariesPage() {
           <Button
             onClick={() => navigate("/dashboard/payroll/salaries/create")}
             className="h-9"
+            disabled={isFiscalYearReadOnly}
           >
             <Plus size={14} />
             قيود مرتبات جديدة
@@ -281,11 +300,17 @@ export default function SalariesPage() {
         </div>
       </div>
 
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
+
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           <Input
             label="من تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.startDate}
             onChange={(e) => setField("startDate", e.target.value)}
           />
@@ -293,6 +318,8 @@ export default function SalariesPage() {
           <Input
             label="إلى تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.endDate}
             onChange={(e) => setField("endDate", e.target.value)}
           />
@@ -548,7 +575,7 @@ export default function SalariesPage() {
                             التفاصيل
                           </button>
 
-                          {!isMoved && (
+                          {!isMoved && !isFiscalYearReadOnly && (
                             <button
                               type="button"
                               onClick={() => setMoveModalRow(row)}
@@ -562,7 +589,7 @@ export default function SalariesPage() {
                           <button
                             type="button"
                             onClick={() => handleRecalculate(row.id)}
-                            disabled={isRecalculating}
+                            disabled={isRecalculating || isFiscalYearReadOnly}
                             title="إعادة احتساب"
                             className="rounded-lg p-1.5 text-ink-400 transition hover:bg-ink-400/10 hover:text-ink-700 disabled:opacity-40"
                           >

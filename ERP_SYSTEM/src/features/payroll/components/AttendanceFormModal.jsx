@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -137,6 +140,7 @@ function toApiTime(value) {
 }
 
 export default function AttendanceFormModal({ isOpen, onClose, attendance }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const isEdit = Boolean(attendance);
 
   const { data: employeesData = [], isLoading: employeesLoading } =
@@ -226,6 +230,15 @@ export default function AttendanceFormModal({ isOpen, onClose, attendance }) {
   }, [isOpen, attendance, reset]);
 
   const onSubmit = async (data) => {
+    const fiscalYearWarning = [data.workDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     const payload = {
       employeeId: Number(data.employeeId),
 
@@ -331,6 +344,8 @@ export default function AttendanceFormModal({ isOpen, onClose, attendance }) {
           <Input
             label="التاريخ"
             type="date"
+            min={selectedFiscalYear?.startDate}
+            max={selectedFiscalYear?.endDate}
             {...register("workDate")}
             error={errors.workDate?.message}
           />

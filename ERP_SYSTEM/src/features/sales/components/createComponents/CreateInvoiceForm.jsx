@@ -42,6 +42,9 @@ import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePri
 import NumericInput from "../../../../shared/components/ui/NumericInput";
 import { useGetCashboxOptionsQuery } from "../../../cashboxes/cashboxesApi";
 import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../../lib/fiscalYearDateRange";
 
 const emptyLine = () => ({
   itemId: null,
@@ -295,6 +298,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const [fullReturnState, setFullReturnState] = useState(null);
 
   const [header, setHeader] = useState(getDefaultHeader);
+
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+  const invoiceDateWarning = useMemo(
+    () => getFiscalYearDateWarning(header.date, selectedFiscalYear),
+    [header.date, selectedFiscalYear],
+  );
 
   const [lines, setLines] = useState(() =>
     Array.from({ length: 10 }, () => emptyLine()),
@@ -683,6 +692,11 @@ export default function CreateInvoiceForm({ onSuccess }) {
         return;
       }
 
+      if (invoiceDateWarning) {
+        toast.error(invoiceDateWarning);
+        return;
+      }
+
       // التحقق من صحة الفاتورة (عميل، مخزن، أصناف، خزنة نقدي...) بقى
       // مسؤولية الباك بالكامل، وأي رفض بيوصل هنا في الـ catch تحت.
       const payload = buildCreateInvoiceRequest({
@@ -715,6 +729,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
       containersMovement,
       isTemporaryDriver,
       priceModifiedReturnLines,
+      invoiceDateWarning,
       createInvoice,
       onSuccess,
       printInvoice,
@@ -791,6 +806,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
             type="date"
             value={header.date}
             onChange={(e) => setHeaderField("date", e.target.value)}
+            error={invoiceDateWarning}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3">

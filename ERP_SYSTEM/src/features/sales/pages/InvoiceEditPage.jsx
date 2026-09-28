@@ -32,6 +32,8 @@ import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 import InvoiceLineRow from "../components/createComponents/NewInvoiceLineRow";
 import ContainerLineRow from "../components/editComponents/ContainerLineRow";
@@ -104,6 +106,7 @@ const emptyContainerLine = () => ({
 export default function InvoiceEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const {
     data: invoice,
@@ -699,12 +702,19 @@ export default function InvoiceEditPage() {
           </div>
         </div>
 
-        <Button onClick={handleSubmit} disabled={isSaving}>
+        <Button
+          onClick={handleSubmit}
+          disabled={isSaving || isFiscalYearReadOnly}
+        >
           <Save size={16} />
 
           {isSaving ? "جاري الحفظ..." : "حفظ التعديلات"}
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {/* =====================================================
           بيانات الفاتورة الأساسية

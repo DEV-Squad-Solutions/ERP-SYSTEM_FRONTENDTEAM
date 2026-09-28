@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // features/payroll/components/PayrollEntryFormModal.jsx
 
 import { useEffect } from "react";
@@ -26,6 +29,7 @@ const defaultValues = {
 };
 
 export default function PayrollEntryFormModal({ isOpen, onClose }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const {
     register,
     control,
@@ -51,6 +55,15 @@ export default function PayrollEntryFormModal({ isOpen, onClose }) {
   }, [isOpen, reset]);
 
   const onSubmit = async (data) => {
+    const fiscalYearWarning = [data.startDate, data.endDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     if (!data.employeeId) {
       toast.error("الموظف مطلوب");
       return;
@@ -115,6 +128,8 @@ export default function PayrollEntryFormModal({ isOpen, onClose }) {
           <Input
             label="من تاريخ"
             type="date"
+            min={selectedFiscalYear?.startDate}
+            max={selectedFiscalYear?.endDate}
             {...register("startDate", {
               required: "التاريخ مطلوب",
             })}
@@ -124,6 +139,8 @@ export default function PayrollEntryFormModal({ isOpen, onClose }) {
           <Input
             label="إلى تاريخ"
             type="date"
+            min={selectedFiscalYear?.startDate}
+            max={selectedFiscalYear?.endDate}
             {...register("endDate", {
               required: "التاريخ مطلوب",
             })}

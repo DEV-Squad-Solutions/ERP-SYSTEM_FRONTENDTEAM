@@ -32,6 +32,17 @@ function BalanceTypeBadge({ type }) {
   );
 }
 
+function CarriedForwardBadge() {
+  return (
+    <span
+      title="هذا الرصيد مرحّل تلقائيًا من قيد إقفال السنة المالية السابقة، ولا يمكن تعديله أو حذفه من هنا."
+      className="inline-flex items-center rounded-full bg-ink-400/10 px-2.5 py-1 text-xs font-medium text-ink-500"
+    >
+      مرحل من السنة السابقة
+    </span>
+  );
+}
+
 export default function PartnerOpeningBalancesTable({
   data,
   isLoading,
@@ -120,7 +131,10 @@ export default function PartnerOpeningBalancesTable({
           </thead>
 
           <tbody>
-            {items.map((item) => (
+            {items.map((item) => {
+              const isCarriedForward = item.isCarriedForward;
+
+              return (
               <tr
                 key={item.id}
                 className="border-b border-ink-400/5 transition-colors last:border-0 hover:bg-ink-900/[0.012]"
@@ -135,7 +149,10 @@ export default function PartnerOpeningBalancesTable({
                   {item.businessPartnerName || "—"}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <BalanceTypeBadge type={item.balanceType} />
+                  <div className="flex flex-col items-center gap-1">
+                    <BalanceTypeBadge type={item.balanceType} />
+                    {isCarriedForward && <CarriedForwardBadge />}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-center text-sm text-ink-600">
                   {currencyLabels[item.currency] || item.currency}
@@ -156,28 +173,31 @@ export default function PartnerOpeningBalancesTable({
                   {item.notes || "—"}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onEdit?.(item)}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
-                      title="تعديل"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete?.(item)}
-                      disabled={deletingId === item.id}
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
-                      title="حذف"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                  {!isCarriedForward && (
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onEdit?.(item)}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                        title="تعديل"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete?.(item)}
+                        disabled={deletingId === item.id}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
+                        title="حذف"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

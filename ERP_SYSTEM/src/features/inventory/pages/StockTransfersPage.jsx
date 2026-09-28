@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -29,6 +31,8 @@ import Pagination from "../../../shared/components/ui/Pagination";
 
 // عدّل المسار إذا كانت hooks عندك في ملف مختلف
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 const emptyFilters = {
   search: "",
@@ -39,10 +43,19 @@ const emptyFilters = {
 };
 
 export default function StockTransfersPage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const [showForm, setShowForm] = useState(false);
@@ -181,11 +194,15 @@ export default function StockTransfersPage() {
           </p>
         </div>
 
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} disabled={isFiscalYearReadOnly}>
           <Plus size={16} />
           تحويل مخزني
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {/* Summary */}
 
@@ -429,20 +446,24 @@ export default function StockTransfersPage() {
                           <Eye size={15} />
                         </ActionButton>
 
-                        <ActionButton
-                          title="تعديل"
-                          onClick={() => openEdit(row)}
-                        >
-                          <Pencil size={15} />
-                        </ActionButton>
+                        {!isFiscalYearReadOnly && (
+                          <>
+                            <ActionButton
+                              title="تعديل"
+                              onClick={() => openEdit(row)}
+                            >
+                              <Pencil size={15} />
+                            </ActionButton>
 
-                        <ActionButton
-                          danger
-                          title="حذف"
-                          onClick={() => handleDelete(row)}
-                        >
-                          <Trash2 size={15} />
-                        </ActionButton>
+                            <ActionButton
+                              danger
+                              title="حذف"
+                              onClick={() => handleDelete(row)}
+                            >
+                              <Trash2 size={15} />
+                            </ActionButton>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

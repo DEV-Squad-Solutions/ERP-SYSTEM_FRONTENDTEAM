@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
 import { useMemo, useRef, useState } from "react";
 import {
   Search,
@@ -395,6 +397,14 @@ export default function ItemProfitabilityPage() {
   const [filters, setFilters] = useState(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
   const [pageNumber, setPageNumber] = useState(1);
+
+  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => resetRangeIfOutside(f, "fromDate", "toDate", fy);
+    setFilters(fix);
+    setAppliedFilters(fix);
+    setPageNumber(1);
+  });
 
   const [filtersOpen, setFiltersOpen] = useState(true);
 

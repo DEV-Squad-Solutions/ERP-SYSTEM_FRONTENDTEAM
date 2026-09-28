@@ -1,0 +1,4417 @@
+diff --git a/ERP_SYSTEM/src/app/store.js b/ERP_SYSTEM/src/app/store.js
+index 0d8a91d..5bf2904 100644
+--- a/ERP_SYSTEM/src/app/store.js
++++ b/ERP_SYSTEM/src/app/store.js
+@@ -1,12 +1,17 @@
+ import { configureStore } from "@reduxjs/toolkit";
+ import { baseApi } from "../lib/baseApi";
+ import authReducer from "../features/auth/authSlice";
++import fiscalYearReducer from "../features/fiscalYears/fiscalYearSlice";
++import { fiscalYearMiddleware } from "../lib/fiscalYearMiddleware";
+ 
+ export const store = configureStore({
+   reducer: {
+     [baseApi.reducerPath]: baseApi.reducer,
+     auth: authReducer,
++    fiscalYear: fiscalYearReducer,
+   },
+   middleware: (getDefaultMiddleware) =>
+-    getDefaultMiddleware().concat(baseApi.middleware),
++    getDefaultMiddleware()
++      .concat(baseApi.middleware)
++      .concat(fiscalYearMiddleware),
+ });
+diff --git a/ERP_SYSTEM/src/features/TrialBalance/pages/AfterAdjustmentTrialBalancePage.jsx.jsx b/ERP_SYSTEM/src/features/TrialBalance/pages/AfterAdjustmentTrialBalancePage.jsx.jsx
+index 945d7fa..c997339 100644
+--- a/ERP_SYSTEM/src/features/TrialBalance/pages/AfterAdjustmentTrialBalancePage.jsx.jsx
++++ b/ERP_SYSTEM/src/features/TrialBalance/pages/AfterAdjustmentTrialBalancePage.jsx.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { Scale, RefreshCw } from "lucide-react";
+ import { useGetOperationalTrialBalanceQuery } from "../../statements/statementsApi";
+@@ -48,6 +50,13 @@ export default function AfterAdjustmentTrialBalancePage() {
+ 
+   const [applied, setApplied] = useState(draft);
+ 
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setDraft(fix);
++    setApplied(fix);
++  });
++
+   const { data, isLoading, isFetching, isError, refetch } =
+     useGetOperationalTrialBalanceQuery({
+       ...applied,
+diff --git a/ERP_SYSTEM/src/features/TrialBalance/pages/BeforeAdjustmentTrialBalancePage.jsx b/ERP_SYSTEM/src/features/TrialBalance/pages/BeforeAdjustmentTrialBalancePage.jsx
+index c201192..fdb7649 100644
+--- a/ERP_SYSTEM/src/features/TrialBalance/pages/BeforeAdjustmentTrialBalancePage.jsx
++++ b/ERP_SYSTEM/src/features/TrialBalance/pages/BeforeAdjustmentTrialBalancePage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { Scale, RefreshCw } from "lucide-react";
+ import { useGetOperationalTrialBalanceQuery } from "../../statements/statementsApi";
+@@ -53,6 +55,13 @@ export default function BeforeAdjustmentTrialBalancePage() {
+ 
+   const [applied, setApplied] = useState(draft);
+ 
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setDraft(fix);
++    setApplied(fix);
++  });
++
+   const { data, isLoading, isFetching, isError, refetch } =
+     useGetOperationalTrialBalanceQuery({
+       ...applied,
+diff --git a/ERP_SYSTEM/src/features/accounting/pages/AccountMappingsPage.jsx b/ERP_SYSTEM/src/features/accounting/pages/AccountMappingsPage.jsx
+index 1e6a993..9e33aa1 100644
+--- a/ERP_SYSTEM/src/features/accounting/pages/AccountMappingsPage.jsx
++++ b/ERP_SYSTEM/src/features/accounting/pages/AccountMappingsPage.jsx
+@@ -14,6 +14,8 @@ import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
+ import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovementTypesApi";
+ import { useGetAccountsSelectQuery } from "../../accounts/accountsApi";
+ import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
+ 
+ // تسميات الأنواع اللي مفردة (بدون مصدر)
+ const SINGLE_TYPE_LABELS = {
+@@ -84,13 +86,20 @@ function buildSourceRows({ cashboxes, cashMovementTypes }) {
+ 
+ export default function AccountMappingsPage() {
+   const { data: fiscalYears } = useGetFiscalYearsSelectQuery();
++  const globalFiscalYearId = useSelector(selectSelectedFiscalYearId);
+   const [fiscalYearId, setFiscalYearId] = useState(null);
+ 
+   useEffect(() => {
+-    if (!fiscalYearId && fiscalYears?.length) {
+-      setFiscalYearId(fiscalYears[0].id);
+-    }
+-  }, [fiscalYears, fiscalYearId]);
++    if (fiscalYearId || !fiscalYears?.length) return;
++
++    // اتصال بالسنة المالية المختارة عمومًا من الـ Navbar لو موجودة
++    // ومتاحة ضمن سنوات الشركة، وإلا الرجوع لأول سنة في القائمة.
++    const matchesGlobal = fiscalYears.some(
++      (fy) => fy.id === globalFiscalYearId,
++    );
++
++    setFiscalYearId(matchesGlobal ? globalFiscalYearId : fiscalYears[0].id);
++  }, [fiscalYears, fiscalYearId, globalFiscalYearId]);
+ 
+   const selectedFiscalYear = fiscalYears?.find((fy) => fy.id === fiscalYearId);
+   const canEdit = selectedFiscalYear?.status === "Open";
+diff --git a/ERP_SYSTEM/src/features/accountingReadiness/pages/AccountingReadinessPage.jsx b/ERP_SYSTEM/src/features/accountingReadiness/pages/AccountingReadinessPage.jsx
+index 49f9596..7d37a4c 100644
+--- a/ERP_SYSTEM/src/features/accountingReadiness/pages/AccountingReadinessPage.jsx
++++ b/ERP_SYSTEM/src/features/accountingReadiness/pages/AccountingReadinessPage.jsx
+@@ -21,6 +21,8 @@ import {
+   useBackfillAccountingReadinessMutation,
+ } from "../accountingReadinessApi";
+ import { useGetFiscalYearsQuery } from "../../fiscalYears/fiscalYearsApi";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
+ 
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
+@@ -79,6 +81,7 @@ function resolveMappingLink(issue) {
+ export default function AccountingReadinessPage() {
+   const navigate = useNavigate();
+ 
++  const globalFiscalYearId = useSelector(selectSelectedFiscalYearId);
+   const [fiscalYearId, setFiscalYearId] = useState(null);
+   const [isBackfillOpen, setIsBackfillOpen] = useState(false);
+   const [isBackfilling, setIsBackfilling] = useState(false);
+@@ -99,9 +102,16 @@ export default function AccountingReadinessPage() {
+ 
+   const activeFiscalYearId = useMemo(() => {
+     if (fiscalYearId) return Number(fiscalYearId);
++
++    // اتصال بالسنة المالية المختارة عمومًا لو موجودة ضمن سنوات الشركة
++    const matchesGlobal = fiscalYearsData?.items?.some(
++      (fy) => fy.id === globalFiscalYearId,
++    );
++    if (matchesGlobal) return globalFiscalYearId;
++
+     const current = fiscalYearsData?.items?.find((fy) => fy.isCurrent);
+     return current?.id ?? fiscalYearsData?.items?.[0]?.id ?? null;
+-  }, [fiscalYearId, fiscalYearsData]);
++  }, [fiscalYearId, fiscalYearsData, globalFiscalYearId]);
+ 
+   const {
+     data: readiness,
+diff --git a/ERP_SYSTEM/src/features/auth/authApi.js b/ERP_SYSTEM/src/features/auth/authApi.js
+index 90332fd..7ba0615 100644
+--- a/ERP_SYSTEM/src/features/auth/authApi.js
++++ b/ERP_SYSTEM/src/features/auth/authApi.js
+@@ -1,5 +1,10 @@
+ import { baseApi } from "../../lib/baseApi";
+-import { setCredentials, setCompanySelection } from "./authSlice";
++import {
++  setCredentials,
++  setCompanySelection,
++  setCompanySwitch,
++} from "./authSlice";
++import { resetFiscalYear } from "../fiscalYears/fiscalYearSlice";
+ 
+ export const authApi = baseApi.injectEndpoints({
+   endpoints: (builder) => ({
+@@ -39,7 +44,42 @@ export const authApi = baseApi.injectEndpoints({
+         } catch {}
+       },
+     }),
++
++    /**
++     * تغيير الشركة بدون تسجيل خروج (POST /Auth/switch-company).
++     * بعد النجاح: استبدال التوكنز، مسح كل كاش الـ API القديم
++     * (بيانات الشركة السابقة)، ومسح السنة المالية المختارة —
++     * بالظبط الخطوات الموضّحة في دليل تكامل الشركات.
++     */
++    switchCompany: builder.mutation({
++      query: (body) => ({
++        url: "/auth/switch-company",
++        method: "POST",
++        body,
++      }),
++
++      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
++        try {
++          const { data } = await queryFulfilled;
++
++          dispatch(
++            setCompanySwitch({ ...data, selectedCompanyId: arg.companyId }),
++          );
++
++          // مسح selectedFiscalYearId القديم؛ FiscalYearSwitcher هيعيد
++          // تحميل /FiscalYears/select ويختار السنة الحالية للشركة الجديدة
++          dispatch(resetFiscalYear());
++
++          // مسح كل كاش RTK Query (بيانات الشركة السابقة بالكامل)
++          dispatch(baseApi.util.resetApiState());
++        } catch {}
++      },
++    }),
+   }),
+ });
+ 
+-export const { useLoginMutation, useSelectCompanyMutation } = authApi;
++export const {
++  useLoginMutation,
++  useSelectCompanyMutation,
++  useSwitchCompanyMutation,
++} = authApi;
+diff --git a/ERP_SYSTEM/src/features/auth/authSlice.js b/ERP_SYSTEM/src/features/auth/authSlice.js
+index 28f1a12..bbc79b7 100644
+--- a/ERP_SYSTEM/src/features/auth/authSlice.js
++++ b/ERP_SYSTEM/src/features/auth/authSlice.js
+@@ -132,6 +132,32 @@ const authSlice = createSlice({
+       persistState(state);
+     },
+ 
++    /**
++     * تغيير الشركة بدون Logout عن طريق POST /Auth/switch-company.
++     * بيستبدل التوكنز، ويحدّث الشركة المختارة — الـ caller (authApi)
++     * مسؤول عن مسح كاش الـ API وسنة العرض المالية بعدها.
++     */
++    setCompanySwitch: (state, action) => {
++      const data = action.payload;
++
++      state.accessToken = data.accessToken || null;
++      state.refreshToken = data.refreshToken || state.refreshToken;
++      state.isAuthenticated = !!data.accessToken;
++
++      if (data.userId) {
++        state.userId = data.userId;
++      }
++
++      const company =
++        state.companies.find(
++          (company) => company.id === data.selectedCompanyId,
++        ) || state.selectedCompany;
++
++      state.selectedCompany = company;
++
++      persistState(state);
++    },
++
+     setPermissions: (state, action) => {
+       state.permissions = normalizeArray(action.payload);
+       persistState(state);
+@@ -163,8 +189,10 @@ const authSlice = createSlice({
+ 
+ export const selectUserId = (state) => state.auth.userId;
+ export const selectAccessToken = (state) => state.auth.accessToken;
++export const selectRefreshToken = (state) => state.auth.refreshToken;
+ export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
+ export const selectSelectedCompany = (state) => state.auth.selectedCompany;
++export const selectCompanies = (state) => state.auth.companies || [];
+ export const selectRoles = (state) => state.auth.roles || [];
+ export const selectPermissions = (state) => state.auth.permissions || [];
+ 
+@@ -174,6 +202,7 @@ export const selectIsAdmin = (state) =>
+ export const {
+   setCredentials,
+   setCompanySelection,
++  setCompanySwitch,
+   updateTokens,
+   setPermissions,
+   setRoles,
+diff --git a/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherEditModal.jsx b/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherEditModal.jsx
+index fa4b300..b1f598d 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherEditModal.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherEditModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useEffect, useMemo, useRef, useState } from "react";
+ import { useForm, Controller } from "react-hook-form";
+ import { zodResolver } from "@hookform/resolvers/zod";
+@@ -73,6 +76,7 @@ export default function CashVoucherEditModal({
+   currency,
+   baseCurrency,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [saving, setSaving] = useState(false);
+ 
+   const { data: partySelect, isFetching: isLoadingPartySelect } =
+@@ -187,6 +191,15 @@ export default function CashVoucherEditModal({
+   const isInvoiceGenerated = Boolean(voucher.invoiceId);
+ 
+   async function onSubmit(values) {
++    const fiscalYearWarning = [values.voucherDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     const selectedOption = groups
+       .flatMap((group) => group.options)
+       .find((option) => option.value === values.descriptionValue);
+@@ -262,6 +275,8 @@ export default function CashVoucherEditModal({
+             <Input
+               type="date"
+               label="تاريخ السند"
++                            min={selectedFiscalYear?.startDate}
++              max={selectedFiscalYear?.endDate}
+               {...register("voucherDate")}
+               error={errors.voucherDate?.message}
+             />
+diff --git a/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherFormModal.jsx b/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherFormModal.jsx
+index 5fafb38..5d7a8b4 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherFormModal.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/components/CashVoucherFormModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { toast } from "sonner";
+ import { ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
+@@ -29,6 +32,7 @@ export default function CashVoucherFormModal({
+   cashboxId,
+   onCreated,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [createVoucher, { isLoading }] = useCreateCashVoucherMutation();
+   const [form, setForm] = useState(emptyForm());
+ 
+@@ -37,6 +41,16 @@ export default function CashVoucherFormModal({
+   const handleSubmit = async (e) => {
+     e.preventDefault();
+ 
++    const fiscalYearWarning = [form.voucherDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
++
+     if (!Number(form.amount) || Number(form.amount) <= 0) {
+       toast.error("أدخل مبلغ أكبر من صفر");
+       return;
+@@ -98,6 +112,8 @@ export default function CashVoucherFormModal({
+         <Input
+           label="التاريخ"
+           type="date"
++                    min={selectedFiscalYear?.startDate}
++          max={selectedFiscalYear?.endDate}
+           value={form.voucherDate}
+           onChange={(e) => set("voucherDate", e.target.value)}
+         />
+diff --git a/ERP_SYSTEM/src/features/cashboxes/components/CashboxLedgerTable.jsx b/ERP_SYSTEM/src/features/cashboxes/components/CashboxLedgerTable.jsx
+index 74892f3..83d7e36 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/components/CashboxLedgerTable.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/components/CashboxLedgerTable.jsx
+@@ -13,6 +13,7 @@ import {
+ } from "lucide-react";
+ import { useSelector } from "react-redux";
+ import { toast } from "sonner";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+ import CashVoucherEditModal from "./CashVoucherEditModal";
+ import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
+ import Pagination from "../../../shared/components/ui/Pagination";
+@@ -215,6 +216,7 @@ export default function CashboxLedgerTable({
+   onPageSizeChange,
+ }) {
+   const isAdmin = useSelector(selectIsAdmin);
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   const [isAdding, setIsAdding] = useState(false);
+   const [saving, setSaving] = useState(false);
+@@ -684,7 +686,7 @@ export default function CashboxLedgerTable({
+         </div>
+       )}
+ 
+-      {!isAdding && (
++      {!isAdding && !isFiscalYearReadOnly && (
+         <div className="mb-2">
+           <button
+             type="button"
+@@ -700,6 +702,13 @@ export default function CashboxLedgerTable({
+         </div>
+       )}
+ 
++      {isFiscalYearReadOnly && (
++        <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
++          السنة المالية "{fiscalYear?.name}" مغلقة أو ليست السنة الحالية — الشاشة للعرض فقط ولا
++          يمكن إضافة أو تعديل حركات عليها.
++        </div>
++      )}
++
+       <div
+         className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-200 ${
+           isFetching ? "opacity-60" : "opacity-100"
+@@ -908,10 +917,15 @@ export default function CashboxLedgerTable({
+                 const isDescriptionLocked = isNonDescribableRow(row);
+ 
+                 const isRowEditable =
+-                  !isInvoiceGenerated && !isNonEditableRow(row);
++                  !isFiscalYearReadOnly &&
++                  !isInvoiceGenerated &&
++                  !isNonEditableRow(row);
+ 
+                 const isRowDeletable =
+-                  isAdmin && !isInvoiceGenerated && !isNonEditableRow(row);
++                  !isFiscalYearReadOnly &&
++                  isAdmin &&
++                  !isInvoiceGenerated &&
++                  !isNonEditableRow(row);
+ 
+                 const descriptionGroups = getDescriptionGroups(row.direction);
+ 
+diff --git a/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferEditModal.jsx b/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferEditModal.jsx
+index 7e9dd33..2587705 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferEditModal.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferEditModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useForm, Controller } from "react-hook-form";
+ import { zodResolver } from "@hookform/resolvers/zod";
+ import { z } from "zod";
+@@ -36,6 +39,7 @@ export default function CashboxTransferEditModal({
+   transfer,
+   onDone,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const cashboxOptions = Array.isArray(cashboxes) ? cashboxes : [];
+ 
+   const [updateTransfer, { isLoading }] = useUpdateCashboxTransferMutation();
+@@ -59,6 +63,15 @@ export default function CashboxTransferEditModal({
+   });
+ 
+   const onSubmit = async (values) => {
++    const fiscalYearWarning = [values.date]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     try {
+       await updateTransfer({
+         id: transfer.id,
+@@ -137,6 +150,8 @@ export default function CashboxTransferEditModal({
+           label="التاريخ"
+           type="date"
+           error={errors.date?.message}
++          min={selectedFiscalYear?.startDate}
++          max={selectedFiscalYear?.endDate}
+           {...register("date")}
+         />
+ 
+diff --git a/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferFormModal.jsx b/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferFormModal.jsx
+index 2e95ac5..be84ec0 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferFormModal.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/components/CashboxTransferFormModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useEffect, useMemo, useRef } from "react";
+ import { useForm, Controller } from "react-hook-form";
+ import { zodResolver } from "@hookform/resolvers/zod";
+@@ -139,6 +142,7 @@ export default function CashboxTransferFormModal({
+   transfer = null,
+   onSaved,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const isEdit = Boolean(transfer);
+ 
+   const cashboxOptions = Array.isArray(cashboxes) ? cashboxes : [];
+@@ -359,6 +363,15 @@ export default function CashboxTransferFormModal({
+   // =========================================================
+ 
+   const onSubmit = async (values) => {
++    const fiscalYearWarning = [values.transferDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     if (hasInsufficientBalance) {
+       toast.error(
+         `الرصيد غير كافي. الرصيد الحالي ${formatNumber(
+@@ -721,6 +734,8 @@ export default function CashboxTransferFormModal({
+           label="تاريخ التحويل"
+           type="date"
+           error={errors.transferDate?.message}
++          min={selectedFiscalYear?.startDate}
++          max={selectedFiscalYear?.endDate}
+           {...register("transferDate")}
+         />
+ 
+diff --git a/ERP_SYSTEM/src/features/cashboxes/components/ExpenseQuickEntryModal.jsx b/ERP_SYSTEM/src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
+index d2b21b3..586b4e5 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
+@@ -1,3 +1,7 @@
++import { toast } from "sonner";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
+ 
+ import { useState, useEffect, useMemo } from "react";
+@@ -37,6 +41,7 @@ const emptyForm = {
+ };
+ 
+ export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [form, setForm] = useState(emptyForm);
+ 
+   useEffect(() => {
+@@ -142,6 +147,16 @@ export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
+   async function handleSubmit() {
+     if (!canSubmit) return;
+ 
++    const fiscalYearWarning = [form.voucherDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
++
+     const payload = {
+       voucherDate: form.voucherDate,
+       direction: "Payment",
+@@ -209,6 +224,8 @@ export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
+             </label>
+             <input
+               type="date"
++                            min={selectedFiscalYear?.startDate}
++              max={selectedFiscalYear?.endDate}
+               value={form.voucherDate}
+               onChange={(e) => setField("voucherDate", e.target.value)}
+               className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"
+diff --git a/ERP_SYSTEM/src/features/cashboxes/pages/CashboxDetailPage.jsx b/ERP_SYSTEM/src/features/cashboxes/pages/CashboxDetailPage.jsx
+index 54f26ea..92d4ab7 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/pages/CashboxDetailPage.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/pages/CashboxDetailPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useState } from "react";
+ 
+ import { useParams, useNavigate } from "react-router-dom";
+@@ -156,6 +158,16 @@ export default function CashboxDetailPage() {
+ 
+   const [filtersOpen, setFiltersOpen] = useState(true);
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    setFilters((prev) => ({
++      ...prev,
++      draft: clampFilterDates(prev.draft, ["fromDate", "toDate"], fy),
++      applied: clampFilterDates(prev.applied, ["fromDate", "toDate"], fy),
++    }));
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(25);
+   const [showHandover, setShowHandover] = useState(false);
+ 
+diff --git a/ERP_SYSTEM/src/features/cashboxes/pages/CashboxTransfersPage.jsx b/ERP_SYSTEM/src/features/cashboxes/pages/CashboxTransfersPage.jsx
+index b4ea0c6..b18b422 100644
+--- a/ERP_SYSTEM/src/features/cashboxes/pages/CashboxTransfersPage.jsx
++++ b/ERP_SYSTEM/src/features/cashboxes/pages/CashboxTransfersPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { useNavigate } from "react-router-dom";
+ import { toast } from "sonner";
+@@ -15,6 +17,8 @@ import Modal from "../../../shared/components/ui/Modal";
+ import Input from "../../../shared/components/ui/Input";
+ import Button from "../../../shared/components/ui/Button";
+ import Pagination from "../../../shared/components/ui/Pagination";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ import { useGetCashboxesQuery } from "../cashboxesApi";
+ 
+@@ -55,6 +59,7 @@ function fmtDate(date) {
+ 
+ export default function CashboxTransfersPage() {
+   const navigate = useNavigate();
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   // =========================
+   // Filters
+@@ -68,6 +73,16 @@ export default function CashboxTransfersPage() {
+   // Pagination
+   // =========================
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    setFilters((prev) => ({
++      ...prev,
++      draft: clampFilterDates(prev.draft, ["FromDate", "ToDate"], fy),
++      applied: clampFilterDates(prev.applied, ["FromDate", "ToDate"], fy),
++    }));
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   // =========================
+@@ -200,12 +215,17 @@ export default function CashboxTransfersPage() {
+               transfer: null,
+             })
+           }
++          disabled={isFiscalYearReadOnly}
+         >
+           <Plus size={16} />
+           تحويل جديد
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {/* =========================
+           Filters
+       ========================== */}
+@@ -420,28 +440,32 @@ export default function CashboxTransfersPage() {
+                             <Eye size={14} />
+                           </button>
+ 
+-                          {/* Edit */}
+-                          <button
+-                            onClick={() =>
+-                              setModalState({
+-                                open: true,
+-                                transfer,
+-                              })
+-                            }
+-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-primary-50 hover:text-primary-500 transition-colors"
+-                            title="تعديل"
+-                          >
+-                            <Pencil size={14} />
+-                          </button>
+-
+-                          {/* Delete */}
+-                          <button
+-                            onClick={() => setPendingDelete(transfer)}
+-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+-                            title="حذف"
+-                          >
+-                            <Trash2 size={14} />
+-                          </button>
++                          {!isFiscalYearReadOnly && (
++                            <>
++                              {/* Edit */}
++                              <button
++                                onClick={() =>
++                                  setModalState({
++                                    open: true,
++                                    transfer,
++                                  })
++                                }
++                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-primary-50 hover:text-primary-500 transition-colors"
++                                title="تعديل"
++                              >
++                                <Pencil size={14} />
++                              </button>
++
++                              {/* Delete */}
++                              <button
++                                onClick={() => setPendingDelete(transfer)}
++                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"
++                                title="حذف"
++                              >
++                                <Trash2 size={14} />
++                              </button>
++                            </>
++                          )}
+                         </div>
+                       </td>
+                     </tr>
+diff --git a/ERP_SYSTEM/src/features/drivers/pages/DriverStatementPage.jsx b/ERP_SYSTEM/src/features/drivers/pages/DriverStatementPage.jsx
+index f0e57d5..5d7f1ee 100644
+--- a/ERP_SYSTEM/src/features/drivers/pages/DriverStatementPage.jsx
++++ b/ERP_SYSTEM/src/features/drivers/pages/DriverStatementPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ // features/drivers/pages/DriverStatementPage.jsx
+ 
+ import { useState, useMemo } from "react";
+@@ -139,6 +141,14 @@ export default function DriverStatementPage() {
+   const [draft, setDraft] = useState(emptyFilters);
+   const [applied, setApplied] = useState(emptyFilters);
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+   const [filtersOpen, setFiltersOpen] = useState(false);
+   const [showAddDriver, setShowAddDriver] = useState(false);
+diff --git a/ERP_SYSTEM/src/features/drivers/pages/DriverTripCostEntryPage.jsx b/ERP_SYSTEM/src/features/drivers/pages/DriverTripCostEntryPage.jsx
+index eeff24c..5d708f0 100644
+--- a/ERP_SYSTEM/src/features/drivers/pages/DriverTripCostEntryPage.jsx
++++ b/ERP_SYSTEM/src/features/drivers/pages/DriverTripCostEntryPage.jsx
+@@ -11,6 +11,8 @@ import {
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Input from "../../../shared/components/ui/Input";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import Pagination from "../../../shared/components/ui/Pagination";
+ 
+ const hasCostOptions = [
+@@ -29,6 +31,7 @@ const emptyFilters = {
+ };
+ 
+ export default function DriverTripCostEntryPage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [searchParams] = useSearchParams();
+ 
+   const initialFilters = {
+@@ -121,7 +124,10 @@ export default function DriverTripCostEntryPage() {
+             عدّل تكلفة أكتر من رحلة واحفظهم مرة واحدة
+           </p>
+         </div>
+-        <Button onClick={handleSaveAll} disabled={!hasEdits || saving}>
++        <Button
++          onClick={handleSaveAll}
++          disabled={!hasEdits || saving || isFiscalYearReadOnly}
++        >
+           {saving ? (
+             <Loader2 size={16} className="animate-spin" />
+           ) : (
+@@ -131,6 +137,10 @@ export default function DriverTripCostEntryPage() {
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+           <CompactSelect
+@@ -145,12 +155,16 @@ export default function DriverTripCostEntryPage() {
+           <Input
+             label="من تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.fromDate}
+             onChange={(e) => setField("fromDate", e.target.value)}
+           />
+           <Input
+             label="إلى تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.toDate}
+             onChange={(e) => setField("toDate", e.target.value)}
+           />
+diff --git a/ERP_SYSTEM/src/features/exchange-rates/components/CurrencyFormModal.jsx b/ERP_SYSTEM/src/features/exchange-rates/components/CurrencyFormModal.jsx
+index cc60b26..fa888a8 100644
+--- a/ERP_SYSTEM/src/features/exchange-rates/components/CurrencyFormModal.jsx
++++ b/ERP_SYSTEM/src/features/exchange-rates/components/CurrencyFormModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useEffect, useRef } from "react";
+ import { useForm, Controller } from "react-hook-form";
+ import { zodResolver } from "@hookform/resolvers/zod";
+@@ -30,6 +33,7 @@ const defaultValues = {
+ };
+ 
+ export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const isEdit = Boolean(rate);
+   const wasOpenRef = useRef(false);
+ 
+@@ -75,6 +79,15 @@ export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
+   if (!isOpen) return null;
+ 
+   const onSubmit = async (data) => {
++    const fiscalYearWarning = [data.rateDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     try {
+       if (isEdit) {
+         await updateExchangeRate({
+@@ -164,6 +177,8 @@ export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
+         <Input
+           label="تاريخ السعر"
+           type="date"
++          min={selectedFiscalYear?.startDate}
++          max={selectedFiscalYear?.endDate}
+           {...register("rateDate")}
+           error={errors.rateDate?.message}
+         />
+diff --git a/ERP_SYSTEM/src/features/exchange-rates/components/ImportExchangeRatesModal.jsx b/ERP_SYSTEM/src/features/exchange-rates/components/ImportExchangeRatesModal.jsx
+index 0dab9e0..67aec43 100644
+--- a/ERP_SYSTEM/src/features/exchange-rates/components/ImportExchangeRatesModal.jsx
++++ b/ERP_SYSTEM/src/features/exchange-rates/components/ImportExchangeRatesModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // features/exchange-rates/components/ImportExchangeRatesModal.jsx
+ 
+ import { useEffect, useState } from "react";
+@@ -32,6 +35,7 @@ function todayISO() {
+ }
+ 
+ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [step, setStep] = useState("form"); // form | preview | result
+   const [rateDate, setRateDate] = useState(todayISO());
+   const [selectedCurrencies, setSelectedCurrencies] = useState([]);
+@@ -63,6 +67,15 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
+   }
+ 
+   async function handlePreview() {
++    const fiscalYearWarning = [rateDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     try {
+       await previewImport({
+         rateDate,
+@@ -78,6 +91,15 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
+   }
+ 
+   async function handleConfirmImport() {
++    const fiscalYearWarning = [rateDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     try {
+       await runImport({
+         rateDate,
+@@ -114,6 +136,8 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
+             </label>
+             <input
+               type="date"
++                            min={selectedFiscalYear?.startDate}
++              max={selectedFiscalYear?.endDate}
+               value={rateDate}
+               onChange={(e) => setRateDate(e.target.value)}
+               className="w-full rounded-xl border border-ink-400/15 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-primary-500"
+diff --git a/ERP_SYSTEM/src/features/exchange-rates/pages/CurrenciesPage.jsx b/ERP_SYSTEM/src/features/exchange-rates/pages/CurrenciesPage.jsx
+index 429989b..5767469 100644
+--- a/ERP_SYSTEM/src/features/exchange-rates/pages/CurrenciesPage.jsx
++++ b/ERP_SYSTEM/src/features/exchange-rates/pages/CurrenciesPage.jsx
+@@ -19,6 +19,8 @@ import {
+ } from "../exchangeRatesApi";
+ import Button from "../../../shared/components/ui/Button";
+ import Pagination from "../../../shared/components/ui/Pagination";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import CurrencyFormModal from "../components/CurrencyFormModal";
+ import ImportExchangeRatesModal from "../components/ImportExchangeRatesModal";
+ import { selectIsAdmin } from "../../auth/authSlice";
+@@ -33,6 +35,7 @@ function fmtDate(d) {
+ }
+ 
+ export default function CurrenciesPage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [page, setPage] = useState(1);
+   const [pageSize, setPageSize] = useState(20);
+ 
+@@ -97,13 +100,20 @@ export default function CurrenciesPage() {
+             </Button>
+           )}
+ 
+-          <Button onClick={() => setCreateOpen(true)}>
++          <Button
++            onClick={() => setCreateOpen(true)}
++            disabled={isFiscalYearReadOnly}
++          >
+             <Plus size={16} />
+             إضافة سعر عملة
+           </Button>
+         </div>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {isLoading && (
+         <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center text-ink-400">
+           جاري تحميل العملات...
+@@ -183,24 +193,28 @@ export default function CurrenciesPage() {
+                       </td>
+                       <td className="px-3 py-2.5">
+                         <div className="flex items-center gap-1">
+-                          <button
+-                            type="button"
+-                            onClick={() => setEditingRate(r)}
+-                            title="تعديل السعر"
+-                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
+-                          >
+-                            <Pencil size={15} />
+-                          </button>
++                          {!isFiscalYearReadOnly && (
++                            <>
++                              <button
++                                type="button"
++                                onClick={() => setEditingRate(r)}
++                                title="تعديل السعر"
++                                className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
++                              >
++                                <Pencil size={15} />
++                              </button>
+ 
+-                          <button
+-                            type="button"
+-                            onClick={() => handleDelete(r)}
+-                            disabled={isDeleting}
+-                            title="حذف السعر"
+-                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+-                          >
+-                            <Trash2 size={15} />
+-                          </button>
++                              <button
++                                type="button"
++                                onClick={() => handleDelete(r)}
++                                disabled={isDeleting}
++                                title="حذف السعر"
++                                className="rounded-lg p-1.5 text-ink-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
++                              >
++                                <Trash2 size={15} />
++                              </button>
++                            </>
++                          )}
+                         </div>
+                       </td>
+                     </tr>
+diff --git a/ERP_SYSTEM/src/features/expenses/pages/ExpensesPage.jsx b/ERP_SYSTEM/src/features/expenses/pages/ExpensesPage.jsx
+index 49b4820..05b76cc 100644
+--- a/ERP_SYSTEM/src/features/expenses/pages/ExpensesPage.jsx
++++ b/ERP_SYSTEM/src/features/expenses/pages/ExpensesPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { Receipt, FileWarning, ExternalLink, Eye } from "lucide-react";
+ import { useNavigate } from "react-router-dom";
+@@ -71,6 +73,16 @@ export default function ExpensesPage() {
+   });
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    setFilters((prev) => ({
++      ...prev,
++      draft: clampFilterDates(prev.draft, ["fromDate", "toDate"], fy),
++      applied: clampFilterDates(prev.applied, ["fromDate", "toDate"], fy),
++    }));
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const { data: cashboxesData } = useGetCashboxesQuery();
+diff --git a/ERP_SYSTEM/src/features/financialStatements/pages/FinancialStatementsPage.jsx b/ERP_SYSTEM/src/features/financialStatements/pages/FinancialStatementsPage.jsx
+index bb560d5..91a525f 100644
+--- a/ERP_SYSTEM/src/features/financialStatements/pages/FinancialStatementsPage.jsx
++++ b/ERP_SYSTEM/src/features/financialStatements/pages/FinancialStatementsPage.jsx
+@@ -1,4 +1,4 @@
+-import { useMemo, useState } from "react";
++import { useEffect, useMemo, useState } from "react";
+ import {
+   Plus,
+   Pencil,
+@@ -21,6 +21,8 @@ import {
+ } from "../financialStatementLinesApi";
+ 
+ import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
+ 
+ import FinancialStatementLineFormModal from "../components/FinancialStatementLineFormModal";
+ import FinancialStatementLineDeleteModal from "../components/FinancialStatementLineDeleteModal";
+@@ -255,6 +257,7 @@ const TreeNode = ({
+ };
+ 
+ export default function FinancialStatementsPage() {
++  const globalFiscalYearId = useSelector(selectSelectedFiscalYearId);
+   const [fiscalYearId, setFiscalYearId] = useState("");
+   const [statementType, setStatementType] = useState("FinancialPosition");
+ 
+@@ -275,6 +278,18 @@ export default function FinancialStatementsPage() {
+   const { data: fiscalYearsData, isLoading: isFiscalYearsLoading } =
+     useGetFiscalYearsSelectQuery();
+ 
++  useEffect(() => {
++    if (fiscalYearId || !fiscalYearsData?.length) return;
++
++    const matchesGlobal = fiscalYearsData.some(
++      (fy) => fy.id === globalFiscalYearId,
++    );
++
++    if (matchesGlobal) {
++      setFiscalYearId(String(globalFiscalYearId));
++    }
++  }, [fiscalYearId, fiscalYearsData, globalFiscalYearId]);
++
+   const { data, isLoading, isFetching, refetch } =
+     useGetFinancialStatementLinesTreeQuery(
+       {
+diff --git a/ERP_SYSTEM/src/features/fiscalYears/fiscalYearSlice.js b/ERP_SYSTEM/src/features/fiscalYears/fiscalYearSlice.js
+new file mode 100644
+index 0000000..478a3a2
+--- /dev/null
++++ b/ERP_SYSTEM/src/features/fiscalYears/fiscalYearSlice.js
+@@ -0,0 +1,157 @@
++import { createSlice } from "@reduxjs/toolkit";
++
++import { logout } from "../auth/authSlice";
++
++/* =========================================================
++   PERSISTENCE
++
++   السنة المالية المختارة تُخزَّن في State/localStorage الخاص
++   بالفرونت إند فقط، وليست جزءًا من الـ Access Token — تمامًا
++   كما هو موضّح في دليل تكامل الشركات والسنوات المالية.
++========================================================= */
++
++const STORAGE_KEY = "fiscalYear";
++
++const loadPersisted = () => {
++  try {
++    const raw = localStorage.getItem(STORAGE_KEY);
++    return raw ? JSON.parse(raw) : null;
++  } catch {
++    return null;
++  }
++};
++
++const persisted = loadPersisted();
++
++const persistState = (state) => {
++  try {
++    // snapshot للسنة المختارة (حدودها وحالتها) عشان تكون معروفة من أول
++    // render بعد Refresh، قبل ما قائمة السنوات ترجع من الـ API.
++    const snapshot =
++      state.fiscalYears.find(
++        (year) => year.id === state.selectedFiscalYearId,
++      ) || null;
++
++    localStorage.setItem(
++      STORAGE_KEY,
++      JSON.stringify({
++        selectedFiscalYearId: state.selectedFiscalYearId,
++        selectedFiscalYear: snapshot,
++      }),
++    );
++  } catch {
++    // localStorage غير متاح (خاص/محظور) — تجاهل بأمان
++  }
++};
++
++const initialState = {
++  fiscalYears: persisted?.selectedFiscalYear
++    ? [persisted.selectedFiscalYear]
++    : [],
++  selectedFiscalYearId: persisted?.selectedFiscalYearId ?? null,
++};
++
++const fiscalYearSlice = createSlice({
++  name: "fiscalYear",
++  initialState,
++  reducers: {
++    /**
++     * يُستدعى بعد تحميل GET /FiscalYears/select.
++     * لو السنة المحفوظة سابقًا لم تعد موجودة ضمن سنوات الشركة الحالية
++     * (مثلاً بعد تغيير الشركة)، يتم الرجوع تلقائيًا للسنة الحالية
++     * (isCurrent = true) للشركة.
++     */
++    setFiscalYears: (state, action) => {
++      const years = action.payload || [];
++      const previousSelectedId = state.selectedFiscalYearId;
++      const previousRecord = state.fiscalYears.find(
++        (year) => year.id === previousSelectedId,
++      );
++
++      state.fiscalYears = years;
++
++      const currentRecord = years.find(
++        (year) => year.id === previousSelectedId,
++      );
++      const stillValid = Boolean(currentRecord);
++
++      // لو السنة اللي كانت مختارة كانت هي "الحالية" وبقت مش كذلك
++      // (زي ما بيحصل تلقائيًا عند إقفالها وإنشاء السنة التالية)،
++      // اتبع السنة الحالية الجديدة بدل ما تفضل واقف على سنة اتقفلت.
++      // أما لو المستخدم بيستعرض سنة قديمة مقفولة أصلًا من زمان،
++      // سيبها كما هي واحترم اختياره.
++      const currentYearJustRotatedAway =
++        previousRecord?.isCurrent && currentRecord && !currentRecord.isCurrent;
++
++      if (!previousSelectedId || !stillValid || currentYearJustRotatedAway) {
++        const current = years.find((year) => year.isCurrent);
++        state.selectedFiscalYearId = current?.id ?? years[0]?.id ?? null;
++      }
++
++      persistState(state);
++    },
++
++    /** تغيير السنة من الـ Dropdown في الـ Navbar (لأغراض العرض فقط). */
++    setSelectedFiscalYearId: (state, action) => {
++      const id = action.payload;
++
++      // ممنوع إرسال 0 أو قيمة سالبة كـ fiscalYearId
++      if (!id || id <= 0) return;
++
++      state.selectedFiscalYearId = id;
++      persistState(state);
++    },
++
++    /**
++     * إشارة (بدون تغيير state) بتتبعت من baseQuery لما الباك إند يرجّع
++     * errorCode بيدل إن بيانات السنة/السجل اتغيّرت (سنة اتقفلت، رصيد
++     * مرحّل، مسير اتحوّل...). الميدل وير بيعمل refetch للـ tags المتأثرة.
++     */
++    fiscalYearRefreshRequested: () => {},
++
++    resetFiscalYear: (state) => {
++      state.fiscalYears = [];
++      state.selectedFiscalYearId = null;
++
++      try {
++        localStorage.removeItem(STORAGE_KEY);
++      } catch {
++        // تجاهل
++      }
++    },
++  },
++
++  extraReducers: (builder) => {
++    // تسجيل الخروج، أو تغيير الشركة (login بيرجع state جديد) لازم يمسح
++    // اختيار السنة المالية القديم عشان ميفضلش fiscalYearId من شركة تانية.
++    builder.addCase(logout, (state) => {
++      state.fiscalYears = [];
++      state.selectedFiscalYearId = null;
++
++      try {
++        localStorage.removeItem(STORAGE_KEY);
++      } catch {
++        // تجاهل
++      }
++    });
++  },
++});
++
++export const {
++  setFiscalYears,
++  setSelectedFiscalYearId,
++  fiscalYearRefreshRequested,
++  resetFiscalYear,
++} = fiscalYearSlice.actions;
++
++export const selectFiscalYears = (state) => state.fiscalYear.fiscalYears;
++
++export const selectSelectedFiscalYearId = (state) =>
++  state.fiscalYear.selectedFiscalYearId;
++
++export const selectSelectedFiscalYear = (state) =>
++  state.fiscalYear.fiscalYears.find(
++    (year) => year.id === state.fiscalYear.selectedFiscalYearId,
++  ) || null;
++
++export default fiscalYearSlice.reducer;
+diff --git a/ERP_SYSTEM/src/features/inventory/components/StockOpeningBalancesTable.jsx b/ERP_SYSTEM/src/features/inventory/components/StockOpeningBalancesTable.jsx
+index 1eac1d5..b5f63bc 100644
+--- a/ERP_SYSTEM/src/features/inventory/components/StockOpeningBalancesTable.jsx
++++ b/ERP_SYSTEM/src/features/inventory/components/StockOpeningBalancesTable.jsx
+@@ -8,12 +8,14 @@ import {
+   Trash2,
+ } from "lucide-react";
+ import Pagination from "../../../shared/components/ui/Pagination";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+ 
+ function lineTotal(line) {
+   return Number(line.total ?? line.quantity * line.price ?? 0);
+ }
+ 
+ function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
++  const { isReadOnly: isFiscalYearReadOnly } = useFiscalYearGuard();
+   const [expanded, setExpanded] = useState(false);
+ 
+   const documentTotal = (item.lines || []).reduce(
+@@ -55,25 +57,27 @@ function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
+           {item.notes || "—"}
+         </td>
+         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+-          <div className="flex items-center justify-center gap-1">
+-            <button
+-              type="button"
+-              onClick={() => onEdit?.(item)}
+-              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+-              title="تعديل"
+-            >
+-              <Pencil size={14} />
+-            </button>
+-            <button
+-              type="button"
+-              onClick={() => onDelete?.(item)}
+-              disabled={deletingId === item.id}
+-              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
+-              title="حذف"
+-            >
+-              <Trash2 size={14} />
+-            </button>
+-          </div>
++          {!isFiscalYearReadOnly && (
++            <div className="flex items-center justify-center gap-1">
++              <button
++                type="button"
++                onClick={() => onEdit?.(item)}
++                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
++                title="تعديل"
++              >
++                <Pencil size={14} />
++              </button>
++              <button
++                type="button"
++                onClick={() => onDelete?.(item)}
++                disabled={deletingId === item.id}
++                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
++                title="حذف"
++              >
++                <Trash2 size={14} />
++              </button>
++            </div>
++          )}
+         </td>
+       </tr>
+ 
+diff --git a/ERP_SYSTEM/src/features/inventory/components/StockTransferFormModal.jsx b/ERP_SYSTEM/src/features/inventory/components/StockTransferFormModal.jsx
+index 740f052..1b844bd 100644
+--- a/ERP_SYSTEM/src/features/inventory/components/StockTransferFormModal.jsx
++++ b/ERP_SYSTEM/src/features/inventory/components/StockTransferFormModal.jsx
+@@ -30,6 +30,9 @@ import {
+ } from "../../stores/storesApi";
+ 
+ import { useGetItemsSelectQuery } from "../inventoryApi";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ 
+ // ============================================================
+ // Schema
+@@ -198,6 +201,13 @@ export default function StockTransferFormModal({
+     name: "lines",
+   });
+ 
++  const transferDate = useWatch({ control, name: "transferDate" });
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
++  const dateWarning = getFiscalYearDateWarning(
++    transferDate,
++    selectedFiscalYear,
++  );
++
+   // ==========================================================
+   // Watched values
+   // ==========================================================
+@@ -331,6 +341,16 @@ export default function StockTransferFormModal({
+   // ==========================================================
+ 
+   const onSubmit = async (data) => {
++    const warning = getFiscalYearDateWarning(
++      data.transferDate,
++      selectedFiscalYear,
++    );
++
++    if (warning) {
++      toast.error(warning);
++      return;
++    }
++
+     const payload = {
+       transferDate: data.transferDate,
+ 
+@@ -401,7 +421,7 @@ export default function StockTransferFormModal({
+             label="تاريخ التحويل"
+             type="date"
+             {...register("transferDate")}
+-            error={errors.transferDate?.message}
++            error={errors.transferDate?.message || dateWarning}
+           />
+ 
+           {/* Source Store */}
+diff --git a/ERP_SYSTEM/src/features/inventory/pages/StockTransfersPage.jsx b/ERP_SYSTEM/src/features/inventory/pages/StockTransfersPage.jsx
+index 9819f64..cd7507d 100644
+--- a/ERP_SYSTEM/src/features/inventory/pages/StockTransfersPage.jsx
++++ b/ERP_SYSTEM/src/features/inventory/pages/StockTransfersPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useState } from "react";
+ import { toast } from "sonner";
+ import {
+@@ -29,6 +31,8 @@ import Pagination from "../../../shared/components/ui/Pagination";
+ 
+ // عدّل المسار إذا كانت hooks عندك في ملف مختلف
+ import { useGetStoresSelectQuery } from "../../stores/storesApi";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ const emptyFilters = {
+   search: "",
+@@ -39,10 +43,19 @@ const emptyFilters = {
+ };
+ 
+ export default function StockTransfersPage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [draft, setDraft] = useState(emptyFilters);
+   const [applied, setApplied] = useState(emptyFilters);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const [showForm, setShowForm] = useState(false);
+@@ -181,12 +194,16 @@ export default function StockTransfersPage() {
+           </p>
+         </div>
+ 
+-        <Button onClick={openCreate}>
++        <Button onClick={openCreate} disabled={isFiscalYearReadOnly}>
+           <Plus size={16} />
+           تحويل مخزني
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {/* Summary */}
+ 
+       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+@@ -429,20 +446,24 @@ export default function StockTransfersPage() {
+                           <Eye size={15} />
+                         </ActionButton>
+ 
+-                        <ActionButton
+-                          title="تعديل"
+-                          onClick={() => openEdit(row)}
+-                        >
+-                          <Pencil size={15} />
+-                        </ActionButton>
+-
+-                        <ActionButton
+-                          danger
+-                          title="حذف"
+-                          onClick={() => handleDelete(row)}
+-                        >
+-                          <Trash2 size={15} />
+-                        </ActionButton>
++                        {!isFiscalYearReadOnly && (
++                          <>
++                            <ActionButton
++                              title="تعديل"
++                              onClick={() => openEdit(row)}
++                            >
++                              <Pencil size={15} />
++                            </ActionButton>
++
++                            <ActionButton
++                              danger
++                              title="حذف"
++                              onClick={() => handleDelete(row)}
++                            >
++                              <Trash2 size={15} />
++                            </ActionButton>
++                          </>
++                        )}
+                       </div>
+                     </td>
+                   </tr>
+diff --git a/ERP_SYSTEM/src/features/invoiceItemPricing/pages/InvoiceItemPricingPage.jsx b/ERP_SYSTEM/src/features/invoiceItemPricing/pages/InvoiceItemPricingPage.jsx
+index 5892965..6ea5001 100644
+--- a/ERP_SYSTEM/src/features/invoiceItemPricing/pages/InvoiceItemPricingPage.jsx
++++ b/ERP_SYSTEM/src/features/invoiceItemPricing/pages/InvoiceItemPricingPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ // features/invoiceItemPricing/pages/InvoiceItemPricingPage.jsx
+ import { useCallback, useState } from "react";
+ 
+@@ -18,6 +20,14 @@ export default function InvoiceItemPricingPage() {
+   const [applied, setApplied] = useState(EMPTY_FILTERS);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const [showExpensesModal, setShowExpensesModal] = useState(false);
+diff --git a/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntriesListPage.jsx b/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntriesListPage.jsx
+index 12fbe78..550bdb3 100644
+--- a/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntriesListPage.jsx
++++ b/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntriesListPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ // src/features/journalEntries/pages/JournalEntriesListPage.jsx
+ 
+ import { useMemo, useState } from "react";
+@@ -28,6 +30,8 @@ import {
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Pagination from "../../../shared/components/ui/Pagination";
+ import { selectIsAdmin } from "../../auth/authSlice";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
+ import {
+   useGetJournalEntriesQuery,
+@@ -340,6 +344,7 @@ function CurrencyBadge({ currency, multi = false }) {
+ export default function JournalEntriesListPage() {
+   const navigate = useNavigate();
+   const isAdmin = useSelector(selectIsAdmin);
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   // -------------------------------------------------------
+   // Filters
+@@ -359,6 +364,15 @@ export default function JournalEntriesListPage() {
+   // -------------------------------------------------------
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  // (لو المستخدم اختار سنة محددة من الفلتر نفسه بنحترم اختياره)
++  useOnFiscalYearChange((fy) => {
++    setFilters((f) =>
++      f.fiscalYearId ? f : clampFilterDates(f, ["fromDate", "toDate"], fy),
++    );
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+ 
+   // -------------------------------------------------------
+@@ -579,15 +593,21 @@ export default function JournalEntriesListPage() {
+               disabled={isLoading || entries.length === 0}
+             />
+ 
+-            <ActionButton
+-              icon={Plus}
+-              label="قيد جديد"
+-              primary
+-              onClick={() => navigate("/dashboard/journal-entries/new")}
+-            />
++            {!isFiscalYearReadOnly && (
++              <ActionButton
++                icon={Plus}
++                label="قيد جديد"
++                primary
++                onClick={() => navigate("/dashboard/journal-entries/new")}
++              />
++            )}
+           </div>
+         </div>
+ 
++        {isFiscalYearReadOnly && (
++          <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++        )}
++
+         {/* =================================================
+             Quick Summary
+         ================================================= */}
+@@ -1210,7 +1230,7 @@ export default function JournalEntriesListPage() {
+                   {entries.map((entry, index) => {
+                     const automatic = isAutomaticEntry(entry);
+                     const reversed = isReversedEntry(entry);
+-                    const canModify = isAdmin && !automatic;
++                    const canModify = isAdmin && !automatic && !isFiscalYearReadOnly;
+ 
+                     const currencies = getEntryCurrencies(entry);
+ 
+diff --git a/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntryFormPage.jsx b/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntryFormPage.jsx
+index ee618cc..d1748da 100644
+--- a/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntryFormPage.jsx
++++ b/ERP_SYSTEM/src/features/journalEntries/pages/JournalEntryFormPage.jsx
+@@ -218,7 +218,15 @@ export default function JournalEntryFormPage() {
+     isEdit &&
+     (existingEntry?.status === "Reversed" || existingEntry?.status === 2);
+ 
+-  const isReadOnly = isAutomaticEntry || isReversedEntry;
++  // قيد موجود سنته المالية مقفلة => عرض فقط (القيد الجديد لا يتأثر
++  // عشان المستخدم يقدر يختار سنة مفتوحة من القائمة)
++  const isEntryFiscalYearClosed =
++    isEdit &&
++    fiscalYears?.find((year) => year.id === fiscalYearId)?.status ===
++      "Closed";
++
++  const isReadOnly =
++    isAutomaticEntry || isReversedEntry || isEntryFiscalYearClosed;
+ 
+   useEffect(() => {
+     if (!existingEntry) return;
+diff --git a/ERP_SYSTEM/src/features/partners/components/PartnerOpeningBalanceModal.jsx b/ERP_SYSTEM/src/features/partners/components/PartnerOpeningBalanceModal.jsx
+index 14936a6..c87bc93 100644
+--- a/ERP_SYSTEM/src/features/partners/components/PartnerOpeningBalanceModal.jsx
++++ b/ERP_SYSTEM/src/features/partners/components/PartnerOpeningBalanceModal.jsx
+@@ -4,6 +4,9 @@ import { toast } from "sonner";
+ 
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import NumericInput from "../../../shared/components/ui/NumericInput";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import Modal from "../../../shared/components/ui/Modal";
+ 
+ import { useGetPartiesSelectQuery } from "../partiesApi";
+@@ -96,6 +99,12 @@ export default function PartnerOpeningBalanceModal({
+ 
+   const [form, setForm] = useState(emptyForm());
+ 
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
++  const dateWarning = getFiscalYearDateWarning(
++    form.documentDate,
++    selectedFiscalYear,
++  );
++
+   const [rateManuallyEdited, setRateManuallyEdited] = useState(false);
+ 
+   const isEditing = Boolean(editingItem);
+@@ -273,6 +282,11 @@ export default function PartnerOpeningBalanceModal({
+   const handleSubmit = async (e) => {
+     e.preventDefault();
+ 
++    if (dateWarning) {
++      toast.error(dateWarning);
++      return;
++    }
++
+     const payload = {
+       businessPartnerId: Number(form.businessPartnerId),
+ 
+@@ -388,6 +402,8 @@ export default function PartnerOpeningBalanceModal({
+           <input
+             type="date"
+             value={form.documentDate}
++            min={selectedFiscalYear?.startDate}
++            max={selectedFiscalYear?.endDate}
+             onChange={(e) => handleDocumentDateChange(e.target.value)}
+             className={[
+               "w-full",
+diff --git a/ERP_SYSTEM/src/features/partners/components/Partneropeningbalancestable.jsx b/ERP_SYSTEM/src/features/partners/components/Partneropeningbalancestable.jsx
+index 7fe22b6..29ee5a4 100644
+--- a/ERP_SYSTEM/src/features/partners/components/Partneropeningbalancestable.jsx
++++ b/ERP_SYSTEM/src/features/partners/components/Partneropeningbalancestable.jsx
+@@ -32,6 +32,17 @@ function BalanceTypeBadge({ type }) {
+   );
+ }
+ 
++function CarriedForwardBadge() {
++  return (
++    <span
++      title="هذا الرصيد مرحّل تلقائيًا من قيد إقفال السنة المالية السابقة، ولا يمكن تعديله أو حذفه من هنا."
++      className="inline-flex items-center rounded-full bg-ink-400/10 px-2.5 py-1 text-xs font-medium text-ink-500"
++    >
++      مرحل من السنة السابقة
++    </span>
++  );
++}
++
+ export default function PartnerOpeningBalancesTable({
+   data,
+   isLoading,
+@@ -120,7 +131,10 @@ export default function PartnerOpeningBalancesTable({
+           </thead>
+ 
+           <tbody>
+-            {items.map((item) => (
++            {items.map((item) => {
++              const isCarriedForward = item.isCarriedForward;
++
++              return (
+               <tr
+                 key={item.id}
+                 className="border-b border-ink-400/5 transition-colors last:border-0 hover:bg-ink-900/[0.012]"
+@@ -135,7 +149,10 @@ export default function PartnerOpeningBalancesTable({
+                   {item.businessPartnerName || "—"}
+                 </td>
+                 <td className="px-4 py-3 text-center">
+-                  <BalanceTypeBadge type={item.balanceType} />
++                  <div className="flex flex-col items-center gap-1">
++                    <BalanceTypeBadge type={item.balanceType} />
++                    {isCarriedForward && <CarriedForwardBadge />}
++                  </div>
+                 </td>
+                 <td className="px-4 py-3 text-center text-sm text-ink-600">
+                   {currencyLabels[item.currency] || item.currency}
+@@ -156,28 +173,31 @@ export default function PartnerOpeningBalancesTable({
+                   {item.notes || "—"}
+                 </td>
+                 <td className="px-4 py-3">
+-                  <div className="flex items-center justify-center gap-1">
+-                    <button
+-                      type="button"
+-                      onClick={() => onEdit?.(item)}
+-                      className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+-                      title="تعديل"
+-                    >
+-                      <Pencil size={14} />
+-                    </button>
+-                    <button
+-                      type="button"
+-                      onClick={() => onDelete?.(item)}
+-                      disabled={deletingId === item.id}
+-                      className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
+-                      title="حذف"
+-                    >
+-                      <Trash2 size={14} />
+-                    </button>
+-                  </div>
++                  {!isCarriedForward && (
++                    <div className="flex items-center justify-center gap-1">
++                      <button
++                        type="button"
++                        onClick={() => onEdit?.(item)}
++                        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
++                        title="تعديل"
++                      >
++                        <Pencil size={14} />
++                      </button>
++                      <button
++                        type="button"
++                        onClick={() => onDelete?.(item)}
++                        disabled={deletingId === item.id}
++                        className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
++                        title="حذف"
++                      >
++                        <Trash2 size={14} />
++                      </button>
++                    </div>
++                  )}
+                 </td>
+               </tr>
+-            ))}
++              );
++            })}
+           </tbody>
+         </table>
+       </div>
+diff --git a/ERP_SYSTEM/src/features/partners/pages/PartnerOpeningBalancesPage.jsx b/ERP_SYSTEM/src/features/partners/pages/PartnerOpeningBalancesPage.jsx
+index 0174e51..4ea9987 100644
+--- a/ERP_SYSTEM/src/features/partners/pages/PartnerOpeningBalancesPage.jsx
++++ b/ERP_SYSTEM/src/features/partners/pages/PartnerOpeningBalancesPage.jsx
+@@ -1,9 +1,13 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { Search, RotateCcw, Plus } from "lucide-react";
+ import { toast } from "sonner";
+ 
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import { useGetPartiesSelectQuery } from "../partiesApi";
+ import {
+   useGetPartnerOpeningBalancesQuery,
+@@ -38,9 +42,18 @@ const emptyFilters = {
+ };
+ 
+ export default function PartnerOpeningBalancesPage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [draft, setDraft] = useState(emptyFilters);
+   const [applied, setApplied] = useState(emptyFilters);
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const [modalOpen, setModalOpen] = useState(false);
+@@ -115,12 +128,20 @@ export default function PartnerOpeningBalancesPage() {
+           </p>
+         </div>
+ 
+-        <Button onClick={openCreateModal} className="h-9">
++        <Button
++          onClick={openCreateModal}
++          className="h-9"
++          disabled={isFiscalYearReadOnly}
++        >
+           <Plus size={14} />
+           إضافة رصيد افتتاحي
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {/* الفلاتر */}
+       <div className="rounded-2xl border border-ink-400/10 bg-white p-3 shadow-card">
+         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
+diff --git a/ERP_SYSTEM/src/features/payroll/components/AttendanceFormModal.jsx b/ERP_SYSTEM/src/features/payroll/components/AttendanceFormModal.jsx
+index 845cecf..4f63757 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/AttendanceFormModal.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/AttendanceFormModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useEffect, useMemo } from "react";
+ import { useForm, Controller } from "react-hook-form";
+ import { zodResolver } from "@hookform/resolvers/zod";
+@@ -137,6 +140,7 @@ function toApiTime(value) {
+ }
+ 
+ export default function AttendanceFormModal({ isOpen, onClose, attendance }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const isEdit = Boolean(attendance);
+ 
+   const { data: employeesData = [], isLoading: employeesLoading } =
+@@ -226,6 +230,15 @@ export default function AttendanceFormModal({ isOpen, onClose, attendance }) {
+   }, [isOpen, attendance, reset]);
+ 
+   const onSubmit = async (data) => {
++    const fiscalYearWarning = [data.workDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     const payload = {
+       employeeId: Number(data.employeeId),
+ 
+@@ -331,6 +344,8 @@ export default function AttendanceFormModal({ isOpen, onClose, attendance }) {
+           <Input
+             label="التاريخ"
+             type="date"
++            min={selectedFiscalYear?.startDate}
++            max={selectedFiscalYear?.endDate}
+             {...register("workDate")}
+             error={errors.workDate?.message}
+           />
+diff --git a/ERP_SYSTEM/src/features/payroll/components/AttendanceQuickEntry.jsx b/ERP_SYSTEM/src/features/payroll/components/AttendanceQuickEntry.jsx
+index 2e254b5..a7108c1 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/AttendanceQuickEntry.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/AttendanceQuickEntry.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // features/payroll/components/AttendanceQuickEntry.jsx
+ 
+ import { useCallback, useEffect, useMemo, useState } from "react";
+@@ -123,6 +126,7 @@ const normalizeRecord = (record) => ({
+ // =========================================================
+ 
+ export default function AttendanceQuickEntry({ onClose, onSaved }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [date, setDate] = useState(todayStr());
+   const [rows, setRows] = useState({});
+   const [isSaving, setIsSaving] = useState(false);
+@@ -413,6 +417,15 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
+   // =========================================================
+ 
+   const handleSaveAll = useCallback(async () => {
++    const fiscalYearWarning = [date]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     const entries = Object.entries(rows).filter(([, row]) => !!row.status);
+ 
+     if (!entries.length) {
+@@ -466,7 +479,7 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
+     } finally {
+       setIsSaving(false);
+     }
+-  }, [rows, date, bulkCreateAttendances, onSaved]);
++  }, [rows, date, bulkCreateAttendances, onSaved, selectedFiscalYear]);
+ 
+   // =========================================================
+   // Render
+@@ -564,6 +577,8 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
+               <Input
+                 label="التاريخ"
+                 type="date"
++                                min={selectedFiscalYear?.startDate}
++                max={selectedFiscalYear?.endDate}
+                 value={date}
+                 onChange={handleDateChange}
+                 className="h-[40px]"
+diff --git a/ERP_SYSTEM/src/features/payroll/components/BulkMoveSalaryModal.jsx b/ERP_SYSTEM/src/features/payroll/components/BulkMoveSalaryModal.jsx
+index 5eb8f18..dcd78fe 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/BulkMoveSalaryModal.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/BulkMoveSalaryModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // features/payroll/components/BulkMoveSalaryModal.jsx
+ 
+ import { useEffect, useRef } from "react";
+@@ -21,6 +24,7 @@ export default function BulkMoveSalaryModal({
+   onClose,
+   onSaved,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [bulkMoveSalary, { isLoading }] = useBulkMoveSalaryMutation();
+ 
+   const wasOpenRef = useRef(false);
+@@ -41,6 +45,15 @@ export default function BulkMoveSalaryModal({
+   }, [isOpen, reset]);
+ 
+   const onSubmit = async (data) => {
++    const fiscalYearWarning = [data.defaultPostingDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     try {
+       await bulkMoveSalary({
+         payrollEntryIds: payrollEntryIds.map(Number),
+@@ -75,6 +88,8 @@ export default function BulkMoveSalaryModal({
+         <Input
+           label="تاريخ الترحيل"
+           type="date"
++          min={selectedFiscalYear?.startDate}
++          max={selectedFiscalYear?.endDate}
+           {...register("defaultPostingDate")}
+         />
+ 
+diff --git a/ERP_SYSTEM/src/features/payroll/components/EmployeeMovementFormModal.jsx.jsx b/ERP_SYSTEM/src/features/payroll/components/EmployeeMovementFormModal.jsx.jsx
+index 5daf50d..86d75d6 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/EmployeeMovementFormModal.jsx.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/EmployeeMovementFormModal.jsx.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useEffect, useRef } from "react";
+ import { useForm, Controller } from "react-hook-form";
+ import { zodResolver } from "@hookform/resolvers/zod";
+@@ -60,6 +63,7 @@ export default function EmployeeMovementFormModal({
+   onSaved,
+   defaultType, // اختياري: تقدر تفتح المودال بنوع محدد مسبقًا (مثلاً من زرار "خصم سريع")
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [createMovement, { isLoading: isSubmitting }] =
+     useCreateEmployeeMovementMutation();
+ 
+@@ -91,6 +95,15 @@ export default function EmployeeMovementFormModal({
+   }, [isOpen, reset, defaultType]);
+ 
+   const onSubmit = async (data) => {
++    const fiscalYearWarning = [data.movementDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     const payload = {
+       employeeId: Number(data.employeeId),
+       type: data.type,
+@@ -174,6 +187,8 @@ export default function EmployeeMovementFormModal({
+           <Input
+             label="تاريخ الحركة"
+             type="date"
++            min={selectedFiscalYear?.startDate}
++            max={selectedFiscalYear?.endDate}
+             {...register("movementDate")}
+             error={errors.movementDate?.message}
+           />
+diff --git a/ERP_SYSTEM/src/features/payroll/components/EmployeeOpeningBalanceFormModal.jsx b/ERP_SYSTEM/src/features/payroll/components/EmployeeOpeningBalanceFormModal.jsx
+index 9a28888..5e65a81 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/EmployeeOpeningBalanceFormModal.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/EmployeeOpeningBalanceFormModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // features/payroll/components/EmployeeOpeningBalanceFormModal.jsx
+ 
+ import { useEffect, useState } from "react";
+@@ -37,6 +40,7 @@ export default function EmployeeOpeningBalanceFormModal({
+   balance,
+   onSaved,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const [form, setForm] = useState(emptyForm);
+ 
+   const { data: employees } = useGetEmployeesSelectQuery();
+@@ -77,6 +81,15 @@ export default function EmployeeOpeningBalanceFormModal({
+   };
+ 
+   const handleSubmit = async () => {
++    const fiscalYearWarning = [form.documentDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     if (!form.employeeId) {
+       toast.error("اختر الموظف أولاً");
+       return;
+@@ -162,6 +175,8 @@ export default function EmployeeOpeningBalanceFormModal({
+           <Input
+             label="تاريخ المستند"
+             type="date"
++            min={selectedFiscalYear?.startDate}
++            max={selectedFiscalYear?.endDate}
+             value={form.documentDate}
+             onChange={(event) => setField("documentDate", event.target.value)}
+           />
+diff --git a/ERP_SYSTEM/src/features/payroll/components/MoveSalaryModal.jsx b/ERP_SYSTEM/src/features/payroll/components/MoveSalaryModal.jsx
+index d89f0e9..7705617 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/MoveSalaryModal.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/MoveSalaryModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // features/payroll/components/MoveSalaryModal.jsx
+ 
+ import { useEffect } from "react";
+@@ -29,6 +32,7 @@ export default function MoveSalaryModal({
+   onClose,
+   onSaved,
+ }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const isOpen = Boolean(row);
+ 
+   const [moveSalary, { isLoading }] = useMoveSalaryMutation();
+@@ -56,6 +60,15 @@ export default function MoveSalaryModal({
+   if (!row) return null;
+ 
+   const onSubmit = async (data) => {
++    const fiscalYearWarning = [data.postingDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     try {
+       await moveSalary({ id: row.id, ...data }).unwrap();
+       toast.success("تم ترحيل الراتب بنجاح");
+@@ -75,6 +88,8 @@ export default function MoveSalaryModal({
+         <Input
+           label="تاريخ الترحيل"
+           type="date"
++          min={selectedFiscalYear?.startDate}
++          max={selectedFiscalYear?.endDate}
+           {...register("postingDate")}
+           error={errors.postingDate?.message}
+         />
+diff --git a/ERP_SYSTEM/src/features/payroll/components/PayrollEntryFormModal.jsx b/ERP_SYSTEM/src/features/payroll/components/PayrollEntryFormModal.jsx
+index 893e6a4..ff12416 100644
+--- a/ERP_SYSTEM/src/features/payroll/components/PayrollEntryFormModal.jsx
++++ b/ERP_SYSTEM/src/features/payroll/components/PayrollEntryFormModal.jsx
+@@ -1,3 +1,6 @@
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ // features/payroll/components/PayrollEntryFormModal.jsx
+ 
+ import { useEffect } from "react";
+@@ -26,6 +29,7 @@ const defaultValues = {
+ };
+ 
+ export default function PayrollEntryFormModal({ isOpen, onClose }) {
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+   const {
+     register,
+     control,
+@@ -51,6 +55,15 @@ export default function PayrollEntryFormModal({ isOpen, onClose }) {
+   }, [isOpen, reset]);
+ 
+   const onSubmit = async (data) => {
++    const fiscalYearWarning = [data.startDate, data.endDate]
++      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     if (!data.employeeId) {
+       toast.error("الموظف مطلوب");
+       return;
+@@ -115,6 +128,8 @@ export default function PayrollEntryFormModal({ isOpen, onClose }) {
+           <Input
+             label="من تاريخ"
+             type="date"
++            min={selectedFiscalYear?.startDate}
++            max={selectedFiscalYear?.endDate}
+             {...register("startDate", {
+               required: "التاريخ مطلوب",
+             })}
+@@ -124,6 +139,8 @@ export default function PayrollEntryFormModal({ isOpen, onClose }) {
+           <Input
+             label="إلى تاريخ"
+             type="date"
++            min={selectedFiscalYear?.startDate}
++            max={selectedFiscalYear?.endDate}
+             {...register("endDate", {
+               required: "التاريخ مطلوب",
+             })}
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/AttendancePage.jsx b/ERP_SYSTEM/src/features/payroll/pages/AttendancePage.jsx
+index 37ebcc0..3980ee9 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/AttendancePage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/AttendancePage.jsx
+@@ -1,6 +1,8 @@
+ // features/payroll/pages/AttendancePage.jsx
+ 
+ import { useMemo, useState } from "react";
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { toast } from "sonner";
+ import {
+   Search,
+@@ -38,6 +40,8 @@ import Input from "../../../shared/components/ui/Input";
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
+ import Pagination from "../../../shared/components/ui/Pagination";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ const emptyFilters = {
+   employeeId: "",
+@@ -47,11 +51,20 @@ const emptyFilters = {
+ };
+ 
+ export default function AttendancePage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const navigate = useNavigate();
+ 
+   const [draft, setDraft] = useState(emptyFilters);
+   const [applied, setApplied] = useState(emptyFilters);
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const [showFormModal, setShowFormModal] = useState(false);
+@@ -325,12 +338,19 @@ export default function AttendancePage() {
+           </p>
+         </div>
+ 
+-        <Button onClick={() => navigate("/dashboard/payroll/attendance")}>
++        <Button
++          onClick={() => navigate("/dashboard/payroll/attendance")}
++          disabled={isFiscalYearReadOnly}
++        >
+           <Plus size={16} />
+           تسجيل حضور
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+         <SummaryCard label="أيام العمل" value={summary.workDays} />
+ 
+@@ -368,6 +388,8 @@ export default function AttendancePage() {
+           <Input
+             label="من تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.fromDate}
+             onChange={(event) => setField("fromDate", event.target.value)}
+           />
+@@ -375,6 +397,8 @@ export default function AttendancePage() {
+           <Input
+             label="إلى تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.toDate}
+             onChange={(event) => setField("toDate", event.target.value)}
+           />
+@@ -433,7 +457,7 @@ export default function AttendancePage() {
+               variant="danger"
+               className="h-8"
+               onClick={handleBulkDelete}
+-              disabled={isBulkDeleting}
++              disabled={isBulkDeleting || isFiscalYearReadOnly}
+             >
+               <Trash2 size={13} />
+ 
+@@ -648,23 +672,27 @@ export default function AttendancePage() {
+                             <Eye size={15} />
+                           </button>
+ 
+-                          <button
+-                            type="button"
+-                            onClick={() => openEdit(row)}
+-                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+-                            title="تعديل"
+-                          >
+-                            <Pencil size={15} />
+-                          </button>
+-
+-                          <button
+-                            type="button"
+-                            onClick={() => handleDelete(row)}
+-                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative"
+-                            title="حذف"
+-                          >
+-                            <Trash2 size={15} />
+-                          </button>
++                          {!isFiscalYearReadOnly && (
++                            <>
++                              <button
++                                type="button"
++                                onClick={() => openEdit(row)}
++                                className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
++                                title="تعديل"
++                              >
++                                <Pencil size={15} />
++                              </button>
++
++                              <button
++                                type="button"
++                                onClick={() => handleDelete(row)}
++                                className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative"
++                                title="حذف"
++                              >
++                                <Trash2 size={15} />
++                              </button>
++                            </>
++                          )}
+                         </div>
+                       </td>
+                     </tr>
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/AttendanceTakingPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/AttendanceTakingPage.jsx
+index 4557288..91842a7 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/AttendanceTakingPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/AttendanceTakingPage.jsx
+@@ -28,6 +28,8 @@ import { ATTENDANCE_STATUS_VALUE, dayRatioOptions } from "../payroll.constants";
+ 
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ const DEFAULT_CHECK_IN = "09:00";
+ const DEFAULT_CHECK_OUT = "17:00";
+@@ -156,6 +158,7 @@ const createEmptyRow = (employee) => ({
+ });
+ 
+ const AttendanceTakingPage = () => {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [workDate, setWorkDate] = useState(getToday);
+   const [search, setSearch] = useState("");
+   const [statusFilter, setStatusFilter] = useState("");
+@@ -566,6 +569,10 @@ const AttendanceTakingPage = () => {
+ 
+   return (
+     <div dir="rtl" className="flex h-full min-h-0 flex-col gap-4 p-4">
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+         <div>
+           <div className="flex items-center gap-2">
+@@ -599,7 +606,12 @@ const AttendanceTakingPage = () => {
+           <Button
+             type="button"
+             onClick={handleSave}
+-            disabled={isSaving || isLoading || !employeeRows.length}
++            disabled={
++              isSaving ||
++              isLoading ||
++              !employeeRows.length ||
++              isFiscalYearReadOnly
++            }
+           >
+             {isSaving ? (
+               <Loader2 size={17} className="animate-spin" />
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/BulkCreatePayrollEntriesPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/BulkCreatePayrollEntriesPage.jsx
+index 18c3f3a..c584e62 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/BulkCreatePayrollEntriesPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/BulkCreatePayrollEntriesPage.jsx
+@@ -1,3 +1,4 @@
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ import { useEffect, useMemo, useRef, useState } from "react";
+ import { useNavigate } from "react-router-dom";
+ import { useVirtualizer } from "@tanstack/react-virtual";
+@@ -29,6 +30,8 @@ import {
+   useGetEmployeesSelectQuery,
+ } from "../payrollApi";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import Input from "../../../shared/components/ui/Input";
+ 
+ function getToday() {
+@@ -52,6 +55,7 @@ function normalizeNumber(value) {
+ 
+ export default function BulkCreatePayrollEntriesPage() {
+   const navigate = useNavigate();
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   const [startDate, setStartDate] = useState(getToday());
+   const [endDate, setEndDate] = useState(getToday());
+@@ -297,6 +301,15 @@ export default function BulkCreatePayrollEntriesPage() {
+   };
+ 
+   const handleSubmit = async () => {
++    const fiscalYearWarning = [startDate, endDate]
++      .map((value) => getFiscalYearDateWarning(value, fiscalYear))
++      .find(Boolean);
++
++    if (fiscalYearWarning) {
++      toast.error(fiscalYearWarning);
++      return;
++    }
++
+     if (!endDate) {
+       toast.error("حدد تاريخ المرتب أولاً");
+       return;
+@@ -376,6 +389,10 @@ export default function BulkCreatePayrollEntriesPage() {
+ 
+   return (
+     <div className="animate-fadeUp space-y-4" dir="rtl">
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+         <div>
+           <div className="flex items-center gap-2">
+@@ -407,7 +424,12 @@ export default function BulkCreatePayrollEntriesPage() {
+ 
+           <Button
+             onClick={handleSubmit}
+-            disabled={isSaving || employeesLoading || !selectedIds.length}
++            disabled={
++              isSaving ||
++              employeesLoading ||
++              !selectedIds.length ||
++              isFiscalYearReadOnly
++            }
+           >
+             {isSaving ? (
+               <Loader2 size={15} className="animate-spin" />
+@@ -483,6 +505,8 @@ export default function BulkCreatePayrollEntriesPage() {
+ 
+                 <input
+                   type="date"
++                  min={fiscalYear?.startDate}
++                  max={fiscalYear?.endDate}
+                   value={startDate}
+                   onChange={(event) => setStartDate(event.target.value)}
+                   className="w-full h-9 rounded-lg border border-ink-400/15 bg-white px-2 text-sm num outline-none focus:border-primary-500 transition-colors"
+@@ -497,6 +521,8 @@ export default function BulkCreatePayrollEntriesPage() {
+ 
+               <input
+                 type="date"
++                min={fiscalYear?.startDate}
++                max={fiscalYear?.endDate}
+                 value={endDate}
+                 onChange={(event) => setEndDate(event.target.value)}
+                 className="w-full h-9 rounded-lg border border-ink-400/15 bg-white px-2 text-sm num outline-none focus:border-primary-500 transition-colors"
+@@ -1180,7 +1206,10 @@ export default function BulkCreatePayrollEntriesPage() {
+                   <Button
+                     onClick={handleSubmit}
+                     disabled={
+-                      isSaving || employeesLoading || !selectedIds.length
++                      isSaving ||
++                      employeesLoading ||
++                      !selectedIds.length ||
++                      isFiscalYearReadOnly
+                     }
+                   >
+                     {isSaving ? (
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/EmployeeMovementsPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/EmployeeMovementsPage.jsx
+index b2a42ed..3fefd05 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/EmployeeMovementsPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/EmployeeMovementsPage.jsx
+@@ -1,4 +1,6 @@
+ import { useMemo, useState } from "react";
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampDateToFiscalYear } from "../../../lib/fiscalYearDateRange";
+ import {
+   Search,
+   RotateCcw,
+@@ -27,10 +29,13 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
+ import Pagination from "../../../shared/components/ui/Pagination";
+ import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+ 
+ export default function EmployeeMovementsPage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [page, setPage] = useState(1);
+   const [pageSize, setPageSize] = useState(20);
+   const [employeeId, setEmployeeId] = useState("");
+@@ -38,6 +43,13 @@ export default function EmployeeMovementsPage() {
+   const [currency, setCurrency] = useState("");
+   const [fromDate, setFromDate] = useState("");
+   const [toDate, setToDate] = useState("");
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    setFromDate((value) => clampDateToFiscalYear(value, fy));
++    setToDate((value) => clampDateToFiscalYear(value, fy));
++    setPage(1);
++  });
+   const [search, setSearch] = useState("");
+   const [isFormOpen, setIsFormOpen] = useState(false);
+   const [formDefaultType, setFormDefaultType] = useState(undefined);
+@@ -118,17 +130,28 @@ export default function EmployeeMovementsPage() {
+         </div>
+ 
+         <div className="flex gap-2">
+-          <Button variant="outline" onClick={() => openForm("Deduction")}>
++          <Button
++            variant="outline"
++            onClick={() => openForm("Deduction")}
++            disabled={isFiscalYearReadOnly}
++          >
+             <MinusCircle size={15} />
+             خصم سريع
+           </Button>
+-          <Button onClick={() => openForm(undefined)}>
++          <Button
++            onClick={() => openForm(undefined)}
++            disabled={isFiscalYearReadOnly}
++          >
+             <Plus size={15} />
+             تسجيل حركة جديدة
+           </Button>
+         </div>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+           <div className="lg:col-span-2">
+@@ -203,6 +226,8 @@ export default function EmployeeMovementsPage() {
+             </label>
+             <input
+               type="date"
++              min={fiscalYear?.startDate}
++              max={fiscalYear?.endDate}
+               value={fromDate}
+               onChange={(e) => {
+                 setFromDate(e.target.value);
+@@ -218,6 +243,8 @@ export default function EmployeeMovementsPage() {
+             </label>
+             <input
+               type="date"
++              min={fiscalYear?.startDate}
++              max={fiscalYear?.endDate}
+               value={toDate}
+               onChange={(e) => {
+                 setToDate(e.target.value);
+@@ -352,14 +379,16 @@ export default function EmployeeMovementsPage() {
+                     </td>
+ 
+                     <td className="px-4 py-3 text-center">
+-                      <button
+-                        type="button"
+-                        onClick={() => setMovementToDelete(item)}
+-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative/70 hover:bg-negative/10 hover:text-negative transition-colors"
+-                        title="حذف الحركة"
+-                      >
+-                        <Trash2 size={15} />
+-                      </button>
++                      {!isFiscalYearReadOnly && (
++                        <button
++                          type="button"
++                          onClick={() => setMovementToDelete(item)}
++                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative/70 hover:bg-negative/10 hover:text-negative transition-colors"
++                          title="حذف الحركة"
++                        >
++                          <Trash2 size={15} />
++                        </button>
++                      )}
+                     </td>
+                   </tr>
+                 ))}
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/EmployeeOpeningBalancesPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/EmployeeOpeningBalancesPage.jsx
+index 55b4bf1..fc349aa 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/EmployeeOpeningBalancesPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/EmployeeOpeningBalancesPage.jsx
+@@ -1,5 +1,8 @@
+ // features/payroll/pages/EmployeeOpeningBalancesPage.jsx
+ import { useMemo, useState } from "react";
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
++import { useNavigate } from "react-router-dom";
+ import { toast } from "sonner";
+ import {
+   Search,
+@@ -31,6 +34,8 @@ import Input from "../../../shared/components/ui/Input";
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
+ import Pagination from "../../../shared/components/ui/Pagination";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ const emptyFilters = {
+   employeeId: "",
+@@ -49,6 +54,9 @@ function fmt(n) {
+ }
+ 
+ export default function EmployeeOpeningBalancesPage() {
++  const navigate = useNavigate();
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
++
+   // =========================================================
+   // Filters
+   // =========================================================
+@@ -57,6 +65,14 @@ export default function EmployeeOpeningBalancesPage() {
+   const [applied, setApplied] = useState(emptyFilters);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   // =========================================================
+@@ -123,6 +139,8 @@ export default function EmployeeOpeningBalancesPage() {
+   };
+ 
+   const openEdit = (row) => {
++    // الصف المرحّل/للقراءة فقط مالوش تعديل من هنا
++    if (row.isReadOnly || row.isCarriedForward) return;
+     setEditingBalance(row);
+     setShowFormModal(true);
+   };
+@@ -147,6 +165,7 @@ export default function EmployeeOpeningBalancesPage() {
+   // =========================================================
+ 
+   const handleDelete = (row) => {
++    if (row.isReadOnly || row.isCarriedForward) return;
+     toast(`حذف الرصيد الافتتاحي للموظف "${row.employeeName}"؟`, {
+       description: "الإجراء ده لا يمكن التراجع عنه",
+ 
+@@ -224,12 +243,16 @@ export default function EmployeeOpeningBalancesPage() {
+           </p>
+         </div>
+ 
+-        <Button onClick={openCreate}>
++        <Button onClick={openCreate} disabled={isFiscalYearReadOnly}>
+           <Plus size={16} />
+           رصيد افتتاحي جديد
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {/* =====================================================
+           Summary
+       ====================================================== */}
+@@ -326,6 +349,8 @@ export default function EmployeeOpeningBalancesPage() {
+           <Input
+             label="من تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.fromDate}
+             onChange={(event) => setField("fromDate", event.target.value)}
+           />
+@@ -335,6 +360,8 @@ export default function EmployeeOpeningBalancesPage() {
+           <Input
+             label="إلى تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.toDate}
+             onChange={(event) => setField("toDate", event.target.value)}
+           />
+@@ -521,6 +548,12 @@ export default function EmployeeOpeningBalancesPage() {
+                         {BALANCE_TYPE_LABELS[row.balanceType] ||
+                           row.balanceType}
+                       </span>
++
++                      {row.isCarriedForward && (
++                        <span className="ms-1.5 inline-block rounded-full bg-ink-400/10 px-2 py-0.5 text-[10px] font-semibold text-ink-500">
++                          مرحل من {row.sourceFiscalYearName || "السنة السابقة"}
++                        </span>
++                      )}
+                     </td>
+ 
+                     {/* Amount */}
+@@ -550,27 +583,48 @@ export default function EmployeeOpeningBalancesPage() {
+ 
+                     <td className="p-2.5">
+                       <div className="flex items-center gap-1">
+-                        {/* Edit */}
+-
+-                        <button
+-                          type="button"
+-                          onClick={() => openEdit(row)}
+-                          className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+-                          title="تعديل"
+-                        >
+-                          <Pencil size={15} />
+-                        </button>
+-
+-                        {/* Delete */}
+-
+-                        <button
+-                          type="button"
+-                          onClick={() => handleDelete(row)}
+-                          className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
+-                          title="حذف"
+-                        >
+-                          <Trash2 size={15} />
+-                        </button>
++                        {row.journalEntryId && (
++                          <button
++                            type="button"
++                            onClick={() =>
++                              navigate(
++                                `/dashboard/journal-entries/${row.journalEntryId}`,
++                              )
++                            }
++                            className="rounded-lg px-2 py-1 text-[11px] font-medium text-primary-600 hover:bg-primary-50 transition-colors"
++                            title="عرض القيد المصدر"
++                          >
++                            عرض القيد
++                          </button>
++                        )}
++
++                        {!isFiscalYearReadOnly &&
++                          !row.isReadOnly &&
++                          !row.isCarriedForward && (
++                        <div className="flex items-center gap-1">
++                          {/* Edit */}
++
++                          <button
++                            type="button"
++                            onClick={() => openEdit(row)}
++                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
++                            title="تعديل"
++                          >
++                            <Pencil size={15} />
++                          </button>
++
++                          {/* Delete */}
++
++                          <button
++                            type="button"
++                            onClick={() => handleDelete(row)}
++                            className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
++                            title="حذف"
++                          >
++                            <Trash2 size={15} />
++                          </button>
++                        </div>
++                        )}
+                       </div>
+                     </td>
+                   </tr>
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/PayrollDashboardPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/PayrollDashboardPage.jsx
+index 954179e..e2dc2e9 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/PayrollDashboardPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/PayrollDashboardPage.jsx
+@@ -1,4 +1,10 @@
+ import { useMemo, useState } from "react";
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import {
++  clampDateToFiscalYear,
++  getDefaultRangeForFiscalYear,
++} from "../../../lib/fiscalYearDateRange";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+ import { useNavigate } from "react-router-dom";
+ import {
+   Wallet,
+@@ -145,6 +151,22 @@ export default function PayrollDashboardPage() {
+ 
+   const [fromDate, setFromDate] = useState(getFirstDayOfMonth);
+   const [toDate, setToDate] = useState(getToday);
++
++  const { fiscalYear } = useFiscalYearGuard();
++
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  // (الشهر الحالي لو السنة حالية، وإلا السنة كلها)
++  useOnFiscalYearChange((fy) => {
++    const outside =
++      clampDateToFiscalYear(fromDate, fy, "x") !== fromDate ||
++      clampDateToFiscalYear(toDate, fy, "x") !== toDate;
++
++    if (outside) {
++      const range = getDefaultRangeForFiscalYear(fy);
++      setFromDate(range.start);
++      setToDate(range.end);
++    }
++  });
+   const [employeeId, setEmployeeId] = useState("");
+   const [employeeType, setEmployeeType] = useState("");
+ 
+@@ -318,6 +340,8 @@ export default function PayrollDashboardPage() {
+ 
+             <input
+               type="date"
++              min={fiscalYear?.startDate}
++              max={fiscalYear?.endDate}
+               value={fromDate}
+               onChange={(event) => setFromDate(event.target.value)}
+               className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+@@ -332,6 +356,8 @@ export default function PayrollDashboardPage() {
+ 
+             <input
+               type="date"
++              min={fiscalYear?.startDate}
++              max={fiscalYear?.endDate}
+               value={toDate}
+               onChange={(event) => setToDate(event.target.value)}
+               className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/PayrollReportsPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/PayrollReportsPage.jsx
+index 24fe388..02e2de7 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/PayrollReportsPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/PayrollReportsPage.jsx
+@@ -1,4 +1,10 @@
+ import { useMemo, useState } from "react";
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import {
++  clampDateToFiscalYear,
++  getDefaultRangeForFiscalYear,
++} from "../../../lib/fiscalYearDateRange";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+ import { useNavigate } from "react-router-dom";
+ import {
+   RefreshCw,
+@@ -158,6 +164,22 @@ export default function PayrollReportsPage() {
+ 
+   const [endDate, setEndDate] = useState(getToday());
+ 
++  const { fiscalYear } = useFiscalYearGuard();
++
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  // (الشهر الحالي لو السنة حالية، وإلا السنة كلها)
++  useOnFiscalYearChange((fy) => {
++    const outside =
++      clampDateToFiscalYear(startDate, fy, "x") !== startDate ||
++      clampDateToFiscalYear(endDate, fy, "x") !== endDate;
++
++    if (outside) {
++      const range = getDefaultRangeForFiscalYear(fy);
++      setStartDate(range.start);
++      setEndDate(range.end);
++    }
++  });
++
+   const params = useMemo(
+     () => ({
+       StartDate: startDate,
+@@ -276,6 +298,8 @@ export default function PayrollReportsPage() {
+ 
+             <input
+               type="date"
++              min={fiscalYear?.startDate}
++              max={fiscalYear?.endDate}
+               value={startDate}
+               onChange={(event) => setStartDate(event.target.value)}
+               className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+@@ -289,6 +313,8 @@ export default function PayrollReportsPage() {
+ 
+             <input
+               type="date"
++              min={fiscalYear?.startDate}
++              max={fiscalYear?.endDate}
+               value={endDate}
+               onChange={(event) => setEndDate(event.target.value)}
+               className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/SalariesPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/SalariesPage.jsx
+index e83f386..9c68e53 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/SalariesPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/SalariesPage.jsx
+@@ -1,4 +1,6 @@
+ import { useState } from "react";
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useNavigate } from "react-router-dom";
+ import { toast } from "sonner";
+ import {
+@@ -33,6 +35,8 @@ import { useGetCashMovementTypesQuery } from "../../cashboxes/cashMovementTypesA
+ import Input from "../../../shared/components/ui/Input";
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import Pagination from "../../../shared/components/ui/Pagination";
+ 
+ import MoveSalaryModal from "../components/MoveSalaryModal";
+@@ -59,11 +63,25 @@ function isRowMoved(row) {
+ 
+ export default function SalariesPage() {
+   const navigate = useNavigate();
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   const [draft, setDraft] = useState(emptyFilters);
+   const [applied, setApplied] = useState(emptyFilters);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وردّ الفترة لحدود السنة لو خرجت منها
++  useOnFiscalYearChange((fy) => {
++    const bounds = {
++      startDate: String(fy.startDate).slice(0, 10),
++      endDate: String(fy.endDate).slice(0, 10),
++    };
++    const fix = (f) =>
++      clampFilterDates(f, ["startDate", "endDate"], fy, bounds);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const [selectedIds, setSelectedIds] = useState(new Set());
+@@ -231,7 +249,7 @@ export default function SalariesPage() {
+               <Button
+                 onClick={() => setBulkMoveOpen(true)}
+                 className="h-9"
+-                disabled={isDeleting}
++                disabled={isDeleting || isFiscalYearReadOnly}
+               >
+                 <Send size={14} />
+                 ترحيل المحدد ({selectedIds.size})
+@@ -240,7 +258,7 @@ export default function SalariesPage() {
+               <Button
+                 variant="outline"
+                 onClick={handleBulkDelete}
+-                disabled={isDeleting}
++                disabled={isDeleting || isFiscalYearReadOnly}
+                 className="h-9 text-negative hover:text-negative"
+               >
+                 {isDeleting ? (
+@@ -274,6 +292,7 @@ export default function SalariesPage() {
+           <Button
+             onClick={() => navigate("/dashboard/payroll/salaries/create")}
+             className="h-9"
++            disabled={isFiscalYearReadOnly}
+           >
+             <Plus size={14} />
+             قيود مرتبات جديدة
+@@ -281,11 +300,17 @@ export default function SalariesPage() {
+         </div>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+           <Input
+             label="من تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.startDate}
+             onChange={(e) => setField("startDate", e.target.value)}
+           />
+@@ -293,6 +318,8 @@ export default function SalariesPage() {
+           <Input
+             label="إلى تاريخ"
+             type="date"
++            min={fiscalYear?.startDate}
++            max={fiscalYear?.endDate}
+             value={draft.endDate}
+             onChange={(e) => setField("endDate", e.target.value)}
+           />
+@@ -548,7 +575,7 @@ export default function SalariesPage() {
+                             التفاصيل
+                           </button>
+ 
+-                          {!isMoved && (
++                          {!isMoved && !isFiscalYearReadOnly && (
+                             <button
+                               type="button"
+                               onClick={() => setMoveModalRow(row)}
+@@ -562,7 +589,7 @@ export default function SalariesPage() {
+                           <button
+                             type="button"
+                             onClick={() => handleRecalculate(row.id)}
+-                            disabled={isRecalculating}
++                            disabled={isRecalculating || isFiscalYearReadOnly}
+                             title="إعادة احتساب"
+                             className="rounded-lg p-1.5 text-ink-400 transition hover:bg-ink-400/10 hover:text-ink-700 disabled:opacity-40"
+                           >
+diff --git a/ERP_SYSTEM/src/features/payroll/pages/SalaryDetailPage.jsx b/ERP_SYSTEM/src/features/payroll/pages/SalaryDetailPage.jsx
+index 1e21c6a..79c205f 100644
+--- a/ERP_SYSTEM/src/features/payroll/pages/SalaryDetailPage.jsx
++++ b/ERP_SYSTEM/src/features/payroll/pages/SalaryDetailPage.jsx
+@@ -18,6 +18,8 @@ import {
+ import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
+ import { EMPLOYEE_TYPE, fmtMoney } from "../payroll.constants";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ import Modal from "../../../shared/components/ui/Modal";
+ import Input from "../../../shared/components/ui/Input";
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+@@ -27,6 +29,7 @@ import { usePayrollDetailPrint } from "../../../shared/hooks/usePayrollDetailPri
+ export default function SalaryDetailPage() {
+   const { salaryId } = useParams();
+   const navigate = useNavigate();
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   const {
+     data: entry,
+@@ -154,6 +157,10 @@ export default function SalaryDetailPage() {
+ 
+   return (
+     <div className="animate-fadeUp space-y-5" dir="rtl">
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <button
+         type="button"
+         onClick={() => navigate("/dashboard/payroll/salaries")}
+@@ -195,7 +202,10 @@ export default function SalaryDetailPage() {
+               طباعة
+             </Button>
+ 
+-            <Button onClick={() => setShowPayModal(true)} disabled={isPaying}>
++            <Button
++              onClick={() => setShowPayModal(true)}
++              disabled={isPaying || isFiscalYearReadOnly}
++            >
+               <Wallet size={14} />
+               صرف المرتب
+             </Button>
+diff --git a/ERP_SYSTEM/src/features/reports/pages/InvoiceProfitabilityPage.jsx b/ERP_SYSTEM/src/features/reports/pages/InvoiceProfitabilityPage.jsx
+index 61a943a..708c0c9 100644
+--- a/ERP_SYSTEM/src/features/reports/pages/InvoiceProfitabilityPage.jsx
++++ b/ERP_SYSTEM/src/features/reports/pages/InvoiceProfitabilityPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useRef, useState } from "react";
+ import { Link } from "react-router-dom";
+ import { motion, AnimatePresence } from "framer-motion";
+@@ -360,6 +362,14 @@ export default function InvoiceProfitabilityPage() {
+   const [filters, setFilters] = useState(initialFilters);
+   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+   const [pageNumber, setPageNumber] = useState(1);
++
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setFilters(fix);
++    setAppliedFilters(fix);
++    setPageNumber(1);
++  });
+   const [filtersOpen, setFiltersOpen] = useState(true);
+ 
+   const pageSize = 20;
+diff --git a/ERP_SYSTEM/src/features/reports/pages/ItemProfitabilityPage.jsx b/ERP_SYSTEM/src/features/reports/pages/ItemProfitabilityPage.jsx
+index 66843bd..e8013b9 100644
+--- a/ERP_SYSTEM/src/features/reports/pages/ItemProfitabilityPage.jsx
++++ b/ERP_SYSTEM/src/features/reports/pages/ItemProfitabilityPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useRef, useState } from "react";
+ import {
+   Search,
+@@ -396,6 +398,14 @@ export default function ItemProfitabilityPage() {
+   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
+   const [pageNumber, setPageNumber] = useState(1);
+ 
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setFilters(fix);
++    setAppliedFilters(fix);
++    setPageNumber(1);
++  });
++
+   const [filtersOpen, setFiltersOpen] = useState(true);
+ 
+   const pageSize = 20;
+diff --git a/ERP_SYSTEM/src/features/sales/components/createComponents/CreateInvoiceForm.jsx b/ERP_SYSTEM/src/features/sales/components/createComponents/CreateInvoiceForm.jsx
+index 1dcf2b6..479eb44 100644
+--- a/ERP_SYSTEM/src/features/sales/components/createComponents/CreateInvoiceForm.jsx
++++ b/ERP_SYSTEM/src/features/sales/components/createComponents/CreateInvoiceForm.jsx
+@@ -42,6 +42,9 @@ import InvoicePrintTemplate from "../../../../shared/components/print/InvoicePri
+ import NumericInput from "../../../../shared/components/ui/NumericInput";
+ import { useGetCashboxOptionsQuery } from "../../../cashboxes/cashboxesApi";
+ import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../../lib/fiscalYearDateRange";
+ 
+ const emptyLine = () => ({
+   itemId: null,
+@@ -296,6 +299,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
+ 
+   const [header, setHeader] = useState(getDefaultHeader);
+ 
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
++  const invoiceDateWarning = useMemo(
++    () => getFiscalYearDateWarning(header.date, selectedFiscalYear),
++    [header.date, selectedFiscalYear],
++  );
++
+   const [lines, setLines] = useState(() =>
+     Array.from({ length: 10 }, () => emptyLine()),
+   );
+@@ -683,6 +692,11 @@ export default function CreateInvoiceForm({ onSuccess }) {
+         return;
+       }
+ 
++      if (invoiceDateWarning) {
++        toast.error(invoiceDateWarning);
++        return;
++      }
++
+       // التحقق من صحة الفاتورة (عميل، مخزن، أصناف، خزنة نقدي...) بقى
+       // مسؤولية الباك بالكامل، وأي رفض بيوصل هنا في الـ catch تحت.
+       const payload = buildCreateInvoiceRequest({
+@@ -715,6 +729,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
+       containersMovement,
+       isTemporaryDriver,
+       priceModifiedReturnLines,
++      invoiceDateWarning,
+       createInvoice,
+       onSuccess,
+       printInvoice,
+@@ -791,6 +806,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
+             type="date"
+             value={header.date}
+             onChange={(e) => setHeaderField("date", e.target.value)}
++            error={invoiceDateWarning}
+           />
+         </div>
+         <div className="grid grid-cols-1 sm:grid-cols-3">
+diff --git a/ERP_SYSTEM/src/features/sales/pages/InvoiceEditPage.jsx b/ERP_SYSTEM/src/features/sales/pages/InvoiceEditPage.jsx
+index 3a5d3e3..fad1228 100644
+--- a/ERP_SYSTEM/src/features/sales/pages/InvoiceEditPage.jsx
++++ b/ERP_SYSTEM/src/features/sales/pages/InvoiceEditPage.jsx
+@@ -32,6 +32,8 @@ import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
+ import CompactSelect from "../../../shared/components/ui/CompactSelect";
+ import Input from "../../../shared/components/ui/Input";
+ import Button from "../../../shared/components/ui/Button";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ import InvoiceLineRow from "../components/createComponents/NewInvoiceLineRow";
+ import ContainerLineRow from "../components/editComponents/ContainerLineRow";
+@@ -104,6 +106,7 @@ const emptyContainerLine = () => ({
+ export default function InvoiceEditPage() {
+   const { id } = useParams();
+   const navigate = useNavigate();
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   const {
+     data: invoice,
+@@ -699,13 +702,20 @@ export default function InvoiceEditPage() {
+           </div>
+         </div>
+ 
+-        <Button onClick={handleSubmit} disabled={isSaving}>
++        <Button
++          onClick={handleSubmit}
++          disabled={isSaving || isFiscalYearReadOnly}
++        >
+           <Save size={16} />
+ 
+           {isSaving ? "جاري الحفظ..." : "حفظ التعديلات"}
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {/* =====================================================
+           بيانات الفاتورة الأساسية
+       ====================================================== */}
+diff --git a/ERP_SYSTEM/src/features/sales/pages/SalesPage.jsx b/ERP_SYSTEM/src/features/sales/pages/SalesPage.jsx
+index d81df07..2cf48a9 100644
+--- a/ERP_SYSTEM/src/features/sales/pages/SalesPage.jsx
++++ b/ERP_SYSTEM/src/features/sales/pages/SalesPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useState, useEffect } from "react";
+ import { useNavigate } from "react-router-dom";
+ import { toast } from "sonner";
+@@ -35,6 +37,14 @@ export default function SalesPage() {
+   const [draft, setDraft] = useState(emptyFilters);
+   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setAppliedFilters(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(25);
+   const [triggerExport, setTriggerExport] = useState(false);
+ 
+diff --git a/ERP_SYSTEM/src/features/statements/pages/CashFlowPage.jsx b/ERP_SYSTEM/src/features/statements/pages/CashFlowPage.jsx
+index 8544b11..4bf85dc 100644
+--- a/ERP_SYSTEM/src/features/statements/pages/CashFlowPage.jsx
++++ b/ERP_SYSTEM/src/features/statements/pages/CashFlowPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useState } from "react";
+ import {
+   AlertTriangle,
+@@ -38,6 +40,15 @@ export default function CashFlowPage() {
+   const [applied, setApplied] = useState(draft);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) =>
++      f.fiscalYearId ? f : resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(25);
+ 
+   const { data, isLoading, isFetching, isError, refetch } = useGetCashFlowQuery(
+diff --git a/ERP_SYSTEM/src/features/statements/pages/EmployeeAccountPage.jsx b/ERP_SYSTEM/src/features/statements/pages/EmployeeAccountPage.jsx
+index fde9152..8dc10dd 100644
+--- a/ERP_SYSTEM/src/features/statements/pages/EmployeeAccountPage.jsx
++++ b/ERP_SYSTEM/src/features/statements/pages/EmployeeAccountPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ // features/statements/pages/EmployeeAccountPage.jsx
+ 
+ import { useCallback, useMemo, useState } from "react";
+@@ -33,6 +35,16 @@ export default function EmployeeAccountPage() {
+   });
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    setFilters((prev) => ({
++      ...prev,
++      draft: clampFilterDates(prev.draft, ["FromDate", "ToDate"], fy),
++      applied: clampFilterDates(prev.applied, ["FromDate", "ToDate"], fy),
++    }));
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const statementParams = useMemo(
+diff --git a/ERP_SYSTEM/src/features/statements/pages/FinancialPositionPage.jsx b/ERP_SYSTEM/src/features/statements/pages/FinancialPositionPage.jsx
+index cf629a4..fa838ce 100644
+--- a/ERP_SYSTEM/src/features/statements/pages/FinancialPositionPage.jsx
++++ b/ERP_SYSTEM/src/features/statements/pages/FinancialPositionPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useState } from "react";
+ import {
+   AlertTriangle,
+@@ -39,6 +41,15 @@ export default function FinancialPositionPage() {
+   const [applied, setApplied] = useState(draft);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) =>
++      f.fiscalYearId ? f : resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(25);
+ 
+   const { data, isLoading, isFetching, isError, refetch } =
+diff --git a/ERP_SYSTEM/src/features/statements/pages/IncomeStatementPage.jsx b/ERP_SYSTEM/src/features/statements/pages/IncomeStatementPage.jsx
+index ebda230..a4f92bc 100644
+--- a/ERP_SYSTEM/src/features/statements/pages/IncomeStatementPage.jsx
++++ b/ERP_SYSTEM/src/features/statements/pages/IncomeStatementPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
+ import { useMemo, useState } from "react";
+ import {
+   AlertTriangle,
+@@ -38,6 +40,15 @@ export default function IncomeStatementPage() {
+   const [applied, setApplied] = useState(draft);
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) =>
++      f.fiscalYearId ? f : resetRangeIfOutside(f, "fromDate", "toDate", fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(25);
+ 
+   const { data, isLoading, isFetching, isError, refetch } =
+diff --git a/ERP_SYSTEM/src/features/statements/pages/PartnerAccountPage.jsx b/ERP_SYSTEM/src/features/statements/pages/PartnerAccountPage.jsx
+index df0b13e..d26bb0c 100644
+--- a/ERP_SYSTEM/src/features/statements/pages/PartnerAccountPage.jsx
++++ b/ERP_SYSTEM/src/features/statements/pages/PartnerAccountPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useCallback, useMemo, useState } from "react";
+ import { useSearchParams } from "react-router-dom";
+ import { FileText, Receipt, StoreIcon, Printer } from "lucide-react";
+@@ -81,6 +83,21 @@ export default function PartnerAccountPage() {
+   // -------------------------------------------------------
+ 
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها (التابين)
++  useOnFiscalYearChange((fy) => {
++    const fixTab = (tab, keys) => ({
++      draft: clampFilterDates(tab.draft, keys, fy),
++      applied: clampFilterDates(tab.applied, keys, fy),
++    });
++
++    setFilters((prev) => ({
++      ...prev,
++      statement: fixTab(prev.statement, ["FromDate", "ToDate"]),
++      invoices: fixTab(prev.invoices, ["fromDate", "toDate"]),
++    }));
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(25);
+ 
+   // -------------------------------------------------------
+diff --git a/ERP_SYSTEM/src/features/stock-adjustments/components/StockAdjustmentForm.jsx b/ERP_SYSTEM/src/features/stock-adjustments/components/StockAdjustmentForm.jsx
+index 7c2b9c5..4b53735 100644
+--- a/ERP_SYSTEM/src/features/stock-adjustments/components/StockAdjustmentForm.jsx
++++ b/ERP_SYSTEM/src/features/stock-adjustments/components/StockAdjustmentForm.jsx
+@@ -6,6 +6,9 @@ import { useNavigate } from "react-router-dom";
+ import { toast } from "sonner";
+ import Select from "react-select";
+ import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
++import { useSelector } from "react-redux";
++import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
++import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+ 
+ import {
+   useCreateStockAdjustmentMutation,
+@@ -118,6 +121,10 @@ export default function StockAdjustmentForm({ adjustment, isEditMode }) {
+   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
+   const direction = watch("direction");
+   const isIncrease = direction === "Increase";
++  const documentDate = watch("documentDate");
++
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
++  const dateWarning = getFiscalYearDateWarning(documentDate, selectedFiscalYear);
+ 
+   // تعبئة الفورم في وضع التعديل
+   useEffect(() => {
+@@ -144,6 +151,13 @@ export default function StockAdjustmentForm({ adjustment, isEditMode }) {
+     items?.map((i) => ({ value: i.id, label: `${i.code} - ${i.name}` })) ?? [];
+ 
+   const onSubmit = async (data) => {
++    if (getFiscalYearDateWarning(data.documentDate, selectedFiscalYear)) {
++      toast.error(
++        getFiscalYearDateWarning(data.documentDate, selectedFiscalYear),
++      );
++      return;
++    }
++
+     try {
+       const payload = buildPayload(data);
+ 
+@@ -211,7 +225,7 @@ export default function StockAdjustmentForm({ adjustment, isEditMode }) {
+             type="date"
+             label="التاريخ"
+             {...register("documentDate")}
+-            error={errors.documentDate?.message}
++            error={errors.documentDate?.message || dateWarning}
+           />
+ 
+           <div>
+diff --git a/ERP_SYSTEM/src/features/stock-adjustments/pages/StockAdjustmentsListPage.jsx b/ERP_SYSTEM/src/features/stock-adjustments/pages/StockAdjustmentsListPage.jsx
+index 3f7ba8f..9389af1 100644
+--- a/ERP_SYSTEM/src/features/stock-adjustments/pages/StockAdjustmentsListPage.jsx
++++ b/ERP_SYSTEM/src/features/stock-adjustments/pages/StockAdjustmentsListPage.jsx
+@@ -21,10 +21,13 @@ import {
+ } from "../stockAdjustmentsApi";
+ import { useGetStoresSelectQuery } from "../../stores/storesApi";
+ import Pagination from "../../../shared/components/ui/Pagination";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ export default function StockAdjustmentsListPage() {
+   const navigate = useNavigate();
+   const isAdmin = useSelector((state) => state.auth.roles?.includes("Admin"));
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+ 
+   const [pageNumber, setPageNumber] = useState(1);
+   const [pageSize, setPageSize] = useState(20);
+@@ -73,7 +76,7 @@ export default function StockAdjustmentsListPage() {
+         <h1 className="font-display text-xl font-bold text-ink-900">
+           تسويات المخزون
+         </h1>
+-        {isAdmin && (
++        {isAdmin && !isFiscalYearReadOnly && (
+           <button
+             onClick={() => navigate("/dashboard/inventory/adjustments/new")}
+             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 transition-colors"
+@@ -84,6 +87,10 @@ export default function StockAdjustmentsListPage() {
+         )}
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       {/* فلاتر */}
+       <div className="bg-white rounded-2xl shadow-card p-4 mb-5 flex items-center gap-3 flex-wrap">
+         <input
+@@ -204,7 +211,9 @@ export default function StockAdjustmentsListPage() {
+                 </thead>
+                 <tbody>
+                   {adjustments.map((adj) => {
+-                    const isLocked = Boolean(adj.sourceInventoryCountId);
++                    const isLocked =
++                      Boolean(adj.sourceInventoryCountId) ||
++                      isFiscalYearReadOnly;
+                     const isIncrease = adj.direction === "Increase";
+                     return (
+                       <tr
+diff --git a/ERP_SYSTEM/src/features/stores/pages/StockOpeningBalancesPage.jsx b/ERP_SYSTEM/src/features/stores/pages/StockOpeningBalancesPage.jsx
+index a07e7cc..dd8295e 100644
+--- a/ERP_SYSTEM/src/features/stores/pages/StockOpeningBalancesPage.jsx
++++ b/ERP_SYSTEM/src/features/stores/pages/StockOpeningBalancesPage.jsx
+@@ -1,3 +1,5 @@
++import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
++import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+ import { useState } from "react";
+ import { Search, RotateCcw, Plus, ArrowRight } from "lucide-react";
+ import { toast } from "sonner";
+@@ -12,6 +14,8 @@ import {
+ 
+ import StockOpeningBalancesTable from "../../inventory/components/StockOpeningBalancesTable";
+ import StockOpeningBalanceForm from "../../inventory/components/StockOpeningBalanceForm";
++import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
++import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+ 
+ const emptyFilters = {
+   documentNumber: "",
+@@ -21,9 +25,18 @@ const emptyFilters = {
+ };
+ 
+ export default function StockOpeningBalancesPage() {
++  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+   const [draft, setDraft] = useState(emptyFilters);
+   const [applied, setApplied] = useState(emptyFilters);
+   const [page, setPage] = useState(1);
++
++  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
++  useOnFiscalYearChange((fy) => {
++    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
++    setDraft(fix);
++    setApplied(fix);
++    setPage(1);
++  });
+   const [pageSize, setPageSize] = useState(20);
+ 
+   const [view, setView] = useState("list"); // "list" | "form"
+@@ -123,12 +136,16 @@ export default function StockOpeningBalancesPage() {
+           </p>
+         </div>
+ 
+-        <Button onClick={openCreateForm} className="h-9">
++        <Button onClick={openCreateForm} className="h-9" disabled={isFiscalYearReadOnly}>
+           <Plus size={14} />
+           إضافة رصيد افتتاحي
+         </Button>
+       </div>
+ 
++      {isFiscalYearReadOnly && (
++        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
++      )}
++
+       <div className="rounded-2xl border border-ink-400/10 bg-white p-3 shadow-card">
+         <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
+           <div>
+diff --git a/ERP_SYSTEM/src/lib/baseQueryWithReauth.js b/ERP_SYSTEM/src/lib/baseQueryWithReauth.js
+index 3b9bf7b..c44aa4d 100644
+--- a/ERP_SYSTEM/src/lib/baseQueryWithReauth.js
++++ b/ERP_SYSTEM/src/lib/baseQueryWithReauth.js
+@@ -2,8 +2,17 @@ import { fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+ import { toast } from "sonner";
+ 
+ import { updateTokens, logout } from "../features/auth/authSlice";
++import {
++  selectSelectedFiscalYearId,
++  fiscalYearRefreshRequested,
++} from "../features/fiscalYears/fiscalYearSlice";
+ 
+ import { getApiErrors } from "../utils/getApiErrors";
++import { shouldAttachFiscalYearId } from "./fiscalYearEndpoints";
++import {
++  findFiscalYearMismatch,
++  getSentFiscalYearId,
++} from "./fiscalYearResponseGuard";
+ 
+ const baseQuery = fetchBaseQuery({
+   baseUrl: import.meta.env.VITE_API_URL,
+@@ -19,6 +28,24 @@ const baseQuery = fetchBaseQuery({
+   },
+ });
+ 
++// أكواد أخطاء الباك إند اللي معناها إن حالة السنة/السجل اتغيّرت
++// والواجهة لازم تعيد تحميل بياناتها (مذكورة في الأدلة).
++const REFRESH_ERROR_CODES = new Set([
++  "FiscalYears.InvalidId",
++  "FiscalYears.Closed",
++  "EmployeeOpeningBalances.CarriedForwardReadOnly",
++  "PayrollEntry.AlreadyPaid",
++  "PayrollEntry.NotFound",
++]);
++
++const syncFromErrorCode = (error, api) => {
++  const code = error?.data?.errorCode;
++
++  if (code && REFRESH_ERROR_CODES.has(code)) {
++    api.dispatch(fiscalYearRefreshRequested());
++  }
++};
++
+ const showErrors = (error) => {
+   const messages = [...new Set(getApiErrors(error))];
+ 
+@@ -27,8 +54,108 @@ const showErrors = (error) => {
+   });
+ };
+ 
+-const baseQueryWithReauth = async (args, api, extraOptions) => {
+-  let result = await baseQuery(args, api, extraOptions);
++/**
++ * لو الطلب GET، وعنوانه ضمن endpoints اللي بتقبل fiscalYearId (حسب
++ * fiscalYearEndpoints.js)، ومحصلش تحديد صريح للسنة في الـ params —
++ * يضيف السنة المختارة حاليًا (من الـ Navbar) تلقائيًا.
++ *
++ * لو الـ caller حدد fiscalYearId (أو FiscalYearId) بنفسه بقيمة حقيقية،
++ * احترامًا لاختياره، لا يتم استبدالها.
++ */
++// مفاتيح تواريخ الفلترة/الفترة اللي لازم تكون جوه حدود السنة. (مقصود
++// إننا مانلمسش تواريخ الحركات نفسها زي date/postingDate/asOfDate.)
++const RANGE_DATE_PARAM_KEYS = new Set([
++  "fromdate",
++  "todate",
++  "startdate",
++  "enddate",
++  "workdatefrom",
++  "workdateto",
++]);
++
++/**
++ * شبكة أمان على مستوى الطلب: لو فلتر تاريخ لسه قديم (برّه حدود السنة
++ * اللي الطلب رايحلها) يتقصّ لحدود السنة بدل ما الباك إند يرجّع 400
++ * FiscalYears.QueryDateOutsideRange. الواجهة بتصلّح الفلاتر نفسها
++ * عن طريق useOnFiscalYearChange.
++ */
++const clampRangeParams = (params, fiscalYear) => {
++  if (!params || !fiscalYear?.startDate || !fiscalYear?.endDate) return params;
++
++  const start = String(fiscalYear.startDate).slice(0, 10);
++  const end = String(fiscalYear.endDate).slice(0, 10);
++
++  let changed = false;
++  const next = { ...params };
++
++  Object.keys(next).forEach((key) => {
++    const value = next[key];
++
++    if (!RANGE_DATE_PARAM_KEYS.has(key.toLowerCase())) return;
++    if (typeof value !== "string" || !value) return;
++
++    const day = value.slice(0, 10);
++    const clamped = day < start ? start : day > end ? end : null;
++
++    if (clamped) {
++      next[key] = clamped;
++      changed = true;
++    }
++  });
++
++  return changed ? next : params;
++};
++
++/**
++ * لو الطلب GET، وعنوانه ضمن endpoints اللي بتقبل fiscalYearId (حسب
++ * fiscalYearEndpoints.js) — يضيف السنة المختارة (من الـ Navbar) لو
++ * الـ caller ما حددش سنة بقيمة حقيقية، وبيقصّ فلاتر التاريخ لحدود
++ * السنة الفعلية للطلب (المختارة أو اللي الـ caller حددها).
++ */
++const withFiscalYearId = (args, getState) => {
++  const isObjectArgs = typeof args === "object" && args !== null;
++  const url = isObjectArgs ? args.url : args;
++  const method = ((isObjectArgs ? args.method : "GET") || "GET").toUpperCase();
++
++  if (method !== "GET") return args;
++  if (!shouldAttachFiscalYearId(url)) return args;
++
++  const state = getState();
++  const existingParams = isObjectArgs ? args.params : undefined;
++
++  const explicitKey =
++    existingParams &&
++    Object.keys(existingParams).find(
++      (key) =>
++        key.toLowerCase() === "fiscalyearid" &&
++        existingParams[key] !== undefined &&
++        existingParams[key] !== null,
++    );
++
++  const effectiveId = explicitKey
++    ? Number(existingParams[explicitKey])
++    : selectSelectedFiscalYearId(state);
++
++  if (!effectiveId || effectiveId <= 0) return args;
++
++  const fiscalYear = state.fiscalYear?.fiscalYears?.find(
++    (year) => year.id === effectiveId,
++  );
++
++  const params = clampRangeParams(existingParams, fiscalYear);
++
++  if (explicitKey) {
++    return params === existingParams ? args : { ...args, params };
++  }
++
++  return {
++    ...(isObjectArgs ? args : { url }),
++    params: { ...params, fiscalYearId: effectiveId },
++  };
++};
++
++const requestWithReauth = async (argsWithFiscalYear, api, extraOptions) => {
++  let result = await baseQuery(argsWithFiscalYear, api, extraOptions);
+ 
+   if (result.error?.status === 401) {
+     const refreshToken = api.getState().auth?.refreshToken;
+@@ -62,7 +189,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
+         }),
+       );
+ 
+-      result = await baseQuery(args, api, extraOptions);
++      result = await baseQuery(argsWithFiscalYear, api, extraOptions);
+ 
+       if (result.error) {
+         showErrors(result.error);
+@@ -78,6 +205,48 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
+ 
+   if (result.error) {
+     showErrors(result.error);
++    syncFromErrorCode(result.error, api);
++  }
++
++  return result;
++};
++
++const FISCAL_YEAR_MISMATCH_MESSAGE =
++  "تم تجاهل بيانات تخص سنة مالية مختلفة عن السنة المختارة.";
++
++const baseQueryWithReauth = async (args, api, extraOptions) => {
++  const sentArgs = withFiscalYearId(args, api.getState);
++
++  const result = await requestWithReauth(sentArgs, api, extraOptions);
++
++  if (result.error) return result;
++
++  // فحص احترازي: fiscalYearId الراجع لازم يطابق السنة المرسلة.
++  // (من غير refetch تلقائي هنا عشان مانعملش loop لو الباك إند
++  // فعلًا بيرجّع سنة مختلفة باستمرار.)
++  const expectedId = getSentFiscalYearId(sentArgs);
++
++  if (expectedId) {
++    const mismatch = findFiscalYearMismatch(result.data, expectedId);
++
++    if (mismatch !== null) {
++      toast.error(FISCAL_YEAR_MISMATCH_MESSAGE, {
++        id: "fiscal-year-mismatch",
++      });
++
++      return {
++        error: {
++          status: "FISCAL_YEAR_MISMATCH",
++          data: {
++            title: "سنة مالية غير متطابقة",
++            detail: FISCAL_YEAR_MISMATCH_MESSAGE,
++            errorCode: "Client.FiscalYearMismatch",
++            expectedFiscalYearId: expectedId,
++            receivedFiscalYearId: mismatch,
++          },
++        },
++      };
++    }
+   }
+ 
+   return result;
+diff --git a/ERP_SYSTEM/src/lib/fiscalYearDateRange.js b/ERP_SYSTEM/src/lib/fiscalYearDateRange.js
+new file mode 100644
+index 0000000..b24168b
+--- /dev/null
++++ b/ERP_SYSTEM/src/lib/fiscalYearDateRange.js
+@@ -0,0 +1,109 @@
++/**
++ * أدوات مشتركة للتحقق من إن تاريخ حركة (فاتورة، سند، إلخ) واقع
++ * داخل حدود السنة المالية المختارة، قبل الإرسال للـ backend —
++ * تفاديًا لخطأ `FiscalYears.QueryDateOutsideRange` بعد الإرسال.
++ */
++
++/**
++ * @param {string|Date} date
++ * @param {{ startDate: string, endDate: string } | null | undefined} fiscalYear
++ * @returns {boolean} true لو مفيش سنة مختارة (مفيش قيد) أو التاريخ داخل حدودها
++ */
++export function isDateWithinFiscalYear(date, fiscalYear) {
++  if (!date || !fiscalYear?.startDate || !fiscalYear?.endDate) return true;
++
++  const value = new Date(date).setHours(0, 0, 0, 0);
++  const start = new Date(fiscalYear.startDate).setHours(0, 0, 0, 0);
++  const end = new Date(fiscalYear.endDate).setHours(0, 0, 0, 0);
++
++  return value >= start && value <= end;
++}
++
++/**
++ * بيرجع رسالة تحذير جاهزة للعرض لو التاريخ برّه حدود السنة، أو
++ * null لو التاريخ سليم (أو مفيش سنة للمقارنة بيها أصلًا).
++ *
++ * @param {string|Date} date
++ * @param {{ name: string, startDate: string, endDate: string } | null | undefined} fiscalYear
++ */
++export function getFiscalYearDateWarning(date, fiscalYear) {
++  if (isDateWithinFiscalYear(date, fiscalYear)) return null;
++
++  return `التاريخ المحدد خارج حدود السنة المالية "${fiscalYear.name}" (${fiscalYear.startDate} — ${fiscalYear.endDate}).`;
++}
++
++/* =========================================================
++   ضبط فلاتر التاريخ داخل حدود السنة المالية
++========================================================= */
++
++/** yyyy-MM-dd فقط (بيتجاهل أي جزء وقت). */
++export const toDay = (value) => String(value || "").slice(0, 10);
++
++/**
++ * لو التاريخ برّه حدود السنة يرجّع `fallback` (افتراضيًا فاضي =
++ * "السنة كلها")، وإلا يرجّع القيمة كما هي.
++ */
++export function clampDateToFiscalYear(value, fiscalYear, fallback = "") {
++  if (!value || !fiscalYear?.startDate || !fiscalYear?.endDate) return value;
++
++  const day = toDay(value);
++
++  if (day >= toDay(fiscalYear.startDate) && day <= toDay(fiscalYear.endDate)) {
++    return value;
++  }
++
++  return fallback;
++}
++
++/**
++ * يطبّق clampDateToFiscalYear على مفاتيح تواريخ داخل object فلاتر.
++ * بيرجّع نفس الـ object لو مفيش تغيير (عشان مفيش re-render زيادة).
++ */
++export function clampFilterDates(filters, keys, fiscalYear, fallbacks = {}) {
++  let changed = false;
++  const next = { ...filters };
++
++  keys.forEach((key) => {
++    const out = clampDateToFiscalYear(next[key], fiscalYear, fallbacks[key] ?? "");
++
++    if (out !== next[key]) {
++      next[key] = out;
++      changed = true;
++    }
++  });
++
++  return changed ? next : filters;
++}
++
++/**
++ * فترة افتراضية للتقارير/الـ Dashboard: لو النهارده جوه السنة → من
++ * أول الشهر لحد النهارده، وإلا (سنة تاريخية) → السنة كلها.
++ */
++export function getDefaultRangeForFiscalYear(fiscalYear) {
++  const today = new Date().toLocaleDateString("en-CA");
++  const start = toDay(fiscalYear.startDate);
++  const end = toDay(fiscalYear.endDate);
++
++  if (today >= start && today <= end) {
++    return { start: `${today.slice(0, 8)}01`, end: today };
++  }
++
++  return { start, end };
++}
++
++/**
++ * لو أي طرف من الفترة (from/to) برّه حدود السنة، يرجّع الفترة كلها
++ * للافتراضية (الشهر الحالي لو السنة حالية، وإلا السنة كلها). لو
++ * الفترة سليمة يرجّع نفس الـ object (من غير re-render زيادة).
++ */
++export function resetRangeIfOutside(filters, fromKey, toKey, fiscalYear) {
++  const outside = [filters[fromKey], filters[toKey]].some(
++    (value) => clampDateToFiscalYear(value, fiscalYear, "x") !== value,
++  );
++
++  if (!outside) return filters;
++
++  const range = getDefaultRangeForFiscalYear(fiscalYear);
++
++  return { ...filters, [fromKey]: range.start, [toKey]: range.end };
++}
+diff --git a/ERP_SYSTEM/src/lib/fiscalYearEndpoints.js b/ERP_SYSTEM/src/lib/fiscalYearEndpoints.js
+new file mode 100644
+index 0000000..9abc477
+--- /dev/null
++++ b/ERP_SYSTEM/src/lib/fiscalYearEndpoints.js
+@@ -0,0 +1,86 @@
++/**
++ * القائمة الموحّدة لـ endpoints القراءة اللي بتقبل `fiscalYearId` (اختياريًا
++ * أو إجباريًا) حسب "دليل تكامل الفرونت إند مع الشركات والسنوات المالية".
++ *
++ * أي GET مطابق للقائمة دي، ومحصلوش تحديد `fiscalYearId` بشكل صريح في
++ * الـ params بتاعته، هيتضاف له تلقائيًا من `baseQueryWithReauth`
++ * (شوف: withFiscalYearId).
++ */
++
++// استثناءات صريحة: endpoints مذكورة إنها "لا تستقبل fiscalYearId حاليًا"،
++// أو مسارات فرعية من مجموعة أوسع (زي Invoices/item-balance تحت Invoices).
++const EXCLUDED_PATTERNS = [
++  /^dashboard\/?$/i,
++  /^invoices\/item-balance/i,
++  /^statements\/profitability\/invoices\/[^/]+$/i,
++];
++
++const INCLUDED_PATTERNS = [
++  // الخزائن والسندات
++  /^cashboxrevaluations/i,
++  /^cashboxtransfers/i,
++  /^cashvouchers/i,
++
++  // رحلات السائقين
++  /^drivertrips\/cost-entry/i,
++
++  // الموظفون والرواتب (معزولة حسب السنة المالية)
++  /^payrollentries/i,
++  /^employeeattendances/i,
++  /^employeemovements/i,
++  /^employeeopeningbalances/i,
++
++  // أسعار العملات
++  /^exchangerates/i,
++
++  // المخزون
++  /^inventorycounts/i,
++  /^inventoryreports/i,
++  /^stockopeningbalances/i,
++  /^stockadjustments/i,
++  /^stocktransfers/i,
++
++  // الفواتير والتكلفة (باستثناء item-balance المستبعد أعلاه)
++  /^invoices($|\/)/i,
++  /^invoiceitempricing/i,
++
++  // القيود (GET فقط — الـ POST/PUT بيرسل fiscalYearId في الـ body)
++  /^journalentries/i,
++
++  // إعادة تقييم الحسابات النقدية
++  /^monetaryaccountrevaluations/i,
++
++  // الأرصدة الافتتاحية للشركاء
++  /^partneropeningbalances/i,
++
++  // التقارير وكشوف الحساب (الاستثناءات الفرعية مغطاة في EXCLUDED_PATTERNS)
++  /^statements\//i,
++
++  // بنود القوائم المالية وتشكيلها
++  /^financialstatementlines/i,
++
++  // جاهزية الإقفال المحاسبي، والربط المحاسبي
++  /^accountingreadiness/i,
++  /^accountmappings/i,
++  /^accountstatementmappings/i,
++
++  // حسابات القيد
++  /^accounts\/journal-select/i,
++
++  // Alias كشف حساب الموظف تحت الـ dashboard
++  /^dashboard\/payroll\/employees\/statement/i,
++];
++
++/**
++ * @param {string} url - الـ URL النسبي المرسل لـ endpoint (بدون الـ base URL).
++ * @returns {boolean}
++ */
++export function shouldAttachFiscalYearId(url = "") {
++  const path = String(url).replace(/^\/+/, "").split("?")[0];
++
++  if (EXCLUDED_PATTERNS.some((pattern) => pattern.test(path))) {
++    return false;
++  }
++
++  return INCLUDED_PATTERNS.some((pattern) => pattern.test(path));
++}
+diff --git a/ERP_SYSTEM/src/lib/fiscalYearMiddleware.js b/ERP_SYSTEM/src/lib/fiscalYearMiddleware.js
+new file mode 100644
+index 0000000..a79c224
+--- /dev/null
++++ b/ERP_SYSTEM/src/lib/fiscalYearMiddleware.js
+@@ -0,0 +1,89 @@
++import { baseApi } from "./baseApi";
++import {
++  setFiscalYears,
++  setSelectedFiscalYearId,
++  fiscalYearRefreshRequested,
++} from "../features/fiscalYears/fiscalYearSlice";
++
++/**
++ * ليه محتاجين الميدل وير ده؟
++ *
++ * baseQueryWithReauth بيحقن fiscalYearId جوه الـ params وقت التنفيذ
++ * الفعلي للطلب، مش قبل كده — يعني بالنسبة لـ RTK Query نفسه،
++ * الـ query args اللي بيتعمل عليها cache (serializeQueryArgs) متغيرتش
++ * لما المستخدم يغيّر السنة من الـ Navbar. النتيجة: أي بيانات كانت
++ * محمّلة قبل كده هتفضل معروضة زي ما هي (Cache قديم) وميتعملهاش
++ * refetch تلقائي.
++ *
++ * الحل: أي مرة الـ selectedFiscalYearId يتغيّر فعليًا، نعمل
++ * invalidateTags لكل الـ tags اللي بتعتمد على السنة المالية، عشان
++ * RTK Query يعمل refetch لأي query نشطة حاليًا على الشاشة — وده
++ * بالظبط اللي الدليل بيطلبه: "مسح Cache بيانات الشاشات + إعادة
++ * تحميل الشاشة الحالية".
++ */
++const FISCAL_YEAR_SENSITIVE_TAGS = [
++  "CashVoucher",
++  "CashboxTransfer",
++  "DriverTripCost",
++  "DriverStatement",
++  "Attendance",
++  "EmployeeMovement",
++  "EmployeeOpeningBalance",
++  "EmployeeStatement",
++  "PayrollEntry",
++  "ExchangeRate",
++  "InventoryCount",
++  "StockOpeningBalance",
++  "StockAdjustment",
++  "StockTransfer",
++  "InventoryCostReport",
++  "StoreStockReport",
++  "Invoice",
++  "Sale",
++  "Purchase",
++  "SaleReturn",
++  "PurchaseReturn",
++  "InvoicePackaging",
++  "JournalEntry",
++  "PartnerOpeningBalance",
++  "PartyStatement",
++  "Statement",
++  "OperationalTrialBalance",
++  "IncomeStatement",
++  "FinancialPosition",
++  "CashFlow",
++  "FinancialStatementLine",
++  "AccountMappings",
++  "Account",
++];
++
++export const fiscalYearMiddleware = (store) => (next) => (action) => {
++  if (fiscalYearRefreshRequested.match(action)) {
++    const result = next(action);
++
++    store.dispatch(
++      baseApi.util.invalidateTags(["FiscalYear", ...FISCAL_YEAR_SENSITIVE_TAGS]),
++    );
++
++    return result;
++  }
++
++  const isRelevantAction =
++    setFiscalYears.match(action) || setSelectedFiscalYearId.match(action);
++
++  const previousId = isRelevantAction
++    ? store.getState().fiscalYear.selectedFiscalYearId
++    : undefined;
++
++  const result = next(action);
++
++  if (isRelevantAction) {
++    const nextId = store.getState().fiscalYear.selectedFiscalYearId;
++
++    if (nextId !== previousId) {
++      store.dispatch(baseApi.util.invalidateTags(FISCAL_YEAR_SENSITIVE_TAGS));
++    }
++  }
++
++  return result;
++};
+diff --git a/ERP_SYSTEM/src/lib/fiscalYearResponseGuard.js b/ERP_SYSTEM/src/lib/fiscalYearResponseGuard.js
+new file mode 100644
+index 0000000..a04e092
+--- /dev/null
++++ b/ERP_SYSTEM/src/lib/fiscalYearResponseGuard.js
+@@ -0,0 +1,56 @@
++/**
++ * فحص احترازي (حسب دليل الفرونت إند): الاستجابة اللي بترجع بـ
++ * `fiscalYearId` لازم تطابق السنة اللي الطلب اتبعت بيها، وإلا
++ * البيانات دي تخص سنة تانية (مثلًا طلب قديم اتأخر بعد تغيير السنة،
++ * أو endpoint تجاهل الفلتر) ومينفعش تتعرض.
++ */
++
++const MAX_ITEMS_TO_CHECK = 500;
++
++/**
++ * السنة اللي الطلب اتبعت بيها فعليًا (من الـ params)، أو null لو
++ * الطلب مش GET أو مفيهوش سنة صالحة.
++ */
++export function getSentFiscalYearId(args) {
++  if (typeof args !== "object" || args === null) return null;
++
++  const method = (args.method || "GET").toUpperCase();
++  if (method !== "GET" || !args.params) return null;
++
++  const key = Object.keys(args.params).find(
++    (name) => name.toLowerCase() === "fiscalyearid",
++  );
++  const id = key ? Number(args.params[key]) : NaN;
++
++  return Number.isFinite(id) && id > 0 ? id : null;
++}
++
++const differs = (value, expectedId) =>
++  value !== undefined && value !== null && Number(value) !== expectedId;
++
++/**
++ * بيرجّع أول fiscalYearId مخالف لاتضاف في الاستجابة (على مستوى الـ
++ * object نفسه أو عناصر items / المصفوفة)، أو null لو كله مطابق أو
++ * الاستجابة مفيهاش fiscalYearId أصلًا.
++ */
++export function findFiscalYearMismatch(data, expectedId) {
++  if (!data || typeof data !== "object") return null;
++
++  if (!Array.isArray(data) && differs(data.fiscalYearId, expectedId)) {
++    return data.fiscalYearId;
++  }
++
++  const rows = Array.isArray(data)
++    ? data
++    : Array.isArray(data.items)
++      ? data.items
++      : [];
++
++  for (const row of rows.slice(0, MAX_ITEMS_TO_CHECK)) {
++    if (row && typeof row === "object" && differs(row.fiscalYearId, expectedId)) {
++      return row.fiscalYearId;
++    }
++  }
++
++  return null;
++}
+diff --git a/ERP_SYSTEM/src/lib/useFiscalYearGuard.js b/ERP_SYSTEM/src/lib/useFiscalYearGuard.js
+new file mode 100644
+index 0000000..5219a63
+--- /dev/null
++++ b/ERP_SYSTEM/src/lib/useFiscalYearGuard.js
+@@ -0,0 +1,37 @@
++import { useSelector } from "react-redux";
++
++import {
++  selectSelectedFiscalYear,
++  selectSelectedFiscalYearId,
++} from "../features/fiscalYears/fiscalYearSlice";
++
++/**
++ * Hook مشترك لأي شاشة/فورم عايز يعرف:
++ * - إيه السنة المالية المختارة حاليًا (الاسم، حدودها، حالتها).
++ * - هل السنة دي مغلقة، وبالتالي الشاشة لازم تبقى Read-only.
++ *
++ * الاستخدام المتوقع في صفحات الحركات (سندات، فواتير، جرد...):
++ *
++ *   const { isReadOnly, fiscalYear } = useFiscalYearGuard();
++ *   <button disabled={isReadOnly}>إضافة</button>
++ *   {isReadOnly && <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />}
++ */
++export function useFiscalYearGuard() {
++  const fiscalYear = useSelector(selectSelectedFiscalYear);
++  const fiscalYearId = useSelector(selectSelectedFiscalYearId);
++
++  const isClosed = fiscalYear?.status === "Closed";
++
++  // الكتابة مسموحة فقط في السنة الحالية المفتوحة (الباك إند بيتحقق
++  // من ده برضه). لو السنة لسه بتتحمّل منقفلش الشاشة.
++  const canWrite =
++    !fiscalYear || (fiscalYear.isCurrent && fiscalYear.status === "Open");
++
++  return {
++    fiscalYearId,
++    fiscalYear,
++    isClosed,
++    canWrite,
++    isReadOnly: !canWrite,
++  };
++}
+diff --git a/ERP_SYSTEM/src/lib/useOnFiscalYearChange.js b/ERP_SYSTEM/src/lib/useOnFiscalYearChange.js
+new file mode 100644
+index 0000000..22acb4f
+--- /dev/null
++++ b/ERP_SYSTEM/src/lib/useOnFiscalYearChange.js
+@@ -0,0 +1,22 @@
++import { useEffect, useRef } from "react";
++import { useSelector } from "react-redux";
++
++import { selectSelectedFiscalYear } from "../features/fiscalYears/fiscalYearSlice";
++
++/**
++ * بينفّذ callback(fiscalYear) أول ما السنة المالية المختارة تتحمّل
++ * وكل مرة id بتاعها يتغيّر. الاستخدام: تصفير الـ pagination وضبط
++ * فلاتر التاريخ داخل حدود السنة الجديدة (حسب دليل الفرونت إند).
++ */
++export function useOnFiscalYearChange(callback) {
++  const fiscalYear = useSelector(selectSelectedFiscalYear);
++  const yearId = fiscalYear?.id;
++
++  const callbackRef = useRef(callback);
++  callbackRef.current = callback;
++
++  useEffect(() => {
++    if (yearId) callbackRef.current(fiscalYear);
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++  }, [yearId]);
++}
+diff --git a/ERP_SYSTEM/src/shared/components/layout/CompanySwitcher.jsx b/ERP_SYSTEM/src/shared/components/layout/CompanySwitcher.jsx
+new file mode 100644
+index 0000000..fda1e80
+--- /dev/null
++++ b/ERP_SYSTEM/src/shared/components/layout/CompanySwitcher.jsx
+@@ -0,0 +1,119 @@
++import { useState } from "react";
++import { useDispatch, useSelector } from "react-redux";
++import { Building2, Check } from "lucide-react";
++import { toast } from "sonner";
++
++import Modal from "../../components/ui/Modal";
++
++import { useSwitchCompanyMutation } from "../../../features/auth/authApi";
++import {
++  selectCompanies,
++  selectSelectedCompany,
++  selectRefreshToken,
++} from "../../../features/auth/authSlice";
++import { getApiErrors } from "../../../utils/getApiErrors";
++
++/**
++ * زر تبديل الشركة في الـ Navbar. بيظهر بس لو المستخدم عنده أكتر
++ * من شركة واحدة (companies.length > 1) — مطابق لما هو موضّح في
++ * قسم "Endpoints الشركات وتسجيل الدخول" بالدليل: POST /Auth/switch-company
++ * بدون الحاجة لـ logout.
++ */
++export default function CompanySwitcher() {
++  const dispatch = useDispatch();
++
++  const companies = useSelector(selectCompanies);
++  const selectedCompany = useSelector(selectSelectedCompany);
++  const refreshToken = useSelector(selectRefreshToken);
++
++  const [switchCompany, { isLoading }] = useSwitchCompanyMutation();
++  const [isOpen, setIsOpen] = useState(false);
++
++  if (!companies || companies.length < 2) return null;
++
++  const handleSelect = async (companyId) => {
++    if (companyId === selectedCompany?.id) {
++      setIsOpen(false);
++      return;
++    }
++
++    try {
++      await switchCompany({ companyId, refreshToken }).unwrap();
++      setIsOpen(false);
++      toast.success("تم التبديل للشركة بنجاح");
++    } catch (error) {
++      getApiErrors(error).forEach((message) => toast.error(message));
++    }
++  };
++
++  return (
++    <>
++      <button
++        type="button"
++        onClick={() => setIsOpen(true)}
++        aria-label="تغيير الشركة"
++        className={[
++          "flex items-center gap-1.5",
++          "rounded-lg",
++          "border border-ink-200",
++          "bg-white",
++          "px-2.5 py-1.5",
++          "text-[11px] font-bold",
++          "text-ink-700",
++          "transition-all duration-200",
++          "hover:border-primary-300",
++          "hover:bg-primary-50",
++          "hover:text-primary-700",
++          "active:scale-[0.97]",
++          "dark:border-white/[0.08]",
++          "dark:bg-white/[0.04]",
++          "dark:text-ink-200",
++          "dark:hover:bg-primary-500/10",
++          "dark:hover:text-primary-300",
++          "focus:outline-none",
++          "focus-visible:ring-2",
++          "focus-visible:ring-primary-500/30",
++        ].join(" ")}
++      >
++        <Building2 size={14} strokeWidth={2} className="text-ink-400" />
++        <span className="max-w-[120px] truncate">
++          {selectedCompany?.name || "—"}
++        </span>
++      </button>
++
++      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title="الشركة">
++        <div className="space-y-2">
++          {companies.map((company) => {
++            const isSelected = company.id === selectedCompany?.id;
++
++            return (
++              <button
++                key={company.id}
++                type="button"
++                disabled={isLoading}
++                onClick={() => handleSelect(company.id)}
++                className={[
++                  "flex w-full items-center justify-between",
++                  "rounded-xl border px-3.5 py-2.5 text-right",
++                  "transition-all duration-150",
++                  isSelected
++                    ? "border-primary-300 bg-primary-50 dark:border-primary-500/30 dark:bg-primary-500/10"
++                    : "border-ink-100 bg-white hover:border-ink-200 hover:bg-ink-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:bg-white/[0.05]",
++                  "disabled:opacity-50",
++                ].join(" ")}
++              >
++                <span className="text-[13px] font-bold text-ink-800 dark:text-white">
++                  {company.name}
++                </span>
++
++                {isSelected && (
++                  <Check size={16} strokeWidth={2.5} className="text-primary-600" />
++                )}
++              </button>
++            );
++          })}
++        </div>
++      </Modal>
++    </>
++  );
++}
+diff --git a/ERP_SYSTEM/src/shared/components/layout/FiscalYearSwitcher.jsx b/ERP_SYSTEM/src/shared/components/layout/FiscalYearSwitcher.jsx
+new file mode 100644
+index 0000000..e1b9c53
+--- /dev/null
++++ b/ERP_SYSTEM/src/shared/components/layout/FiscalYearSwitcher.jsx
+@@ -0,0 +1,165 @@
++import { useEffect, useState } from "react";
++import { useDispatch, useSelector } from "react-redux";
++import { CalendarRange, Check, Lock } from "lucide-react";
++
++import Modal from "../../components/ui/Modal";
++
++import { useGetFiscalYearsSelectQuery } from "../../../features/fiscalYears/fiscalYearsApi";
++import {
++  setFiscalYears,
++  setSelectedFiscalYearId,
++  selectSelectedFiscalYear,
++  selectSelectedFiscalYearId,
++} from "../../../features/fiscalYears/fiscalYearSlice";
++import {
++  FISCAL_YEAR_STATUS_LABELS,
++  fiscalYearStatusDot,
++} from "../../../features/fiscalYears/fiscalYears.constants";
++import { selectIsAuthenticated } from "../../../features/auth/authSlice";
++
++/**
++ * زر السنة المالية في الـ Navbar. يحمّل قائمة سنوات الشركة الحالية،
++ * يخزّنها في fiscalYearSlice، ويسمح للمستخدم بتغيير السنة المعروضة
++ * (لأغراض العرض فقط — بدون التأثير على السنة الحالية الفعلية للشركة).
++ */
++export default function FiscalYearSwitcher() {
++  const dispatch = useDispatch();
++
++  const isAuthenticated = useSelector(selectIsAuthenticated);
++
++  const { data: fiscalYears } = useGetFiscalYearsSelectQuery(undefined, {
++    skip: !isAuthenticated,
++  });
++
++  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
++  const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
++
++  const [isOpen, setIsOpen] = useState(false);
++
++  useEffect(() => {
++    if (fiscalYears) {
++      dispatch(setFiscalYears(fiscalYears));
++    }
++  }, [fiscalYears, dispatch]);
++
++  if (!isAuthenticated || !fiscalYears?.length) return null;
++
++  const handleSelect = (yearId) => {
++    if (yearId !== selectedFiscalYearId) {
++      dispatch(setSelectedFiscalYearId(yearId));
++    }
++
++    setIsOpen(false);
++  };
++
++  return (
++    <>
++      <button
++        type="button"
++        onClick={() => setIsOpen(true)}
++        aria-label="تغيير السنة المالية"
++        className={[
++          "group flex items-center gap-1.5",
++          "rounded-lg",
++          "border border-ink-200",
++          "bg-white",
++          "px-2.5 py-1.5",
++          "text-[11px] font-bold",
++          "text-ink-700",
++          "transition-all duration-200",
++          "hover:border-primary-300",
++          "hover:bg-primary-50",
++          "hover:text-primary-700",
++          "active:scale-[0.97]",
++          "dark:border-white/[0.08]",
++          "dark:bg-white/[0.04]",
++          "dark:text-ink-200",
++          "dark:hover:bg-primary-500/10",
++          "dark:hover:text-primary-300",
++          "focus:outline-none",
++          "focus-visible:ring-2",
++          "focus-visible:ring-primary-500/30",
++        ].join(" ")}
++      >
++        <CalendarRange
++          size={14}
++          strokeWidth={2}
++          className="text-ink-400 group-hover:text-primary-600 dark:text-ink-400"
++        />
++
++        <span>{selectedFiscalYear?.name || "—"}</span>
++
++        {selectedFiscalYear?.status === "Closed" && (
++          <Lock size={11} strokeWidth={2.2} className="text-ink-400" />
++        )}
++      </button>
++
++      <Modal
++        isOpen={isOpen}
++        onClose={() => setIsOpen(false)}
++        title="السنة المالية"
++      >
++        <div className="space-y-2">
++          {fiscalYears.map((year) => {
++            const isSelected = year.id === selectedFiscalYearId;
++
++            return (
++              <button
++                key={year.id}
++                type="button"
++                onClick={() => handleSelect(year.id)}
++                className={[
++                  "flex w-full items-center justify-between",
++                  "rounded-xl",
++                  "border",
++                  isSelected
++                    ? "border-primary-300 bg-primary-50 dark:border-primary-500/30 dark:bg-primary-500/10"
++                    : "border-ink-100 bg-white hover:border-ink-200 hover:bg-ink-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:bg-white/[0.05]",
++                  "px-3.5 py-2.5",
++                  "text-right",
++                  "transition-all duration-150",
++                ].join(" ")}
++              >
++                <div className="flex items-center gap-2.5">
++                  <span
++                    aria-hidden="true"
++                    className={[
++                      "h-2 w-2 rounded-full",
++                      fiscalYearStatusDot[year.status] || "bg-ink-400",
++                    ].join(" ")}
++                  />
++
++                  <div className="flex flex-col items-start">
++                    <span className="text-[13px] font-bold text-ink-800 dark:text-white">
++                      {year.name}
++                    </span>
++
++                    <span className="text-[11px] text-ink-400 dark:text-ink-400">
++                      {year.startDate} — {year.endDate}
++                    </span>
++                  </div>
++
++                  {year.isCurrent && (
++                    <span className="rounded-md bg-primary-500/10 px-1.5 py-0.5 text-[10px] font-bold text-primary-600 dark:text-primary-400">
++                      الحالية
++                    </span>
++                  )}
++                </div>
++
++                <div className="flex items-center gap-2">
++                  <span className="text-[11px] font-medium text-ink-500 dark:text-ink-300">
++                    {FISCAL_YEAR_STATUS_LABELS[year.status] || year.status}
++                  </span>
++
++                  {isSelected && (
++                    <Check size={16} strokeWidth={2.5} className="text-primary-600" />
++                  )}
++                </div>
++              </button>
++            );
++          })}
++        </div>
++      </Modal>
++    </>
++  );
++}
+diff --git a/ERP_SYSTEM/src/shared/components/layout/Navbar.jsx b/ERP_SYSTEM/src/shared/components/layout/Navbar.jsx
+index 532018d..81a6359 100644
+--- a/ERP_SYSTEM/src/shared/components/layout/Navbar.jsx
++++ b/ERP_SYSTEM/src/shared/components/layout/Navbar.jsx
+@@ -16,6 +16,8 @@ import { logout, selectIsAdmin } from "../../../features/auth/authSlice";
+ import { navigationItems } from "../../constants/navigation";
+ import { matchRouteTitle } from "../../constants/routeTitles";
+ import Modal from "../../components/ui/Modal";
++import FiscalYearSwitcher from "./FiscalYearSwitcher";
++import CompanySwitcher from "./CompanySwitcher";
+ 
+ /* =========================================================
+    BREADCRUMB
+@@ -353,7 +355,10 @@ export default function Navbar({ onMenuClick }) {
+               USER AREA
+           ================================================= */}
+ 
+-          <div className="flex shrink-0 items-center">
++          <div className="flex shrink-0 items-center gap-2">
++            <CompanySwitcher />
++            <FiscalYearSwitcher />
++
+             <button
+               type="button"
+               onClick={() => setProfileOpen(true)}
+diff --git a/ERP_SYSTEM/src/shared/components/ui/ReadOnlyFiscalYearBanner.jsx b/ERP_SYSTEM/src/shared/components/ui/ReadOnlyFiscalYearBanner.jsx
+new file mode 100644
+index 0000000..c19cdd5
+--- /dev/null
++++ b/ERP_SYSTEM/src/shared/components/ui/ReadOnlyFiscalYearBanner.jsx
+@@ -0,0 +1,18 @@
++import { Lock } from "lucide-react";
++
++/**
++ * تنبيه موحّد يُعرض أعلى شاشات الحركات لما السنة المالية المختارة
++ * تكون مغلقة (status = "Closed") — الشاشة بتبقى للعرض فقط.
++ */
++export default function ReadOnlyFiscalYearBanner({ fiscalYear }) {
++  return (
++    <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-700">
++      <Lock size={16} strokeWidth={2} className="shrink-0" />
++      <span>
++        السنة المالية "{fiscalYear?.name}"{" "}
++        {fiscalYear?.status === "Closed" ? "مغلقة" : "ليست السنة الحالية"} —
++        هذه الشاشة للعرض فقط، ولا يمكن إضافة أو تعديل أو حذف أي حركة عليها.
++      </span>
++    </div>
++  );
++}
+diff --git a/ERP_SYSTEM/src/utils/getApiErrors.js b/ERP_SYSTEM/src/utils/getApiErrors.js
+index d9c8bcf..ec58ad4 100644
+--- a/ERP_SYSTEM/src/utils/getApiErrors.js
++++ b/ERP_SYSTEM/src/utils/getApiErrors.js
+@@ -1,3 +1,13 @@
++// رسائل مخصصة لأكواد أخطاء (errorCode) الدليل طلب توضيحها للمستخدم صراحةً
++const ERROR_CODE_MESSAGES = {
++  "PayrollEntry.ClosedFiscalYearPaymentRequiresSettlement":
++    "لا يمكن تحويل أو تعديل مسير تابع لسنة مالية مغلقة، لأن بيانات السنوات التاريخية لا تُعدَّل بعد إقفالها. المطلوب عمل تسوية في السنة الحالية.",
++  "EmployeeOpeningBalances.CarriedForwardReadOnly":
++    "هذا الرصيد مرحّل من السنة السابقة ولا يمكن تعديله أو حذفه من هنا. لتصحيحه: عدّل القيد المصدر بعد إعادة فتح السنة السابقة، أو أنشئ قيد تسوية في السنة الحالية.",
++  "FiscalYears.CurrentNotFound":
++    "الشركة لا تحتوي على سنة مالية حالية. اضبط سنة حالية من شاشة السنوات المالية.",
++};
++
+ export const getApiErrors = (error) => {
+   // أخطاء بدون Response من السيرفر
+   if (!error?.data) {
+@@ -18,6 +28,11 @@ export const getApiErrors = (error) => {
+ 
+   const data = error.data;
+ 
++  // رسالة مخصصة حسب errorCode (لو معرّفة)
++  if (data.errorCode && ERROR_CODE_MESSAGES[data.errorCode]) {
++    return [ERROR_CODE_MESSAGES[data.errorCode]];
++  }
++
+   // Validation Errors
+   if (data.errors && typeof data.errors === "object") {
+     return Object.values(data.errors).flat().filter(Boolean);

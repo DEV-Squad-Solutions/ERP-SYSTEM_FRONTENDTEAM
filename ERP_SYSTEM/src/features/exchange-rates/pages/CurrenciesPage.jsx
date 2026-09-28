@@ -19,6 +19,8 @@ import {
 } from "../exchangeRatesApi";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import CurrencyFormModal from "../components/CurrencyFormModal";
 import ImportExchangeRatesModal from "../components/ImportExchangeRatesModal";
 import { selectIsAdmin } from "../../auth/authSlice";
@@ -33,6 +35,7 @@ function fmtDate(d) {
 }
 
 export default function CurrenciesPage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -97,12 +100,19 @@ export default function CurrenciesPage() {
             </Button>
           )}
 
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button
+            onClick={() => setCreateOpen(true)}
+            disabled={isFiscalYearReadOnly}
+          >
             <Plus size={16} />
             إضافة سعر عملة
           </Button>
         </div>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {isLoading && (
         <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center text-ink-400">
@@ -183,24 +193,28 @@ export default function CurrenciesPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setEditingRate(r)}
-                            title="تعديل السعر"
-                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
-                          >
-                            <Pencil size={15} />
-                          </button>
+                          {!isFiscalYearReadOnly && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRate(r)}
+                                title="تعديل السعر"
+                                className="rounded-lg p-1.5 text-ink-400 transition hover:bg-primary-500/10 hover:text-primary-600"
+                              >
+                                <Pencil size={15} />
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(r)}
-                            disabled={isDeleting}
-                            title="حذف السعر"
-                            className="rounded-lg p-1.5 text-ink-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(r)}
+                                disabled={isDeleting}
+                                title="حذف السعر"
+                                className="rounded-lg p-1.5 text-ink-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

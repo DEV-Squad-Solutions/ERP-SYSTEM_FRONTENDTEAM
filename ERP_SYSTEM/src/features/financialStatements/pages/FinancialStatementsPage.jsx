@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -21,6 +21,8 @@ import {
 } from "../financialStatementLinesApi";
 
 import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 
 import FinancialStatementLineFormModal from "../components/FinancialStatementLineFormModal";
 import FinancialStatementLineDeleteModal from "../components/FinancialStatementLineDeleteModal";
@@ -255,6 +257,7 @@ const TreeNode = ({
 };
 
 export default function FinancialStatementsPage() {
+  const globalFiscalYearId = useSelector(selectSelectedFiscalYearId);
   const [fiscalYearId, setFiscalYearId] = useState("");
   const [statementType, setStatementType] = useState("FinancialPosition");
 
@@ -274,6 +277,18 @@ export default function FinancialStatementsPage() {
 
   const { data: fiscalYearsData, isLoading: isFiscalYearsLoading } =
     useGetFiscalYearsSelectQuery();
+
+  useEffect(() => {
+    if (fiscalYearId || !fiscalYearsData?.length) return;
+
+    const matchesGlobal = fiscalYearsData.some(
+      (fy) => fy.id === globalFiscalYearId,
+    );
+
+    if (matchesGlobal) {
+      setFiscalYearId(String(globalFiscalYearId));
+    }
+  }, [fiscalYearId, fiscalYearsData, globalFiscalYearId]);
 
   const { data, isLoading, isFetching, refetch } =
     useGetFinancialStatementLinesTreeQuery(

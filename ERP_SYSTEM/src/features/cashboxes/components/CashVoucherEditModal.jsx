@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -73,6 +76,7 @@ export default function CashVoucherEditModal({
   currency,
   baseCurrency,
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [saving, setSaving] = useState(false);
 
   const { data: partySelect, isFetching: isLoadingPartySelect } =
@@ -187,6 +191,15 @@ export default function CashVoucherEditModal({
   const isInvoiceGenerated = Boolean(voucher.invoiceId);
 
   async function onSubmit(values) {
+    const fiscalYearWarning = [values.voucherDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     const selectedOption = groups
       .flatMap((group) => group.options)
       .find((option) => option.value === values.descriptionValue);
@@ -262,6 +275,8 @@ export default function CashVoucherEditModal({
             <Input
               type="date"
               label="تاريخ السند"
+                            min={selectedFiscalYear?.startDate}
+              max={selectedFiscalYear?.endDate}
               {...register("voucherDate")}
               error={errors.voucherDate?.message}
             />

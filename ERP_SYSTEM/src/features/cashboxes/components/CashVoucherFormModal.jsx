@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
@@ -29,6 +32,7 @@ export default function CashVoucherFormModal({
   cashboxId,
   onCreated,
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [createVoucher, { isLoading }] = useCreateCashVoucherMutation();
   const [form, setForm] = useState(emptyForm());
 
@@ -36,6 +40,16 @@ export default function CashVoucherFormModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const fiscalYearWarning = [form.voucherDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
 
     if (!Number(form.amount) || Number(form.amount) <= 0) {
       toast.error("أدخل مبلغ أكبر من صفر");
@@ -98,6 +112,8 @@ export default function CashVoucherFormModal({
         <Input
           label="التاريخ"
           type="date"
+                    min={selectedFiscalYear?.startDate}
+          max={selectedFiscalYear?.endDate}
           value={form.voucherDate}
           onChange={(e) => set("voucherDate", e.target.value)}
         />

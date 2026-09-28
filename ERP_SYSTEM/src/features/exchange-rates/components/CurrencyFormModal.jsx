@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,6 +33,7 @@ const defaultValues = {
 };
 
 export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const isEdit = Boolean(rate);
   const wasOpenRef = useRef(false);
 
@@ -75,6 +79,15 @@ export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
   if (!isOpen) return null;
 
   const onSubmit = async (data) => {
+    const fiscalYearWarning = [data.rateDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     try {
       if (isEdit) {
         await updateExchangeRate({
@@ -164,6 +177,8 @@ export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
         <Input
           label="تاريخ السعر"
           type="date"
+          min={selectedFiscalYear?.startDate}
+          max={selectedFiscalYear?.endDate}
           {...register("rateDate")}
           error={errors.rateDate?.message}
         />

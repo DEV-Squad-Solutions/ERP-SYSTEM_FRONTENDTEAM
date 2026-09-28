@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -39,6 +41,15 @@ export default function FinancialPositionPage() {
   const [applied, setApplied] = useState(draft);
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) =>
+      f.fiscalYearId ? f : resetRangeIfOutside(f, "fromDate", "toDate", fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(25);
 
   const { data, isLoading, isFetching, isError, refetch } =

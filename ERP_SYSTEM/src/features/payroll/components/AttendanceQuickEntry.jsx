@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // features/payroll/components/AttendanceQuickEntry.jsx
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -123,6 +126,7 @@ const normalizeRecord = (record) => ({
 // =========================================================
 
 export default function AttendanceQuickEntry({ onClose, onSaved }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [date, setDate] = useState(todayStr());
   const [rows, setRows] = useState({});
   const [isSaving, setIsSaving] = useState(false);
@@ -413,6 +417,15 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
   // =========================================================
 
   const handleSaveAll = useCallback(async () => {
+    const fiscalYearWarning = [date]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     const entries = Object.entries(rows).filter(([, row]) => !!row.status);
 
     if (!entries.length) {
@@ -466,7 +479,7 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
     } finally {
       setIsSaving(false);
     }
-  }, [rows, date, bulkCreateAttendances, onSaved]);
+  }, [rows, date, bulkCreateAttendances, onSaved, selectedFiscalYear]);
 
   // =========================================================
   // Render
@@ -564,6 +577,8 @@ export default function AttendanceQuickEntry({ onClose, onSaved }) {
               <Input
                 label="التاريخ"
                 type="date"
+                                min={selectedFiscalYear?.startDate}
+                max={selectedFiscalYear?.endDate}
                 value={date}
                 onChange={handleDateChange}
                 className="h-[40px]"

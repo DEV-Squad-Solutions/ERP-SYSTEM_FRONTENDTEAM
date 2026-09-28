@@ -218,7 +218,15 @@ export default function JournalEntryFormPage() {
     isEdit &&
     (existingEntry?.status === "Reversed" || existingEntry?.status === 2);
 
-  const isReadOnly = isAutomaticEntry || isReversedEntry;
+  // قيد موجود سنته المالية مقفلة => عرض فقط (القيد الجديد لا يتأثر
+  // عشان المستخدم يقدر يختار سنة مفتوحة من القائمة)
+  const isEntryFiscalYearClosed =
+    isEdit &&
+    fiscalYears?.find((year) => year.id === fiscalYearId)?.status ===
+      "Closed";
+
+  const isReadOnly =
+    isAutomaticEntry || isReversedEntry || isEntryFiscalYearClosed;
 
   useEffect(() => {
     if (!existingEntry) return;

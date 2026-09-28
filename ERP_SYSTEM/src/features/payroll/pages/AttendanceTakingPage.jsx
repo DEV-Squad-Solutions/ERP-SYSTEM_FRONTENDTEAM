@@ -28,6 +28,8 @@ import { ATTENDANCE_STATUS_VALUE, dayRatioOptions } from "../payroll.constants";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 const DEFAULT_CHECK_IN = "09:00";
 const DEFAULT_CHECK_OUT = "17:00";
@@ -156,6 +158,7 @@ const createEmptyRow = (employee) => ({
 });
 
 const AttendanceTakingPage = () => {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [workDate, setWorkDate] = useState(getToday);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -566,6 +569,10 @@ const AttendanceTakingPage = () => {
 
   return (
     <div dir="rtl" className="flex h-full min-h-0 flex-col gap-4 p-4">
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
+
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -599,7 +606,12 @@ const AttendanceTakingPage = () => {
           <Button
             type="button"
             onClick={handleSave}
-            disabled={isSaving || isLoading || !employeeRows.length}
+            disabled={
+              isSaving ||
+              isLoading ||
+              !employeeRows.length ||
+              isFiscalYearReadOnly
+            }
           >
             {isSaving ? (
               <Loader2 size={17} className="animate-spin" />

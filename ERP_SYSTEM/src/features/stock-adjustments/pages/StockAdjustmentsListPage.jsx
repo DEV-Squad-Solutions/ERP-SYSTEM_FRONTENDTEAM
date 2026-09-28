@@ -21,10 +21,13 @@ import {
 } from "../stockAdjustmentsApi";
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 export default function StockAdjustmentsListPage() {
   const navigate = useNavigate();
   const isAdmin = useSelector((state) => state.auth.roles?.includes("Admin"));
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -73,7 +76,7 @@ export default function StockAdjustmentsListPage() {
         <h1 className="font-display text-xl font-bold text-ink-900">
           تسويات المخزون
         </h1>
-        {isAdmin && (
+        {isAdmin && !isFiscalYearReadOnly && (
           <button
             onClick={() => navigate("/dashboard/inventory/adjustments/new")}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-ink-900 hover:bg-ink-800 transition-colors"
@@ -83,6 +86,10 @@ export default function StockAdjustmentsListPage() {
           </button>
         )}
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {/* فلاتر */}
       <div className="bg-white rounded-2xl shadow-card p-4 mb-5 flex items-center gap-3 flex-wrap">
@@ -204,7 +211,9 @@ export default function StockAdjustmentsListPage() {
                 </thead>
                 <tbody>
                   {adjustments.map((adj) => {
-                    const isLocked = Boolean(adj.sourceInventoryCountId);
+                    const isLocked =
+                      Boolean(adj.sourceInventoryCountId) ||
+                      isFiscalYearReadOnly;
                     const isIncrease = adj.direction === "Increase";
                     return (
                       <tr

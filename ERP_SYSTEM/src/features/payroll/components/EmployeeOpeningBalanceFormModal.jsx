@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // features/payroll/components/EmployeeOpeningBalanceFormModal.jsx
 
 import { useEffect, useState } from "react";
@@ -37,6 +40,7 @@ export default function EmployeeOpeningBalanceFormModal({
   balance,
   onSaved,
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [form, setForm] = useState(emptyForm);
 
   const { data: employees } = useGetEmployeesSelectQuery();
@@ -77,6 +81,15 @@ export default function EmployeeOpeningBalanceFormModal({
   };
 
   const handleSubmit = async () => {
+    const fiscalYearWarning = [form.documentDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     if (!form.employeeId) {
       toast.error("اختر الموظف أولاً");
       return;
@@ -162,6 +175,8 @@ export default function EmployeeOpeningBalanceFormModal({
           <Input
             label="تاريخ المستند"
             type="date"
+            min={selectedFiscalYear?.startDate}
+            max={selectedFiscalYear?.endDate}
             value={form.documentDate}
             onChange={(event) => setField("documentDate", event.target.value)}
           />

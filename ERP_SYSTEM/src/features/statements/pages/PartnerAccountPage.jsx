@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FileText, Receipt, StoreIcon, Printer } from "lucide-react";
@@ -81,6 +83,21 @@ export default function PartnerAccountPage() {
   // -------------------------------------------------------
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها (التابين)
+  useOnFiscalYearChange((fy) => {
+    const fixTab = (tab, keys) => ({
+      draft: clampFilterDates(tab.draft, keys, fy),
+      applied: clampFilterDates(tab.applied, keys, fy),
+    });
+
+    setFilters((prev) => ({
+      ...prev,
+      statement: fixTab(prev.statement, ["FromDate", "ToDate"]),
+      invoices: fixTab(prev.invoices, ["fromDate", "toDate"]),
+    }));
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(25);
 
   // -------------------------------------------------------

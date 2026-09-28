@@ -21,6 +21,8 @@ import {
   useBackfillAccountingReadinessMutation,
 } from "../accountingReadinessApi";
 import { useGetFiscalYearsQuery } from "../../fiscalYears/fiscalYearsApi";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
@@ -79,6 +81,7 @@ function resolveMappingLink(issue) {
 export default function AccountingReadinessPage() {
   const navigate = useNavigate();
 
+  const globalFiscalYearId = useSelector(selectSelectedFiscalYearId);
   const [fiscalYearId, setFiscalYearId] = useState(null);
   const [isBackfillOpen, setIsBackfillOpen] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
@@ -99,9 +102,16 @@ export default function AccountingReadinessPage() {
 
   const activeFiscalYearId = useMemo(() => {
     if (fiscalYearId) return Number(fiscalYearId);
+
+    // اتصال بالسنة المالية المختارة عمومًا لو موجودة ضمن سنوات الشركة
+    const matchesGlobal = fiscalYearsData?.items?.some(
+      (fy) => fy.id === globalFiscalYearId,
+    );
+    if (matchesGlobal) return globalFiscalYearId;
+
     const current = fiscalYearsData?.items?.find((fy) => fy.isCurrent);
     return current?.id ?? fiscalYearsData?.items?.[0]?.id ?? null;
-  }, [fiscalYearId, fiscalYearsData]);
+  }, [fiscalYearId, fiscalYearsData, globalFiscalYearId]);
 
   const {
     data: readiness,

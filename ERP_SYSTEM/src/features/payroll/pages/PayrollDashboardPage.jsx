@@ -1,4 +1,10 @@
 import { useMemo, useState } from "react";
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import {
+  clampDateToFiscalYear,
+  getDefaultRangeForFiscalYear,
+} from "../../../lib/fiscalYearDateRange";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import { useNavigate } from "react-router-dom";
 import {
   Wallet,
@@ -145,6 +151,22 @@ export default function PayrollDashboardPage() {
 
   const [fromDate, setFromDate] = useState(getFirstDayOfMonth);
   const [toDate, setToDate] = useState(getToday);
+
+  const { fiscalYear } = useFiscalYearGuard();
+
+  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
+  // (الشهر الحالي لو السنة حالية، وإلا السنة كلها)
+  useOnFiscalYearChange((fy) => {
+    const outside =
+      clampDateToFiscalYear(fromDate, fy, "x") !== fromDate ||
+      clampDateToFiscalYear(toDate, fy, "x") !== toDate;
+
+    if (outside) {
+      const range = getDefaultRangeForFiscalYear(fy);
+      setFromDate(range.start);
+      setToDate(range.end);
+    }
+  });
   const [employeeId, setEmployeeId] = useState("");
   const [employeeType, setEmployeeType] = useState("");
 
@@ -318,6 +340,8 @@ export default function PayrollDashboardPage() {
 
             <input
               type="date"
+              min={fiscalYear?.startDate}
+              max={fiscalYear?.endDate}
               value={fromDate}
               onChange={(event) => setFromDate(event.target.value)}
               className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
@@ -332,6 +356,8 @@ export default function PayrollDashboardPage() {
 
             <input
               type="date"
+              min={fiscalYear?.startDate}
+              max={fiscalYear?.endDate}
               value={toDate}
               onChange={(event) => setToDate(event.target.value)}
               className="h-[38px] w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-100"

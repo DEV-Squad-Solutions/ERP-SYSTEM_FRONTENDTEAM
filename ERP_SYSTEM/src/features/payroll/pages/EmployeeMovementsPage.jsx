@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampDateToFiscalYear } from "../../../lib/fiscalYearDateRange";
 import {
   Search,
   RotateCcw,
@@ -27,10 +29,13 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
 import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
 
 export default function EmployeeMovementsPage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [employeeId, setEmployeeId] = useState("");
@@ -38,6 +43,13 @@ export default function EmployeeMovementsPage() {
   const [currency, setCurrency] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    setFromDate((value) => clampDateToFiscalYear(value, fy));
+    setToDate((value) => clampDateToFiscalYear(value, fy));
+    setPage(1);
+  });
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formDefaultType, setFormDefaultType] = useState(undefined);
@@ -118,16 +130,27 @@ export default function EmployeeMovementsPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => openForm("Deduction")}>
+          <Button
+            variant="outline"
+            onClick={() => openForm("Deduction")}
+            disabled={isFiscalYearReadOnly}
+          >
             <MinusCircle size={15} />
             خصم سريع
           </Button>
-          <Button onClick={() => openForm(undefined)}>
+          <Button
+            onClick={() => openForm(undefined)}
+            disabled={isFiscalYearReadOnly}
+          >
             <Plus size={15} />
             تسجيل حركة جديدة
           </Button>
         </div>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       <div className="rounded-2xl border border-ink-400/10 bg-white shadow-card p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
@@ -203,6 +226,8 @@ export default function EmployeeMovementsPage() {
             </label>
             <input
               type="date"
+              min={fiscalYear?.startDate}
+              max={fiscalYear?.endDate}
               value={fromDate}
               onChange={(e) => {
                 setFromDate(e.target.value);
@@ -218,6 +243,8 @@ export default function EmployeeMovementsPage() {
             </label>
             <input
               type="date"
+              min={fiscalYear?.startDate}
+              max={fiscalYear?.endDate}
               value={toDate}
               onChange={(e) => {
                 setToDate(e.target.value);
@@ -352,14 +379,16 @@ export default function EmployeeMovementsPage() {
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setMovementToDelete(item)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative/70 hover:bg-negative/10 hover:text-negative transition-colors"
-                        title="حذف الحركة"
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      {!isFiscalYearReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => setMovementToDelete(item)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative/70 hover:bg-negative/10 hover:text-negative transition-colors"
+                          title="حذف الحركة"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

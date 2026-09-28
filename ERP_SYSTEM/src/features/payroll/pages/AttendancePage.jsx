@@ -1,6 +1,8 @@
 // features/payroll/pages/AttendancePage.jsx
 
 import { useMemo, useState } from "react";
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { toast } from "sonner";
 import {
   Search,
@@ -38,6 +40,8 @@ import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 const emptyFilters = {
   employeeId: "",
@@ -47,11 +51,20 @@ const emptyFilters = {
 };
 
 export default function AttendancePage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const navigate = useNavigate();
 
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const [showFormModal, setShowFormModal] = useState(false);
@@ -325,11 +338,18 @@ export default function AttendancePage() {
           </p>
         </div>
 
-        <Button onClick={() => navigate("/dashboard/payroll/attendance")}>
+        <Button
+          onClick={() => navigate("/dashboard/payroll/attendance")}
+          disabled={isFiscalYearReadOnly}
+        >
           <Plus size={16} />
           تسجيل حضور
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SummaryCard label="أيام العمل" value={summary.workDays} />
@@ -368,6 +388,8 @@ export default function AttendancePage() {
           <Input
             label="من تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.fromDate}
             onChange={(event) => setField("fromDate", event.target.value)}
           />
@@ -375,6 +397,8 @@ export default function AttendancePage() {
           <Input
             label="إلى تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.toDate}
             onChange={(event) => setField("toDate", event.target.value)}
           />
@@ -433,7 +457,7 @@ export default function AttendancePage() {
               variant="danger"
               className="h-8"
               onClick={handleBulkDelete}
-              disabled={isBulkDeleting}
+              disabled={isBulkDeleting || isFiscalYearReadOnly}
             >
               <Trash2 size={13} />
 
@@ -648,23 +672,27 @@ export default function AttendancePage() {
                             <Eye size={15} />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => openEdit(row)}
-                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
-                            title="تعديل"
-                          >
-                            <Pencil size={15} />
-                          </button>
+                          {!isFiscalYearReadOnly && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEdit(row)}
+                                className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                                title="تعديل"
+                              >
+                                <Pencil size={15} />
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(row)}
-                            className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative"
-                            title="حذف"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(row)}
+                                className="rounded-lg p-1.5 text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative"
+                                title="حذف"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

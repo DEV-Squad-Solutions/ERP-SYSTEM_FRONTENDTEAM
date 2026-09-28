@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -15,6 +17,8 @@ import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 import { useGetCashboxesQuery } from "../cashboxesApi";
 
@@ -55,6 +59,7 @@ function fmtDate(date) {
 
 export default function CashboxTransfersPage() {
   const navigate = useNavigate();
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   // =========================
   // Filters
@@ -68,6 +73,16 @@ export default function CashboxTransfersPage() {
   // Pagination
   // =========================
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    setFilters((prev) => ({
+      ...prev,
+      draft: clampFilterDates(prev.draft, ["FromDate", "ToDate"], fy),
+      applied: clampFilterDates(prev.applied, ["FromDate", "ToDate"], fy),
+    }));
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   // =========================
@@ -200,11 +215,16 @@ export default function CashboxTransfersPage() {
               transfer: null,
             })
           }
+          disabled={isFiscalYearReadOnly}
         >
           <Plus size={16} />
           تحويل جديد
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {/* =========================
           Filters
@@ -420,28 +440,32 @@ export default function CashboxTransfersPage() {
                             <Eye size={14} />
                           </button>
 
-                          {/* Edit */}
-                          <button
-                            onClick={() =>
-                              setModalState({
-                                open: true,
-                                transfer,
-                              })
-                            }
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-primary-50 hover:text-primary-500 transition-colors"
-                            title="تعديل"
-                          >
-                            <Pencil size={14} />
-                          </button>
+                          {!isFiscalYearReadOnly && (
+                            <>
+                              {/* Edit */}
+                              <button
+                                onClick={() =>
+                                  setModalState({
+                                    open: true,
+                                    transfer,
+                                  })
+                                }
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-primary-50 hover:text-primary-500 transition-colors"
+                                title="تعديل"
+                              >
+                                <Pencil size={14} />
+                              </button>
 
-                          {/* Delete */}
-                          <button
-                            onClick={() => setPendingDelete(transfer)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                            title="حذف"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                              {/* Delete */}
+                              <button
+                                onClick={() => setPendingDelete(transfer)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                title="حذف"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

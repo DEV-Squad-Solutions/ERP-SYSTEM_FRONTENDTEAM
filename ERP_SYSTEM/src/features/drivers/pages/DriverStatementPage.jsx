@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 // features/drivers/pages/DriverStatementPage.jsx
 
 import { useState, useMemo } from "react";
@@ -139,6 +141,14 @@ export default function DriverStatementPage() {
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showAddDriver, setShowAddDriver] = useState(false);

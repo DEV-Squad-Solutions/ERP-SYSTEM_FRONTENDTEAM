@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // features/payroll/components/BulkMoveSalaryModal.jsx
 
 import { useEffect, useRef } from "react";
@@ -21,6 +24,7 @@ export default function BulkMoveSalaryModal({
   onClose,
   onSaved,
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [bulkMoveSalary, { isLoading }] = useBulkMoveSalaryMutation();
 
   const wasOpenRef = useRef(false);
@@ -41,6 +45,15 @@ export default function BulkMoveSalaryModal({
   }, [isOpen, reset]);
 
   const onSubmit = async (data) => {
+    const fiscalYearWarning = [data.defaultPostingDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     try {
       await bulkMoveSalary({
         payrollEntryIds: payrollEntryIds.map(Number),
@@ -75,6 +88,8 @@ export default function BulkMoveSalaryModal({
         <Input
           label="تاريخ الترحيل"
           type="date"
+          min={selectedFiscalYear?.startDate}
+          max={selectedFiscalYear?.endDate}
           {...register("defaultPostingDate")}
         />
 

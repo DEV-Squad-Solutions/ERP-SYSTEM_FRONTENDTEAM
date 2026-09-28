@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -35,6 +37,14 @@ export default function SalesPage() {
   const [draft, setDraft] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setAppliedFilters(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(25);
   const [triggerExport, setTriggerExport] = useState(false);
 

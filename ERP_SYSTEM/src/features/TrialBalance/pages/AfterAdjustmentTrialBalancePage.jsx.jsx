@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { Scale, RefreshCw } from "lucide-react";
 import { useGetOperationalTrialBalanceQuery } from "../../statements/statementsApi";
@@ -47,6 +49,13 @@ export default function AfterAdjustmentTrialBalancePage() {
   });
 
   const [applied, setApplied] = useState(draft);
+
+  // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => resetRangeIfOutside(f, "fromDate", "toDate", fy);
+    setDraft(fix);
+    setApplied(fix);
+  });
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetOperationalTrialBalanceQuery({

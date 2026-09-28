@@ -1,3 +1,4 @@
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -29,6 +30,8 @@ import {
   useGetEmployeesSelectQuery,
 } from "../payrollApi";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Input from "../../../shared/components/ui/Input";
 
 function getToday() {
@@ -52,6 +55,7 @@ function normalizeNumber(value) {
 
 export default function BulkCreatePayrollEntriesPage() {
   const navigate = useNavigate();
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const [startDate, setStartDate] = useState(getToday());
   const [endDate, setEndDate] = useState(getToday());
@@ -297,6 +301,15 @@ export default function BulkCreatePayrollEntriesPage() {
   };
 
   const handleSubmit = async () => {
+    const fiscalYearWarning = [startDate, endDate]
+      .map((value) => getFiscalYearDateWarning(value, fiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     if (!endDate) {
       toast.error("حدد تاريخ المرتب أولاً");
       return;
@@ -376,6 +389,10 @@ export default function BulkCreatePayrollEntriesPage() {
 
   return (
     <div className="animate-fadeUp space-y-4" dir="rtl">
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
+
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -407,7 +424,12 @@ export default function BulkCreatePayrollEntriesPage() {
 
           <Button
             onClick={handleSubmit}
-            disabled={isSaving || employeesLoading || !selectedIds.length}
+            disabled={
+              isSaving ||
+              employeesLoading ||
+              !selectedIds.length ||
+              isFiscalYearReadOnly
+            }
           >
             {isSaving ? (
               <Loader2 size={15} className="animate-spin" />
@@ -483,6 +505,8 @@ export default function BulkCreatePayrollEntriesPage() {
 
                 <input
                   type="date"
+                  min={fiscalYear?.startDate}
+                  max={fiscalYear?.endDate}
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
                   className="w-full h-9 rounded-lg border border-ink-400/15 bg-white px-2 text-sm num outline-none focus:border-primary-500 transition-colors"
@@ -497,6 +521,8 @@ export default function BulkCreatePayrollEntriesPage() {
 
               <input
                 type="date"
+                min={fiscalYear?.startDate}
+                max={fiscalYear?.endDate}
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
                 className="w-full h-9 rounded-lg border border-ink-400/15 bg-white px-2 text-sm num outline-none focus:border-primary-500 transition-colors"
@@ -1180,7 +1206,10 @@ export default function BulkCreatePayrollEntriesPage() {
                   <Button
                     onClick={handleSubmit}
                     disabled={
-                      isSaving || employeesLoading || !selectedIds.length
+                      isSaving ||
+                      employeesLoading ||
+                      !selectedIds.length ||
+                      isFiscalYearReadOnly
                     }
                   >
                     {isSaving ? (

@@ -6,6 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Select from "react-select";
 import { Plus, Trash2, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 
 import {
   useCreateStockAdjustmentMutation,
@@ -118,6 +121,10 @@ export default function StockAdjustmentForm({ adjustment, isEditMode }) {
   const { fields, append, remove } = useFieldArray({ control, name: "lines" });
   const direction = watch("direction");
   const isIncrease = direction === "Increase";
+  const documentDate = watch("documentDate");
+
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+  const dateWarning = getFiscalYearDateWarning(documentDate, selectedFiscalYear);
 
   // تعبئة الفورم في وضع التعديل
   useEffect(() => {
@@ -144,6 +151,13 @@ export default function StockAdjustmentForm({ adjustment, isEditMode }) {
     items?.map((i) => ({ value: i.id, label: `${i.code} - ${i.name}` })) ?? [];
 
   const onSubmit = async (data) => {
+    if (getFiscalYearDateWarning(data.documentDate, selectedFiscalYear)) {
+      toast.error(
+        getFiscalYearDateWarning(data.documentDate, selectedFiscalYear),
+      );
+      return;
+    }
+
     try {
       const payload = buildPayload(data);
 
@@ -211,7 +225,7 @@ export default function StockAdjustmentForm({ adjustment, isEditMode }) {
             type="date"
             label="التاريخ"
             {...register("documentDate")}
-            error={errors.documentDate?.message}
+            error={errors.documentDate?.message || dateWarning}
           />
 
           <div>

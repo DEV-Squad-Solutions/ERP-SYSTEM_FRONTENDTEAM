@@ -1,5 +1,8 @@
 // features/payroll/pages/EmployeeOpeningBalancesPage.jsx
 import { useMemo, useState } from "react";
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Search,
@@ -31,6 +34,8 @@ import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
 const emptyFilters = {
   employeeId: "",
@@ -49,6 +54,9 @@ function fmt(n) {
 }
 
 export default function EmployeeOpeningBalancesPage() {
+  const navigate = useNavigate();
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+
   // =========================================================
   // Filters
   // =========================================================
@@ -57,6 +65,14 @@ export default function EmployeeOpeningBalancesPage() {
   const [applied, setApplied] = useState(emptyFilters);
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   // =========================================================
@@ -123,6 +139,8 @@ export default function EmployeeOpeningBalancesPage() {
   };
 
   const openEdit = (row) => {
+    // الصف المرحّل/للقراءة فقط مالوش تعديل من هنا
+    if (row.isReadOnly || row.isCarriedForward) return;
     setEditingBalance(row);
     setShowFormModal(true);
   };
@@ -147,6 +165,7 @@ export default function EmployeeOpeningBalancesPage() {
   // =========================================================
 
   const handleDelete = (row) => {
+    if (row.isReadOnly || row.isCarriedForward) return;
     toast(`حذف الرصيد الافتتاحي للموظف "${row.employeeName}"؟`, {
       description: "الإجراء ده لا يمكن التراجع عنه",
 
@@ -224,11 +243,15 @@ export default function EmployeeOpeningBalancesPage() {
           </p>
         </div>
 
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} disabled={isFiscalYearReadOnly}>
           <Plus size={16} />
           رصيد افتتاحي جديد
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {/* =====================================================
           Summary
@@ -326,6 +349,8 @@ export default function EmployeeOpeningBalancesPage() {
           <Input
             label="من تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.fromDate}
             onChange={(event) => setField("fromDate", event.target.value)}
           />
@@ -335,6 +360,8 @@ export default function EmployeeOpeningBalancesPage() {
           <Input
             label="إلى تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.toDate}
             onChange={(event) => setField("toDate", event.target.value)}
           />
@@ -521,6 +548,12 @@ export default function EmployeeOpeningBalancesPage() {
                         {BALANCE_TYPE_LABELS[row.balanceType] ||
                           row.balanceType}
                       </span>
+
+                      {row.isCarriedForward && (
+                        <span className="ms-1.5 inline-block rounded-full bg-ink-400/10 px-2 py-0.5 text-[10px] font-semibold text-ink-500">
+                          مرحل من {row.sourceFiscalYearName || "السنة السابقة"}
+                        </span>
+                      )}
                     </td>
 
                     {/* Amount */}
@@ -550,27 +583,48 @@ export default function EmployeeOpeningBalancesPage() {
 
                     <td className="p-2.5">
                       <div className="flex items-center gap-1">
-                        {/* Edit */}
+                        {row.journalEntryId && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/dashboard/journal-entries/${row.journalEntryId}`,
+                              )
+                            }
+                            className="rounded-lg px-2 py-1 text-[11px] font-medium text-primary-600 hover:bg-primary-50 transition-colors"
+                            title="عرض القيد المصدر"
+                          >
+                            عرض القيد
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={() => openEdit(row)}
-                          className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                          title="تعديل"
-                        >
-                          <Pencil size={15} />
-                        </button>
+                        {!isFiscalYearReadOnly &&
+                          !row.isReadOnly &&
+                          !row.isCarriedForward && (
+                        <div className="flex items-center gap-1">
+                          {/* Edit */}
 
-                        {/* Delete */}
+                          <button
+                            type="button"
+                            onClick={() => openEdit(row)}
+                            className="p-1.5 rounded-lg text-ink-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                            title="تعديل"
+                          >
+                            <Pencil size={15} />
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(row)}
-                          className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
-                          title="حذف"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                          {/* Delete */}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(row)}
+                            className="p-1.5 rounded-lg text-ink-400 hover:text-negative hover:bg-negative/10 transition-colors"
+                            title="حذف"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                        )}
                       </div>
                     </td>
                   </tr>

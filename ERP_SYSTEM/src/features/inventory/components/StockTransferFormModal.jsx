@@ -30,6 +30,9 @@ import {
 } from "../../stores/storesApi";
 
 import { useGetItemsSelectQuery } from "../inventoryApi";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 
 // ============================================================
 // Schema
@@ -198,6 +201,13 @@ export default function StockTransferFormModal({
     name: "lines",
   });
 
+  const transferDate = useWatch({ control, name: "transferDate" });
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+  const dateWarning = getFiscalYearDateWarning(
+    transferDate,
+    selectedFiscalYear,
+  );
+
   // ==========================================================
   // Watched values
   // ==========================================================
@@ -331,6 +341,16 @@ export default function StockTransferFormModal({
   // ==========================================================
 
   const onSubmit = async (data) => {
+    const warning = getFiscalYearDateWarning(
+      data.transferDate,
+      selectedFiscalYear,
+    );
+
+    if (warning) {
+      toast.error(warning);
+      return;
+    }
+
     const payload = {
       transferDate: data.transferDate,
 
@@ -401,7 +421,7 @@ export default function StockTransferFormModal({
             label="تاريخ التحويل"
             type="date"
             {...register("transferDate")}
-            error={errors.transferDate?.message}
+            error={errors.transferDate?.message || dateWarning}
           />
 
           {/* Source Store */}

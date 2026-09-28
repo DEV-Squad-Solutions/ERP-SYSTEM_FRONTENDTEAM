@@ -132,6 +132,32 @@ const authSlice = createSlice({
       persistState(state);
     },
 
+    /**
+     * تغيير الشركة بدون Logout عن طريق POST /Auth/switch-company.
+     * بيستبدل التوكنز، ويحدّث الشركة المختارة — الـ caller (authApi)
+     * مسؤول عن مسح كاش الـ API وسنة العرض المالية بعدها.
+     */
+    setCompanySwitch: (state, action) => {
+      const data = action.payload;
+
+      state.accessToken = data.accessToken || null;
+      state.refreshToken = data.refreshToken || state.refreshToken;
+      state.isAuthenticated = !!data.accessToken;
+
+      if (data.userId) {
+        state.userId = data.userId;
+      }
+
+      const company =
+        state.companies.find(
+          (company) => company.id === data.selectedCompanyId,
+        ) || state.selectedCompany;
+
+      state.selectedCompany = company;
+
+      persistState(state);
+    },
+
     setPermissions: (state, action) => {
       state.permissions = normalizeArray(action.payload);
       persistState(state);
@@ -163,8 +189,10 @@ const authSlice = createSlice({
 
 export const selectUserId = (state) => state.auth.userId;
 export const selectAccessToken = (state) => state.auth.accessToken;
+export const selectRefreshToken = (state) => state.auth.refreshToken;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
 export const selectSelectedCompany = (state) => state.auth.selectedCompany;
+export const selectCompanies = (state) => state.auth.companies || [];
 export const selectRoles = (state) => state.auth.roles || [];
 export const selectPermissions = (state) => state.auth.permissions || [];
 
@@ -174,6 +202,7 @@ export const selectIsAdmin = (state) =>
 export const {
   setCredentials,
   setCompanySelection,
+  setCompanySwitch,
   updateTokens,
   setPermissions,
   setRoles,

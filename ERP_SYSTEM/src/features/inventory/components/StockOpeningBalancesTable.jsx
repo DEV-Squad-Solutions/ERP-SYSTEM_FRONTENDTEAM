@@ -8,12 +8,14 @@ import {
   Trash2,
 } from "lucide-react";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 
 function lineTotal(line) {
   return Number(line.total ?? line.quantity * line.price ?? 0);
 }
 
 function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
+  const { isReadOnly: isFiscalYearReadOnly } = useFiscalYearGuard();
   const [expanded, setExpanded] = useState(false);
 
   const documentTotal = (item.lines || []).reduce(
@@ -55,25 +57,27 @@ function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
           {item.notes || "—"}
         </td>
         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-center gap-1">
-            <button
-              type="button"
-              onClick={() => onEdit?.(item)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
-              title="تعديل"
-            >
-              <Pencil size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete?.(item)}
-              disabled={deletingId === item.id}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
-              title="حذف"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+          {!isFiscalYearReadOnly && (
+            <div className="flex items-center justify-center gap-1">
+              <button
+                type="button"
+                onClick={() => onEdit?.(item)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                title="تعديل"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete?.(item)}
+                disabled={deletingId === item.id}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-negative/10 hover:text-negative disabled:opacity-50"
+                title="حذف"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          )}
         </td>
       </tr>
 

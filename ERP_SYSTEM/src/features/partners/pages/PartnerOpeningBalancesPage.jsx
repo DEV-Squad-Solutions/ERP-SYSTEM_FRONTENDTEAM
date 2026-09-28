@@ -1,9 +1,13 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { Search, RotateCcw, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import { useGetPartiesSelectQuery } from "../partiesApi";
 import {
   useGetPartnerOpeningBalancesQuery,
@@ -38,9 +42,18 @@ const emptyFilters = {
 };
 
 export default function PartnerOpeningBalancesPage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -115,11 +128,19 @@ export default function PartnerOpeningBalancesPage() {
           </p>
         </div>
 
-        <Button onClick={openCreateModal} className="h-9">
+        <Button
+          onClick={openCreateModal}
+          className="h-9"
+          disabled={isFiscalYearReadOnly}
+        >
           <Plus size={14} />
           إضافة رصيد افتتاحي
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       {/* الفلاتر */}
       <div className="rounded-2xl border border-ink-400/10 bg-white p-3 shadow-card">

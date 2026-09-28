@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -36,6 +39,7 @@ export default function CashboxTransferEditModal({
   transfer,
   onDone,
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const cashboxOptions = Array.isArray(cashboxes) ? cashboxes : [];
 
   const [updateTransfer, { isLoading }] = useUpdateCashboxTransferMutation();
@@ -59,6 +63,15 @@ export default function CashboxTransferEditModal({
   });
 
   const onSubmit = async (values) => {
+    const fiscalYearWarning = [values.date]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     try {
       await updateTransfer({
         id: transfer.id,
@@ -137,6 +150,8 @@ export default function CashboxTransferEditModal({
           label="التاريخ"
           type="date"
           error={errors.date?.message}
+          min={selectedFiscalYear?.startDate}
+          max={selectedFiscalYear?.endDate}
           {...register("date")}
         />
 

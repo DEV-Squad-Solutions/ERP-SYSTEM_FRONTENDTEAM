@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { Receipt, FileWarning, ExternalLink, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -71,6 +73,16 @@ export default function ExpensesPage() {
   });
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    setFilters((prev) => ({
+      ...prev,
+      draft: clampFilterDates(prev.draft, ["fromDate", "toDate"], fy),
+      applied: clampFilterDates(prev.applied, ["fromDate", "toDate"], fy),
+    }));
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const { data: cashboxesData } = useGetCashboxesQuery();

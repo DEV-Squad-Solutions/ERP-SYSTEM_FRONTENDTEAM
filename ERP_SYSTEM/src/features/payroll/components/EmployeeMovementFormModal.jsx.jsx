@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import { useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,6 +63,7 @@ export default function EmployeeMovementFormModal({
   onSaved,
   defaultType, // اختياري: تقدر تفتح المودال بنوع محدد مسبقًا (مثلاً من زرار "خصم سريع")
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [createMovement, { isLoading: isSubmitting }] =
     useCreateEmployeeMovementMutation();
 
@@ -91,6 +95,15 @@ export default function EmployeeMovementFormModal({
   }, [isOpen, reset, defaultType]);
 
   const onSubmit = async (data) => {
+    const fiscalYearWarning = [data.movementDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     const payload = {
       employeeId: Number(data.employeeId),
       type: data.type,
@@ -174,6 +187,8 @@ export default function EmployeeMovementFormModal({
           <Input
             label="تاريخ الحركة"
             type="date"
+            min={selectedFiscalYear?.startDate}
+            max={selectedFiscalYear?.endDate}
             {...register("movementDate")}
             error={errors.movementDate?.message}
           />

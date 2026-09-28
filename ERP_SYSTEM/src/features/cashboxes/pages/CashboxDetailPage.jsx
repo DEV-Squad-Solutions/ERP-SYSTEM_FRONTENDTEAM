@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useMemo, useState } from "react";
 
 import { useParams, useNavigate } from "react-router-dom";
@@ -156,6 +158,16 @@ export default function CashboxDetailPage() {
 
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    setFilters((prev) => ({
+      ...prev,
+      draft: clampFilterDates(prev.draft, ["fromDate", "toDate"], fy),
+      applied: clampFilterDates(prev.applied, ["fromDate", "toDate"], fy),
+    }));
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(25);
   const [showHandover, setShowHandover] = useState(false);
 

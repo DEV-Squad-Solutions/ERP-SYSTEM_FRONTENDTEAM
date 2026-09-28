@@ -11,6 +11,8 @@ import {
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Pagination from "../../../shared/components/ui/Pagination";
 
 const hasCostOptions = [
@@ -29,6 +31,7 @@ const emptyFilters = {
 };
 
 export default function DriverTripCostEntryPage() {
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
   const [searchParams] = useSearchParams();
 
   const initialFilters = {
@@ -121,7 +124,10 @@ export default function DriverTripCostEntryPage() {
             عدّل تكلفة أكتر من رحلة واحفظهم مرة واحدة
           </p>
         </div>
-        <Button onClick={handleSaveAll} disabled={!hasEdits || saving}>
+        <Button
+          onClick={handleSaveAll}
+          disabled={!hasEdits || saving || isFiscalYearReadOnly}
+        >
           {saving ? (
             <Loader2 size={16} className="animate-spin" />
           ) : (
@@ -130,6 +136,10 @@ export default function DriverTripCostEntryPage() {
           حفظ التعديلات ({Object.keys(edits).length})
         </Button>
       </div>
+
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
 
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -145,12 +155,16 @@ export default function DriverTripCostEntryPage() {
           <Input
             label="من تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.fromDate}
             onChange={(e) => setField("fromDate", e.target.value)}
           />
           <Input
             label="إلى تاريخ"
             type="date"
+            min={fiscalYear?.startDate}
+            max={fiscalYear?.endDate}
             value={draft.toDate}
             onChange={(e) => setField("toDate", e.target.value)}
           />

@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 // src/features/journalEntries/pages/JournalEntriesListPage.jsx
 
 import { useMemo, useState } from "react";
@@ -28,6 +30,8 @@ import {
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { selectIsAdmin } from "../../auth/authSlice";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
 import {
   useGetJournalEntriesQuery,
@@ -340,6 +344,7 @@ function CurrencyBadge({ currency, multi = false }) {
 export default function JournalEntriesListPage() {
   const navigate = useNavigate();
   const isAdmin = useSelector(selectIsAdmin);
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   // -------------------------------------------------------
   // Filters
@@ -359,6 +364,15 @@ export default function JournalEntriesListPage() {
   // -------------------------------------------------------
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  // (لو المستخدم اختار سنة محددة من الفلتر نفسه بنحترم اختياره)
+  useOnFiscalYearChange((fy) => {
+    setFilters((f) =>
+      f.fiscalYearId ? f : clampFilterDates(f, ["fromDate", "toDate"], fy),
+    );
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   // -------------------------------------------------------
@@ -579,14 +593,20 @@ export default function JournalEntriesListPage() {
               disabled={isLoading || entries.length === 0}
             />
 
-            <ActionButton
-              icon={Plus}
-              label="قيد جديد"
-              primary
-              onClick={() => navigate("/dashboard/journal-entries/new")}
-            />
+            {!isFiscalYearReadOnly && (
+              <ActionButton
+                icon={Plus}
+                label="قيد جديد"
+                primary
+                onClick={() => navigate("/dashboard/journal-entries/new")}
+              />
+            )}
           </div>
         </div>
+
+        {isFiscalYearReadOnly && (
+          <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+        )}
 
         {/* =================================================
             Quick Summary
@@ -1210,7 +1230,7 @@ export default function JournalEntriesListPage() {
                   {entries.map((entry, index) => {
                     const automatic = isAutomaticEntry(entry);
                     const reversed = isReversedEntry(entry);
-                    const canModify = isAdmin && !automatic;
+                    const canModify = isAdmin && !automatic && !isFiscalYearReadOnly;
 
                     const currencies = getEntryCurrencies(entry);
 

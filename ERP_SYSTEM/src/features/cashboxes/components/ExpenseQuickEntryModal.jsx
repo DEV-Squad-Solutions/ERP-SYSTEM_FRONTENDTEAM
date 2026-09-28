@@ -1,3 +1,7 @@
+import { toast } from "sonner";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
 
 import { useState, useEffect, useMemo } from "react";
@@ -37,6 +41,7 @@ const emptyForm = {
 };
 
 export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -142,6 +147,16 @@ export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
   async function handleSubmit() {
     if (!canSubmit) return;
 
+    const fiscalYearWarning = [form.voucherDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
+
     const payload = {
       voucherDate: form.voucherDate,
       direction: "Payment",
@@ -209,6 +224,8 @@ export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
             </label>
             <input
               type="date"
+                            min={selectedFiscalYear?.startDate}
+              max={selectedFiscalYear?.endDate}
               value={form.voucherDate}
               onChange={(e) => setField("voucherDate", e.target.value)}
               className="w-full rounded-xl border border-gold/30 bg-white px-3 py-2 text-sm outline-none transition focus:border-emerald-600"

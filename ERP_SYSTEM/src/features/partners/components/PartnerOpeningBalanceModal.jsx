@@ -4,6 +4,9 @@ import { toast } from "sonner";
 
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import NumericInput from "../../../shared/components/ui/NumericInput";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 import Modal from "../../../shared/components/ui/Modal";
 
 import { useGetPartiesSelectQuery } from "../partiesApi";
@@ -95,6 +98,12 @@ export default function PartnerOpeningBalanceModal({
   ======================================================= */
 
   const [form, setForm] = useState(emptyForm());
+
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
+  const dateWarning = getFiscalYearDateWarning(
+    form.documentDate,
+    selectedFiscalYear,
+  );
 
   const [rateManuallyEdited, setRateManuallyEdited] = useState(false);
 
@@ -273,6 +282,11 @@ export default function PartnerOpeningBalanceModal({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (dateWarning) {
+      toast.error(dateWarning);
+      return;
+    }
+
     const payload = {
       businessPartnerId: Number(form.businessPartnerId),
 
@@ -388,6 +402,8 @@ export default function PartnerOpeningBalanceModal({
           <input
             type="date"
             value={form.documentDate}
+            min={selectedFiscalYear?.startDate}
+            max={selectedFiscalYear?.endDate}
             onChange={(e) => handleDocumentDateChange(e.target.value)}
             className={[
               "w-full",

@@ -16,6 +16,8 @@ import { logout, selectIsAdmin } from "../../../features/auth/authSlice";
 import { navigationItems } from "../../constants/navigation";
 import { matchRouteTitle } from "../../constants/routeTitles";
 import Modal from "../../components/ui/Modal";
+import FiscalYearSwitcher from "./FiscalYearSwitcher";
+import CompanySwitcher from "./CompanySwitcher";
 
 /* =========================================================
    BREADCRUMB
@@ -353,7 +355,10 @@ export default function Navbar({ onMenuClick }) {
               USER AREA
           ================================================= */}
 
-          <div className="flex shrink-0 items-center">
+          <div className="flex shrink-0 items-center gap-2">
+            <CompanySwitcher />
+            <FiscalYearSwitcher />
+
             <button
               type="button"
               onClick={() => setProfileOpen(true)}

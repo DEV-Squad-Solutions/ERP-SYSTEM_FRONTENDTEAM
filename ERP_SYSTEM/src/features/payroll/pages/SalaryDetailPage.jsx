@@ -18,6 +18,8 @@ import {
 import { useGetCashboxOptionsQuery } from "../../cashboxes/cashboxesApi";
 import { EMPLOYEE_TYPE, fmtMoney } from "../payroll.constants";
 import Button from "../../../shared/components/ui/Button";
+import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
@@ -27,6 +29,7 @@ import { usePayrollDetailPrint } from "../../../shared/hooks/usePayrollDetailPri
 export default function SalaryDetailPage() {
   const { salaryId } = useParams();
   const navigate = useNavigate();
+  const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const {
     data: entry,
@@ -154,6 +157,10 @@ export default function SalaryDetailPage() {
 
   return (
     <div className="animate-fadeUp space-y-5" dir="rtl">
+      {isFiscalYearReadOnly && (
+        <ReadOnlyFiscalYearBanner fiscalYear={fiscalYear} />
+      )}
+
       <button
         type="button"
         onClick={() => navigate("/dashboard/payroll/salaries")}
@@ -195,7 +202,10 @@ export default function SalaryDetailPage() {
               طباعة
             </Button>
 
-            <Button onClick={() => setShowPayModal(true)} disabled={isPaying}>
+            <Button
+              onClick={() => setShowPayModal(true)}
+              disabled={isPaying || isFiscalYearReadOnly}
+            >
               <Wallet size={14} />
               صرف المرتب
             </Button>

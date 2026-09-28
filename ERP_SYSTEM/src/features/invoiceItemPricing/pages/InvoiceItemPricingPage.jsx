@@ -1,3 +1,5 @@
+import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
+import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 // features/invoiceItemPricing/pages/InvoiceItemPricingPage.jsx
 import { useCallback, useState } from "react";
 
@@ -18,6 +20,14 @@ export default function InvoiceItemPricingPage() {
   const [applied, setApplied] = useState(EMPTY_FILTERS);
 
   const [page, setPage] = useState(1);
+
+  // عند تغيير السنة: صفّر الصفحة، وامسح أي تاريخ فلتر برّه حدودها
+  useOnFiscalYearChange((fy) => {
+    const fix = (f) => clampFilterDates(f, ["fromDate", "toDate"], fy);
+    setDraft(fix);
+    setApplied(fix);
+    setPage(1);
+  });
   const [pageSize, setPageSize] = useState(20);
 
   const [showExpensesModal, setShowExpensesModal] = useState(false);

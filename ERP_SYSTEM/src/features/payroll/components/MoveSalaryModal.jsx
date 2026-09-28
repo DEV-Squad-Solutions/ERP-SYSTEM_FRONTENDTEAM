@@ -1,3 +1,6 @@
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
+import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 // features/payroll/components/MoveSalaryModal.jsx
 
 import { useEffect } from "react";
@@ -29,6 +32,7 @@ export default function MoveSalaryModal({
   onClose,
   onSaved,
 }) {
+  const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const isOpen = Boolean(row);
 
   const [moveSalary, { isLoading }] = useMoveSalaryMutation();
@@ -56,6 +60,15 @@ export default function MoveSalaryModal({
   if (!row) return null;
 
   const onSubmit = async (data) => {
+    const fiscalYearWarning = [data.postingDate]
+      .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
+      .find(Boolean);
+
+    if (fiscalYearWarning) {
+      toast.error(fiscalYearWarning);
+      return;
+    }
+
     try {
       await moveSalary({ id: row.id, ...data }).unwrap();
       toast.success("تم ترحيل الراتب بنجاح");
@@ -75,6 +88,8 @@ export default function MoveSalaryModal({
         <Input
           label="تاريخ الترحيل"
           type="date"
+          min={selectedFiscalYear?.startDate}
+          max={selectedFiscalYear?.endDate}
           {...register("postingDate")}
           error={errors.postingDate?.message}
         />
