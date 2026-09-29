@@ -1,16 +1,18 @@
 import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
 import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
   CheckCircle2,
+  Printer,
   RefreshCw,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
 import { useGetIncomeStatementQuery } from "../../statements/statementsApi";
-import Pagination from "../../../shared/components/ui/Pagination";
+import IncomeStatementPrintTemplate from "../../../shared/components/print/IncomeStatementPrintTemplate";
+import { useIncomeStatementPrint } from "../../../shared/hooks/useIncomeStatementPrint";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -22,12 +24,61 @@ function firstOfMonthISO() {
 }
 
 function fmt(n) {
-  return new Intl.NumberFormat("ar-EG", {
-    maximumFractionDigits: 2,
-  }).format(n ?? 0);
+  return new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(
+    n ?? 0,
+  );
 }
 
-export default function IncomeStatementPage() {
+const SECTIONS = [
+  { key: "Revenue", title: "الإيرادات", nature: "credit" },
+  { key: "Expense", title: "المصروفات", nature: "debit" },
+  { key: "Other", title: "بنود أخرى", nature: "credit" },
+];
+
+function sectionKeyOf(accountType) {
+  const t = String(accountType ?? "").toLowerCase();
+  if (t.startsWith("revenue") || t.startsWith("income")) return "Revenue";
+  if (t.startsWith("expense") || t.startsWith("cost")) return "Expense";
+  return "Other";
+}
+
+// الإيرادات = دائن - مدين ، المصروفات = مدين - دائن
+function netOf(nature, row) {
+  return nature === "debit"
+    ? (row.periodDebit ?? 0) - (row.periodCredit ?? 0)
+    : (row.periodCredit ?? 0) - (row.periodDebit ?? 0);
+}
+
+function buildSections(items = []) {
+  return SECTIONS.map((sec) => {
+    const rows = items
+      .filter((r) => sectionKeyOf(r.accountType) === sec.key)
+      .map((r) => ({ ...r, net: netOf(sec.nature, r) }));
+    const sum = rows.reduce(
+      (a, r) => ({
+        debit: a.debit + (r.periodDebit ?? 0),
+        credit: a.credit + (r.periodCredit ?? 0),
+        net: a.net + r.net,
+      }),
+      { debit: 0, credit: 0, net: 0 },
+    );
+    return { ...sec, rows, sum };
+  }).filter((sec) => sec.rows.length > 0);
+}
+
+function NetCell({ value, bold = false }) {
+  return (
+    <span
+      className={`whitespace-nowrap tabular-nums ${bold ? "font-semibold" : ""} ${
+        value < 0 ? "text-rose-700" : "text-ink-800"
+      }`}
+    >
+      {fmt(value)}
+    </span>
+  );
+}
+
+export default function IncomeStatementPage({ companyName = "" }) {
   const [draft, setDraft] = useState({
     fromDate: firstOfMonthISO(),
     toDate: todayISO(),
@@ -36,10 +87,7 @@ export default function IncomeStatementPage() {
     adjustmentView: "AfterAdjustments",
     includeUnmapped: false,
   });
-
   const [applied, setApplied] = useState(draft);
-
-  const [page, setPage] = useState(1);
 
   // عند تغيير السنة: لو الفترة خرجت من حدودها ارجع للفترة الافتراضية
   useOnFiscalYearChange((fy) => {
@@ -47,9 +95,7 @@ export default function IncomeStatementPage() {
       f.fiscalYearId ? f : resetRangeIfOutside(f, "fromDate", "toDate", fy);
     setDraft(fix);
     setApplied(fix);
-    setPage(1);
   });
-  const [pageSize, setPageSize] = useState(25);
 
   const { data, isLoading, isFetching, isError, refetch } =
     useGetIncomeStatementQuery({
@@ -64,61 +110,61 @@ export default function IncomeStatementPage() {
   const items = data?.items ?? [];
   const totals = data?.totals;
   const unmappedAccounts = data?.unmappedAccounts ?? [];
+  const isDetailed = applied.viewMode === "Detailed";
+  const colCount = isDetailed ? 5 : 4;
 
-  const totalCount = items.length;
+  const sections = useMemo(() => buildSections(items), [items]);
 
-  const paginatedItems = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return items.slice(start, start + pageSize);
-  }, [items, page, pageSize]);
+  const sumOf = (key) => sections.find((s) => s.key === key)?.sum.net ?? 0;
+  const revenue = sumOf("Revenue");
+  const expense = sumOf("Expense");
+  const netResult = totals?.netResult ?? revenue + sumOf("Other") - expense;
 
-  function handleShow() {
-    setApplied(draft);
-    setPage(1);
-  }
-
-  function handlePageSizeChange(size) {
-    setPageSize(size);
-    setPage(1);
-  }
+  const { printReport, printRef } = useIncomeStatementPrint();
 
   return (
     <div className="animate-fadeUp" dir="rtl">
-      {" "}
       <div className="mb-5 flex items-start justify-between gap-4">
-        {" "}
         <div>
-          {" "}
           <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-ink-900">
-            {" "}
             <BarChart3 size={20} className="text-primary-500" />
-            قائمة الدخل{" "}
+            قائمة الدخل
           </h2>
           <p className="mt-1 text-sm text-ink-400">
             الإيرادات والمصروفات وصافي نتيجة الفترة من القيود المرحلة
           </p>
         </div>
-        <button
-          type="button"
-          onClick={refetch}
-          className="inline-flex items-center gap-2 rounded-xl border border-ink-400/20 px-4 py-2.5 text-sm font-medium text-ink-600 transition hover:bg-ink-400/5"
-        >
-          <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
-          تحديث
-        </button>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => printReport()}
+            disabled={!data || items.length === 0}
+            className="inline-flex items-center gap-2 rounded-xl border border-ink-400/20 px-4 py-2.5 text-sm font-medium text-ink-600 transition hover:bg-ink-400/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Printer size={16} />
+            طباعة
+          </button>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 rounded-xl border border-ink-400/20 px-4 py-2.5 text-sm font-medium text-ink-600 transition hover:bg-ink-400/5"
+          >
+            <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
+            تحديث
+          </button>
+        </div>
       </div>
+
+      {/* الفلاتر */}
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">من تاريخ</label>
-
           <input
             type="date"
             value={draft.fromDate}
             onChange={(e) =>
-              setDraft((prev) => ({
-                ...prev,
-                fromDate: e.target.value,
-              }))
+              setDraft((p) => ({ ...p, fromDate: e.target.value }))
             }
             className="rounded-xl border border-ink-400/20 px-3 py-2 text-sm"
           />
@@ -126,15 +172,11 @@ export default function IncomeStatementPage() {
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">إلى تاريخ</label>
-
           <input
             type="date"
             value={draft.toDate}
             onChange={(e) =>
-              setDraft((prev) => ({
-                ...prev,
-                toDate: e.target.value,
-              }))
+              setDraft((p) => ({ ...p, toDate: e.target.value }))
             }
             className="rounded-xl border border-ink-400/20 px-3 py-2 text-sm"
           />
@@ -142,16 +184,11 @@ export default function IncomeStatementPage() {
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">طريقة العرض</label>
-
           <select
             value={draft.viewMode}
-            onChange={(e) => {
-              setDraft((prev) => ({
-                ...prev,
-                viewMode: e.target.value,
-              }));
-              setPage(1);
-            }}
+            onChange={(e) =>
+              setDraft((p) => ({ ...p, viewMode: e.target.value }))
+            }
             className="rounded-xl border border-ink-400/20 bg-white px-3 py-2 text-sm"
           >
             <option value="Summary">ملخص</option>
@@ -161,16 +198,11 @@ export default function IncomeStatementPage() {
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">التسويات</label>
-
           <select
             value={draft.adjustmentView}
-            onChange={(e) => {
-              setDraft((prev) => ({
-                ...prev,
-                adjustmentView: e.target.value,
-              }));
-              setPage(1);
-            }}
+            onChange={(e) =>
+              setDraft((p) => ({ ...p, adjustmentView: e.target.value }))
+            }
             className="rounded-xl border border-ink-400/20 bg-white px-3 py-2 text-sm"
           >
             <option value="AfterAdjustments">بعد التسوية</option>
@@ -183,10 +215,7 @@ export default function IncomeStatementPage() {
             type="checkbox"
             checked={draft.includeUnmapped}
             onChange={(e) =>
-              setDraft((prev) => ({
-                ...prev,
-                includeUnmapped: e.target.checked,
-              }))
+              setDraft((p) => ({ ...p, includeUnmapped: e.target.checked }))
             }
             className="h-4 w-4 accent-primary-500"
           />
@@ -195,262 +224,234 @@ export default function IncomeStatementPage() {
 
         <button
           type="button"
-          onClick={handleShow}
+          onClick={() => setApplied(draft)}
           className="rounded-xl bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-600"
         >
           عرض
         </button>
       </div>
+
       {isLoading && (
         <div className="rounded-2xl border border-dashed border-ink-400/20 py-16 text-center text-ink-400">
           جاري تحميل قائمة الدخل...
         </div>
       )}
+
       {isError && (
         <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
           <span>حدث خطأ أثناء تحميل قائمة الدخل.</span>
-
           <button
             type="button"
-            onClick={refetch}
+            onClick={() => refetch()}
             className="rounded-lg border border-rose-200 bg-white px-3 py-1 text-xs font-medium transition hover:bg-rose-100"
           >
             إعادة المحاولة
           </button>
         </div>
       )}
+
       {data && (
         <>
           {!data.isReadyForReporting && (
             <div className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-700">
               <AlertTriangle size={20} className="mt-0.5 shrink-0" />
-
               <div>
                 <p className="font-semibold">القائمة غير جاهزة للاعتماد</p>
-
                 <p className="mt-1 text-sm">
-                  توجد حركات أو تسويات معلقة قد تؤثر على صافي نتيجة الفترة.
+                  قد يكون السبب تكلفة مخزون معلقة أو فرق جرد غير مسوى، أو وجود
+                  حسابات غير مربوطة. فعّل «عرض الحسابات غير المربوطة» للمراجعة.
                 </p>
               </div>
             </div>
           )}
 
-          {totals && (
-            <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-ink-400">إجمالي الإيرادات</span>
-
-                  <TrendingUp size={20} className="text-primary-500" />
-                </div>
-
-                <p className="text-2xl font-bold text-ink-900">
-                  {fmt(
-                    items
-                      .filter(
-                        (item) =>
-                          item.accountType === "Revenue" ||
-                          item.accountType === "Income",
-                      )
-                      .reduce(
-                        (sum, item) =>
-                          sum +
-                          Math.max(
-                            0,
-                            (item.periodCredit ?? 0) - (item.periodDebit ?? 0),
-                          ),
-                        0,
-                      ),
-                  )}
-                </p>
-
-                <span className="text-xs text-ink-400">
-                  {data.baseCurrency || "EGP"}
-                </span>
+          {/* الكروت */}
+          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm text-ink-400">إجمالي الإيرادات</span>
+                <TrendingUp size={20} className="text-primary-500" />
               </div>
-
-              <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-ink-400">إجمالي المصروفات</span>
-
-                  <TrendingDown size={20} className="text-rose-500" />
-                </div>
-
-                <p className="text-2xl font-bold text-ink-900">
-                  {fmt(
-                    items
-                      .filter(
-                        (item) =>
-                          item.accountType === "Expense" ||
-                          item.accountType === "Expenses",
-                      )
-                      .reduce(
-                        (sum, item) =>
-                          sum +
-                          Math.max(
-                            0,
-                            (item.periodDebit ?? 0) - (item.periodCredit ?? 0),
-                          ),
-                        0,
-                      ),
-                  )}
-                </p>
-
-                <span className="text-xs text-ink-400">
-                  {data.baseCurrency || "EGP"}
-                </span>
-              </div>
-
-              <div className="rounded-2xl border border-primary-500/20 bg-primary-500/5 p-5 shadow-card">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm text-ink-500">
-                    صافي نتيجة الفترة
-                  </span>
-
-                  {totals.netResult >= 0 ? (
-                    <TrendingUp size={20} className="text-primary-600" />
-                  ) : (
-                    <TrendingDown size={20} className="text-rose-600" />
-                  )}
-                </div>
-
-                <p
-                  className={`text-2xl font-bold ${
-                    totals.netResult >= 0 ? "text-primary-700" : "text-rose-700"
-                  }`}
-                >
-                  {fmt(totals.netResult)}
-                </p>
-
-                <span className="text-xs text-ink-400">
-                  {totals.netResult >= 0 ? "صافي ربح" : "صافي خسارة"}
-                </span>
-              </div>
+              <p className="text-2xl font-bold text-ink-900">{fmt(revenue)}</p>
+              <span className="text-xs text-ink-400">
+                {data.baseCurrency || "EGP"}
+              </span>
             </div>
-          )}
 
+            <div className="rounded-2xl border border-ink-400/10 bg-white p-5 shadow-card">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm text-ink-400">إجمالي المصروفات</span>
+                <TrendingDown size={20} className="text-rose-500" />
+              </div>
+              <p className="text-2xl font-bold text-ink-900">{fmt(expense)}</p>
+              <span className="text-xs text-ink-400">
+                {data.baseCurrency || "EGP"}
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-primary-500/20 bg-primary-500/5 p-5 shadow-card">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm text-ink-500">صافي نتيجة الفترة</span>
+                {netResult >= 0 ? (
+                  <TrendingUp size={20} className="text-primary-600" />
+                ) : (
+                  <TrendingDown size={20} className="text-rose-600" />
+                )}
+              </div>
+              <p
+                className={`text-2xl font-bold ${
+                  netResult >= 0 ? "text-primary-700" : "text-rose-700"
+                }`}
+              >
+                {fmt(netResult)}
+              </p>
+              <span className="text-xs text-ink-400">
+                {netResult >= 0 ? "صافي ربح" : "صافي خسارة"}
+              </span>
+            </div>
+          </div>
+
+          {/* الجدول */}
           <div
             className={`overflow-hidden rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity ${
               isFetching ? "opacity-70" : ""
             }`}
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-sm">
+              <table className="w-full min-w-[800px] text-sm">
                 <thead>
                   <tr className="bg-ink-400/5 text-xs text-ink-400">
                     <th className="px-3 py-2.5 text-right font-medium">
                       بند القائمة
                     </th>
-
-                    {applied.viewMode === "Detailed" && (
+                    {isDetailed && (
                       <th className="px-3 py-2.5 text-right font-medium">
                         الحساب
                       </th>
                     )}
-
                     <th className="px-3 py-2.5 text-right font-medium">
                       مدين الفترة
                     </th>
-
                     <th className="px-3 py-2.5 text-right font-medium">
                       دائن الفترة
                     </th>
-
                     <th className="px-3 py-2.5 text-right font-medium">
-                      صافي الحركة
+                      الصافي
                     </th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {paginatedItems.length === 0 ? (
+                  {sections.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={applied.viewMode === "Detailed" ? 5 : 4}
+                        colSpan={colCount}
                         className="px-3 py-14 text-center text-ink-400"
                       >
                         لا توجد بيانات لهذه الفترة
                       </td>
                     </tr>
                   ) : (
-                    paginatedItems.map((row, idx) => {
-                      const net =
-                        (row.periodCredit ?? 0) - (row.periodDebit ?? 0);
+                    sections.map((section) => (
+                      <Fragment key={section.key}>
+                        <tr className="border-t-2 border-ink-400/20 bg-primary-500/5">
+                          <td
+                            colSpan={colCount}
+                            className="px-3 py-2 text-sm font-bold text-ink-900"
+                          >
+                            {section.title}
+                          </td>
+                        </tr>
 
-                      return (
-                        <tr
-                          key={`${row.financialStatementLineId}-${row.accountId ?? idx}`}
-                          className="border-t border-ink-400/10 transition-colors hover:bg-ink-900/[0.015]"
-                        >
-                          <td className="px-3 py-3">
-                            <div>
+                        {section.rows.map((row, idx) => (
+                          <tr
+                            key={`${section.key}-${row.financialStatementLineId}-${row.accountId ?? idx}`}
+                            className="border-t border-ink-400/10 transition-colors hover:bg-ink-900/[0.015]"
+                          >
+                            <td className="px-3 py-2.5 pr-6">
                               <span className="font-medium text-ink-800">
                                 {row.financialStatementLineName || "—"}
                               </span>
-
                               {row.financialStatementLineCode && (
                                 <span className="mr-2 text-[11px] text-ink-400">
                                   {row.financialStatementLineCode}
                                 </span>
                               )}
-                            </div>
-                          </td>
-
-                          {applied.viewMode === "Detailed" && (
-                            <td className="px-3 py-3">
-                              <span className="block font-medium text-ink-800">
-                                {row.accountName || "—"}
-                              </span>
-
-                              {row.accountCode && (
-                                <span className="text-[11px] text-ink-400">
-                                  {row.accountCode}
-                                </span>
-                              )}
                             </td>
-                          )}
 
-                          <td className="whitespace-nowrap px-3 py-3 text-ink-700">
-                            {fmt(row.periodDebit)}
-                          </td>
+                            {isDetailed && (
+                              <td className="px-3 py-2.5">
+                                <span className="block font-medium text-ink-800">
+                                  {row.accountName || "—"}
+                                </span>
+                                {row.accountCode && (
+                                  <span className="text-[11px] text-ink-400">
+                                    {row.accountCode}
+                                  </span>
+                                )}
+                              </td>
+                            )}
 
-                          <td className="whitespace-nowrap px-3 py-3 text-ink-700">
-                            {fmt(row.periodCredit)}
-                          </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-ink-700">
+                              {fmt(row.periodDebit)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2.5 tabular-nums text-ink-700">
+                              {fmt(row.periodCredit)}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <NetCell value={row.net} bold />
+                            </td>
+                          </tr>
+                        ))}
 
+                        <tr className="border-t border-ink-400/20 bg-ink-400/5 font-bold">
                           <td
-                            className={`whitespace-nowrap px-3 py-3 font-semibold ${
-                              net >= 0 ? "text-primary-700" : "text-rose-700"
-                            }`}
+                            className="px-3 py-2.5 text-ink-900"
+                            colSpan={isDetailed ? 2 : 1}
                           >
-                            {fmt(net)}
+                            إجمالي {section.title}
+                          </td>
+                          <td className="px-3 py-2.5 tabular-nums">
+                            {fmt(section.sum.debit)}
+                          </td>
+                          <td className="px-3 py-2.5 tabular-nums">
+                            {fmt(section.sum.credit)}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <NetCell value={section.sum.net} bold />
                           </td>
                         </tr>
-                      );
-                    })
+                      </Fragment>
+                    ))
                   )}
                 </tbody>
 
-                {totals && items.length > 0 && (
+                {sections.length > 0 && (
                   <tfoot>
-                    <tr className="border-t-2 border-ink-400/20 bg-ink-400/5 font-bold text-ink-900">
-                      <td
-                        className="px-3 py-3"
-                        colSpan={applied.viewMode === "Detailed" ? 2 : 1}
-                      >
-                        الإجمالي
+                    <tr className="border-t-2 border-ink-400/30 font-bold text-ink-900">
+                      <td className="px-3 py-3" colSpan={colCount - 1}>
+                        إجمالي الإيرادات
                       </td>
-
-                      <td className="whitespace-nowrap px-3 py-3">
-                        {fmt(totals.periodDebit)}
+                      <td className="px-3 py-3">
+                        <NetCell value={revenue} bold />
                       </td>
-
-                      <td className="whitespace-nowrap px-3 py-3">
-                        {fmt(totals.periodCredit)}
+                    </tr>
+                    <tr className="font-bold text-ink-900">
+                      <td className="px-3 py-3" colSpan={colCount - 1}>
+                        إجمالي المصروفات
                       </td>
-
-                      <td className="whitespace-nowrap px-3 py-3 text-primary-700">
-                        {fmt(totals.netResult)}
+                      <td className="px-3 py-3">
+                        <NetCell value={expense} bold />
+                      </td>
+                    </tr>
+                    <tr className="border-t-2 border-ink-400/30 bg-primary-500/5 font-bold text-ink-900">
+                      <td className="px-3 py-3" colSpan={colCount - 1}>
+                        {netResult >= 0
+                          ? "صافي ربح الفترة"
+                          : "صافي خسارة الفترة"}
+                      </td>
+                      <td className="px-3 py-3">
+                        <NetCell value={netResult} bold />
                       </td>
                     </tr>
                   </tfoot>
@@ -459,17 +460,7 @@ export default function IncomeStatementPage() {
             </div>
           </div>
 
-          {totalCount > 0 && (
-            <Pagination
-              page={page}
-              pageSize={pageSize}
-              totalCount={totalCount}
-              onPageChange={setPage}
-              onPageSizeChange={handlePageSizeChange}
-              label="بند"
-            />
-          )}
-
+          {/* الحسابات غير المربوطة */}
           {applied.includeUnmapped && unmappedAccounts.length > 0 && (
             <div className="mt-5 overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-card">
               <div className="border-b border-amber-100 bg-amber-50 px-4 py-3">
@@ -479,7 +470,6 @@ export default function IncomeStatementPage() {
                     حسابات غير مربوطة ببند في قائمة الدخل
                   </h3>
                 </div>
-
                 <p className="mt-1 text-xs text-amber-600">
                   هذه الحسابات لها حركة ولكن لم يتم ربطها ببند في قائمة الدخل.
                 </p>
@@ -492,26 +482,23 @@ export default function IncomeStatementPage() {
                       <th className="px-4 py-2.5 text-right font-medium">
                         الحساب
                       </th>
-
                       <th className="px-4 py-2.5 text-right font-medium">
                         مدين الفترة
                       </th>
-
                       <th className="px-4 py-2.5 text-right font-medium">
                         دائن الفترة
                       </th>
-
                       <th className="px-4 py-2.5 text-right font-medium">
-                        صافي الحركة
+                        الصافي
                       </th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {unmappedAccounts.map((row) => {
-                      const net =
-                        (row.periodCredit ?? 0) - (row.periodDebit ?? 0);
-
+                      const nature =
+                        SECTIONS.find(
+                          (s) => s.key === sectionKeyOf(row.accountType),
+                        )?.nature ?? "credit";
                       return (
                         <tr
                           key={row.accountId}
@@ -521,24 +508,20 @@ export default function IncomeStatementPage() {
                             <span className="block font-medium text-ink-800">
                               {row.accountName || "—"}
                             </span>
-
                             {row.accountCode && (
                               <span className="text-[11px] text-ink-400">
                                 {row.accountCode}
                               </span>
                             )}
                           </td>
-
-                          <td className="px-4 py-3">{fmt(row.periodDebit)}</td>
-
-                          <td className="px-4 py-3">{fmt(row.periodCredit)}</td>
-
-                          <td
-                            className={`px-4 py-3 font-semibold ${
-                              net >= 0 ? "text-primary-700" : "text-rose-700"
-                            }`}
-                          >
-                            {fmt(net)}
+                          <td className="px-4 py-3 tabular-nums">
+                            {fmt(row.periodDebit)}
+                          </td>
+                          <td className="px-4 py-3 tabular-nums">
+                            {fmt(row.periodCredit)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <NetCell value={netOf(nature, row)} bold />
                           </td>
                         </tr>
                       );
@@ -557,6 +540,19 @@ export default function IncomeStatementPage() {
           )}
         </>
       )}
+
+      {/* قالب الطباعة (مخفي) */}
+      <div style={{ display: "none" }}>
+        <div ref={printRef}>
+          <IncomeStatementPrintTemplate
+            data={data}
+            sections={sections}
+            summary={{ revenue, expense, netResult }}
+            filters={applied}
+            companyName={companyName}
+          />
+        </div>
+      </div>
     </div>
   );
 }
