@@ -36,7 +36,7 @@ export default function CashboxLedgerPrintTemplate({
         padding: "12mm",
         boxSizing: "border-box",
         fontFamily: "Cairo, Tajawal, sans-serif",
-        color: "#111827",
+        color: "#0A2540",
         fontSize: "11px",
       }}
     >
@@ -46,7 +46,7 @@ export default function CashboxLedgerPrintTemplate({
         style={{
           display: "flex",
           justifyContent: "space-between",
-          borderBottom: "2px solid #0F6E5E",
+          borderBottom: "2px solid #0C4A3E",
           paddingBottom: "10px",
           marginBottom: "15px",
         }}
@@ -92,7 +92,7 @@ export default function CashboxLedgerPrintTemplate({
         <thead>
           <tr
             style={{
-              background: "#f3f4f6",
+              background: "#EFF2F0",
             }}
           >
             {[
@@ -121,7 +121,7 @@ export default function CashboxLedgerPrintTemplate({
               <td
                 style={{
                   ...tdCenter,
-                  color: "#dc2626",
+                  color: "#C0392B",
                 }}
               >
                 {item.debit > 0 ? fmt(item.debit) : "—"}
@@ -130,7 +130,7 @@ export default function CashboxLedgerPrintTemplate({
               <td
                 style={{
                   ...tdCenter,
-                  color: "#16a34a",
+                  color: "#059669",
                 }}
               >
                 {item.credit > 0 ? fmt(item.credit) : "—"}
@@ -171,7 +171,7 @@ export default function CashboxLedgerPrintTemplate({
         >
           <div
             style={{
-              borderTop: "1px solid #111827",
+              borderTop: "1px solid #0A2540",
               paddingTop: "6px",
             }}
           >
@@ -184,20 +184,20 @@ export default function CashboxLedgerPrintTemplate({
 }
 
 const th = {
-  border: "1px solid #d1d5db",
+  border: "1px solid #C9D2CD",
   padding: "6px",
   textAlign: "center",
   fontWeight: 700,
 };
 
 const tdCenter = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "6px",
   textAlign: "center",
 };
 
 const tdRight = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "6px",
   textAlign: "right",
 };

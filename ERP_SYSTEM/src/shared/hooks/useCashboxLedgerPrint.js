@@ -29,7 +29,7 @@ export function useCashboxLedgerPrint({ title = "كشف حركة الخزنة" }
 
         th,
         td {
-          border: 1px solid #ddd;
+          border: 1px solid #C9D2CD;
           padding: 6px;
         }
 

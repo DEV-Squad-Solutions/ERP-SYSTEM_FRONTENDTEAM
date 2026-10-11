@@ -1,12 +1,26 @@
- @tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
   body {
     font-family: "Tajawal", sans-serif;
-    background-color: #FAF8F3;
-    color: #1B2A40;
+    background-color: #faf8f3;
+    color: #1b2a40;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  html.dark body {
+    background-color: #0f1720;
+    color: #f1f5f3;
   }
 
   h1,
@@ -26,15 +40,19 @@
   }
 
   ::selection {
-    background-color: #C9962C;
-    color: white;
+    background-color: #c9962c;
+    color: #fff;
   }
 
   *:focus-visible {
-    outline: 2px solid #C9962C;
+    outline: 2px solid #c9962c;
     outline-offset: 2px;
   }
- @layer base {
+
+  /* =========================================================
+     SCROLLBARS  (light)
+  ========================================================= */
+
   /* Firefox */
   * {
     scrollbar-width: thin;
@@ -62,6 +80,22 @@
 
   *::-webkit-scrollbar-corner {
     background: transparent;
+  }
+
+  /* =========================================================
+     SCROLLBARS  (dark)
+  ========================================================= */
+
+  html.dark * {
+    scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+  }
+
+  html.dark *::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.28);
+  }
+
+  html.dark *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(201, 150, 44, 0.7);
   }
 }
 
@@ -92,5 +126,16 @@
   .custom-scroll::-webkit-scrollbar-corner {
     background: transparent;
   }
-}}
- 
+
+  html.dark .custom-scroll {
+    scrollbar-color: rgba(148, 163, 184, 0.28) transparent;
+  }
+
+  html.dark .custom-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.28);
+  }
+
+  html.dark .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(201, 150, 44, 0.7);
+  }
+}

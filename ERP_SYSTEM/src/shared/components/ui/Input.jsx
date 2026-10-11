@@ -52,6 +52,10 @@ export default function Input({
           text-ink-900
           placeholder:text-ink-400
 
+          dark:bg-dark-surface
+          dark:text-ink-100
+          dark:placeholder:text-ink-300/60
+
           outline-none
 
           transition-[border-color,box-shadow,background-color]
@@ -67,6 +71,11 @@ export default function Input({
           disabled:bg-ink-400/[0.04]
           disabled:text-ink-400
           disabled:opacity-70
+
+          dark:hover:border-white/[0.15]
+          dark:focus:bg-dark-surface
+          dark:disabled:bg-white/[0.04]
+          dark:disabled:text-ink-300/60
 
           ${
             error

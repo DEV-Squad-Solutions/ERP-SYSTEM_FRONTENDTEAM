@@ -256,7 +256,7 @@ export const navigationItems = [
         path: "/dashboard/payroll/employees",
         icon: Users,
         end: true,
-        roles: FULL_ACCESS_ROLES,
+        roles: PAYROLL_ROLES,
       },
       {
         label: "كشف حساب موظف",
@@ -270,21 +270,21 @@ export const navigationItems = [
         path: "/dashboard/payroll/opening-balances",
         icon: History,
         end: true,
-        roles: FULL_ACCESS_ROLES,
+        roles: PAYROLL_ROLES,
       },
       {
         label: "الحضور والانصراف",
         path: "/dashboard/payroll/attendance/records",
         icon: CalendarRange,
         end: true,
-        roles: FULL_ACCESS_ROLES,
+        roles: PAYROLL_ROLES,
       },
       {
         label: "الحركات المالية للموظفين",
         path: "/dashboard/payroll/movements",
         icon: ArrowRightLeft,
         end: true,
-        roles: FULL_ACCESS_ROLES,
+        roles: PAYROLL_ROLES,
       },
       {
         label: "المرتبات",

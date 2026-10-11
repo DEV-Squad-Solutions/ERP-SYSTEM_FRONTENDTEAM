@@ -5,10 +5,10 @@ const variants = {
   gold: "bg-gold-500 text-white shadow-sm hover:bg-gold-600 hover:shadow-card focus-visible:ring-gold-500/30",
 
   outline:
-    "border border-ink-400/20 bg-white text-ink-900 shadow-sm hover:bg-ink-400/5 hover:border-ink-400/30 focus-visible:ring-ink-400/20",
+    "border border-ink-400/20 bg-white text-ink-900 shadow-sm hover:bg-ink-400/5 hover:border-ink-400/30 focus-visible:ring-ink-400/20 dark:border-dark-border dark:bg-transparent dark:text-ink-100 dark:hover:bg-white/[0.06] dark:hover:border-white/[0.12] dark:hover:text-white",
 
   ghost:
-    "bg-transparent text-ink-500 hover:bg-ink-400/5 hover:text-ink-900 focus-visible:ring-ink-400/20",
+    "bg-transparent text-ink-500 hover:bg-ink-400/5 hover:text-ink-900 focus-visible:ring-ink-400/20 dark:text-ink-300 dark:hover:bg-white/[0.06] dark:hover:text-white",
 
   danger:
     "bg-negative text-white shadow-sm hover:bg-red-700 focus-visible:ring-red-500/30",

@@ -675,7 +675,7 @@ export const router = createBrowserRouter([
         path: "payroll/employees",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <EmployeesPage />
             </Role>
           </LazyPage>
@@ -685,7 +685,7 @@ export const router = createBrowserRouter([
         path: "payroll/employees/:employeeId",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <EmployeeDetailPage />
             </Role>
           </LazyPage>
@@ -705,7 +705,7 @@ export const router = createBrowserRouter([
         path: "payroll/opening-balances",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <EmployeeOpeningBalancesPage />
             </Role>
           </LazyPage>
@@ -715,7 +715,7 @@ export const router = createBrowserRouter([
         path: "payroll/attendance",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <AttendanceTakingPage />
             </Role>
           </LazyPage>
@@ -725,7 +725,7 @@ export const router = createBrowserRouter([
         path: "payroll/attendance/records",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <AttendancePage />
             </Role>
           </LazyPage>
@@ -735,7 +735,7 @@ export const router = createBrowserRouter([
         path: "payroll/movements",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <EmployeeMovementsPage />
             </Role>
           </LazyPage>
@@ -755,7 +755,7 @@ export const router = createBrowserRouter([
         path: "payroll/salaries/create",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={PAYROLL_ROLES}>
               <BulkCreatePayrollEntriesPage />
             </Role>
           </LazyPage>

@@ -32,7 +32,7 @@ export default function InvoicePrintTemplate({ invoice }) {
         minHeight: "297mm",
         padding: "15mm",
         fontFamily: "'Cairo', 'Tajawal', sans-serif",
-        color: "#111827",
+        color: "#0A2540",
         fontSize: "13px",
         boxSizing: "border-box",
       }}
@@ -42,7 +42,7 @@ export default function InvoicePrintTemplate({ invoice }) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          borderBottom: "2px solid #0F6E5E",
+          borderBottom: "2px solid #0C4A3E",
           paddingBottom: "12px",
           marginBottom: "16px",
         }}
@@ -54,14 +54,14 @@ export default function InvoicePrintTemplate({ invoice }) {
           {/* ⚠️ حطيتها بشرط الوجود لحد ما تأكد إيه الحقول المتوفرة فعليًا في selectedCompany */}
           {company?.address && (
             <p
-              style={{ fontSize: "11px", color: "#6b7280", margin: "4px 0 0" }}
+              style={{ fontSize: "11px", color: "#6F7C75", margin: "4px 0 0" }}
             >
               {company.address}
             </p>
           )}
           {company?.phone && (
             <p
-              style={{ fontSize: "11px", color: "#6b7280", margin: "2px 0 0" }}
+              style={{ fontSize: "11px", color: "#6F7C75", margin: "2px 0 0" }}
             >
               {company.phone}
             </p>
@@ -92,7 +92,7 @@ export default function InvoicePrintTemplate({ invoice }) {
       >
         <div
           style={{
-            border: "1px solid #e5e7eb",
+            border: "1px solid #E2E7E4",
             borderRadius: "8px",
             padding: "10px",
           }}
@@ -107,7 +107,7 @@ export default function InvoicePrintTemplate({ invoice }) {
         </div>
         <div
           style={{
-            border: "1px solid #e5e7eb",
+            border: "1px solid #E2E7E4",
             borderRadius: "8px",
             padding: "10px",
           }}
@@ -143,7 +143,7 @@ export default function InvoicePrintTemplate({ invoice }) {
         }}
       >
         <thead>
-          <tr style={{ background: "#f3f4f6" }}>
+          <tr style={{ background: "#EFF2F0" }}>
             {[
               "#",
               "الصنف",
@@ -157,7 +157,7 @@ export default function InvoicePrintTemplate({ invoice }) {
               <th
                 key={h}
                 style={{
-                  border: "1px solid #e5e7eb",
+                  border: "1px solid #E2E7E4",
                   padding: "6px",
                   textAlign: "center",
                   fontWeight: 700,
@@ -194,12 +194,12 @@ export default function InvoicePrintTemplate({ invoice }) {
           }}
         >
           <thead>
-            <tr style={{ background: "#f3f4f6" }}>
+            <tr style={{ background: "#EFF2F0" }}>
               {["#", "العبوة", "صادر", "وارد"].map((h) => (
                 <th
                   key={h}
                   style={{
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid #E2E7E4",
                     padding: "6px",
                     textAlign: "center",
                     fontWeight: 700,
@@ -259,12 +259,12 @@ export default function InvoicePrintTemplate({ invoice }) {
         }}
       >
         <div style={{ textAlign: "center", width: "200px" }}>
-          <div style={{ borderTop: "1px solid #111827", paddingTop: "6px" }}>
+          <div style={{ borderTop: "1px solid #0A2540", paddingTop: "6px" }}>
             توقيع المستلم
           </div>
         </div>
         <div style={{ textAlign: "center", width: "200px" }}>
-          <div style={{ borderTop: "1px solid #111827", paddingTop: "6px" }}>
+          <div style={{ borderTop: "1px solid #0A2540", paddingTop: "6px" }}>
             توقيع المسؤول
           </div>
         </div>
@@ -274,13 +274,13 @@ export default function InvoicePrintTemplate({ invoice }) {
 }
 
 const cellCenter = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "6px",
   textAlign: "center",
 };
 
 const cellRight = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "6px",
   textAlign: "right",
 };
@@ -292,7 +292,7 @@ function SummaryRow({ label, value, bold }) {
         style={{
           padding: "4px 8px",
           fontWeight: bold ? 700 : 400,
-          borderTop: bold ? "1px solid #111827" : "none",
+          borderTop: bold ? "1px solid #0A2540" : "none",
         }}
       >
         {label}
@@ -302,7 +302,7 @@ function SummaryRow({ label, value, bold }) {
           padding: "4px 8px",
           fontWeight: bold ? 700 : 400,
           textAlign: "left",
-          borderTop: bold ? "1px solid #111827" : "none",
+          borderTop: bold ? "1px solid #0A2540" : "none",
         }}
       >
         {value}

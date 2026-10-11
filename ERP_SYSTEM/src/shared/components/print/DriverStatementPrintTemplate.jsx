@@ -43,7 +43,7 @@ export default function DriverStatementPrintTemplate({
         minHeight: "210mm",
         padding: "12mm",
         fontFamily: "'Cairo', 'Tajawal', sans-serif",
-        color: "#111827",
+        color: "#0A2540",
         fontSize: "11px",
         boxSizing: "border-box",
         background: "#fff",
@@ -57,7 +57,7 @@ export default function DriverStatementPrintTemplate({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          borderBottom: "2px solid #0F6E5E",
+          borderBottom: "2px solid #0C4A3E",
           paddingBottom: "10px",
           marginBottom: "12px",
         }}
@@ -76,7 +76,7 @@ export default function DriverStatementPrintTemplate({
           <p
             style={{
               fontSize: "10px",
-              color: "#6b7280",
+              color: "#6F7C75",
               margin: "4px 0 0",
             }}
           >
@@ -109,15 +109,15 @@ export default function DriverStatementPrintTemplate({
         <div
           style={{
             flex: 1,
-            border: "1px solid #e5e7eb",
-            background: "#f9fafb",
+            border: "1px solid #E2E7E4",
+            background: "#F7F9F8",
             padding: "8px 10px",
           }}
         >
           <div
             style={{
               fontSize: "9px",
-              color: "#6b7280",
+              color: "#6F7C75",
               marginBottom: "3px",
             }}
           >
@@ -137,15 +137,15 @@ export default function DriverStatementPrintTemplate({
         <div
           style={{
             width: "180px",
-            border: "1px solid #e5e7eb",
-            background: "#f9fafb",
+            border: "1px solid #E2E7E4",
+            background: "#F7F9F8",
             padding: "8px 10px",
           }}
         >
           <div
             style={{
               fontSize: "9px",
-              color: "#6b7280",
+              color: "#6F7C75",
               marginBottom: "3px",
             }}
           >
@@ -170,7 +170,7 @@ export default function DriverStatementPrintTemplate({
         <div
           style={{
             fontSize: "10px",
-            color: "#6b7280",
+            color: "#6F7C75",
             marginBottom: "10px",
             display: "flex",
             gap: "14px",
@@ -228,7 +228,7 @@ export default function DriverStatementPrintTemplate({
         }}
       >
         <thead>
-          <tr style={{ background: "#f3f4f6" }}>
+          <tr style={{ background: "#EFF2F0" }}>
             {[
               "#",
               "التاريخ",
@@ -247,7 +247,7 @@ export default function DriverStatementPrintTemplate({
               <th
                 key={header}
                 style={{
-                  border: "1px solid #e5e7eb",
+                  border: "1px solid #E2E7E4",
                   padding: "5px 4px",
                   textAlign: "center",
                   fontWeight: 700,
@@ -291,7 +291,7 @@ export default function DriverStatementPrintTemplate({
                   <div
                     style={{
                       fontSize: "8px",
-                      color: "#6b7280",
+                      color: "#6F7C75",
                       marginTop: "2px",
                     }}
                   >
@@ -303,7 +303,7 @@ export default function DriverStatementPrintTemplate({
                   <div
                     style={{
                       fontSize: "8px",
-                      color: "#6b7280",
+                      color: "#6F7C75",
                       marginTop: "2px",
                     }}
                   >
@@ -333,8 +333,8 @@ export default function DriverStatementPrintTemplate({
                   ...cellNumber,
                   color:
                     Number(row.amountPaidToDriver || 0) > 0
-                      ? "#dc2626"
-                      : "#6b7280",
+                      ? "#C0392B"
+                      : "#6F7C75",
                 }}
               >
                 {Number(row.amountPaidToDriver || 0) > 0
@@ -348,8 +348,8 @@ export default function DriverStatementPrintTemplate({
                   ...cellNumber,
                   color:
                     Number(row.amountReceivedFromDriver || 0) > 0
-                      ? "#16a34a"
-                      : "#6b7280",
+                      ? "#059669"
+                      : "#6F7C75",
                 }}
               >
                 {Number(row.amountReceivedFromDriver || 0) > 0
@@ -366,7 +366,7 @@ export default function DriverStatementPrintTemplate({
                     <span
                       style={{
                         fontSize: "8px",
-                        color: "#dc2626",
+                        color: "#C0392B",
                         fontWeight: 700,
                       }}
                     >
@@ -395,10 +395,10 @@ export default function DriverStatementPrintTemplate({
                       marginTop: "2px",
                       fontSize: "8px",
                       color: row.balanceDescription.includes("مطلوب من السائق")
-                        ? "#16a34a"
+                        ? "#059669"
                         : row.balanceDescription.includes("مطلوب دفعه")
-                          ? "#dc2626"
-                          : "#6b7280",
+                          ? "#C0392B"
+                          : "#6F7C75",
                     }}
                   >
                     {row.balanceDescription}
@@ -413,10 +413,10 @@ export default function DriverStatementPrintTemplate({
               <td
                 colSpan={13}
                 style={{
-                  border: "1px solid #e5e7eb",
+                  border: "1px solid #E2E7E4",
                   padding: "18px",
                   textAlign: "center",
-                  color: "#6b7280",
+                  color: "#6F7C75",
                 }}
               >
                 لا توجد حركات في كشف الحساب
@@ -456,7 +456,7 @@ export default function DriverStatementPrintTemplate({
               <td
                 style={{
                   ...summaryValue,
-                  color: "#dc2626",
+                  color: "#C0392B",
                   fontWeight: 700,
                 }}
               >
@@ -470,7 +470,7 @@ export default function DriverStatementPrintTemplate({
               <td
                 style={{
                   ...summaryValue,
-                  color: "#16a34a",
+                  color: "#059669",
                   fontWeight: 700,
                 }}
               >
@@ -509,12 +509,12 @@ export default function DriverStatementPrintTemplate({
               <td
                 colSpan={2}
                 style={{
-                  border: "1px solid #e5e7eb",
-                  background: "#f9fafb",
+                  border: "1px solid #E2E7E4",
+                  background: "#F7F9F8",
                   padding: "6px 10px",
                   textAlign: "center",
                   fontSize: "9px",
-                  color: "#6b7280",
+                  color: "#6F7C75",
                 }}
               >
                 {summary.closingBalanceDescription || "—"}
@@ -543,7 +543,7 @@ export default function DriverStatementPrintTemplate({
         >
           <div
             style={{
-              borderTop: "1px solid #111827",
+              borderTop: "1px solid #0A2540",
               paddingTop: "6px",
             }}
           >
@@ -559,7 +559,7 @@ export default function DriverStatementPrintTemplate({
         >
           <div
             style={{
-              borderTop: "1px solid #111827",
+              borderTop: "1px solid #0A2540",
               paddingTop: "6px",
             }}
           >
@@ -572,21 +572,21 @@ export default function DriverStatementPrintTemplate({
 }
 
 const cellCenter = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "5px 4px",
   textAlign: "center",
   verticalAlign: "middle",
 };
 
 const cellRight = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "5px 4px",
   textAlign: "right",
   verticalAlign: "middle",
 };
 
 const cellNumber = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "5px 4px",
   textAlign: "center",
   verticalAlign: "middle",
@@ -594,8 +594,8 @@ const cellNumber = {
 };
 
 const summaryTitle = {
-  border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  border: "1px solid #E2E7E4",
+  background: "#F7F9F8",
   padding: "7px 10px",
   textAlign: "right",
   fontWeight: 700,
@@ -603,7 +603,7 @@ const summaryTitle = {
 };
 
 const summaryValue = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "7px 10px",
   textAlign: "center",
   fontWeight: 600,

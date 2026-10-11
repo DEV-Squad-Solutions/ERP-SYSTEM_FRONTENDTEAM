@@ -86,21 +86,21 @@ const getMovementLabel = (value) => {
 // ============================================================
 
 const cellCenter = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "5px",
   textAlign: "center",
   verticalAlign: "middle",
 };
 
 const cellRight = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "5px",
   textAlign: "right",
   verticalAlign: "middle",
 };
 
 const cellNumber = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "5px",
   textAlign: "center",
   verticalAlign: "middle",
@@ -110,13 +110,13 @@ const cellNumber = {
 const baseAmount = {
   marginTop: "2px",
   fontSize: "8px",
-  color: "#6b7280",
+  color: "#6F7C75",
   fontWeight: 400,
 };
 
 const summaryTitle = {
-  border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  border: "1px solid #E2E7E4",
+  background: "#F7F9F8",
   padding: "7px 10px",
   textAlign: "right",
   fontWeight: 700,
@@ -124,7 +124,7 @@ const summaryTitle = {
 };
 
 const summaryValue = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "7px 10px",
   textAlign: "center",
   fontWeight: 600,
@@ -293,7 +293,7 @@ export default function PartnerStatementPrintTemplate({
           minHeight: "210mm",
           padding: "12mm",
           fontFamily: "'Cairo', 'Tajawal', sans-serif",
-          color: "#111827",
+          color: "#0A2540",
           fontSize: "11px",
           boxSizing: "border-box",
           background: "#fff",
@@ -308,7 +308,7 @@ export default function PartnerStatementPrintTemplate({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            borderBottom: "2px solid #0F6E5E",
+            borderBottom: "2px solid #0C4A3E",
             paddingBottom: "10px",
             marginBottom: "12px",
           }}
@@ -321,7 +321,7 @@ export default function PartnerStatementPrintTemplate({
                 fontSize: "18px",
                 fontWeight: 700,
                 margin: 0,
-                color: "#111827",
+                color: "#0A2540",
               }}
             >
               {companyName}
@@ -330,7 +330,7 @@ export default function PartnerStatementPrintTemplate({
             <p
               style={{
                 fontSize: "10px",
-                color: "#6b7280",
+                color: "#6F7C75",
                 margin: "4px 0 0",
               }}
             >
@@ -341,7 +341,7 @@ export default function PartnerStatementPrintTemplate({
               <p
                 style={{
                   fontSize: "9px",
-                  color: "#6b7280",
+                  color: "#6F7C75",
                   margin: "2px 0 0",
                 }}
               >
@@ -353,7 +353,7 @@ export default function PartnerStatementPrintTemplate({
               <p
                 style={{
                   fontSize: "9px",
-                  color: "#6b7280",
+                  color: "#6F7C75",
                   margin: "2px 0 0",
                 }}
               >
@@ -368,7 +368,7 @@ export default function PartnerStatementPrintTemplate({
             style={{
               textAlign: "left",
               fontSize: "10px",
-              color: "#374151",
+              color: "#42504A",
             }}
           >
             <p style={{ margin: "2px 0" }}>
@@ -397,15 +397,15 @@ export default function PartnerStatementPrintTemplate({
           <div
             style={{
               flex: 1,
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
+              border: "1px solid #E2E7E4",
+              background: "#F7F9F8",
               padding: "8px 10px",
             }}
           >
             <div
               style={{
                 fontSize: "9px",
-                color: "#6b7280",
+                color: "#6F7C75",
                 marginBottom: "3px",
               }}
             >
@@ -427,15 +427,15 @@ export default function PartnerStatementPrintTemplate({
           <div
             style={{
               width: "150px",
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
+              border: "1px solid #E2E7E4",
+              background: "#F7F9F8",
               padding: "8px 10px",
             }}
           >
             <div
               style={{
                 fontSize: "9px",
-                color: "#6b7280",
+                color: "#6F7C75",
                 marginBottom: "3px",
               }}
             >
@@ -457,15 +457,15 @@ export default function PartnerStatementPrintTemplate({
           <div
             style={{
               width: "150px",
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
+              border: "1px solid #E2E7E4",
+              background: "#F7F9F8",
               padding: "8px 10px",
             }}
           >
             <div
               style={{
                 fontSize: "9px",
-                color: "#6b7280",
+                color: "#6F7C75",
                 marginBottom: "3px",
               }}
             >
@@ -487,15 +487,15 @@ export default function PartnerStatementPrintTemplate({
           <div
             style={{
               width: "150px",
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
+              border: "1px solid #E2E7E4",
+              background: "#F7F9F8",
               padding: "8px 10px",
             }}
           >
             <div
               style={{
                 fontSize: "9px",
-                color: "#6b7280",
+                color: "#6F7C75",
                 marginBottom: "3px",
               }}
             >
@@ -528,15 +528,15 @@ export default function PartnerStatementPrintTemplate({
             style={{
               marginBottom: "12px",
               padding: "8px 10px",
-              border: "1px solid #e5e7eb",
-              background: "#f9fafb",
+              border: "1px solid #E2E7E4",
+              background: "#F7F9F8",
             }}
           >
             <div
               style={{
                 fontSize: "10px",
                 fontWeight: 700,
-                color: "#374151",
+                color: "#42504A",
                 marginBottom: "6px",
               }}
             >
@@ -549,7 +549,7 @@ export default function PartnerStatementPrintTemplate({
                 gap: "16px",
                 flexWrap: "wrap",
                 fontSize: "9px",
-                color: "#6b7280",
+                color: "#6F7C75",
               }}
             >
               {fromDate && <span>من: {formatDate(fromDate)}</span>}
@@ -588,7 +588,7 @@ export default function PartnerStatementPrintTemplate({
           <thead>
             <tr
               style={{
-                background: "#f3f4f6",
+                background: "#EFF2F0",
               }}
             >
               <th
@@ -840,7 +840,7 @@ export default function PartnerStatementPrintTemplate({
                   <td
                     style={{
                       ...cellNumber,
-                      color: creditAmount > 0 ? "#16a34a" : "#111827",
+                      color: creditAmount > 0 ? "#059669" : "#0A2540",
                     }}
                   >
                     {creditAmount > 0 ? fmt(creditAmount) : "—"}
@@ -873,11 +873,11 @@ export default function PartnerStatementPrintTemplate({
                 <td
                   colSpan={isForeignCurrency ? 9 : 8}
                   style={{
-                    border: "1px solid #e5e7eb",
+                    border: "1px solid #E2E7E4",
                     padding: "18px",
                     textAlign: "center",
-                    color: "#6b7280",
-                    background: "#fafafa",
+                    color: "#6F7C75",
+                    background: "#F7F9F8",
                   }}
                 >
                   لا توجد حركات خلال الفترة المحددة
@@ -893,7 +893,7 @@ export default function PartnerStatementPrintTemplate({
           <tfoot>
             <tr
               style={{
-                background: "#f9fafb",
+                background: "#F7F9F8",
               }}
             >
               <td
@@ -918,7 +918,7 @@ export default function PartnerStatementPrintTemplate({
               <td
                 style={{
                   ...cellNumber,
-                  color: "#16a34a",
+                  color: "#059669",
                   fontWeight: 700,
                 }}
               >
@@ -976,7 +976,7 @@ export default function PartnerStatementPrintTemplate({
                 <td
                   style={{
                     ...summaryValue,
-                    color: "#16a34a",
+                    color: "#059669",
                     fontWeight: 700,
                   }}
                 >
@@ -1009,12 +1009,12 @@ export default function PartnerStatementPrintTemplate({
                 <td
                   colSpan={2}
                   style={{
-                    border: "1px solid #e5e7eb",
-                    background: "#f9fafb",
+                    border: "1px solid #E2E7E4",
+                    background: "#F7F9F8",
                     padding: "6px 10px",
                     textAlign: "center",
                     fontSize: "9px",
-                    color: "#6b7280",
+                    color: "#6F7C75",
                   }}
                 >
                   {summary?.closingBalanceDescription || "—"}
@@ -1096,7 +1096,7 @@ export default function PartnerStatementPrintTemplate({
           >
             <div
               style={{
-                borderTop: "1px solid #111827",
+                borderTop: "1px solid #0A2540",
                 paddingTop: "6px",
               }}
             >
@@ -1112,7 +1112,7 @@ export default function PartnerStatementPrintTemplate({
           >
             <div
               style={{
-                borderTop: "1px solid #111827",
+                borderTop: "1px solid #0A2540",
                 paddingTop: "6px",
               }}
             >
@@ -1132,9 +1132,9 @@ export default function PartnerStatementPrintTemplate({
             alignItems: "center",
             marginTop: "18px",
             paddingTop: "8px",
-            borderTop: "1px solid #e5e7eb",
+            borderTop: "1px solid #E2E7E4",
             fontSize: "8.5px",
-            color: "#6b7280",
+            color: "#6F7C75",
           }}
         >
           <span>كشف حساب تشغيلي — {partnerName}</span>

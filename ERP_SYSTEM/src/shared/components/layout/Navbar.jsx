@@ -582,7 +582,7 @@ export default function Navbar({ onMenuClick }) {
             className={[
               "group flex w-full items-center gap-3",
               "rounded-xl",
-              "border border-ink-150",
+              "border border-ink-400/10",
               "bg-white",
               "p-3",
               "text-right",
@@ -666,7 +666,7 @@ export default function Navbar({ onMenuClick }) {
             className={[
               "group flex w-full items-center gap-3",
               "rounded-xl",
-              "border border-ink-150",
+              "border border-ink-400/10",
               "bg-white",
               "p-3",
               "text-right",

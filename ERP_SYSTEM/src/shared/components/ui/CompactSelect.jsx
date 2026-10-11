@@ -11,10 +11,10 @@ const compactStyles = {
     minHeight: "38px",
     height: "38px",
     borderRadius: "8px",
-    borderColor: state.isFocused ? "#2563EB" : "rgba(148,163,184,0.25)",
+    borderColor: state.isFocused ? "#1A7A5E" : "rgba(148,163,184,0.25)",
     boxShadow: state.isFocused ? "0 0 0 3px rgba(37,99,235,0.1)" : "none",
     "&:hover": {
-      borderColor: "#2563EB",
+      borderColor: "#1A7A5E",
     },
     fontSize: "13px",
   }),
@@ -35,7 +35,7 @@ const compactStyles = {
 
   placeholder: (base) => ({
     ...base,
-    color: "#9CA3AF",
+    color: "#9AA6A0",
     fontSize: "13px",
   }),
 
@@ -74,12 +74,12 @@ const compactStyles = {
     transition: "background-color 120ms ease",
 
     backgroundColor: state.isSelected
-      ? "#2563EB"
+      ? "#1A7A5E"
       : state.isFocused
         ? "rgba(37,99,235,0.08)"
         : "transparent",
 
-    color: state.isSelected ? "white" : "#111827",
+    color: state.isSelected ? "white" : "#0A2540",
 
     cursor: "pointer",
   }),
@@ -98,7 +98,7 @@ const compactStyles = {
     ...base,
     margin: "0 0 2px",
     padding: "4px 10px",
-    color: "#2563EB",
+    color: "#1A7A5E",
     fontSize: "10.5px",
     fontWeight: 800,
     textTransform: "none",

@@ -61,7 +61,7 @@ export default function PayrollDashboardPrintTemplate({
             margin: 0;
             padding: 0;
             font-family: "Tajawal", "Cairo", Arial, sans-serif;
-            color: #0f172a;
+            color: #0A2540;
             background: #fff;
           }
 
@@ -266,7 +266,7 @@ const styles = {
     width: "100%",
     minHeight: "100%",
     background: "#fff",
-    color: "#0f172a",
+    color: "#0A2540",
     fontFamily: '"Tajawal", "Cairo", Arial, sans-serif',
     fontSize: "12px",
     padding: "4px",
@@ -278,7 +278,7 @@ const styles = {
     justifyContent: "space-between",
     gap: "20px",
     paddingBottom: "14px",
-    borderBottom: "2px solid #0f172a",
+    borderBottom: "2px solid #0A2540",
   },
 
   title: {
@@ -289,13 +289,13 @@ const styles = {
 
   subtitle: {
     margin: "5px 0 0",
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "11px",
   },
 
   reportDate: {
     textAlign: "left",
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "10px",
     lineHeight: 1.7,
   },
@@ -306,9 +306,9 @@ const styles = {
     gap: "8px",
     marginTop: "14px",
     padding: "10px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     borderRadius: "8px",
-    background: "#f8fafc",
+    background: "#F7F9F8",
   },
 
   filterItem: {
@@ -318,7 +318,7 @@ const styles = {
   },
 
   filterLabel: {
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "9px",
   },
 
@@ -331,13 +331,13 @@ const styles = {
 
   statBox: {
     padding: "10px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     borderRadius: "8px",
     background: "#fff",
   },
 
   statTitle: {
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "9px",
   },
 
@@ -368,8 +368,8 @@ const styles = {
     minWidth: "24px",
     padding: "3px 7px",
     borderRadius: "999px",
-    background: "#f1f5f9",
-    color: "#475569",
+    background: "#EFF2F0",
+    color: "#55635C",
     textAlign: "center",
     fontSize: "9px",
     fontWeight: 700,
@@ -377,8 +377,8 @@ const styles = {
 
   th: {
     padding: "7px 6px",
-    border: "1px solid #cbd5e1",
-    background: "#f1f5f9",
+    border: "1px solid #C9D2CD",
+    background: "#EFF2F0",
     fontSize: "9px",
     fontWeight: 800,
     textAlign: "right",
@@ -386,7 +386,7 @@ const styles = {
 
   td: {
     padding: "7px 6px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     fontSize: "9px",
     textAlign: "right",
     verticalAlign: "middle",
@@ -394,7 +394,7 @@ const styles = {
 
   tdStrong: {
     padding: "7px 6px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     fontSize: "9px",
     fontWeight: 800,
     textAlign: "right",
@@ -403,11 +403,11 @@ const styles = {
 
   empty: {
     padding: "20px",
-    border: "1px dashed #cbd5e1",
+    border: "1px dashed #C9D2CD",
     borderRadius: "8px",
-    color: "#64748b",
+    color: "#6F7C75",
     textAlign: "center",
-    background: "#f8fafc",
+    background: "#F7F9F8",
   },
 
   footer: {
@@ -415,8 +415,8 @@ const styles = {
     justifyContent: "space-between",
     marginTop: "24px",
     paddingTop: "10px",
-    borderTop: "1px solid #e2e8f0",
-    color: "#64748b",
+    borderTop: "1px solid #E2E7E4",
+    color: "#6F7C75",
     fontSize: "9px",
   },
 };

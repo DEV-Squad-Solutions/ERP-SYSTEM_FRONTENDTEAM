@@ -103,6 +103,9 @@ export default function Pagination({
         bg-white
         p-3
         shadow-sm
+        dark:border-dark-border
+        dark:bg-dark-surface
+        dark:shadow-dark-card
         sm:p-4
       "
     >
@@ -189,6 +192,13 @@ export default function Pagination({
                   focus:bg-white
                   focus:ring-4
                   focus:ring-primary-500/10
+
+                  dark:border-dark-border
+                  dark:bg-white/[0.05]
+                  dark:text-ink-200
+                  dark:hover:border-white/[0.15]
+                  dark:hover:bg-white/[0.08]
+                  dark:focus:bg-dark-surface
                 "
               >
                 {pageSizeOptions.map((size) => (
@@ -305,6 +315,9 @@ export default function Pagination({
                           text-ink-600
                           hover:bg-ink-400/[0.06]
                           hover:text-ink-900
+                          dark:text-ink-300
+                          dark:hover:bg-white/[0.07]
+                          dark:hover:text-white
                         `
                     }
                   `}
@@ -405,6 +418,13 @@ function PaginationButton({ children, disabled, onClick, label }) {
         disabled:pointer-events-none
         disabled:cursor-not-allowed
         disabled:opacity-30
+
+        dark:border-dark-border
+        dark:bg-dark-elevated
+        dark:text-ink-300
+        dark:hover:border-white/[0.15]
+        dark:hover:bg-white/[0.07]
+        dark:hover:text-white
       "
     >
       {children}

@@ -47,13 +47,13 @@ import DashboardPrintTemplate from "../../../shared/components/print/DashboardPr
 /* موثوق + لمسة نحاسية/ذهبية للقيم المالية، بعيدًا عن كليشيه الإندجو  */
 /* ------------------------------------------------------------------ */
 const TOKENS = {
-  primary: "#0f766e", // تيل — الهوية الأساسية
-  gold: "#b45309", // نحاسي/ذهبي — كل ما يخص المال والقيمة
-  goldSoft: "#f59e0b",
-  success: "#0f9d58",
-  danger: "#be123c",
-  info: "#4338ca",
-  muted: "#94a3b8",
+  primary: "#0C4A3E", // هوية "دفتر أستاذ": أخضر داكن ماليّ موثوق
+  gold: "#8A6114", // نحاسي/ذهبي — كل ما يخص المال والقيمة
+  goldSoft: "#C9962C",
+  success: "#059669",
+  danger: "#C0392B",
+  info: "#1B2A40",
+  muted: "#9AA6A0",
 };
 
 const MONTH_NAMES = [
@@ -578,17 +578,17 @@ export default function DashboardPage() {
               </defs>
               <CartesianGrid
                 strokeDasharray="3 6"
-                stroke="#e2e8f0"
+                stroke="#E2E7E4"
                 vertical={false}
               />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12, fill: "#64748b" }}
+                tick={{ fontSize: 12, fill: "#6F7C75" }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "#64748b" }}
+                tick={{ fontSize: 12, fill: "#6F7C75" }}
                 axisLine={false}
                 tickLine={false}
               />

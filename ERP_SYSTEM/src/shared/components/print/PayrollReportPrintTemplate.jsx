@@ -47,7 +47,7 @@ export default function PayrollReportPrintTemplate({
             margin: 0;
             padding: 0;
             background: #fff;
-            color: #0f172a;
+            color: #0A2540;
             font-family: "Tajawal", "Cairo", Arial, sans-serif;
           }
 
@@ -244,7 +244,7 @@ const styles = {
     minHeight: "100%",
     padding: "4px",
     background: "#fff",
-    color: "#0f172a",
+    color: "#0A2540",
     fontFamily: '"Tajawal", "Cairo", Arial, sans-serif',
     fontSize: "10px",
   },
@@ -255,7 +255,7 @@ const styles = {
     justifyContent: "space-between",
     gap: "20px",
     paddingBottom: "12px",
-    borderBottom: "2px solid #0f172a",
+    borderBottom: "2px solid #0A2540",
   },
 
   title: {
@@ -266,13 +266,13 @@ const styles = {
 
   subtitle: {
     margin: "4px 0 0",
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "10px",
   },
 
   dateBox: {
     textAlign: "left",
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "9px",
     lineHeight: 1.7,
   },
@@ -287,13 +287,13 @@ const styles = {
   statBox: {
     minHeight: "55px",
     padding: "7px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     borderRadius: "7px",
     background: "#fff",
   },
 
   statTitle: {
-    color: "#64748b",
+    color: "#6F7C75",
     fontSize: "8px",
   },
 
@@ -309,9 +309,9 @@ const styles = {
     gap: "20px",
     marginTop: "10px",
     padding: "8px 10px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     borderRadius: "7px",
-    background: "#f8fafc",
+    background: "#F7F9F8",
     fontSize: "9px",
   },
 
@@ -327,8 +327,8 @@ const styles = {
 
   th: {
     padding: "6px 5px",
-    border: "1px solid #cbd5e1",
-    background: "#f1f5f9",
+    border: "1px solid #C9D2CD",
+    background: "#EFF2F0",
     fontSize: "8px",
     fontWeight: 800,
     textAlign: "right",
@@ -337,7 +337,7 @@ const styles = {
 
   td: {
     padding: "6px 5px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     fontSize: "8px",
     textAlign: "right",
     verticalAlign: "middle",
@@ -345,7 +345,7 @@ const styles = {
 
   tdStrong: {
     padding: "6px 5px",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #E2E7E4",
     fontSize: "8px",
     fontWeight: 800,
     textAlign: "right",
@@ -354,9 +354,9 @@ const styles = {
 
   empty: {
     padding: "20px",
-    border: "1px dashed #cbd5e1",
+    border: "1px dashed #C9D2CD",
     borderRadius: "7px",
-    color: "#64748b",
+    color: "#6F7C75",
     textAlign: "center",
   },
 
@@ -366,8 +366,8 @@ const styles = {
     gap: "15px",
     marginTop: "18px",
     paddingTop: "8px",
-    borderTop: "1px solid #e2e8f0",
-    color: "#64748b",
+    borderTop: "1px solid #E2E7E4",
+    color: "#6F7C75",
     fontSize: "8px",
   },
 };

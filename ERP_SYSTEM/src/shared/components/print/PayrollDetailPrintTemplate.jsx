@@ -32,7 +32,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
         minHeight: "297mm",
         padding: "16mm",
         fontFamily: "'Cairo', 'Tajawal', sans-serif",
-        color: "#111827",
+        color: "#0A2540",
         fontSize: "12px",
         boxSizing: "border-box",
       }}
@@ -43,7 +43,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-start",
-          borderBottom: "2px solid #0F6E5E",
+          borderBottom: "2px solid #0C4A3E",
           paddingBottom: "12px",
           marginBottom: "16px",
         }}
@@ -53,7 +53,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
             {company?.name || "—"}
           </h1>
 
-          <p style={{ fontSize: "11px", color: "#6b7280", margin: "4px 0 0" }}>
+          <p style={{ fontSize: "11px", color: "#6F7C75", margin: "4px 0 0" }}>
             إيصال صرف مرتب
           </p>
         </div>
@@ -77,7 +77,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gap: "10px",
-          background: "#f3f4f6",
+          background: "#EFF2F0",
           borderRadius: "8px",
           padding: "14px 16px",
           marginBottom: "18px",
@@ -109,7 +109,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
             fontSize: "13px",
             fontWeight: 700,
             marginBottom: "8px",
-            color: "#0F6E5E",
+            color: "#0C4A3E",
           }}
         >
           ملخص الحضور
@@ -123,7 +123,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
           }}
         >
           <thead>
-            <tr style={{ background: "#0F6E5E" }}>
+            <tr style={{ background: "#0C4A3E" }}>
               {[
                 "أيام الحضور",
                 "أيام الغياب",
@@ -134,7 +134,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
                 <th
                   key={h}
                   style={{
-                    border: "1px solid #0b5546",
+                    border: "1px solid #093A31",
                     padding: "6px",
                     textAlign: "center",
                     fontWeight: 700,
@@ -150,7 +150,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
           <tbody>
             <tr>
               <td style={cellCenter}>{Number(attendance.presentDays || 0)}</td>
-              <td style={{ ...cellCenter, color: "#dc2626" }}>
+              <td style={{ ...cellCenter, color: "#C0392B" }}>
                 {Number(attendance.absentDays || 0)}
               </td>
               <td style={cellCenter}>
@@ -159,7 +159,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
               <td style={cellCenter}>
                 {Number(attendance.totalOvertimeDays || 0)}
               </td>
-              <td style={{ ...cellCenter, color: "#dc2626" }}>
+              <td style={{ ...cellCenter, color: "#C0392B" }}>
                 {Number(attendance.totalDeductionDays || 0)}
               </td>
             </tr>
@@ -174,7 +174,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
             fontSize: "13px",
             fontWeight: 700,
             marginBottom: "8px",
-            color: "#0F6E5E",
+            color: "#0C4A3E",
           }}
         >
           ملخص حساب المرتب
@@ -196,7 +196,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
             <tr>
               <td style={summaryTitle}>الإضافات والمكافآت</td>
               <td
-                style={{ ...summaryValue, color: "#16a34a", fontWeight: 700 }}
+                style={{ ...summaryValue, color: "#059669", fontWeight: 700 }}
               >
                 {fmt(entry.bonus)}
               </td>
@@ -205,7 +205,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
             <tr>
               <td style={summaryTitle}>الخصومات</td>
               <td
-                style={{ ...summaryValue, color: "#dc2626", fontWeight: 700 }}
+                style={{ ...summaryValue, color: "#C0392B", fontWeight: 700 }}
               >
                 {fmt(entry.deduction)}
               </td>
@@ -215,7 +215,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
               <td
                 style={{
                   ...summaryTitle,
-                  background: "#0F6E5E",
+                  background: "#0C4A3E",
                   color: "#fff",
                 }}
               >
@@ -224,7 +224,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
               <td
                 style={{
                   ...summaryValue,
-                  background: "#0F6E5E",
+                  background: "#0C4A3E",
                   color: "#fff",
                   fontWeight: 700,
                   fontSize: "14px",
@@ -247,13 +247,13 @@ export default function PayrollDetailPrintTemplate({ entry }) {
         }}
       >
         <div style={{ textAlign: "center", width: "180px" }}>
-          <div style={{ borderTop: "1px solid #111827", paddingTop: "6px" }}>
+          <div style={{ borderTop: "1px solid #0A2540", paddingTop: "6px" }}>
             توقيع الموظف
           </div>
         </div>
 
         <div style={{ textAlign: "center", width: "180px" }}>
-          <div style={{ borderTop: "1px solid #111827", paddingTop: "6px" }}>
+          <div style={{ borderTop: "1px solid #0A2540", paddingTop: "6px" }}>
             توقيع المسؤول
           </div>
         </div>
@@ -265,21 +265,21 @@ export default function PayrollDetailPrintTemplate({ entry }) {
 function InfoRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <span style={{ color: "#6b7280" }}>{label}</span>
+      <span style={{ color: "#6F7C75" }}>{label}</span>
       <strong>{value || "—"}</strong>
     </div>
   );
 }
 
 const cellCenter = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "6px",
   textAlign: "center",
 };
 
 const summaryTitle = {
-  border: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  border: "1px solid #E2E7E4",
+  background: "#F7F9F8",
   padding: "10px 12px",
   textAlign: "right",
   fontWeight: 700,
@@ -287,7 +287,7 @@ const summaryTitle = {
 };
 
 const summaryValue = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid #E2E7E4",
   padding: "10px 12px",
   textAlign: "center",
   fontWeight: 600,

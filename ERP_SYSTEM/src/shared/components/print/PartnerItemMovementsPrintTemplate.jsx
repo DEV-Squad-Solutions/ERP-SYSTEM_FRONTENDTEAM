@@ -34,7 +34,7 @@ export default function PartnerItemMovementsPrintTemplate({ data, filters }) {
         حركة صنف: {data?.itemName || "-"}
       </h2>
 
-      <p style={{ textAlign: "center", marginBottom: 16, color: "#555" }}>
+      <p style={{ textAlign: "center", marginBottom: 16, color: "#55635C" }}>
         العميل / المورد: {data?.businessPartnerName || "-"}
       </p>
 
@@ -127,13 +127,13 @@ export default function PartnerItemMovementsPrintTemplate({ data, filters }) {
 }
 
 const cellStyle = {
-  border: "1px solid #ddd",
+  border: "1px solid #C9D2CD",
   padding: "6px 8px",
   textAlign: "center",
 };
 
 const headStyle = {
   ...cellStyle,
-  background: "#f3f3f3",
+  background: "#EFF2F0",
   fontWeight: "bold",
 };

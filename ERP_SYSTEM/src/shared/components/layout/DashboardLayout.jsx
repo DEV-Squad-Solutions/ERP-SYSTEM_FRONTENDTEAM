@@ -15,7 +15,7 @@ export default function DashboardLayout() {
         "h-screen",
         "w-full",
         "overflow-hidden",
-        "bg-gray-50",
+        "bg-paper",
         "text-ink-800",
         "dark:bg-ink-950",
         "dark:text-white",

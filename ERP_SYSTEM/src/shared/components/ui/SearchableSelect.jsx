@@ -71,9 +71,9 @@ const defaultStyles = {
     ...base,
     minHeight: "38px",
     borderRadius: "0.5rem",
-    borderColor: state.isFocused ? "#0F6B62" : "#DCE1EA",
-    boxShadow: state.isFocused ? "0 0 0 1px #0F6B62" : "none",
-    "&:hover": { borderColor: "#0F6B62" },
+    borderColor: state.isFocused ? "#1A7A5E" : "#E2E7E4",
+    boxShadow: state.isFocused ? "0 0 0 1px #1A7A5E" : "none",
+    "&:hover": { borderColor: "#1A7A5E" },
     fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif",
     fontSize: "0.875rem",
   }),
@@ -82,13 +82,13 @@ const defaultStyles = {
     ...base,
     fontSize: "0.875rem",
     backgroundColor: state.isSelected
-      ? "#0F6B62"
+      ? "#1A7A5E"
       : state.isFocused
-        ? "#EEF1F6"
+        ? "#EFF2F0"
         : "white",
-    color: state.isSelected ? "white" : "#1C2733",
+    color: state.isSelected ? "white" : "#0E1827",
     cursor: "pointer",
   }),
   menu: (base) => ({ ...base, zIndex: 30 }),
-  placeholder: (base) => ({ ...base, color: "#94A3B8" }),
+  placeholder: (base) => ({ ...base, color: "#9AA6A0" }),
 };

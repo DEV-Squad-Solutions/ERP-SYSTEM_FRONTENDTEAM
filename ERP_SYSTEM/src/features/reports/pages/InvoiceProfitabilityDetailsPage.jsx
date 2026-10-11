@@ -950,7 +950,7 @@ export default function InvoiceProfitabilityDetailsPage() {
             .invoice-profitability-print {
               display: block !important;
               width: 100%;
-              color: #0f172a;
+              color: #0A2540;
               background: white;
               font-family: Arial, Tahoma, sans-serif;
             }
