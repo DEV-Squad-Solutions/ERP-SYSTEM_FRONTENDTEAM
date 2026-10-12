@@ -90,6 +90,12 @@ export default function CurrenciesPage() {
           <p className="mt-1 text-sm text-ink-400">
             إدارة أسعار صرف العملات المستخدمة في السندات والفواتير
           </p>
+
+          {!isAdmin && (
+            <p className="mt-1 text-xs text-ink-400">
+              عرض فقط — إضافة وتعديل وحذف أسعار الصرف متاحة لمدير النظام.
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -100,13 +106,15 @@ export default function CurrenciesPage() {
             </Button>
           )}
 
-          <Button
-            onClick={() => setCreateOpen(true)}
-            disabled={isFiscalYearReadOnly}
-          >
-            <Plus size={16} />
-            إضافة سعر عملة
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => setCreateOpen(true)}
+              disabled={isFiscalYearReadOnly}
+            >
+              <Plus size={16} />
+              إضافة سعر عملة
+            </Button>
+          )}
         </div>
       </div>
 
@@ -193,7 +201,7 @@ export default function CurrenciesPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-1">
-                          {!isFiscalYearReadOnly && (
+                          {isAdmin && !isFiscalYearReadOnly && (
                             <>
                               <button
                                 type="button"

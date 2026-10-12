@@ -220,7 +220,7 @@ export const navigationItems = [
         path: "/dashboard/treasury/currencies",
         icon: Coins,
         end: true,
-        roles: FULL_ACCESS_ROLES,
+        roles: TREASURY_ROLES,
       },
     ],
   },

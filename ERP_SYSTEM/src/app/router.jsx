@@ -505,7 +505,7 @@ export const router = createBrowserRouter([
         path: "treasury/currencies",
         element: (
           <LazyPage>
-            <Role roles={FULL_ACCESS_ROLES}>
+            <Role roles={TREASURY_ROLES}>
               <CurrenciesPage />
             </Role>
           </LazyPage>
