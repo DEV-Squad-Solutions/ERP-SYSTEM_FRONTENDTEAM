@@ -63,23 +63,23 @@ export default function InvoiceItemsTable({ items, currency }) {
                 <td className="p-3 text-ink-600">{item.itemUnitName || "—"}</td>
 
                 <td className="p-3 num text-center">
-                  {item.count?.toLocaleString("ar-EG") || "—"}
+                  {item.count?.toLocaleString("ar-EG", { maximumFractionDigits: 2 }) || "—"}
                 </td>
 
                 <td className="p-3 num text-ink-600">
-                  {(item.weight || 0).toLocaleString("ar-EG")}
+                  {(item.weight || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
 
                 <td className="p-3 num font-medium text-ink-900">
-                  {(item.quantity || 0).toLocaleString("ar-EG")}
+                  {(item.quantity || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
 
                 <td className="p-3 num text-ink-600">
-                  {(item.price || 0).toLocaleString("ar-EG")}
+                  {(item.price || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
 
                 <td className="p-3 num font-medium">
-                  {(item.total || 0).toLocaleString("ar-EG")} {symbol}
+                  {(item.total || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {symbol}
                 </td>
 
                 <td className="p-3 text-ink-400 text-xs">

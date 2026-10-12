@@ -68,7 +68,7 @@ export default function ItemsTable() {
                   </div>
                 </td>
                 <td className="p-3.5 num text-ink-600">
-                  {item.salePrice?.toLocaleString("ar-EG")} ج.م
+                  {item.salePrice?.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} ج.م
                 </td>
                 <td className="p-3.5">
                   <button

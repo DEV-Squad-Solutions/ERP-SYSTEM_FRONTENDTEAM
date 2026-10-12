@@ -171,7 +171,7 @@ export default function PartnerDetailPage() {
             label="حد الائتمان"
             value={
               party.creditLimit != null
-                ? party.creditLimit.toLocaleString("ar-EG")
+                ? party.creditLimit.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                 : null
             }
           />

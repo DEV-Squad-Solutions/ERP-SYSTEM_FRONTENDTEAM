@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FileSearch,
   AlertCircle,
@@ -14,10 +14,13 @@ import {
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import { todayInCairo } from "../../../lib/date";
+import { round2 } from "../../../lib/number";
 import CashVoucherEditModal from "./CashVoucherEditModal";
 import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
+import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 import { selectIsAdmin } from "../../auth/authSlice";
 import {
   buildDescriptionGroups,
@@ -37,7 +40,7 @@ const toNumber = (value) => {
 };
 
 function getToday() {
-  return new Date().toISOString().slice(0, 10);
+  return todayInCairo();
 }
 
 function emptyDraft() {
@@ -46,6 +49,7 @@ function emptyDraft() {
     description: "",
     receiptAmount: "",
     paymentAmount: "",
+    exchangeRate: "",
   };
 }
 
@@ -64,13 +68,18 @@ function normalizeVoucherDate(value) {
 // صفوف مالهاش توصيف/حساب أصلاً وميتعدلش/يتمسحش من هنا:
 // الرصيد الافتتاحي (isOpeningBalance) والتحويل بين الخزائن
 // (cashboxTransferId). دول مش سندات عادية - الرصيد الافتتاحي حتى
-// مالوش rowVersion حقيقي من الباك.
+// مالوش rowVersion حقيقي من الباك. وكمان أي صف السيرفر باعته
+// isReadOnly (زي صف الرصيد الافتتاحي في الكشوف) بيتقفل.
 function isNonDescribableRow(row) {
-  return Boolean(row?.isOpeningBalance) || Boolean(row?.cashboxTransferId);
+  return (
+    Boolean(row?.isOpeningBalance) ||
+    Boolean(row?.isReadOnly) ||
+    Boolean(row?.cashboxTransferId)
+  );
 }
 
 function isNonEditableRow(row) {
-  return Boolean(row?.isOpeningBalance);
+  return Boolean(row?.isOpeningBalance) || Boolean(row?.isReadOnly);
 }
 
 // Posting target fields, in priority order. The API requires exactly ONE
@@ -110,6 +119,23 @@ function pickPostingTarget(source) {
   }
 
   return null;
+}
+
+// هل جسم السند ده فيه هدف ترحيل فعلي (حساب/شريك/موظف/سائق/طرف خارجي)؟
+function hasPostingTarget(source) {
+  if (!source) {
+    return false;
+  }
+
+  return POSTING_TARGET_KEYS.some((key) => {
+    const value = source[key];
+
+    if (key === "externalPartyName") {
+      return typeof value === "string" && value.trim().length > 0;
+    }
+
+    return value !== undefined && value !== null && value !== "";
+  });
 }
 
 function buildUpdateVoucherPayload({
@@ -208,7 +234,12 @@ export default function CashboxLedgerTable({
   employeeOptions = [],
   onAddVoucher,
   onUpdateVoucher,
+  onUpdateDraftVoucher,
   onDeleteVoucher,
+  // صلاحية التنفيذ (عرض/إضافة/تعديل/حذف حركات) على الخزنة دي.
+  // true افتراضيًا لحد ما يتحدد النطاق من useCashboxScope. السيرفر
+  // برضه بيتحقق وقت التنفيذ.
+  canExecute = true,
   page = 1,
   pageSize = 20,
   totalCount = 0,
@@ -237,6 +268,37 @@ export default function CashboxLedgerTable({
     cashboxBaseCurrency || vouchers[0]?.baseCurrency || "EGP";
 
   const isForeign = currency !== baseCurrency;
+
+  // تحميل سعر الصرف تلقائيًا من أسعار الصرف (GET /ExchangeRates/resolve)
+  // لصف الإضافة السريعة، نفس سلوك مودال «سند جديد». القيمة اليدوية
+  // لنفس العملة والتاريخ بتتفضل زي ما هي.
+  const [resolveExchangeRate, { isFetching: isResolvingRate }] =
+    useLazyResolveExchangeRateQuery();
+
+  const lastResolvedDraftKeyRef = useRef(null);
+
+  useEffect(() => {
+    if (!isAdding || !isForeign || !currency || !draft.voucherDate) return;
+
+    const key = `${currency}|${draft.voucherDate}`;
+    if (lastResolvedDraftKeyRef.current === key) return;
+
+    resolveExchangeRate({ currency, date: draft.voucherDate })
+      .unwrap()
+      .then((res) => {
+        lastResolvedDraftKeyRef.current = key;
+        if (res?.rate != null) {
+          setDraft((current) => ({
+            ...current,
+            exchangeRate: String(round2(res.rate)),
+          }));
+        }
+      })
+      .catch(() => {
+        lastResolvedDraftKeyRef.current = key;
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdding, isForeign, currency, draft.voucherDate]);
 
   const getDescriptionGroups = useCallback(
     (direction) =>
@@ -322,6 +384,7 @@ export default function CashboxLedgerTable({
   );
 
   const openAddRow = useCallback(() => {
+    lastResolvedDraftKeyRef.current = null;
     setDraft(emptyDraft());
     setIsAdding(true);
   }, []);
@@ -369,6 +432,15 @@ export default function CashboxLedgerTable({
     }));
   }, []);
 
+  // سعر الصرف بيُلتقط مع المسودة (POST) من غير ما يحتاج توصيف
+  // (عميل/حساب). الخانة تظهر بس للخزائن بعملة أجنبية.
+  const handleDraftExchangeRateChange = useCallback((event) => {
+    setDraft((current) => ({
+      ...current,
+      exchangeRate: event.target.value,
+    }));
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (saving || !onAddVoucher) {
       return;
@@ -383,11 +455,6 @@ export default function CashboxLedgerTable({
       return;
     }
 
-    if (!description) {
-      toast.error("اكتب بيان الحركة أولاً");
-      return;
-    }
-
     const amount = receipt > 0 ? receipt : payment;
     const direction = receipt > 0 ? "Receipt" : "Payment";
 
@@ -399,7 +466,14 @@ export default function CashboxLedgerTable({
         voucherDate: draft.voucherDate,
         direction,
         amount,
-        description,
+        // البيان اختياري — الضروري بس قيمة الحركة، والتوصيف (عميل/حساب)
+        // واختياري كذلك ويتم لاحقًا من الكشف.
+        description: description || undefined,
+        // سعر الصرف يُرسل فقط للخزائن الأجنبية وعند وجود قيمة.
+        exchangeRate:
+          isForeign && draft.exchangeRate !== ""
+            ? Number(draft.exchangeRate)
+            : undefined,
       });
 
       toast.success("تم تسجيل الحركة بنجاح");
@@ -418,7 +492,7 @@ export default function CashboxLedgerTable({
     } finally {
       setSaving(false);
     }
-  }, [cashboxId, draft, onAddVoucher, saving]);
+  }, [cashboxId, draft, isForeign, onAddVoucher, saving]);
 
   const handleAddKeyDown = useCallback(
     (event) => {
@@ -438,7 +512,7 @@ export default function CashboxLedgerTable({
 
   const handleFullEdit = useCallback(
     async (payload) => {
-      if (!editingRow || !onUpdateVoucher) {
+      if (!editingRow || (!onUpdateVoucher && !onUpdateDraftVoucher)) {
         return;
       }
 
@@ -452,10 +526,34 @@ export default function CashboxLedgerTable({
           payload,
         });
 
-        await onUpdateVoucher({
-          id: editingRow.id,
-          ...updatePayload,
-        });
+        // تعديل مسودة بدون توصيف = تحديث بيانات المسودة فقط (تاريخ/مبلغ/سعر
+        // صرف/بيان) من غير ترحيل، فبنستخدم PUT /CashVouchers/{id}/draft.
+        // لو المستخدم اختار توصيف (لإكمال وترحيل المسودة) أو السند مرحّل،
+        // بنستخدم PUT العادي.
+        const isDraftOnlyEdit =
+          Boolean(editingRow.isDraft) &&
+          !hasPostingTarget(updatePayload) &&
+          Boolean(onUpdateDraftVoucher);
+
+        if (isDraftOnlyEdit) {
+          await onUpdateDraftVoucher({
+            id: editingRow.id,
+            voucherDate: updatePayload.voucherDate,
+            direction: updatePayload.direction,
+            cashboxId: updatePayload.cashboxId,
+            amount: updatePayload.amount,
+            rowVersion: updatePayload.rowVersion,
+            description: updatePayload.description,
+            notes: updatePayload.notes,
+            referenceNumber: updatePayload.referenceNumber,
+            exchangeRate: updatePayload.exchangeRate ?? undefined,
+          });
+        } else {
+          await onUpdateVoucher({
+            id: editingRow.id,
+            ...updatePayload,
+          });
+        }
 
         toast.success("تم تحديث السند بنجاح");
         setEditingRow(null);
@@ -480,7 +578,7 @@ export default function CashboxLedgerTable({
         setUpdatingRowId(null);
       }
     },
-    [cashboxId, editingRow, isForeign, onUpdateVoucher],
+    [cashboxId, editingRow, isForeign, onUpdateVoucher, onUpdateDraftVoucher],
   );
 
   const executeDeleteVoucher = useCallback(
@@ -686,7 +784,7 @@ export default function CashboxLedgerTable({
         </div>
       )}
 
-      {!isAdding && !isFiscalYearReadOnly && (
+      {!isAdding && !isFiscalYearReadOnly && canExecute && (
         <div className="mb-2">
           <button
             type="button"
@@ -706,6 +804,12 @@ export default function CashboxLedgerTable({
         <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
           السنة المالية "{fiscalYear?.name}" مغلقة أو ليست السنة الحالية — الشاشة للعرض فقط ولا
           يمكن إضافة أو تعديل حركات عليها.
+        </div>
+      )}
+
+      {!isFiscalYearReadOnly && !canExecute && (
+        <div className="mb-2 rounded-xl border border-ink-400/15 bg-ink-400/[0.04] px-3 py-2 text-[11px] font-medium text-ink-500">
+          عندك صلاحية عرض بس على الخزنة دي — إضافة وتعديل وحذف الحركات غير متاحة.
         </div>
       )}
 
@@ -851,34 +955,42 @@ export default function CashboxLedgerTable({
                   </td>
 
                   {isForeign && (
-                    <td className="border-l border-ink-400/5 p-1.5 text-center text-[9px] text-ink-300">
-                      بعد الحفظ
+                    <td className="border-l border-ink-400/5 p-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder={
+                          isResolvingRate ? "جاري تحميل السعر..." : "سعر الصرف"
+                        }
+                        value={draft.exchangeRate}
+                        onChange={handleDraftExchangeRateChange}
+                        onKeyDown={handleAddKeyDown}
+                        disabled={saving}
+                        autoComplete="off"
+                        title={
+                          isResolvingRate
+                            ? "جاري جلب السعر من أسعار الصرف..."
+                            : "يُحمَّل تلقائيًا من أسعار الصرف حسب تاريخ السند"
+                        }
+                        className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px] outline-none transition-all placeholder:text-ink-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
+                      />
                     </td>
                   )}
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
                       type="text"
-                      placeholder="بيان الحركة — مطلوب"
+                      placeholder="بيان الحركة (اختياري)"
                       value={draft.description}
                       onChange={handleDraftDescriptionChange}
                       onKeyDown={handleAddKeyDown}
                       disabled={saving}
                       autoComplete="off"
-                      className={`w-full truncate rounded-md border bg-white px-2 py-1.5 text-[11px] outline-none transition-all placeholder:text-ink-300 ${
-                        draft.description.trim()
-                          ? "border-primary-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                          : "border-amber-200 focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
-                      } disabled:cursor-not-allowed disabled:bg-ink-50`}
+                      className="w-full truncate rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px] outline-none transition-all placeholder:text-ink-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
 
-                    <div className="mt-1 flex items-center justify-between text-[8px]">
-                      <span className="text-ink-300">Enter للحفظ</span>
-
-                      {!draft.description.trim() && (
-                        <span className="text-amber-600">البيان مطلوب</span>
-                      )}
-                    </div>
+                    <div className="mt-1 text-[8px] text-ink-300">Enter للحفظ</div>
                   </td>
 
                   <td className="border-l border-ink-400/5 p-1.5">
@@ -917,11 +1029,13 @@ export default function CashboxLedgerTable({
                 const isDescriptionLocked = isNonDescribableRow(row);
 
                 const isRowEditable =
+                  canExecute &&
                   !isFiscalYearReadOnly &&
                   !isInvoiceGenerated &&
                   !isNonEditableRow(row);
 
                 const isRowDeletable =
+                  canExecute &&
                   !isFiscalYearReadOnly &&
                   isAdmin &&
                   !isInvoiceGenerated &&

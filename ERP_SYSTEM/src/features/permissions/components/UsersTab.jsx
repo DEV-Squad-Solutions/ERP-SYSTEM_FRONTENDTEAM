@@ -1,5 +1,6 @@
 // src/features/permissions/components/UsersTab.jsx
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { toast } from "sonner";
 import {
   FileSearch,
@@ -7,11 +8,14 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import Pagination from "../../../shared/components/ui/Pagination";
 import Button from "../../../shared/components/ui/Button";
 import { useGetUsersQuery, useDeleteUserMutation } from "../usersApi";
+import { selectIsAdmin } from "../../auth/authSlice";
 import QuickAddUserModal from "../components/QuickAddUserModal";
+import UserCashboxPermissionsModal from "../components/UserCashboxPermissionsModal";
 
 export default function UsersTab() {
   const [page, setPage] = useState(1);
@@ -19,6 +23,9 @@ export default function UsersTab() {
   const [editingUser, setEditingUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [cashboxUser, setCashboxUser] = useState(null);
+
+  const isAdmin = useSelector(selectIsAdmin);
 
   const { data, isLoading, isFetching, isError, refetch } = useGetUsersQuery({
     pageNumber: page,
@@ -163,6 +170,16 @@ export default function UsersTab() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => setCashboxUser(u)}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-ink-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                            title="صلاحيات الخزائن"
+                          >
+                            <ShieldCheck size={14} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => openEdit(u)}
@@ -207,6 +224,12 @@ export default function UsersTab() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         user={editingUser}
+      />
+
+      <UserCashboxPermissionsModal
+        isOpen={Boolean(cashboxUser)}
+        onClose={() => setCashboxUser(null)}
+        user={cashboxUser}
       />
     </div>
   );

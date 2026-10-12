@@ -290,7 +290,7 @@ export default function StockOpeningBalanceForm({
                     />
                   </td>
                   <td className="p-2 text-xs text-ink-600 num text-center">
-                    {line.quantity.toLocaleString("ar-EG")}
+                    {line.quantity.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                   </td>
                   <td className="p-1.5 w-24">
                     <input
@@ -303,7 +303,7 @@ export default function StockOpeningBalanceForm({
                     />
                   </td>
                   <td className="p-2 text-xs font-semibold text-ink-900 num text-center">
-                    {line.total.toLocaleString("ar-EG")}
+                    {line.total.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                   </td>
                   <td className="p-1.5 min-w-[140px]">
                     <input
@@ -333,7 +333,7 @@ export default function StockOpeningBalanceForm({
                   الإجمالي
                 </td>
                 <td className="p-2.5 num text-center">
-                  {documentTotal.toLocaleString("ar-EG")}
+                  {documentTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
                 <td className="p-2.5" colSpan={2}></td>
               </tr>

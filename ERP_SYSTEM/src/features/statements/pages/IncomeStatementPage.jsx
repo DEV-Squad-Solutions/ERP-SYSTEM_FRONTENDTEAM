@@ -11,6 +11,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useGetIncomeStatementQuery } from "../../statements/statementsApi";
+import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
 import IncomeStatementPrintTemplate from "../../../shared/components/print/IncomeStatementPrintTemplate";
 import { useIncomeStatementPrint } from "../../../shared/hooks/useIncomeStatementPrint";
 
@@ -97,7 +98,7 @@ export default function IncomeStatementPage({ companyName = "" }) {
     setApplied(fix);
   });
 
-  const { data, isLoading, isFetching, isError, refetch } =
+  const { data, isLoading, isFetching, isError, error, refetch } =
     useGetIncomeStatementQuery({
       fromDate: applied.fromDate,
       toDate: applied.toDate,
@@ -237,18 +238,25 @@ export default function IncomeStatementPage({ companyName = "" }) {
         </div>
       )}
 
-      {isError && (
-        <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
-          <span>حدث خطأ أثناء تحميل قائمة الدخل.</span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="rounded-lg border border-rose-200 bg-white px-3 py-1 text-xs font-medium transition hover:bg-rose-100"
-          >
-            إعادة المحاولة
-          </button>
-        </div>
-      )}
+      {isError &&
+        (error?.status === 403 ? (
+          <AccessDeniedState
+            title="غير مصرح بعرض قائمة الدخل"
+            message="التقرير ده بيغطي كل خزائن الشركة. مش عندك وصول لكل الخزائن، فمش بنعرض تقرير جزئي. تواصل مع مسؤول النظام لو محتاج الصلاحية."
+            onRetry={() => refetch()}
+          />
+        ) : (
+          <div className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
+            <span>حدث خطأ أثناء تحميل قائمة الدخل.</span>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="rounded-lg border border-rose-200 bg-white px-3 py-1 text-xs font-medium transition hover:bg-rose-100"
+            >
+              إعادة المحاولة
+            </button>
+          </div>
+        ))}
 
       {data && (
         <>

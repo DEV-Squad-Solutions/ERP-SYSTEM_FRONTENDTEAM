@@ -49,7 +49,7 @@ const paymentStatusLabels = {
   Unpaid: "غير مدفوعة",
 };
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
+const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 function TruncatedText({
   text,

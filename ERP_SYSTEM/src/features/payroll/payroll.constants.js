@@ -214,4 +214,4 @@ export const balanceTypeBadge = {
 // Money Formatter
 // ============================================================
 
-export const fmtMoney = (value) => Number(value || 0).toLocaleString("ar-EG");
+export const fmtMoney = (value) => Number(value || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });

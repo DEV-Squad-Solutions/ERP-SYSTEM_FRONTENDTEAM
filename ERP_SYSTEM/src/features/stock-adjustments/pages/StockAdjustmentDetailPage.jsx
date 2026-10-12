@@ -17,7 +17,7 @@ import {
   useDeleteStockAdjustmentMutation,
 } from "../stockAdjustmentsApi";
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
+const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 const COST_STATUS_LABELS = {
   Final: "نهائية",

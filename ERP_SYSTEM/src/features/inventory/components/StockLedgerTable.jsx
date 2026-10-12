@@ -167,30 +167,30 @@ export default function StockLedgerTable({ filters }) {
               <td className="p-3.5 font-medium text-ink-900">{row.itemName}</td>
               <td className="p-3.5 num text-positive border-x border-ink-400/5 text-center">
                 {row.quantityIn > 0
-                  ? row.quantityIn.toLocaleString("ar-EG")
+                  ? row.quantityIn.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                   : "—"}
               </td>
               <td className="p-3.5 num text-negative border-l border-ink-400/5 text-center">
                 {row.quantityOut > 0
-                  ? row.quantityOut.toLocaleString("ar-EG")
+                  ? row.quantityOut.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                   : "—"}
               </td>
               <td className="p-3.5 num text-positive border-x border-ink-400/5 text-center">
-                {row.weightIn > 0 ? row.weightIn.toLocaleString("ar-EG") : "—"}
+                {row.weightIn > 0 ? row.weightIn.toLocaleString("ar-EG", { maximumFractionDigits: 2 }) : "—"}
               </td>
               <td className="p-3.5 num text-negative border-l border-ink-400/5 text-center">
                 {row.weightOut > 0
-                  ? row.weightOut.toLocaleString("ar-EG")
+                  ? row.weightOut.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                   : "—"}
               </td>
               <td className="p-3.5 num text-ink-600">
-                {row.price.toLocaleString("ar-EG")}
+                {row.price.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
               </td>
               <td className="p-3.5 num text-gold-600">
-                {row.profit > 0 ? row.profit.toLocaleString("ar-EG") : "—"}
+                {row.profit > 0 ? row.profit.toLocaleString("ar-EG", { maximumFractionDigits: 2 }) : "—"}
               </td>
               <td className="p-3.5 num font-medium text-ink-900">
-                {row.total.toLocaleString("ar-EG")}
+                {row.total.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
               </td>
               <td className="p-3.5">
                 <div className="flex gap-1">
@@ -218,20 +218,20 @@ export default function StockLedgerTable({ filters }) {
               الرصيد الإجمالي
             </td>
             <td className="p-3.5 num text-positive text-center">
-              {totalQtyIn.toLocaleString("ar-EG")}
+              {totalQtyIn.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </td>
             <td className="p-3.5 num text-negative text-center">
-              {totalQtyOut.toLocaleString("ar-EG")}
+              {totalQtyOut.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </td>
             <td className="p-3.5 num text-positive text-center">
-              {totalWeightIn.toLocaleString("ar-EG")}
+              {totalWeightIn.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </td>
             <td className="p-3.5 num text-negative text-center">
-              {totalWeightOut.toLocaleString("ar-EG")}
+              {totalWeightOut.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </td>
             <td className="p-3.5" colSpan={2}></td>
             <td className="p-3.5 num">
-              {totalValue.toLocaleString("ar-EG")} ج.م
+              {totalValue.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} ج.م
             </td>
             <td className="p-3.5"></td>
           </tr>

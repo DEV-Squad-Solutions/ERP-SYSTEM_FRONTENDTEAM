@@ -2,6 +2,8 @@ import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
 import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import { FileText, Receipt, StoreIcon, Printer } from "lucide-react";
 
 import { useGetPartnerStatementQuery } from "../statementsApi";
@@ -53,6 +55,7 @@ const EMPTY_INVOICE_FILTERS = {
 
 export default function PartnerAccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
 
   const partnerId = searchParams.get("partnerId") || "";
 
@@ -109,12 +112,13 @@ export default function PartnerAccountPage() {
       BusinessPartnerId: partnerId,
       PageNumber: page,
       PageSize: pageSize,
+      FiscalYearId: selectedFiscalYearId || undefined,
       ...filters.statement.applied,
     }),
-    [partnerId, page, pageSize, filters.statement.applied],
+    [partnerId, page, pageSize, filters.statement.applied, selectedFiscalYearId],
   );
 
-  const { data, isLoading, isFetching, isError, refetch } =
+  const { data, isLoading, isFetching, isError, error, refetch } =
     useGetPartnerStatementQuery(statementParams, {
       skip: !partnerId,
     });
@@ -331,6 +335,7 @@ export default function PartnerAccountPage() {
                   isLoading={isLoading}
                   isFetching={isFetching}
                   isError={isError}
+                  error={error}
                   refetch={refetch}
                   page={page}
                   pageSize={pageSize}

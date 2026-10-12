@@ -1,7 +1,7 @@
 import { useSelector } from "react-redux";
 import { EMPLOYEE_TYPE } from "../../../features/payroll/payroll.constants";
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
+const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 const netOf = (entry) =>
   Number(entry?.netSalary || entry?.calculatedSalary || 0);

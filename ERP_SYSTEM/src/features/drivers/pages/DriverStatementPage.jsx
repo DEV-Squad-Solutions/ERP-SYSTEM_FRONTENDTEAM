@@ -4,6 +4,8 @@ import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import {
   AlertCircle,
   RefreshCw,
@@ -29,6 +31,7 @@ import { useGetCashMovementTypeOptionsQuery } from "../../cashboxes/cashMovement
 import QuickAddDriverModal from "../components/QuickAddDriverModal";
 import DriverStatementPrintTemplate from "../../../shared/components/print/DriverStatementPrintTemplate";
 import { useDriverStatementPrint } from "../../../shared/hooks/useDriverStatementPrint";
+import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
@@ -57,7 +60,7 @@ const emptyFilters = {
   hasCost: "",
 };
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
+const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 function BalanceBadge({ description }) {
   const isOwedByDriver = description?.includes("مطلوب من السائق");
@@ -138,6 +141,7 @@ function SummaryCard({
 
 export default function DriverStatementPage() {
   const [driverId, setDriverId] = useState("");
+  const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
   const [draft, setDraft] = useState(emptyFilters);
   const [applied, setApplied] = useState(emptyFilters);
   const [page, setPage] = useState(1);
@@ -167,7 +171,7 @@ export default function DriverStatementPage() {
     refetch: refetchMovementTypes,
   } = useGetCashMovementTypeOptionsQuery();
 
-  const { data, isLoading, isFetching, isError, refetch } =
+  const { data, isLoading, isFetching, isError, error, refetch } =
     useGetDriverStatementQuery(
       {
         DriverId: driverId,
@@ -183,6 +187,7 @@ export default function DriverStatementPage() {
         TransactionsWithoutTrip: applied.transactionsWithoutTrip || undefined,
         HasCost:
           applied.hasCost === "" ? undefined : applied.hasCost === "true",
+        FiscalYearId: selectedFiscalYearId || undefined,
       },
       {
         skip: !driverId,
@@ -607,6 +612,12 @@ export default function DriverStatementPage() {
                 ))}
               </div>
             </div>
+          ) : isError && error?.status === 403 ? (
+            <AccessDeniedState
+              title="غير مصرح بعرض كشف السائق"
+              message="مش عندك صلاحية عرض كشف الحساب ده. تواصل مع مسؤول النظام لو محتاج الصلاحية."
+              onRetry={refetch}
+            />
           ) : isError ? (
             <div className="text-center py-12 border border-dashed border-negative/25 bg-negative/[0.02] rounded-xl animate-fadeUp">
               <AlertCircle

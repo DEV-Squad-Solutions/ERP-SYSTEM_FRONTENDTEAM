@@ -771,7 +771,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
   }, []);
 
   const fmt = useCallback(
-    (v) => (Number.isFinite(v) ? v : 0).toLocaleString("ar-EG"),
+    (v) => (Number.isFinite(v) ? v : 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 }),
     [],
   );
   const currencySymbol = header.currency === "USD" ? "$" : "ج.م";
@@ -1160,7 +1160,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
               الإجمالي
             </div>
             <div className="flex flex-1 items-center gap-1.5 bg-ink-400/5 px-3 py-2.5 text-sm num text-ink-600">
-              {wbTotal.toLocaleString("ar-EG")}
+              {wbTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
               <span className="text-[11px] text-ink-400">(يتحسب تلقائيًا)</span>
             </div>
           </div>

@@ -5,6 +5,8 @@ import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useCallback, useMemo, useState } from "react";
 
 import { useSearchParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import { Printer, Wallet } from "lucide-react";
 
 import { useGetEmployeeStatementQuery } from "../employeeStatementApi";
@@ -28,6 +30,7 @@ export default function EmployeeAccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const employeeId = searchParams.get("employeeId") || "";
+  const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
 
   const [filters, setFilters] = useState({
     draft: { ...EMPTY_FILTERS },
@@ -52,12 +55,13 @@ export default function EmployeeAccountPage() {
       EmployeeId: employeeId,
       PageNumber: page,
       PageSize: pageSize,
+      FiscalYearId: selectedFiscalYearId || undefined,
       ...filters.applied,
     }),
-    [employeeId, page, pageSize, filters.applied],
+    [employeeId, page, pageSize, filters.applied, selectedFiscalYearId],
   );
 
-  const { data, isLoading, isFetching, isError, refetch } =
+  const { data, isLoading, isFetching, isError, error, refetch } =
     useGetEmployeeStatementQuery(statementParams, {
       skip: !employeeId,
     });
@@ -198,6 +202,7 @@ export default function EmployeeAccountPage() {
               isLoading={isLoading}
               isFetching={isFetching}
               isError={isError}
+              error={error}
               refetch={refetch}
               page={page}
               pageSize={pageSize}

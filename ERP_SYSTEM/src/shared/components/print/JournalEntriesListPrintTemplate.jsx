@@ -291,7 +291,7 @@ export default function JournalEntriesListPrintTemplate({
                 <span style={{ color: "#6F7C75" }}>عدد القيود</span>
 
                 <strong style={{ color: "#0A2540" }}>
-                  {Number(entries.length).toLocaleString("ar-EG")}
+                  {Number(entries.length).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </strong>
               </div>
             </div>

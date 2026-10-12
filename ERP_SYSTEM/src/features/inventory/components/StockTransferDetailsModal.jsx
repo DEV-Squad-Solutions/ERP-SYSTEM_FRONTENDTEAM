@@ -265,7 +265,7 @@ function SummaryCard({ label, value, money, quantity, positive }) {
         {money || quantity ? (
           <span className="num">
             {Number(value || 0).toLocaleString("ar-EG", {
-              maximumFractionDigits: 3,
+              maximumFractionDigits: 2,
             })}
           </span>
         ) : (

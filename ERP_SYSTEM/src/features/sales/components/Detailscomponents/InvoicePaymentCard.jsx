@@ -12,7 +12,7 @@ export default function InvoicePaymentCard({ invoice }) {
     { label: "نوع الحركة", value: invoice.cashMovementTypeName },
     {
       label: "المبلغ بعملة الخزنة",
-      value: `${Number(invoice.cashboxAmount || 0).toLocaleString("ar-EG")} ${invoice.cashboxCurrency || ""}`,
+      value: `${Number(invoice.cashboxAmount || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} ${invoice.cashboxCurrency || ""}`,
     },
     ...(invoice.cashboxCurrency &&
     invoice.cashboxCurrency !== invoice.baseCurrency
@@ -28,7 +28,7 @@ export default function InvoicePaymentCard({ invoice }) {
       ? [
           {
             label: "فرق العملة المحقق",
-            value: `${Number(invoice.realizedExchangeDifference).toLocaleString("ar-EG")} ${invoice.baseCurrency || ""}`,
+            value: `${Number(invoice.realizedExchangeDifference).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} ${invoice.baseCurrency || ""}`,
             tone:
               invoice.realizedExchangeDifference >= 0
                 ? "text-positive"

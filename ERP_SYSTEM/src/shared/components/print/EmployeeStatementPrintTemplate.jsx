@@ -16,7 +16,7 @@ const fmt = (value) =>
 const formatRate = (value) =>
   Number(value || 0).toLocaleString("ar-EG", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
+    maximumFractionDigits: 2,
   });
 
 const formatDate = (value) => {

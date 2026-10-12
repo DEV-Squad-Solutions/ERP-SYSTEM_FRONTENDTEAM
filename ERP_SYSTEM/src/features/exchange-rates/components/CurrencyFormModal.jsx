@@ -169,7 +169,7 @@ export default function CurrencyFormModal({ isOpen, rate, onClose, onSaved }) {
         <Input
           label="السعر"
           type="number"
-          step="0.0001"
+          step="0.01"
           {...register("rate")}
           error={errors.rate?.message}
         />

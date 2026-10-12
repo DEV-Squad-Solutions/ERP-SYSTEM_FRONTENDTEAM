@@ -41,7 +41,7 @@ export default function InvoiceSummaryCard({ invoice }) {
           <div
             className={`flex-1 px-3 py-2 text-sm num font-medium flex items-center ${row.tone}`}
           >
-            {(row.value || 0).toLocaleString("ar-EG")}
+            {(row.value || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             {!row.isCount && ` ${symbol}`}
           </div>
         </div>
@@ -58,7 +58,7 @@ export default function InvoiceSummaryCard({ invoice }) {
               الإجمالي
             </div>
             <div className="flex-1 px-3 py-2 text-sm num font-medium flex items-center text-ink-700">
-              {(invoice.baseTotal || 0).toLocaleString("ar-EG")} {baseSymbol}
+              {(invoice.baseTotal || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {baseSymbol}
             </div>
           </div>
           <div className="flex items-stretch">

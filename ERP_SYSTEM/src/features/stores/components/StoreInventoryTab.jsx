@@ -23,7 +23,7 @@ import QuickAddItemModal from "../../inventory/components/QuickAddItemModal";
 import Modal from "../../../shared/components/ui/Modal";
 import { useLazyGetItemBalanceQuery } from "../../invoices/invoicesApi";
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
+const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 export default function StoreInventoryTab({
   storeId,

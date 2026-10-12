@@ -28,6 +28,7 @@ import {
 } from "../cashboxTransfersApi";
 
 import CashboxTransferFormModal from "../components/CashboxTransferFormModal";
+import { useCashboxScope } from "../hooks/useCashboxScope";
 
 const emptyFilters = {
   Search: "",
@@ -60,6 +61,22 @@ function fmtDate(date) {
 export default function CashboxTransfersPage() {
   const navigate = useNavigate();
   const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
+
+  // التحويل بيحتاج صلاحية تنفيذ على الخزنتين (المصدر والهدف).
+  const {
+    canExecute,
+    hasAllCashboxes,
+    executeCashboxIds,
+    isReady: isScopeReady,
+  } = useCashboxScope();
+
+  const canTransfer =
+    !isScopeReady || hasAllCashboxes || executeCashboxIds.length > 0;
+
+  const canExecuteTransfer = (transfer) =>
+    !isScopeReady ||
+    (canExecute(transfer?.sourceCashboxId) &&
+      canExecute(transfer?.destinationCashboxId));
 
   // =========================
   // Filters
@@ -215,7 +232,7 @@ export default function CashboxTransfersPage() {
               transfer: null,
             })
           }
-          disabled={isFiscalYearReadOnly}
+          disabled={isFiscalYearReadOnly || !canTransfer}
         >
           <Plus size={16} />
           تحويل جديد
@@ -440,7 +457,7 @@ export default function CashboxTransfersPage() {
                             <Eye size={14} />
                           </button>
 
-                          {!isFiscalYearReadOnly && (
+                          {!isFiscalYearReadOnly && canExecuteTransfer(transfer) && (
                             <>
                               {/* Edit */}
                               <button

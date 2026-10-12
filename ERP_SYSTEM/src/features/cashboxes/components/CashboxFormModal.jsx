@@ -161,7 +161,7 @@ export default function CashboxFormModal({
 
             <p className="text-sm font-semibold text-ink-900">
               {cashbox.currentBalance != null
-                ? cashbox.currentBalance.toLocaleString("ar-EG")
+                ? cashbox.currentBalance.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                 : "—"}{" "}
               {cashbox.currency}
             </p>
@@ -224,7 +224,7 @@ export default function CashboxFormModal({
         <Input
           label="سعر الصرف الافتتاحي"
           type="number"
-          step="0.0001"
+          step="0.01"
           error={errors.openingExchangeRate?.message}
           {...register("openingExchangeRate", {
             valueAsNumber: true,

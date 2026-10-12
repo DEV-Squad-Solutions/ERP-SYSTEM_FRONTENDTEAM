@@ -283,7 +283,7 @@ function InvoiceLineRow({ line, updateLine, removeLine, index }) {
       {/* الكمية محسوبة */}
       <td className="p-2 w-24">
         <div className={`${readonlyCls} font-medium text-ink-900`}>
-          {(line.quantity || 0).toLocaleString("ar-EG")}
+          {(line.quantity || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
         </div>
       </td>
 
@@ -304,7 +304,7 @@ function InvoiceLineRow({ line, updateLine, removeLine, index }) {
       <td className="p-2 w-28 text-center">
         {Number(line.price) > 0 ? (
           <span className="num font-semibold text-ink-900">
-            {total.toLocaleString("ar-EG")}
+            {total.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           </span>
         ) : (
           <span className="inline-flex items-center text-xs text-gold-600 bg-gold-50 px-2 py-1 rounded-full">

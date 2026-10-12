@@ -48,7 +48,7 @@ function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
           {item.lineCount ?? item.lines?.length ?? 0}
         </td>
         <td className="num px-4 py-3 text-center text-sm font-semibold text-ink-900">
-          {documentTotal.toLocaleString("ar-EG")}
+          {documentTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
         </td>
         <td
           className="max-w-[200px] truncate px-4 py-3 text-sm text-ink-500"
@@ -117,10 +117,10 @@ function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
                       {line.quantity}
                     </td>
                     <td className="num p-2 text-center text-ink-600">
-                      {Number(line.price).toLocaleString("ar-EG")}
+                      {Number(line.price).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                     </td>
                     <td className="num p-2 text-center font-medium text-ink-900">
-                      {lineTotal(line).toLocaleString("ar-EG")}
+                      {lineTotal(line).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                     </td>
                     <td className="p-2 text-ink-500">{line.notes || "—"}</td>
                   </tr>

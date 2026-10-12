@@ -1,6 +1,6 @@
 import { useSelector } from "react-redux";
 
-const fmt = (value) => Number(value || 0).toLocaleString("ar-EG");
+const fmt = (value) => Number(value || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 export default function CashboxLedgerPrintTemplate({
   cashbox,

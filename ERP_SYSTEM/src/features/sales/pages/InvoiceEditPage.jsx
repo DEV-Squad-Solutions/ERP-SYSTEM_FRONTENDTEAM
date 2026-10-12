@@ -981,7 +981,7 @@ export default function InvoiceEditPage() {
             </label>
 
             <div className="w-full rounded-lg border border-ink-400/10 px-3 py-2 text-sm num bg-ink-400/5 text-ink-700 min-h-[38px] flex items-center">
-              {displayWbTotal.toLocaleString("ar-EG")}
+              {displayWbTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </div>
 
             <p className="text-[11px] text-ink-400 mt-1">بيتحسب تلقائيًا</p>
@@ -1170,7 +1170,7 @@ export default function InvoiceEditPage() {
             <p className="text-xs text-ink-400 mb-1">الإجمالي (تقديري)</p>
 
             <p className="num font-bold text-ink-900">
-              {displayTotal.toLocaleString("ar-EG")} {invoice.currency}
+              {displayTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {invoice.currency}
             </p>
           </div>
 
@@ -1183,7 +1183,7 @@ export default function InvoiceEditPage() {
                 displayRemaining > 0 ? "text-negative" : "text-positive"
               }`}
             >
-              {displayRemaining.toLocaleString("ar-EG")} {invoice.currency}
+              {displayRemaining.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {invoice.currency}
             </p>
           </div>
         </div>

@@ -1021,7 +1021,7 @@ function InvoiceLineRow({
 
       <td className="p-2 w-[130px] text-center">
         <span className="num inline-block rounded-lg bg-ink-900/[0.03] px-2.5 py-1 text-sm font-semibold text-ink-900 transition-colors">
-          {total.toLocaleString("ar-EG")}
+          {total.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
         </span>
       </td>
 

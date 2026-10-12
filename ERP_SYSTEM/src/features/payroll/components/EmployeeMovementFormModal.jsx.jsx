@@ -246,7 +246,7 @@ export default function EmployeeMovementFormModal({
             <Input
               label="سعر الصرف"
               type="number"
-              step="0.0001"
+              step="0.01"
               min="0"
               {...register("exchangeRate")}
               error={errors.exchangeRate?.message}

@@ -1,6 +1,7 @@
 import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
 import BalanceBadge from "./BalanceBadge";
 import Pagination from "../../../shared/components/ui/Pagination";
+import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
 
 /**
  * @param {{
@@ -16,6 +17,7 @@ export default function StatementTable({
   isLoading,
   isFetching,
   isError,
+  error,
   refetch,
   page,
   pageSize,
@@ -33,6 +35,16 @@ export default function StatementTable({
   }
 
   if (isError) {
+    if (error?.status === 403) {
+      return (
+        <AccessDeniedState
+          title="غير مصرح بعرض كشف الحساب"
+          message="مش عندك صلاحية عرض كشف الحساب ده. تواصل مع مسؤول النظام لو محتاج الصلاحية."
+          onRetry={refetch}
+        />
+      );
+    }
+
     return (
       <div className="rounded-2xl border border-negative/25 bg-negative/[0.02] py-14 text-center">
         <AlertCircle
@@ -73,7 +85,7 @@ export default function StatementTable({
     );
   }
 
-  const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+  const fmt = (n) => (n ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
   return (
     <div
@@ -122,7 +134,9 @@ export default function StatementTable({
             {items.map((item, index) => (
               <tr
                 key={index}
-                className="border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0"
+                className={`border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0 ${
+                  item.isOpeningBalance ? "bg-slate-50/60" : ""
+                }`}
               >
                 {/* الرصيد */}
                 <td className="px-4 py-3 text-center">
@@ -162,8 +176,16 @@ export default function StatementTable({
 
                 {/* البيان */}
                 <td className="px-4 py-3 text-right">
-                  <div className="font-medium text-ink-900">
-                    {item.description || "—"}
+                  <div className="flex items-center justify-end gap-2">
+                    {item.isOpeningBalance && (
+                      <span className="rounded-md bg-ink-400/10 px-1.5 py-0.5 text-[10px] font-medium text-ink-500">
+                        رصيد افتتاحي
+                      </span>
+                    )}
+
+                    <span className="font-medium text-ink-900">
+                      {item.description || "—"}
+                    </span>
                   </div>
                 </td>
 

@@ -9,7 +9,7 @@ export default function PartnerItemMovementsPrintTemplate({ data, filters }) {
   };
 
   const fmt = (v) =>
-    Number(v ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 3 });
+    Number(v ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
   const movementLabel = (type) => {
     switch (type?.toLowerCase()) {

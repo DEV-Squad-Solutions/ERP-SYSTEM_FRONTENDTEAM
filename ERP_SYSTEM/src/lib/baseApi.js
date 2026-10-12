@@ -64,6 +64,7 @@ export const baseApi = createApi({
 
     // ==================== Cashboxes ====================
     "Cashbox",
+    "CashboxPermission",
     "CashMovementType",
     "CashVoucher",
     "CashboxTransfer",

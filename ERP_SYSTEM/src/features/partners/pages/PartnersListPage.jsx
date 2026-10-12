@@ -362,7 +362,7 @@ export default function PartnersListPage() {
 
                       <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink-900">
                         {party.creditLimit != null
-                          ? party.creditLimit.toLocaleString("ar-EG")
+                          ? party.creditLimit.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                           : "—"}
                       </td>
 

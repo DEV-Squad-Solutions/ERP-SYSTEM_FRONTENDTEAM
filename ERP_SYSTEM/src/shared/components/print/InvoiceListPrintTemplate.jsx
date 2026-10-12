@@ -13,7 +13,7 @@ const paymentLabels = {
   Credit: "آجل",
 };
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG");
+const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 const ITEM_COLUMNS = [
   "كود الصنف",

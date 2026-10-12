@@ -15,12 +15,27 @@ import {
 import CashboxCard from "../components/CashboxCard";
 import CashboxFormModal from "../components/CashboxFormModal";
 import CashboxTransferModal from "../components/CashboxTransferFormModal";
+import { useCashboxScope } from "../hooks/useCashboxScope";
 import Pagination from "../../../shared/components/ui/Pagination";
 import Button from "../../../shared/components/ui/Button";
 import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
 
 export default function CashboxesListPage() {
   const navigate = useNavigate();
+
+  // صلاحية إنشاء/تعديل/حذف الخزائن نفسها تحتاج وصول كامل لكل خزائن
+  // الشركة (hasAllCashboxes). غير كذا المستخدم بيتعامل مع الخزائن
+  // المسموح له بها بس.
+  const {
+    hasAllCashboxes,
+    executeCashboxIds,
+    isReady: isScopeReady,
+  } = useCashboxScope();
+  // أثناء تحميل النطاق (أو لو رجع خطأ) بنسيب الأزرار ظاهرة؛ السيرفر
+  // بيتحقق وقت التنفيذ. بعد التحميل بيتطبّق القفل الفعلي.
+  const canManageCashboxes = !isScopeReady || hasAllCashboxes;
+  const canTransfer =
+    !isScopeReady || hasAllCashboxes || executeCashboxIds.length > 0;
 
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -258,15 +273,22 @@ export default function CashboxesListPage() {
             )}
           </div>
 
-          <Button variant="outline" onClick={() => setShowTransferModal(true)}>
-            <ArrowLeftRight size={16} />
-            تحويل بين الخزائن
-          </Button>
+          {canTransfer && (
+            <Button
+              variant="outline"
+              onClick={() => setShowTransferModal(true)}
+            >
+              <ArrowLeftRight size={16} />
+              تحويل بين الخزائن
+            </Button>
+          )}
 
-          <Button onClick={openCreate}>
-            <Plus size={16} />
-            خزنة جديدة
-          </Button>
+          {canManageCashboxes && (
+            <Button onClick={openCreate}>
+              <Plus size={16} />
+              خزنة جديدة
+            </Button>
+          )}
         </div>
       </div>
 
@@ -306,7 +328,7 @@ export default function CashboxesListPage() {
               <RotateCcw className="h-4 w-4" />
               إعادة تعيين الفلاتر
             </button>
-          ) : (
+          ) : canManageCashboxes ? (
             <button
               type="button"
               onClick={openCreate}
@@ -315,7 +337,7 @@ export default function CashboxesListPage() {
               <Plus className="h-4 w-4" />
               إضافة خزنة جديدة
             </button>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -330,8 +352,8 @@ export default function CashboxesListPage() {
               key={cashbox.id}
               cashbox={cashbox}
               onClick={() => navigate(`/dashboard/treasury/${cashbox.id}`)}
-              onEdit={openEdit}
-              onDelete={handleDelete}
+              onEdit={canManageCashboxes ? openEdit : undefined}
+              onDelete={canManageCashboxes ? handleDelete : undefined}
             />
           ))}
         </div>

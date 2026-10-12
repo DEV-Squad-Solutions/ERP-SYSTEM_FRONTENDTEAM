@@ -4,7 +4,7 @@ import { ArrowRight, ArrowLeftRight, Receipt } from "lucide-react";
 import { useGetCashboxTransferByIdQuery } from "../cashboxTransfersApi";
 
 function fmtAmount(n, currency) {
-  return `${new Intl.NumberFormat("ar-EG").format(n ?? 0)} ${currency ?? ""}`;
+  return `${new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(n ?? 0)} ${currency ?? ""}`;
 }
 
 function fmtDate(d) {

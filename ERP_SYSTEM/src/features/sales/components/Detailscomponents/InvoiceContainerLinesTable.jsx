@@ -55,11 +55,11 @@ export default function InvoiceContainerLinesTable({ containerLines }) {
                 </td>
 
                 <td className="p-3 num text-negative">
-                  {(line.outgoingUnits || 0).toLocaleString("ar-EG")}
+                  {(line.outgoingUnits || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
 
                 <td className="p-3 num text-positive">
-                  {(line.incomingUnits || 0).toLocaleString("ar-EG")}
+                  {(line.incomingUnits || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}

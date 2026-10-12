@@ -18,7 +18,7 @@ export const stockTransferEmptyForm = {
 
 export const formatQuantity = (value) =>
   Number(value || 0).toLocaleString("ar-EG", {
-    maximumFractionDigits: 3,
+    maximumFractionDigits: 2,
   });
 
 export const formatMoney = (value) =>

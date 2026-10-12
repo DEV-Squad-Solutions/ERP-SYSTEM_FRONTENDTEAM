@@ -11,7 +11,7 @@ export default function BalanceBadge({ amount, description }) {
 
   return (
     <span className={`num font-semibold ${tone}`}>
-      {(amount ?? 0).toLocaleString("ar-EG")}{" "}
+      {(amount ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}{" "}
       <span className="text-xs font-normal">{description}</span>
     </span>
   );

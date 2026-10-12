@@ -1,6 +1,8 @@
 import { useSelector } from "react-redux";
 import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
 import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+import { todayInCairo } from "../../../lib/date";
+import { round2 } from "../../../lib/number";
 import { useEffect, useMemo, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,7 +11,6 @@ import { toast } from "sonner";
 import {
   ArrowRightLeft,
   Info,
-  Wallet,
   CircleDollarSign,
   Loader2,
 } from "lucide-react";
@@ -24,7 +25,7 @@ import {
 } from "../cashboxTransfersApi";
 import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 
-const today = new Date().toISOString().slice(0, 10);
+const today = todayInCairo();
 
 // ⚠️ افتراض — استبدلها بمصدر عملة الشركة الأساسية الفعلي عندك
 // (context / config) لو مختلف عن EGP أو مش ثابت.
@@ -106,7 +107,7 @@ function formatNumber(value) {
   }
 
   return number.toLocaleString("ar-EG", {
-    maximumFractionDigits: 6,
+    maximumFractionDigits: 2,
   });
 }
 
@@ -210,16 +211,12 @@ export default function CashboxTransferFormModal({
 
   // =========================================================
   // Balance
+  //
+  // الرصيد بيتعرض كما هو (ممكن يكون سالب) — مفيش منع للتحويل
+  // بسبب نقص الرصيد، لأن النظام بيسمح بالأرصدة السالبة.
   // =========================================================
 
   const sourceBalance = getBalance(sourceCashbox);
-
-  const numericAmount = Number(amount);
-
-  const hasInsufficientBalance =
-    Boolean(sourceCashbox) &&
-    Number.isFinite(numericAmount) &&
-    numericAmount > sourceBalance;
 
   // =========================================================
   // Destination Amount Preview
@@ -335,7 +332,7 @@ export default function CashboxTransferFormModal({
         if (sourceRate?.rate && destinationRate?.rate) {
           const computed = sourceRate.rate / destinationRate.rate;
 
-          setValue("conversionRate", String(computed), {
+          setValue("conversionRate", String(round2(computed)), {
             shouldValidate: false,
           });
         }
@@ -369,15 +366,6 @@ export default function CashboxTransferFormModal({
 
     if (fiscalYearWarning) {
       toast.error(fiscalYearWarning);
-      return;
-    }
-
-    if (hasInsufficientBalance) {
-      toast.error(
-        `الرصيد غير كافي. الرصيد الحالي ${formatNumber(
-          sourceBalance,
-        )} ${sourceCurrency}`,
-      );
       return;
     }
 
@@ -642,8 +630,8 @@ export default function CashboxTransferFormModal({
               <Input
                 label={`سعر التحويل (${sourceCurrency} → ${destinationCurrency})`}
                 type="number"
-                step="0.000001"
-                min="0.000001"
+                step="0.01"
+                min="0.01"
                 placeholder="بيتحمّل تلقائيًا حسب تاريخ التحويل"
                 error={errors.conversionRate?.message}
                 {...register("conversionRate")}
@@ -658,34 +646,6 @@ export default function CashboxTransferFormModal({
             </div>
           )}
         </div>
-
-        {/* =====================================================
-            Insufficient Balance
-        ====================================================== */}
-
-        {hasInsufficientBalance && (
-          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-            <Wallet size={18} className="mt-0.5 shrink-0 text-red-600" />
-
-            <div className="text-sm">
-              <p className="font-medium text-red-900">الرصيد غير كافي</p>
-
-              <p className="mt-1 text-red-700">
-                الرصيد المتاح:{" "}
-                <strong>
-                  {formatNumber(sourceBalance)} {sourceCurrency}
-                </strong>
-              </p>
-
-              <p className="text-red-700">
-                المبلغ المطلوب:{" "}
-                <strong>
-                  {formatNumber(numericAmount)} {sourceCurrency}
-                </strong>
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* =====================================================
             Conversion Preview
@@ -775,7 +735,7 @@ export default function CashboxTransferFormModal({
             إلغاء
           </Button>
 
-          <Button type="submit" disabled={isLoading || hasInsufficientBalance}>
+          <Button type="submit" disabled={isLoading}>
             {isLoading
               ? "جاري تنفيذ التحويل..."
               : isEdit

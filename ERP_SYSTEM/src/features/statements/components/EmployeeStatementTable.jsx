@@ -1,6 +1,7 @@
 import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
 import BalanceBadge from "./BalanceBadge";
 import Pagination from "../../../shared/components/ui/Pagination";
+import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
 
 const SOURCE_TYPE_LABELS = {
   OpeningBalance: "رصيد افتتاحي",
@@ -14,6 +15,7 @@ export default function EmployeeStatementTable({
   isLoading,
   isFetching,
   isError,
+  error,
   refetch,
   page,
   pageSize,
@@ -31,6 +33,16 @@ export default function EmployeeStatementTable({
   }
 
   if (isError) {
+    if (error?.status === 403) {
+      return (
+        <AccessDeniedState
+          title="غير مصرح بعرض كشف حساب الموظف"
+          message="مش عندك صلاحية عرض كشف الحساب ده. تواصل مع مسؤول النظام لو محتاج الصلاحية."
+          onRetry={refetch}
+        />
+      );
+    }
+
     return (
       <div className="rounded-2xl border border-negative/25 bg-negative/[0.02] py-14 text-center">
         <AlertCircle
@@ -78,7 +90,7 @@ export default function EmployeeStatementTable({
 
     return Number(value).toLocaleString("ar-EG", {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 6,
+      maximumFractionDigits: 2,
     });
   };
 
@@ -180,7 +192,9 @@ export default function EmployeeStatementTable({
               return (
                 <tr
                   key={`${item.sourceType}-${item.sourceId}-${item.date}-${index}`}
-                  className="border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0"
+                  className={`border-b border-ink-400/5 transition-colors hover:bg-slate-50 last:border-0 ${
+                    item.isOpeningBalance ? "bg-slate-50/60" : ""
+                  }`}
                 >
                   <td className="px-4 py-3 text-center">
                     <BalanceBadge

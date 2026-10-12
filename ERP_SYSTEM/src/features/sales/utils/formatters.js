@@ -1,5 +1,5 @@
 export const formatNumber = (n) =>
-  new Intl.NumberFormat("ar-EG").format(Number(n) || 0);
+  new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(Number(n) || 0);
 
 export const paymentBadgeStyles = {
   "نقدي": "bg-emerald-50 text-emerald-700 ring-emerald-600/20",

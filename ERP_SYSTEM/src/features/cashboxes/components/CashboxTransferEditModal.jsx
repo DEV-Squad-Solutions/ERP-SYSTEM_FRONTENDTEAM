@@ -101,7 +101,7 @@ export default function CashboxTransferEditModal({
                 {cashboxOptions.map((cb) => (
                   <option key={cb.id} value={cb.id}>
                     {cb.name} ({cb.code}) —{" "}
-                    {cb.currentBalance?.toLocaleString("ar-EG")} {cb.currency}
+                    {cb.currentBalance?.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {cb.currency}
                   </option>
                 ))}
               </select>
@@ -125,7 +125,7 @@ export default function CashboxTransferEditModal({
                 {cashboxOptions.map((cb) => (
                   <option key={cb.id} value={cb.id}>
                     {cb.name} ({cb.code}) —{" "}
-                    {cb.currentBalance?.toLocaleString("ar-EG")} {cb.currency}
+                    {cb.currentBalance?.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {cb.currency}
                   </option>
                 ))}
               </select>

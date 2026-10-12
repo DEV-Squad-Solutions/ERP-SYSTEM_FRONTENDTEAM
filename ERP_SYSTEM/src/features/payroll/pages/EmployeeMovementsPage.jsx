@@ -32,7 +32,7 @@ import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 
-const fmt = (n) => (n ?? 0).toLocaleString("ar-EG");
+const fmt = (n) => (n ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 export default function EmployeeMovementsPage() {
   const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();

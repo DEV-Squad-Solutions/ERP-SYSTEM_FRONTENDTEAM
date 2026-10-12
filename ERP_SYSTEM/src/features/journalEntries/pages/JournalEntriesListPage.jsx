@@ -567,7 +567,7 @@ export default function JournalEntriesListPage() {
                       sm:inline-flex
                     "
                   >
-                    {data.totalCount.toLocaleString("ar-EG")} قيد
+                    {data.totalCount.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} قيد
                   </span>
                 )}
               </div>
@@ -1129,7 +1129,7 @@ export default function JournalEntriesListPage() {
                       text-emerald-700
                     "
                   >
-                    {data.totalCount.toLocaleString("ar-EG")}
+                    {data.totalCount.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                   </span>
                 )}
               </div>

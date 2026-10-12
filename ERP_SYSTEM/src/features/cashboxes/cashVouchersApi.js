@@ -30,6 +30,9 @@ const buildVoucherBody = (data, { includeRowVersion = false } = {}) => {
     notes: data.notes?.trim() || undefined,
     accountId: toNullableNumber(data.accountId),
     exchangeRate: toOptionalNumber(data.exchangeRate),
+    // سعر عملة الطرف مقابل العملة الأساسية — يُرسل عند التوصيف/التعديل
+    // لسندات الشركاء بعملة مختلفة. لا يُرسل مع المسودة الأولية.
+    partnerExchangeRate: toOptionalNumber(data.partnerExchangeRate),
   };
 
   if (data.classification !== undefined) {
@@ -42,6 +45,21 @@ const buildVoucherBody = (data, { includeRowVersion = false } = {}) => {
 
   return body;
 };
+
+// PUT /CashVouchers/{id}/draft — جسم تعديل المسودة بدون توصيف:
+// تاريخ/اتجاه/خزنة/مبلغ/إصدار + (وصف/بيان/مرجع/سعر صرف) اختياري.
+// لا يُرسل أي هدف ترحيل ولا تسوية شريك ولا نوع حركة، والسند يفضل مسودة.
+const buildDraftVoucherBody = (data) => ({
+  voucherDate: data.voucherDate,
+  direction: data.direction,
+  cashboxId: toNullableNumber(data.cashboxId),
+  amount: Number(data.amount),
+  rowVersion: data.rowVersion,
+  description: data.description?.trim() || undefined,
+  notes: data.notes?.trim() || undefined,
+  referenceNumber: data.referenceNumber?.trim() || undefined,
+  exchangeRate: toOptionalNumber(data.exchangeRate),
+});
 
 export const cashVouchersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -100,6 +118,11 @@ export const cashVouchersApi = baseApi.injectEndpoints({
             filters.includeSubAccounts === "true"
               ? true
               : undefined,
+
+          FiscalYearId:
+            filters.fiscalYearId !== "" && filters.fiscalYearId != null
+              ? Number(filters.fiscalYearId)
+              : undefined,
         },
       }),
 
@@ -144,6 +167,17 @@ export const cashVouchersApi = baseApi.injectEndpoints({
       invalidatesTags: tagsFor("CashVoucher"),
     }),
 
+    // تعديل مسودة بدون توصيف (بدون ترحيل ولا أثر على الرصيد/الدفتر).
+    // PUT /CashVouchers/{id}/draft
+    updateDraftCashVoucher: builder.mutation({
+      query: ({ id, ...data }) => ({
+        url: `CashVouchers/${id}/draft`,
+        method: "PUT",
+        body: buildDraftVoucherBody(data),
+      }),
+      invalidatesTags: tagsFor("CashVoucher"),
+    }),
+
     deleteCashVoucher: builder.mutation({
       query: ({ id, rowVersion }) => ({
         url: `CashVouchers/${id}`,
@@ -176,6 +210,7 @@ export const {
   useGetCashVoucherPartySelectQuery,
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
+  useUpdateDraftCashVoucherMutation,
   useDeleteCashVoucherMutation,
   useGetCashHandoverReportQuery,
 } = cashVouchersApi;

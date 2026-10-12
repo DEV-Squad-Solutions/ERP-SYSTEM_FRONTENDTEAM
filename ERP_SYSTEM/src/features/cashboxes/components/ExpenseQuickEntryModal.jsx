@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { useSelector } from "react-redux";
 import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
 import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+import { todayInCairo } from "../../../lib/date";
 // src/features/cashboxes/components/ExpenseQuickEntryModal.jsx
 
 import { useState, useEffect, useMemo } from "react";
@@ -25,7 +26,7 @@ const PARTY_TYPES = [
 ];
 
 const emptyForm = {
-  voucherDate: new Date().toISOString().slice(0, 10),
+  voucherDate: todayInCairo(),
   cashboxId: "",
   cashMovementTypeId: "",
   partyType: "None",

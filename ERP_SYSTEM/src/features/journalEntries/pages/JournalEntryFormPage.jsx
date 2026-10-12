@@ -7,6 +7,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 import { useGetFiscalYearsSelectQuery } from "../../fiscalYears/fiscalYearsApi";
 import { useGetAccountJournalSelectQuery } from "../../accounts/accountsApi";
+import { todayInCairo } from "../../../lib/date";
 
 import {
   useGetJournalEntryByIdQuery,
@@ -170,9 +171,7 @@ export default function JournalEntryFormPage() {
 
   const [fiscalYearId, setFiscalYearId] = useState(null);
 
-  const [entryDate, setEntryDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
+  const [entryDate, setEntryDate] = useState(() => todayInCairo());
 
   const [description, setDescription] = useState("");
 

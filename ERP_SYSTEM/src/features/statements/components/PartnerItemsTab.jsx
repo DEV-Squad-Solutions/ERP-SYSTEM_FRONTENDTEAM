@@ -86,7 +86,7 @@ export default function PartnerItemsTab({ partnerId }) {
     }
 
     return Number(value).toLocaleString("ar-EG", {
-      maximumFractionDigits: 3,
+      maximumFractionDigits: 2,
     });
   };
 
@@ -506,7 +506,7 @@ function SummaryCard({ title, value, icon, iconClass }) {
 
           <p className="mt-1 text-lg font-bold text-ink-900 num">
             {Number(value ?? 0).toLocaleString("ar-EG", {
-              maximumFractionDigits: 3,
+              maximumFractionDigits: 2,
             })}
           </p>
         </div>

@@ -136,15 +136,15 @@ export default function Pagination({
           <span className="whitespace-nowrap">
             عرض{" "}
             <strong className="font-semibold text-ink-800">
-              {from.toLocaleString("ar-EG")}
+              {from.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </strong>{" "}
             -{" "}
             <strong className="font-semibold text-ink-800">
-              {to.toLocaleString("ar-EG")}
+              {to.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </strong>{" "}
             من أصل{" "}
             <strong className="font-semibold text-ink-800">
-              {safeTotalCount.toLocaleString("ar-EG")}
+              {safeTotalCount.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </strong>{" "}
             {label}
           </span>
@@ -322,7 +322,7 @@ export default function Pagination({
                     }
                   `}
                 >
-                  {item.toLocaleString("ar-EG")}
+                  {item.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </button>
               );
             })}
@@ -366,11 +366,11 @@ export default function Pagination({
         >
           صفحة{" "}
           <strong className="mx-1 font-bold text-ink-700">
-            {currentPage.toLocaleString("ar-EG")}
+            {currentPage.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           </strong>{" "}
           من{" "}
           <strong className="mx-1 font-bold text-ink-700">
-            {totalPages.toLocaleString("ar-EG")}
+            {totalPages.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           </strong>
         </div>
       )}

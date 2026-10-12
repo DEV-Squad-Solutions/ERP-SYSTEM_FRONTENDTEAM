@@ -505,7 +505,7 @@ export default function DashboardPage() {
           icon={Users}
           label="الشركاء التجاريين"
           value={data?.counts?.businessPartnerCount ?? 0}
-          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          format={(v) => Math.round(v).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           sub="عملاء وموردين"
           tone="info"
         />
@@ -513,28 +513,28 @@ export default function DashboardPage() {
           icon={Briefcase}
           label="الموظفين"
           value={data?.counts?.employeeCount ?? 0}
-          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          format={(v) => Math.round(v).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           tone="gold"
         />
         <StatCard
           icon={Truck}
           label="السائقين"
           value={data?.counts?.driverCount ?? 0}
-          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          format={(v) => Math.round(v).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           tone="primary"
         />
         <StatCard
           icon={FileText}
           label="عدد الفواتير"
           value={data?.counts?.invoiceCount ?? 0}
-          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          format={(v) => Math.round(v).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           tone="success"
         />
         <StatCard
           icon={Clock}
           label="فواتير متأخرة"
           value={data?.invoiceStatus?.overdueCount ?? 0}
-          format={(v) => Math.round(v).toLocaleString("ar-EG")}
+          format={(v) => Math.round(v).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
           sub={fmtMoney(data?.invoiceStatus?.overdueAmount, data?.baseCurrency)}
           tone="danger"
         />

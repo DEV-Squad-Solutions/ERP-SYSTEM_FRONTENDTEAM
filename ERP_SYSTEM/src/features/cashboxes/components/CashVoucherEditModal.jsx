@@ -1,6 +1,8 @@
 import { useSelector } from "react-redux";
 import { selectSelectedFiscalYear } from "../../fiscalYears/fiscalYearSlice";
 import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
+import { todayInCairo } from "../../../lib/date";
+import { round2 } from "../../../lib/number";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +15,7 @@ import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
+import { useGetPartyByIdQuery } from "../../partners/partiesApi";
 import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 
 import {
@@ -28,7 +31,9 @@ const schema = z.object({
 
   direction: z.enum(["Receipt", "Payment"]),
 
-  descriptionValue: z.string().min(1, "اختر توصيف الحركة"),
+  // التوصيف اختياري في الفرونت — لو المستخدم مختارش بنستخدم التوصيف
+  // المحفوظ على السند (لو موجود) أو نسيب الباك يقرر.
+  descriptionValue: z.string().optional(),
 
   amount: z
     .string()
@@ -36,6 +41,11 @@ const schema = z.object({
     .refine((value) => Number(value) > 0, "المبلغ يجب أن يكون أكبر من صفر"),
 
   exchangeRate: z.string().optional(),
+
+  // سعر عملة الشريك مقابل العملة الأساسية — للسندات اللي الخزنة فيها
+  // بعملة مختلفة عن عملة حساب الشريك. اختياري: لو اتساب فاضي
+  // السيرفر بيحل سعر مناسب تلقائيًا.
+  partnerExchangeRate: z.string().optional(),
 
   referenceNumber: z.string().optional(),
 
@@ -50,12 +60,11 @@ const schema = z.object({
  * API:
  * PUT /CashVouchers/{id}
  *
- * يجب إرسال هدف ترحيل واحد فقط:
- * employeeId
- * businessPartnerId
- * driverId
- * externalPartyName
- * cashMovementTypeId
+ * التوصيف (هدف الترحيل) مش إلزامي في الفرونت:
+ * - لو المستخدم اختار توصيف، بنبعت التوصيف المختار.
+ * - لو مختارش، بنبعت التوصيف المحفوظ على السند (لو موجود).
+ * - الـ API نفسه بيطلب توصيف واحد بالظبط على PUT، فلو مفيش
+ *   توصيف خالص الباك هو اللي بيرفض.
  *
  * يتم استخدام نفس DescriptionCascadeSelect
  * ونفس buildPostingTargetPayload لضمان توحيد
@@ -100,11 +109,12 @@ export default function CashVoucherEditModal({
     resolver: zodResolver(schema),
 
     defaultValues: {
-      voucherDate: new Date().toISOString().slice(0, 10),
+      voucherDate: todayInCairo(),
       direction: "Payment",
       descriptionValue: "",
       amount: "",
       exchangeRate: "",
+      partnerExchangeRate: "",
       referenceNumber: "",
       description: "",
       notes: "",
@@ -113,6 +123,7 @@ export default function CashVoucherEditModal({
 
   const direction = watch("direction");
   const voucherDate = watch("voucherDate");
+  const descriptionValue = watch("descriptionValue");
 
   const groups = useMemo(
     () =>
@@ -121,6 +132,29 @@ export default function CashVoucherEditModal({
       }),
     [partySelect, direction],
   );
+
+  // الشريك المختار في التوصيف (لو التوصيف شريك). بنحتاج نعرف عملة
+  // حسابه عشان نعرض حقل سعر تسوية الشريك لو مختلفة عن عملة الخزنة.
+  const selectedPartnerId = useMemo(() => {
+    const option = groups
+      .flatMap((group) => group.options)
+      .find((item) => item.value === descriptionValue);
+
+    return option?.meta?.businessPartnerId ?? null;
+  }, [groups, descriptionValue]);
+
+  const { data: selectedPartner } = useGetPartyByIdQuery(selectedPartnerId, {
+    skip: !isOpen || !selectedPartnerId,
+  });
+
+  const partnerCurrency = selectedPartner?.currency;
+
+  // تسوية بعملة مختلفة: الخزنة بعملة، وحساب الشريك بعملة تانية.
+  const isCrossCurrencyPartner =
+    Boolean(selectedPartnerId) &&
+    Boolean(partnerCurrency) &&
+    Boolean(currency) &&
+    partnerCurrency !== currency;
 
   /**
    * تعبئة البيانات عند فتح المودال
@@ -140,6 +174,11 @@ export default function CashVoucherEditModal({
 
       exchangeRate:
         voucher.exchangeRate != null ? String(voucher.exchangeRate) : "",
+
+      partnerExchangeRate:
+        voucher.partnerExchangeRate != null
+          ? String(voucher.partnerExchangeRate)
+          : "",
 
       referenceNumber: voucher.referenceNumber || "",
 
@@ -171,7 +210,7 @@ export default function CashVoucherEditModal({
         lastResolvedKeyRef.current = key;
 
         if (res?.rate != null) {
-          setValue("exchangeRate", String(res.rate), {
+          setValue("exchangeRate", String(round2(res.rate)), {
             shouldValidate: false,
           });
         }
@@ -204,14 +243,22 @@ export default function CashVoucherEditModal({
       .flatMap((group) => group.options)
       .find((option) => option.value === values.descriptionValue);
 
-    if (!selectedOption) {
-      toast.error("اختر توصيف صحيح للحركة");
-      return;
-    }
-
-    const target = buildPostingTargetPayload(selectedOption.meta, {
-      driverTripId: voucher.driverTripId,
-    });
+    // التوصيف مش إلزامي في الفرونت: لو المستخدم مختارش، بنستخدم التوصيف
+    // المحفوظ على السند (لو موجود) عشان تعديل المبلغ/سعر الصرف ميفرضش
+    // إعادة اختيار التوصيف. لو السند مسودة من غير توصيف، الباك هو اللي
+    // هيقرر (بيطلب توصيف واحد على PUT).
+    const target = selectedOption
+      ? buildPostingTargetPayload(selectedOption.meta, {
+          driverTripId: voucher.driverTripId,
+        })
+      : {
+          businessPartnerId: voucher.businessPartnerId ?? null,
+          driverId: voucher.driverId ?? null,
+          driverTripId: voucher.driverTripId ?? null,
+          employeeId: voucher.employeeId ?? null,
+          accountId: voucher.accountId ?? null,
+          externalPartyName: voucher.externalPartyName ?? undefined,
+        };
 
     const payload = {
       voucherDate: values.voucherDate,
@@ -232,6 +279,14 @@ export default function CashVoucherEditModal({
     if (isForeign) {
       payload.exchangeRate = values.exchangeRate
         ? Number(values.exchangeRate)
+        : undefined;
+    }
+
+    // تسوية الشركاء بعملة مختلفة: بنرسل سعر الشريك فقط لو العملتين
+    // مختلفتين. لو اتساب فاضي السيرفر بيحل السعر بنفسه.
+    if (isCrossCurrencyPartner) {
+      payload.partnerExchangeRate = values.partnerExchangeRate
+        ? Number(values.partnerExchangeRate)
         : undefined;
     }
 
@@ -345,6 +400,12 @@ export default function CashVoucherEditModal({
                 {errors.descriptionValue.message}
               </p>
             )}
+
+            <p className="mt-1 text-[11px] leading-5 text-ink-400">
+              {voucher?.isDraft
+                ? "مسودة: لو سيبت التوصيف فاضي هيتحفظ كمسودة من غير ترحيل. اختَر توصيف لإكماله وترحيله."
+                : "لازم توصيف واحد لإكمال تعديل السند."}
+            </p>
           </div>
 
           {/* المبلغ + سعر الصرف */}
@@ -361,7 +422,7 @@ export default function CashVoucherEditModal({
               <div>
                 <Input
                   type="number"
-                  step="0.0001"
+                  step="0.01"
                   label={`سعر الصرف (${baseCurrency || "EGP"})`}
                   placeholder={
                     isResolvingRate
@@ -381,6 +442,56 @@ export default function CashVoucherEditModal({
               </div>
             )}
           </div>
+
+          {/* تسوية بعملة مختلفة عن عملة الشريك */}
+          {isCrossCurrencyPartner && (
+            <div className="rounded-xl border border-primary-400/20 bg-primary-400/5 p-3">
+              <Input
+                type="number"
+                step="0.01"
+                label={`سعر تسوية الشريك (${baseCurrency || "EGP"} لكل ${partnerCurrency})`}
+                placeholder="اتركه فارغًا ليُحل تلقائيًا"
+                {...register("partnerExchangeRate")}
+                error={errors.partnerExchangeRate?.message}
+              />
+
+              <p className="mt-1 text-[11px] leading-5 text-ink-400">
+                الخزنة بعملة {currency} وحساب الشريك بعملة {partnerCurrency}.
+                السعر بوحدات العملة الأساسية لكل وحدة من عملة الشريك. لو
+                اترك فارغًا، النظام بيدوّر سعر مناسب يغطي تاريخ السند.
+              </p>
+            </div>
+          )}
+
+          {/* قيم تسوية الشريك المحفوظة (من الاستجابة) */}
+          {voucher.partnerCurrency && (
+            <div className="rounded-xl border border-ink-400/15 bg-ink-400/5 p-3 text-xs leading-6 text-ink-600">
+              <div className="mb-1 font-medium text-ink-900">
+                تسوية الشريك المحفوظة
+              </div>
+              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <span>
+                  العملة: <strong>{voucher.partnerCurrency}</strong>
+                </span>
+                {voucher.partnerAmount != null && (
+                  <span>
+                    مبلغ الشريك:{" "}
+                    <strong>
+                      {voucher.partnerAmount} {voucher.partnerCurrency}
+                    </strong>
+                  </span>
+                )}
+                {voucher.partnerBaseAmount != null && (
+                  <span>
+                    مقابل الأساس:{" "}
+                    <strong>
+                      {voucher.partnerBaseAmount} {baseCurrency || "EGP"}
+                    </strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* الرقم المرجعي */}
           <Input

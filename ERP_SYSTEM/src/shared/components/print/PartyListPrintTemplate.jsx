@@ -53,7 +53,7 @@ export default function PartyListPrintTemplate({ parties = [], filters = {} }) {
               <td className="py-2 px-2 font-mono text-xs">{party.currency}</td>
               <td className="py-2 px-2">
                 {party.creditLimit != null
-                  ? party.creditLimit.toLocaleString("ar-EG")
+                  ? party.creditLimit.toLocaleString("ar-EG", { maximumFractionDigits: 2 })
                   : "—"}
               </td>
               <td className="py-2 px-2">

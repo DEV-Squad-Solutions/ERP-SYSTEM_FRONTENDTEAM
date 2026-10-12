@@ -35,7 +35,7 @@ export default function InvoiceWeighbridgeCard({ invoice }) {
           >
             <p className="text-xs text-ink-400 mb-1">{row.label}</p>
             <p className="text-sm font-bold num text-ink-900">
-              {Number(row.value || 0).toLocaleString("ar-EG")}
+              {Number(row.value || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
             </p>
           </div>
         ))}

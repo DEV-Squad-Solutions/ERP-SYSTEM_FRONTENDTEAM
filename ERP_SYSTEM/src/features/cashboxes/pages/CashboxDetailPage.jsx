@@ -13,17 +13,20 @@ import {
   Filter,
   ChevronDown,
   HandCoins,
+  Plus,
 } from "lucide-react";
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useSelector } from "react-redux";
 
 import { useGetCashboxByIdQuery } from "../cashboxesApi";
+import { useCashboxScope } from "../hooks/useCashboxScope";
 
 import {
   useGetCashVouchersQuery,
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
+  useUpdateDraftCashVoucherMutation,
   useDeleteCashVoucherMutation,
 } from "../cashVouchersApi";
 
@@ -34,6 +37,7 @@ import { useGetDriversSelectQuery } from "../../drivers/driversApi";
 import { useGetEmployeesSelectQuery } from "../../payroll/payrollApi";
 
 import CashboxLedgerTable from "../components/CashboxLedgerTable";
+import CashVoucherFormModal from "../components/CashVoucherFormModal";
 
 import Button from "../../../shared/components/ui/Button";
 import Input from "../../../shared/components/ui/Input";
@@ -44,6 +48,7 @@ import { useCashboxLedgerPrint } from "../../../shared/hooks/useCashboxLedgerPri
 import CashboxLedgerPrintTemplate from "../../../shared/components/print/CashboxLedgerPrintTemplate";
 
 import { selectIsAdmin } from "../../auth/authSlice";
+import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import CashHandoverReportModal from "../components/CashHandoverReportModal";
 
 const currencySymbols = {
@@ -144,6 +149,7 @@ export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
   const navigate = useNavigate();
   const isAdmin = useSelector(selectIsAdmin);
+  const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
 
   const [filters, setFilters] = useState({
     draft: {
@@ -170,9 +176,19 @@ export default function CashboxDetailPage() {
   });
   const [pageSize, setPageSize] = useState(25);
   const [showHandover, setShowHandover] = useState(false);
+  const [showCreateVoucher, setShowCreateVoucher] = useState(false);
 
   const { data: cashbox, isFetching: isFetchingCashbox } =
     useGetCashboxByIdQuery(cashboxId);
+
+  const {
+    canExecute: canExecuteCashbox,
+    isReady: isScopeReady,
+  } = useCashboxScope();
+  // لو النطاق لسه بيتحمّل (أو رجع خطأ) بنسيب الأزرار ظاهرة مؤقتًا؛
+  // السيرفر بيتحقق من الصلاحية وقت التنفيذ. بعد ما النطاق يتحمّل
+  // بيتطبّق القفل الفعلي.
+  const canExecute = !isScopeReady || canExecuteCashbox(cashboxId);
 
   const { data: parties, isLoading: isLoadingParties } =
     useGetPartiesSelectQuery();
@@ -203,6 +219,7 @@ export default function CashboxDetailPage() {
 
   const [createVoucher] = useCreateCashVoucherMutation();
   const [updateVoucher] = useUpdateCashVoucherMutation();
+  const [updateDraftVoucher] = useUpdateDraftCashVoucherMutation();
   const [deleteVoucher] = useDeleteCashVoucherMutation();
 
   const queryParams = useMemo(
@@ -232,8 +249,9 @@ export default function CashboxDetailPage() {
       accountId: filters.applied.accountId || undefined,
       includeSubAccounts:
         filters.applied.includeSubAccounts === "true" ? "true" : undefined,
+      fiscalYearId: selectedFiscalYearId || undefined,
     }),
-    [cashboxId, page, pageSize, filters.applied],
+    [cashboxId, page, pageSize, filters.applied, selectedFiscalYearId],
   );
 
   const { data, isLoading, isFetching, isError, refetch } =
@@ -319,6 +337,14 @@ export default function CashboxDetailPage() {
 
   async function handleUpdateVoucher(payload) {
     await updateVoucher({
+      ...payload,
+      cashboxId,
+    }).unwrap();
+  }
+
+  // تعديل مسودة بدون توصيف: PUT /CashVouchers/{id}/draft (بدون ترحيل).
+  async function handleUpdateDraftVoucher(payload) {
+    await updateDraftVoucher({
       ...payload,
       cashboxId,
     }).unwrap();
@@ -415,6 +441,13 @@ export default function CashboxDetailPage() {
               <HandCoins size={16} />
             </Button>
             <div className="flex flex-wrap gap-2">
+              {canExecute && (
+                <Button onClick={() => setShowCreateVoucher(true)}>
+                  <Plus size={16} />
+                  سند جديد
+                </Button>
+              )}
+
               <Button variant="outline" onClick={printList}>
                 <Printer size={16} />
                 طباعة
@@ -737,7 +770,9 @@ export default function CashboxDetailPage() {
           employeeOptions={employees || []}
           onAddVoucher={handleAddVoucher}
           onUpdateVoucher={handleUpdateVoucher}
+          onUpdateDraftVoucher={handleUpdateDraftVoucher}
           onDeleteVoucher={isAdmin ? handleDeleteVoucher : undefined}
+          canExecute={canExecute}
           page={page}
           pageSize={pageSize}
           totalCount={data?.totalCount || 0}
@@ -753,6 +788,12 @@ export default function CashboxDetailPage() {
           cashboxName={cashbox?.name || "الخزنة"}
         />
       )}
+      <CashVoucherFormModal
+        isOpen={showCreateVoucher}
+        onClose={() => setShowCreateVoucher(false)}
+        cashboxId={cashboxId}
+        onCreated={refetch}
+      />
       <div className="hidden">
         <div ref={printRef}>
           <CashboxLedgerPrintTemplate

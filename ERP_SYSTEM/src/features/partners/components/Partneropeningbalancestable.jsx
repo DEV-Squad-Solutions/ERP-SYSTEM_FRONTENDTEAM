@@ -158,10 +158,10 @@ export default function PartnerOpeningBalancesTable({
                   {currencyLabels[item.currency] || item.currency}
                 </td>
                 <td className="num px-4 py-3 text-center text-sm font-semibold text-ink-900">
-                  {Number(item.amount).toLocaleString("ar-EG")}
+                  {Number(item.amount).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
                 </td>
                 <td className="num px-4 py-3 text-center text-sm text-ink-500">
-                  {Number(item.baseAmount).toLocaleString("ar-EG")}{" "}
+                  {Number(item.baseAmount).toLocaleString("ar-EG", { maximumFractionDigits: 2 })}{" "}
                   <span className="text-xs text-ink-400">
                     {item.baseCurrency}
                   </span>

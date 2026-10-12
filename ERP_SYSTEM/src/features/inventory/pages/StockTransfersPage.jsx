@@ -429,7 +429,7 @@ export default function StockTransfersPage() {
 
                     <td className="p-2.5 text-sm num border-l border-ink-400/5">
                       {Number(row.totalQuantity || 0).toLocaleString("ar-EG", {
-                        maximumFractionDigits: 3,
+                        maximumFractionDigits: 2,
                       })}
                     </td>
 
@@ -523,7 +523,7 @@ function SummaryCard({ icon, label, value }) {
 
       <p className="text-lg font-bold num text-ink-900">
         {Number(value || 0).toLocaleString("ar-EG", {
-          maximumFractionDigits: 3,
+          maximumFractionDigits: 2,
         })}
       </p>
     </div>

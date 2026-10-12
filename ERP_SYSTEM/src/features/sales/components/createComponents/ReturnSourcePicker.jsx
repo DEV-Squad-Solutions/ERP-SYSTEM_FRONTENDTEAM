@@ -67,7 +67,7 @@ function ReturnSourceInvoiceRow({
         </div>
         <div className="flex items-center gap-2">
           <span className="num text-sm font-semibold text-ink-900">
-            {invoice.originalTotal.toLocaleString("ar-EG")} {invoice.currency}
+            {invoice.originalTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} {invoice.currency}
           </span>
           {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
