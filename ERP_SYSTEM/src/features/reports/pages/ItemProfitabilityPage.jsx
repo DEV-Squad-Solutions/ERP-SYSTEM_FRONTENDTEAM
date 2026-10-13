@@ -33,6 +33,7 @@ import { useGetItemsCategoriesSelectQuery } from "../../itemsCategories/itemsCat
 import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 
 import { toast } from "sonner";
+import { formatDate } from "../../../lib/date.js";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -219,16 +220,16 @@ function ItemProfitabilityPrint({ data, filters }) {
 
           <div className="text-left text-sm">
             <p>
-              من: <strong>{filters.fromDate || "—"}</strong>
+              من: <strong>{filters.fromDate ? formatDate(filters.fromDate) : "—"}</strong>
             </p>
 
             <p>
-              إلى: <strong>{filters.toDate || "—"}</strong>
+              إلى: <strong>{filters.toDate ? formatDate(filters.toDate) : "—"}</strong>
             </p>
 
             <p className="mt-1">
               تاريخ الطباعة:{" "}
-              <strong>{new Date().toLocaleDateString("ar-EG")}</strong>
+              <strong>{formatDate(new Date())}</strong>
             </p>
           </div>
         </div>
@@ -773,7 +774,7 @@ export default function ItemProfitabilityPage() {
 
                     <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-400">
                       <CalendarDays size={14} />
-                      {filters.fromDate} — {filters.toDate}
+                      {formatDate(filters.fromDate)} — {formatDate(filters.toDate)}
                     </div>
                   </div>
                 </div>

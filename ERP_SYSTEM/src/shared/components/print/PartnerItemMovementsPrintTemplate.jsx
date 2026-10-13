@@ -1,3 +1,4 @@
+import { formatDate } from "../../../lib/date.js";
 export default function PartnerItemMovementsPrintTemplate({ data, filters }) {
   const rows = data?.movements ?? [];
 
@@ -40,7 +41,7 @@ export default function PartnerItemMovementsPrintTemplate({ data, filters }) {
 
       {(filters?.fromDate || filters?.toDate) && (
         <p style={{ textAlign: "center", marginBottom: 16, fontSize: 12 }}>
-          الفترة من {filters?.fromDate || "—"} إلى {filters?.toDate || "—"}
+          الفترة من {filters?.fromDate ? formatDate(filters?.fromDate) : "—"} إلى {filters?.toDate ? formatDate(filters?.toDate) : "—"}
         </p>
       )}
 
@@ -90,7 +91,7 @@ export default function PartnerItemMovementsPrintTemplate({ data, filters }) {
           {rows.map((row, i) => (
             <tr key={`${row.invoiceId}-${i}`}>
               <td style={cellStyle}>{row.invoiceNumber || "-"}</td>
-              <td style={cellStyle}>{row.invoiceDate || "-"}</td>
+              <td style={cellStyle}>{row.invoiceDate ? formatDate(row.invoiceDate) : "-"}</td>
               <td style={cellStyle}>{movementLabel(row.movementType)}</td>
               <td style={cellStyle}>{fmt(row.count)}</td>
               <td style={cellStyle}>{fmt(row.weight)}</td>

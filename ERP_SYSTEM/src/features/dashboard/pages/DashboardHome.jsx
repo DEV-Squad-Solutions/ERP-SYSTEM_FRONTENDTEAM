@@ -41,6 +41,8 @@ import { useGetDashboardSummaryQuery } from "../dashboardApi";
 import useDashboardPrint from "../../../shared/hooks/useDashboardPrint";
 import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import DashboardPrintTemplate from "../../../shared/components/print/DashboardPrintTemplate";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
+import { formatDate } from "../../../lib/date.js";
 
 /* ------------------------------------------------------------------ */
 /* توكنز التصميم — هوية "دفتر أستاذ" (Ledger): تيل داكن كأساس ماليّ    */
@@ -418,13 +420,14 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold">لوحة التحكم</h1>
             </div>
             <p className="mt-1 text-sm text-teal-100">
-              {data?.fiscalYearName} • {data?.fromDate} إلى {data?.toDate} •
+              {data?.fiscalYearName} • {data?.fromDate ? formatDate(data.fromDate) : "—"} إلى {data?.toDate ? formatDate(data.toDate) : "—"} •
               {getCurrencyLabel(data?.baseCurrency)}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <input
+            <DateInput
               type="date"
+              dark
               min={selectedFiscalYear?.startDate?.slice(0, 10)}
               max={selectedFiscalYear?.endDate?.slice(0, 10)}
               value={range.fromDate}
@@ -434,8 +437,9 @@ export default function DashboardPage() {
               className="rounded-lg border border-white/30 bg-white/10 px-2 py-1.5 text-sm text-white placeholder-white/70 backdrop-blur focus:border-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-300 [color-scheme:dark]"
             />
             <span className="text-sm text-teal-100">إلى</span>
-            <input
+            <DateInput
               type="date"
+              dark
               min={selectedFiscalYear?.startDate?.slice(0, 10)}
               max={selectedFiscalYear?.endDate?.slice(0, 10)}
               value={range.toDate}

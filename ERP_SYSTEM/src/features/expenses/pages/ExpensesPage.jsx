@@ -12,6 +12,7 @@ import { useGetExpenseAccountsSelectQuery } from "../../accounts/accountsApi";
 import ExpenseFilters from "../components/ExpenseFilters";
 import ExpenseDetailsModal from "../components/ExpenseDetailsModal";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 const emptyFilters = {
   search: "",
@@ -34,11 +35,7 @@ function fmtAmount(n, currency) {
 function fmtDate(d) {
   if (!d) return "—";
 
-  return new Date(d).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatDate(new Date(d));
 }
 
 function partyLabel(v) {

@@ -14,6 +14,7 @@ import { useGetCashFlowQuery } from "../../statements/statementsApi";
 import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
 import CashFlowPrintTemplate from "../../../shared/components/print/CashFlowPrintTemplate";
 import { useCashFlowPrint } from "../../../shared/hooks/useCashFlowPrint";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -158,7 +159,7 @@ export default function CashFlowPage({ companyName = "" }) {
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">من تاريخ</label>
-          <input
+          <DateInput
             type="date"
             value={draft.fromDate}
             onChange={(e) =>
@@ -170,7 +171,7 @@ export default function CashFlowPage({ companyName = "" }) {
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">إلى تاريخ</label>
-          <input
+          <DateInput
             type="date"
             value={draft.toDate}
             onChange={(e) =>

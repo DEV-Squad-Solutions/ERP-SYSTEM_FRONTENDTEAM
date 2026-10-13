@@ -7,6 +7,8 @@ import Modal from "../../../shared/components/ui/Modal";
 import Button from "../../../shared/components/ui/Button";
 import useCashHandoverReportPrint from "../../../shared/hooks/useCashHandoverReportPrint";
 import CashHandoverReportPrintTemplate from "../../../shared/components/print/CashHandoverReportPrintTemplate";
+import { formatDate } from "../../../lib/date.js";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const currencySymbols = {
   EGP: "ج.م",
@@ -177,7 +179,7 @@ export default function CashHandoverReportModal({
             من تاريخ
           </label>
 
-          <input
+          <DateInput
             type="date"
             value={filters.fromDate}
             onChange={(e) => updateFilter("fromDate", e.target.value)}
@@ -190,7 +192,7 @@ export default function CashHandoverReportModal({
             إلى تاريخ
           </label>
 
-          <input
+          <DateInput
             type="date"
             value={filters.toDate}
             onChange={(e) => updateFilter("toDate", e.target.value)}
@@ -330,7 +332,7 @@ export default function CashHandoverReportModal({
                       </td>
 
                       <td className="px-3 py-2 text-ink-400">
-                        {v.voucherDate}
+                        {formatDate(v.voucherDate)}
                       </td>
 
                       <td className="px-3 py-2">

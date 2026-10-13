@@ -25,6 +25,7 @@ import Input from "../../../shared/components/ui/Input";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import PayrollDetailPrintTemplate from "../../../shared/components/print/PayrollDetailPrintTemplate";
 import { usePayrollDetailPrint } from "../../../shared/hooks/usePayrollDetailPrint";
+import { formatDate } from "../../../lib/date.js";
 
 export default function SalaryDetailPage() {
   const { salaryId } = useParams();
@@ -218,11 +219,11 @@ export default function SalaryDetailPage() {
 
             <span>الفترة:</span>
 
-            <strong>{entry.startDate}</strong>
+            <strong>{formatDate(entry.startDate)}</strong>
 
             <span className="text-ink-400">إلى</span>
 
-            <strong>{entry.endDate}</strong>
+            <strong>{formatDate(entry.endDate)}</strong>
           </div>
         </div>
       </div>

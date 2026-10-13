@@ -35,6 +35,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Modal from "../../../shared/components/ui/Modal";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 export default function FiscalYearsListPage() {
   const [page, setPage] = useState(1);
@@ -320,11 +321,11 @@ export default function FiscalYearsListPage() {
                       </td>
 
                       <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
-                        {fy.startDate}
+                        {formatDate(fy.startDate)}
                       </td>
 
                       <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
-                        {fy.endDate}
+                        {formatDate(fy.endDate)}
                       </td>
 
                       <td className="px-4 py-3 text-center">
@@ -352,7 +353,7 @@ export default function FiscalYearsListPage() {
 
                       <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-500">
                         {fy.closedOn
-                          ? new Date(fy.closedOn).toLocaleDateString("en-GB")
+                          ? formatDate(new Date(fy.closedOn))
                           : "—"}
                       </td>
 

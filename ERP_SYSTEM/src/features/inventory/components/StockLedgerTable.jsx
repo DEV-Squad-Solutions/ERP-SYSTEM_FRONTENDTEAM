@@ -10,6 +10,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
 } from "lucide-react";
+import { formatDate } from "../../../lib/date.js";
 
 /**
  * @param {{ filters: Object }} props
@@ -148,7 +149,7 @@ export default function StockLedgerTable({ filters }) {
               className="border-b border-ink-400/5 last:border-0 hover:bg-ink-900/[0.015] transition-colors"
             >
               <td className="p-3.5 num text-ink-600">{row.invoiceNumber}</td>
-              <td className="p-3.5 num text-ink-600">{row.date}</td>
+              <td className="p-3.5 num text-ink-600">{formatDate(row.date)}</td>
               <td className="p-3.5">
                 {row.movementType === "purchase" ? (
                   <span className="inline-flex items-center gap-1.5 bg-positive/10 text-positive text-xs font-medium px-2.5 py-1 rounded-full">

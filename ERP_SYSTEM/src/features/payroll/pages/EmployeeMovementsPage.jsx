@@ -31,6 +31,8 @@ import Pagination from "../../../shared/components/ui/Pagination";
 import DeleteConfirmModal from "../../../shared/components/ui/DeleteConfirmModal";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import { formatDate } from "../../../lib/date.js";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const fmt = (n) => (n ?? 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -224,7 +226,7 @@ export default function EmployeeMovementsPage() {
             <label className="block text-xs font-medium text-ink-400 mb-1">
               من تاريخ
             </label>
-            <input
+            <DateInput
               type="date"
               min={fiscalYear?.startDate}
               max={fiscalYear?.endDate}
@@ -241,7 +243,7 @@ export default function EmployeeMovementsPage() {
             <label className="block text-xs font-medium text-ink-400 mb-1">
               إلى تاريخ
             </label>
-            <input
+            <DateInput
               type="date"
               min={fiscalYear?.startDate}
               max={fiscalYear?.endDate}
@@ -355,7 +357,7 @@ export default function EmployeeMovementsPage() {
                     </td>
 
                     <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
-                      {item.movementDate}
+                      {formatDate(item.movementDate)}
                     </td>
 
                     <td className="num px-4 py-3 text-center font-medium text-positive">

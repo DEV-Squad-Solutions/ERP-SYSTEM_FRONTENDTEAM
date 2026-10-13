@@ -23,6 +23,7 @@ import { useGetStoresSelectQuery } from "../../stores/storesApi";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import { formatDate } from "../../../lib/date";
 
 export default function StockAdjustmentsListPage() {
   const navigate = useNavigate();
@@ -233,9 +234,7 @@ export default function StockAdjustmentsListPage() {
                           </button>
                         </td>
                         <td className="py-2.5 px-3 text-ink-600">
-                          {new Date(adj.documentDate).toLocaleDateString(
-                            "ar-EG",
-                          )}
+                          {formatDate(adj.documentDate)}
                         </td>
                         <td className="py-2.5 px-3 text-ink-600">
                           {adj.storeName}

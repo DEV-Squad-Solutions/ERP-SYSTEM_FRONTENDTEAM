@@ -14,6 +14,7 @@ import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
 import { Printer } from "lucide-react";
 import { useFinancialPositionPrint } from "../../../shared/hooks/useFinancialPositionPrint";
 import FinancialPositionPrintTemplate from "../../../shared/components/print/FinancialPositionPrintTemplate";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 function fmt(n) {
   return new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(
@@ -177,7 +178,7 @@ export default function FinancialPositionPage({ companyName = "" }) {
       <div className="mb-5 flex flex-wrap items-end gap-3 rounded-2xl border border-ink-400/10 bg-white p-4 shadow-card">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">من تاريخ</label>
-          <input
+          <DateInput
             type="date"
             value={draft.fromDate}
             onChange={(e) =>
@@ -189,7 +190,7 @@ export default function FinancialPositionPage({ companyName = "" }) {
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">إلى تاريخ</label>
-          <input
+          <DateInput
             type="date"
             value={draft.toDate}
             onChange={(e) =>

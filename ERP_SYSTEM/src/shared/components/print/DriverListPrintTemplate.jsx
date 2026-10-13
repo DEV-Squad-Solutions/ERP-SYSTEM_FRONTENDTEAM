@@ -1,8 +1,10 @@
+import { formatDateTime } from "../../../lib/date.js";
+import { formatDate } from "../../../lib/date.js";
 export default function DriverListPrintTemplate({
   drivers = [],
   filters = {},
 }) {
-  const printedAt = new Date().toLocaleString("ar-EG");
+  const printedAt = formatDateTime(new Date());
   const hasActiveFilters = Object.values(filters || {}).some((v) => v);
 
   return (
@@ -55,7 +57,7 @@ export default function DriverListPrintTemplate({
               <td className="py-2 px-2 font-mono text-xs">
                 {driver.licenseNumber || "—"}
               </td>
-              <td className="py-2 px-2">{driver.licenseExpiryDate || "—"}</td>
+              <td className="py-2 px-2">{driver.licenseExpiryDate ? formatDate(driver.licenseExpiryDate) : "—"}</td>
               <td className="py-2 px-2">
                 {driver.isActive ? "نشط" : "غير نشط"}
               </td>

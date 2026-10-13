@@ -1,5 +1,6 @@
 // features/statements/components/EmployeeStatementFilters.jsx
 import { Search, RotateCcw } from "lucide-react";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const SOURCE_TYPES = [
   { value: "", label: "الكل" },
@@ -42,7 +43,7 @@ export default function EmployeeStatementFilters({
         </div>
         <div>
           <label className="mb-1 block text-xs text-ink-400">من تاريخ</label>
-          <input
+          <DateInput
             type="date"
             value={draft.FromDate}
             onChange={(e) => set("FromDate", e.target.value)}
@@ -51,7 +52,7 @@ export default function EmployeeStatementFilters({
         </div>
         <div>
           <label className="mb-1 block text-xs text-ink-400">إلى تاريخ</label>
-          <input
+          <DateInput
             type="date"
             value={draft.ToDate}
             onChange={(e) => set("ToDate", e.target.value)}

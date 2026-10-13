@@ -1,5 +1,7 @@
 // src/shared/components/print/IncomeStatementPrintTemplate.jsx
 import { Fragment } from "react";
+import { formatDateTime } from "../../../lib/date.js";
+import { formatDate } from "../../../lib/date.js";
 
 function fmt(n) {
   return new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(
@@ -14,7 +16,7 @@ export default function IncomeStatementPrintTemplate({
   filters = {},
   companyName = "",
 }) {
-  const printedAt = new Date().toLocaleString("ar-EG");
+  const printedAt = formatDateTime(new Date());
   const isDetailed = filters.viewMode === "Detailed";
   const colCount = isDetailed ? 5 : 4;
   const { revenue = 0, expense = 0, netResult = 0 } = summary;
@@ -32,7 +34,7 @@ export default function IncomeStatementPrintTemplate({
         <div className="text-sm text-ink-400 text-left">
           {data?.fiscalYearName && <p>السنة المالية: {data.fiscalYearName}</p>}
           <p>
-            من {filters.fromDate} إلى {filters.toDate}
+            من {formatDate(filters.fromDate)} إلى {formatDate(filters.toDate)}
           </p>
         </div>
       </div>

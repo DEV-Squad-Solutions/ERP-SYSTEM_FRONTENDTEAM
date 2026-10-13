@@ -16,6 +16,7 @@ import {
   JournalEntryType,
   MANUAL_ENTRY_TYPES,
 } from "../journalEntriesApi";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const ENTRY_TYPE_LABELS = {
   [JournalEntryType.Manual]: "يدوي",
@@ -1105,7 +1106,7 @@ export default function JournalEntryFormPage() {
                 تاريخ القيد
               </label>
 
-              <input
+              <DateInput
                 type="date"
                 value={entryDate}
                 disabled={isReadOnly}

@@ -35,6 +35,8 @@ import Button from "../../../shared/components/ui/Button";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import { usePayrollDashboardPrint } from "../../../shared/hooks/usePayrollDashboardPrint";
 import PayrollDashboardPrintTemplate from "../../../shared/components/print/PayrollDashboardPrintTemplate";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
+import { formatDate } from "../../../lib/date.js";
 
 const EMPLOYEE_TYPES = {
   DAILY: "Daily",
@@ -338,7 +340,7 @@ export default function PayrollDashboardPage() {
               من تاريخ
             </label>
 
-            <input
+            <DateInput
               type="date"
               min={fiscalYear?.startDate}
               max={fiscalYear?.endDate}
@@ -354,7 +356,7 @@ export default function PayrollDashboardPage() {
               إلى تاريخ
             </label>
 
-            <input
+            <DateInput
               type="date"
               min={fiscalYear?.startDate}
               max={fiscalYear?.endDate}
@@ -579,7 +581,7 @@ export default function PayrollDashboardPage() {
           <CalendarDays size={14} />
 
           <span>
-            الفترة: {fromDate || "—"} إلى {toDate || "—"}
+            الفترة: {fromDate ? formatDate(fromDate) : "—"} إلى {toDate ? formatDate(toDate) : "—"}
           </span>
         </div>
 

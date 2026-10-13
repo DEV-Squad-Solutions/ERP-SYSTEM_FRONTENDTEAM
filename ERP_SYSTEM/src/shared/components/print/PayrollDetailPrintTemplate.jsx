@@ -1,5 +1,6 @@
 import { useSelector } from "react-redux";
 import { EMPLOYEE_TYPE } from "../../../features/payroll/payroll.constants";
+import { formatDate } from "../../../lib/date.js";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -21,7 +22,7 @@ export default function PayrollDetailPrintTemplate({ entry }) {
 
   if (!entry) return null;
 
-  const today = new Date().toLocaleDateString("ar-EG");
+  const today = formatDate(new Date());
   const attendance = entry.attendanceSummary || {};
 
   return (

@@ -16,6 +16,7 @@ import {
   useGetStockAdjustmentByIdQuery,
   useDeleteStockAdjustmentMutation,
 } from "../stockAdjustmentsApi";
+import { formatDate } from "../../../lib/date.js";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -126,7 +127,7 @@ export default function StockAdjustmentDetailPage() {
             </div>
             <p className="text-sm text-ink-500 mt-1.5">
               {adjustment.storeName} •{" "}
-              {new Date(adjustment.documentDate).toLocaleDateString("ar-EG")}
+              {formatDate(new Date(adjustment.documentDate))}
             </p>
             {adjustment.reason && (
               <p className="text-sm text-ink-600 mt-2">{adjustment.reason}</p>

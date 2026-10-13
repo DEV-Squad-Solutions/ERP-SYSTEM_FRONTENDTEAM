@@ -16,6 +16,7 @@ import {
   fiscalYearStatusDot,
 } from "../../../features/fiscalYears/fiscalYears.constants";
 import { selectIsAuthenticated } from "../../../features/auth/authSlice";
+import { formatDate } from "../../../lib/date.js";
 
 /**
  * زر السنة المالية في الـ Navbar. يحمّل قائمة سنوات الشركة الحالية،
@@ -135,7 +136,7 @@ export default function FiscalYearSwitcher() {
                     </span>
 
                     <span className="text-[11px] text-ink-400 dark:text-ink-400">
-                      {year.startDate} — {year.endDate}
+                      {formatDate(year.startDate)} — {formatDate(year.endDate)}
                     </span>
                   </div>
 

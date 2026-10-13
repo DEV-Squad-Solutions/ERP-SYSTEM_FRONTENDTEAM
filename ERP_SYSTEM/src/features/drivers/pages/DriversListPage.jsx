@@ -15,6 +15,7 @@ import Pagination from "../../../shared/components/ui/Pagination";
 import { useInvoiceListPrint } from "../../../shared/hooks/useInvoiceListPrint";
 import DriverListPrintTemplate from "../../../shared/components/print/DriverListPrintTemplate";
 import QuickAddDriverModal from "../components/QuickAddDriverModal";
+import { formatDate } from "../../../lib/date.js";
 
 export default function DriversListPage() {
   const navigate = useNavigate();
@@ -286,7 +287,7 @@ export default function DriversListPage() {
                               : "text-ink-700"
                           }
                         >
-                          {driver.licenseExpiryDate || "—"}
+                          {driver.licenseExpiryDate ? formatDate(driver.licenseExpiryDate) : "—"}
                           {expired && " (منتهية)"}
                         </span>
                       </td>

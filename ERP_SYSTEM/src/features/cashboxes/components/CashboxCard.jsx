@@ -1,4 +1,5 @@
 import { Pencil, Trash2 } from "lucide-react";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 
 const formatNumber = (value) => {
   if (value === null || value === undefined || value === "") {
@@ -13,11 +14,7 @@ const formatNumber = (value) => {
 const formatDate = (date) => {
   if (!date) return "—";
 
-  return new Date(date).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return sharedFormatDate(new Date(date));
 };
 
 export default function CashboxCard({ cashbox, onClick, onEdit, onDelete }) {

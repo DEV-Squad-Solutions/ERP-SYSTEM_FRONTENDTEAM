@@ -39,6 +39,7 @@ import {
 } from "../journalEntriesApi";
 import { useJournalEntriesListPrint } from "../../../shared/hooks/useJournalEntriesListPrint";
 import JournalEntriesListPrintTemplate from "../../../shared/components/print/JournalEntriesListPrintTemplate";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 // =========================================================
 // Constants
@@ -1018,7 +1019,7 @@ export default function JournalEntriesListPage() {
                     "
                   />
 
-                  <input
+                  <DateInput
                     type="date"
                     value={filters.fromDate}
                     onChange={(event) =>
@@ -1068,7 +1069,7 @@ export default function JournalEntriesListPage() {
                     "
                   />
 
-                  <input
+                  <DateInput
                     type="date"
                     value={filters.toDate}
                     onChange={(event) =>

@@ -3,6 +3,7 @@ import { Loader2, FileSearch, ChevronDown, ChevronUp } from "lucide-react";
 import { useGetReturnSourcesQuery } from "../../../invoices/invoicesApi";
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import useDebouncedValue from "../../../../shared/hooks/useDebouncedValue";
+import { formatDate } from "../../../../lib/date.js";
 
 const RETURN_TYPE_MAP = {
   salesReturn: "SalesReturn",
@@ -62,7 +63,7 @@ function ReturnSourceInvoiceRow({
             {invoice.partnerInvoiceNo ? ` (${invoice.partnerInvoiceNo})` : ""}
           </span>
           <span className="text-xs text-ink-400">
-            {invoice.invoiceDate} — {invoice.businessPartnerName}
+            {formatDate(invoice.invoiceDate)} — {invoice.businessPartnerName}
           </span>
         </div>
         <div className="flex items-center gap-2">

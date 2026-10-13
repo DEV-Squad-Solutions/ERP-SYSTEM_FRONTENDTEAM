@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 
 const SOURCE_TYPE_LABELS = {
   OpeningBalance: "رصيد افتتاحي",
@@ -28,7 +29,7 @@ const formatDate = (value) => {
     return value;
   }
 
-  return date.toLocaleDateString("ar-EG");
+  return sharedFormatDate(date);
 };
 
 /**
@@ -62,7 +63,7 @@ export default function EmployeeStatementPrintTemplate({
   const employeeCode =
     employee?.employeeCode || employee?.code || data?.employeeCode || "—";
 
-  const today = new Date().toLocaleDateString("ar-EG");
+  const today = formatDate(new Date());
 
   return (
     <div
@@ -210,9 +211,9 @@ export default function EmployeeStatementPrintTemplate({
             flexWrap: "wrap",
           }}
         >
-          {filters.FromDate && <span>من: {filters.FromDate}</span>}
+          {filters.FromDate && <span>من: {formatDate(filters.FromDate)}</span>}
 
-          {filters.ToDate && <span>إلى: {filters.ToDate}</span>}
+          {filters.ToDate && <span>إلى: {formatDate(filters.ToDate)}</span>}
 
           {filters.SourceType && (
             <span>

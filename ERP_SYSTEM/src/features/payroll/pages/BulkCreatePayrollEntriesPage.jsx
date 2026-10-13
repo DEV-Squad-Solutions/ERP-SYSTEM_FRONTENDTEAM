@@ -33,6 +33,8 @@ import Button from "../../../shared/components/ui/Button";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Input from "../../../shared/components/ui/Input";
+import { formatDate } from "../../../lib/date.js";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 function getToday() {
   const date = new Date();
@@ -503,7 +505,7 @@ export default function BulkCreatePayrollEntriesPage() {
                   من
                 </label>
 
-                <input
+                <DateInput
                   type="date"
                   min={fiscalYear?.startDate}
                   max={fiscalYear?.endDate}
@@ -519,7 +521,7 @@ export default function BulkCreatePayrollEntriesPage() {
                 {isOutCompany ? "إلى" : "التاريخ"}
               </label>
 
-              <input
+              <DateInput
                 type="date"
                 min={fiscalYear?.startDate}
                 max={fiscalYear?.endDate}
@@ -1116,15 +1118,15 @@ export default function BulkCreatePayrollEntriesPage() {
                       <>
                         الفترة:
                         <strong className="text-ink-900 mx-1">
-                          {startDate}
+                          {formatDate(startDate)}
                         </strong>
                         إلى
-                        <strong className="text-ink-900 mx-1">{endDate}</strong>
+                        <strong className="text-ink-900 mx-1">{formatDate(endDate)}</strong>
                       </>
                     ) : (
                       <>
                         التاريخ:
-                        <strong className="text-ink-900 mx-1">{endDate}</strong>
+                        <strong className="text-ink-900 mx-1">{formatDate(endDate)}</strong>
                       </>
                     )}
                   </span>

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useGetStockTransfersQuery } from "../../inventory/stockTransfersApi";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -19,11 +20,7 @@ const formatDate = (value) => {
 
   if (Number.isNaN(date.getTime())) return "—";
 
-  return date.toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return sharedFormatDate(date);
 };
 
 const formatNumber = (value) => {

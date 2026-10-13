@@ -14,7 +14,7 @@ import {
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
-import { todayInCairo } from "../../../lib/date";
+import { formatDate, todayInCairo } from "../../../lib/date";
 import { round2 } from "../../../lib/number";
 import CashVoucherEditModal from "./CashVoucherEditModal";
 import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
@@ -27,6 +27,7 @@ import {
   getCurrentDescriptionValue,
   buildPostingTargetPayload,
 } from "../utils/descriptionGroups";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const fmt = (value) =>
   Number(value ?? 0).toLocaleString("ar-EG", {
@@ -1073,7 +1074,7 @@ export default function CashboxLedgerTable({
                   </td>
 
                   <td className="border-l border-ink-400/5 p-1.5">
-                    <input
+                    <DateInput
                       type="date"
                       value={draft.voucherDate}
                       onChange={handleDraftDateChange}
@@ -1280,7 +1281,7 @@ export default function CashboxLedgerTable({
 
                     <td className="num border-l border-ink-400/5 px-2 py-2 text-[10px] text-ink-600">
                       <span className="whitespace-nowrap">
-                        {row.voucherDate}
+                        {formatDate(row.voucherDate)}
                       </span>
                     </td>
 

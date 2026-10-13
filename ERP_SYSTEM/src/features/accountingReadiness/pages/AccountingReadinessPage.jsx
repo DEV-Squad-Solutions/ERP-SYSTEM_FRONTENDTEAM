@@ -27,6 +27,7 @@ import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import Modal from "../../../shared/components/ui/Modal";
+import { formatDate } from "../../../lib/date.js";
 
 const ISSUE_LABELS = {
   MissingJournal: "قيد ناقص",
@@ -246,8 +247,8 @@ export default function AccountingReadinessPage() {
             )}
             <div>
               <p className="font-semibold text-ink-900">
-                {readiness.fiscalYearName} — {readiness.startDate} إلى{" "}
-                {readiness.endDate}
+                {readiness.fiscalYearName} — {formatDate(readiness.startDate)} إلى{" "}
+                {formatDate(readiness.endDate)}
               </p>
               <p className="text-sm text-ink-600 mt-0.5">
                 {readiness.isReady
@@ -410,7 +411,7 @@ export default function AccountingReadinessPage() {
                             )}
                           </td>
                           <td className="num px-4 py-2.5 text-center text-ink-500">
-                            {issue.sourceDate}
+                            {formatDate(issue.sourceDate)}
                           </td>
                           <td className="px-4 py-2.5 text-right text-ink-600">
                             {issue.message}

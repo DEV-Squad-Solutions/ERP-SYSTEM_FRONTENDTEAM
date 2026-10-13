@@ -16,6 +16,7 @@ import StockOpeningBalancesTable from "../../inventory/components/StockOpeningBa
 import StockOpeningBalanceForm from "../../inventory/components/StockOpeningBalanceForm";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const emptyFilters = {
   documentNumber: "",
@@ -178,7 +179,7 @@ export default function StockOpeningBalancesPage() {
             <label className="mb-1 block text-xs font-medium text-ink-400">
               من تاريخ
             </label>
-            <input
+            <DateInput
               type="date"
               value={draft.fromDate}
               onChange={(e) => setField("fromDate", e.target.value)}
@@ -190,7 +191,7 @@ export default function StockOpeningBalancesPage() {
             <label className="mb-1 block text-xs font-medium text-ink-400">
               إلى تاريخ
             </label>
-            <input
+            <DateInput
               type="date"
               value={draft.toDate}
               onChange={(e) => setField("toDate", e.target.value)}

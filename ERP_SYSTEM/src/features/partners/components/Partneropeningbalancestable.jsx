@@ -6,6 +6,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 const currencyLabels = {
   EGP: "جنيه مصري",
@@ -143,7 +144,7 @@ export default function PartnerOpeningBalancesTable({
                   {item.documentNumber}
                 </td>
                 <td className="num px-4 py-3 text-center text-sm text-ink-600">
-                  {item.documentDate}
+                  {formatDate(item.documentDate)}
                 </td>
                 <td className="px-4 py-3 text-sm text-ink-900">
                   {item.businessPartnerName || "—"}

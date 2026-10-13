@@ -3,6 +3,7 @@ import Select from "react-select";
 import { useGetInventoryCostReportQuery } from "../storesApi";
 import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 import Pagination from "../../../shared/components/ui/Pagination"; // عدّل المسار حسب مكانك // عدّل المسار حسب مكان inventoryApi عندك
+import { formatDate } from "../../../lib/date";
 
 const MOVEMENT_TYPE_LABELS = {
   Sales: "فاتورة مبيعات",
@@ -160,11 +161,7 @@ export default function StoreMovementsTab({ storeId }) {
                       className="border-b border-ink-50 hover:bg-ink-50/50 transition-colors"
                     >
                       <td className="py-2.5 px-3 text-ink-700">
-                        {row.movementDate
-                          ? new Date(row.movementDate).toLocaleDateString(
-                              "ar-EG",
-                            )
-                          : "—"}
+                        {row.movementDate ? formatDate(row.movementDate) : "—"}
                       </td>
                       <td className="py-2.5 px-3 text-ink-700">
                         {MOVEMENT_TYPE_LABELS[row.movementType] ??

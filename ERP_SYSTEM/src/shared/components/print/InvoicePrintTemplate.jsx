@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { formatDate } from "../../../lib/date.js";
 
 const typeLabels = {
   Sales: "فاتورة بيع",
@@ -115,8 +116,8 @@ export default function InvoicePrintTemplate({ invoice }) {
           <p style={{ fontWeight: 700, marginBottom: "6px" }}>
             بيانات الفاتورة
           </p>
-          <p style={{ margin: "2px 0" }}>التاريخ: {invoice.invoiceDate}</p>
-          <p style={{ margin: "2px 0" }}>تاريخ الاستحقاق: {invoice.dueDate}</p>
+          <p style={{ margin: "2px 0" }}>التاريخ: {formatDate(invoice.invoiceDate)}</p>
+          <p style={{ margin: "2px 0" }}>تاريخ الاستحقاق: {formatDate(invoice.dueDate)}</p>
           <p style={{ margin: "2px 0" }}>
             طريقة الدفع: {paymentLabels[invoice.paymentTerm] || "—"}
           </p>

@@ -2,6 +2,7 @@ import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
 import BalanceBadge from "./BalanceBadge";
 import Pagination from "../../../shared/components/ui/Pagination";
 import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
+import { formatDate } from "../../../lib/date.js";
 
 const SOURCE_TYPE_LABELS = {
   OpeningBalance: "رصيد افتتاحي",
@@ -238,7 +239,7 @@ export default function EmployeeStatementTable({
                   </td>
 
                   <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
-                    {item.date || "—"}
+                    {item.date ? formatDate(item.date) : "—"}
                   </td>
 
                   <td className="px-4 py-3 text-right">

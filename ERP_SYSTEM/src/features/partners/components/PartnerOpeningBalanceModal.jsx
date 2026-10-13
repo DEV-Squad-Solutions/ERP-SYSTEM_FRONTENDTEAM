@@ -17,6 +17,7 @@ import {
 } from "../partnerOpeningBalancesApi";
 
 import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 /* =========================================================
    OPTIONS
@@ -399,7 +400,7 @@ export default function PartnerOpeningBalanceModal({
             التاريخ
           </label>
 
-          <input
+          <DateInput
             type="date"
             value={form.documentDate}
             min={selectedFiscalYear?.startDate}

@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { formatDate } from "../../../lib/date.js";
 
 const fmt = (value) => Number(value || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -73,11 +74,11 @@ export default function CashboxLedgerPrintTemplate({
             fontSize: "10px",
           }}
         >
-          <p>تاريخ الطباعة: {new Date().toLocaleDateString("ar-EG")}</p>
+          <p>تاريخ الطباعة: {formatDate(new Date())}</p>
 
-          {fromDate && <p>من: {fromDate}</p>}
+          {fromDate && <p>من: {formatDate(fromDate)}</p>}
 
-          {toDate && <p>إلى: {toDate}</p>}
+          {toDate && <p>إلى: {formatDate(toDate)}</p>}
         </div>
       </div>
 
@@ -114,7 +115,7 @@ export default function CashboxLedgerPrintTemplate({
         <tbody>
           {rows.map((item) => (
             <tr key={item.id}>
-              <td style={tdCenter}>{item.voucherDate}</td>
+              <td style={tdCenter}>{formatDate(item.voucherDate)}</td>
 
               <td style={tdCenter}>{item.voucherNumber || "—"}</td>
 

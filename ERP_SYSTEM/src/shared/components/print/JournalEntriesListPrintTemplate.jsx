@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { formatDate } from "../../../lib/date.js";
 
 // =========================================================
 // Constants
@@ -65,7 +66,7 @@ export default function JournalEntriesListPrintTemplate({
 }) {
   const company = useSelector((state) => state.auth.selectedCompany);
 
-  const today = new Date().toLocaleDateString("ar-EG");
+  const today = formatDate(new Date());
 
   const totalDebit = Number(summary?.totalDebit ?? 0);
   const totalCredit = Number(summary?.totalCredit ?? 0);
@@ -479,7 +480,7 @@ export default function JournalEntriesListPrintTemplate({
                     fontSize: "8.5px",
                   }}
                 >
-                  {entry.entryDate || "—"}
+                  {entry.entryDate ? formatDate(entry.entryDate) : "—"}
                 </td>
 
                 <td

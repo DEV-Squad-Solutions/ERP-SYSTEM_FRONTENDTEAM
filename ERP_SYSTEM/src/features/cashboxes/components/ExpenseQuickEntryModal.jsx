@@ -16,6 +16,7 @@ import { useGetEmployeesSelectQuery } from "../../payroll/payrollApi";
 
 import Modal from "../../../shared/components/ui/Modal";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const PARTY_TYPES = [
   { value: "None", label: "بدون طرف" },
@@ -223,7 +224,7 @@ export default function ExpenseQuickEntryModal({ isOpen, onClose, onSaved }) {
             <label className="mb-1.5 block text-sm font-medium text-ink">
               التاريخ
             </label>
-            <input
+            <DateInput
               type="date"
                             min={selectedFiscalYear?.startDate}
               max={selectedFiscalYear?.endDate}

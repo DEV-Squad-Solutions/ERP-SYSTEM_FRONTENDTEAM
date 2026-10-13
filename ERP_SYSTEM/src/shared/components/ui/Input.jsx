@@ -1,3 +1,44 @@
+import DateInput from "./DateInput";
+
+const baseInputClass = `
+  w-full
+  min-h-10
+  rounded-xl
+  border
+  bg-white
+  px-3.5
+  py-2.5
+  text-sm
+  font-medium
+  text-ink-900
+  placeholder:text-ink-400
+
+  dark:bg-dark-surface
+  dark:text-ink-100
+  dark:placeholder:text-ink-300/60
+
+  outline-none
+
+  transition-[border-color,box-shadow,background-color]
+  duration-200
+  ease-out
+
+  hover:border-ink-400/25
+
+  focus:bg-white
+  focus:ring-4
+
+  disabled:cursor-not-allowed
+  disabled:bg-ink-400/[0.04]
+  disabled:text-ink-400
+  disabled:opacity-70
+
+  dark:hover:border-white/[0.15]
+  dark:focus:bg-dark-surface
+  dark:disabled:bg-white/[0.04]
+  dark:disabled:text-ink-300/60
+`;
+
 export default function Input({
   label,
   error,
@@ -5,9 +46,25 @@ export default function Input({
   id,
   required = false,
   disabled = false,
+  type,
   ...props
 }) {
   const inputId = id || props.name;
+  const isDate = type === "date";
+
+  const stateClass = error
+    ? `
+      border-negative/60
+      focus:border-negative
+      focus:ring-negative/10
+    `
+    : `
+      border-ink-400/15
+      focus:border-primary-500
+      focus:ring-primary-500/10
+    `;
+
+  const resolvedClass = `${baseInputClass} ${stateClass} ${className}`;
 
   return (
     <div className="w-full">
@@ -33,68 +90,29 @@ export default function Input({
         </label>
       )}
 
-      {/* Input */}
-      <input
-        id={inputId}
-        disabled={disabled}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? `${inputId}-error` : undefined}
-        className={`
-          w-full
-          min-h-10
-          rounded-xl
-          border
-          bg-white
-          px-3.5
-          py-2.5
-          text-sm
-          font-medium
-          text-ink-900
-          placeholder:text-ink-400
-
-          dark:bg-dark-surface
-          dark:text-ink-100
-          dark:placeholder:text-ink-300/60
-
-          outline-none
-
-          transition-[border-color,box-shadow,background-color]
-          duration-200
-          ease-out
-
-          hover:border-ink-400/25
-
-          focus:bg-white
-          focus:ring-4
-
-          disabled:cursor-not-allowed
-          disabled:bg-ink-400/[0.04]
-          disabled:text-ink-400
-          disabled:opacity-70
-
-          dark:hover:border-white/[0.15]
-          dark:focus:bg-dark-surface
-          dark:disabled:bg-white/[0.04]
-          dark:disabled:text-ink-300/60
-
-          ${
-            error
-              ? `
-                border-negative/60
-                focus:border-negative
-                focus:ring-negative/10
-              `
-              : `
-                border-ink-400/15
-                focus:border-primary-500
-                focus:ring-primary-500/10
-              `
-          }
-
-          ${className}
-        `}
-        {...props}
-      />
+      {/* Date field: عرض موحّد يوم/شهر/سنة */}
+      {isDate ? (
+        <DateInput
+          id={inputId}
+          disabled={disabled}
+          required={required}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${inputId}-error` : undefined}
+          className={resolvedClass}
+          {...props}
+        />
+      ) : (
+        <input
+          id={inputId}
+          type={type}
+          disabled={disabled}
+          required={required}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${inputId}-error` : undefined}
+          className={resolvedClass}
+          {...props}
+        />
+      )}
 
       {/* Error */}
       {error && (

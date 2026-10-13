@@ -12,6 +12,7 @@ import Button from "../../../shared/components/ui/Button";
 
 import { useGetStockTransferByIdQuery } from "../stockTransfersApi";
 import { formatMoney, formatQuantity } from "../stockTransfers.constants";
+import { formatDate } from "../../../lib/date.js";
 
 export default function StockTransferDetailsModal({
   isOpen,
@@ -59,7 +60,7 @@ export default function StockTransferDetailsModal({
 
               <div className="flex items-center gap-1.5 text-xs text-ink-400">
                 <CalendarDays size={14} />
-                <span className="num">{transfer.transferDate}</span>
+                <span className="num">{formatDate(transfer.transferDate)}</span>
               </div>
             </div>
 

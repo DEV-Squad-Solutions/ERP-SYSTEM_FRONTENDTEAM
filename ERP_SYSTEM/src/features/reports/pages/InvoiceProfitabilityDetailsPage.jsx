@@ -21,6 +21,7 @@ import { useReactToPrint } from "react-to-print";
 import { useGetInvoiceProfitabilityDetailsQuery } from "../profitabilityApi";
 
 import Button from "../../../shared/components/ui/Button";
+import { formatDate } from "../../../lib/date.js";
 
 const numberFormatter = new Intl.NumberFormat("ar-EG", {
   minimumFractionDigits: 2,
@@ -217,7 +218,7 @@ function InvoiceProfitabilityPrint({ invoice }) {
 
         <div className="text-left text-sm text-slate-600">
           <p>
-            التاريخ: <strong>{invoice.invoiceDate || "—"}</strong>
+            التاريخ: <strong>{invoice.invoiceDate ? formatDate(invoice.invoiceDate) : "—"}</strong>
           </p>
 
           <p className="mt-1">

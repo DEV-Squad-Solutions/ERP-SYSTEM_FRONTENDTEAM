@@ -24,14 +24,11 @@ import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFisc
 import CurrencyFormModal from "../components/CurrencyFormModal";
 import ImportExchangeRatesModal from "../components/ImportExchangeRatesModal";
 import { selectIsAdmin } from "../../auth/authSlice";
+import { formatDate } from "../../../lib/date.js";
 
 function fmtDate(d) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatDate(new Date(d));
 }
 
 export default function CurrenciesPage() {

@@ -1,7 +1,8 @@
+import { formatDate, formatDateTime } from "../../../lib/date.js";
 export default function StorePrintTemplate({ store, stats }) {
   if (!store) return null;
 
-  const printedAt = new Date().toLocaleString("ar-EG");
+  const printedAt = formatDateTime(new Date());
 
   return (
     <div
@@ -33,7 +34,7 @@ export default function StorePrintTemplate({ store, stats }) {
           label="تاريخ الإنشاء"
           value={
             store.createdOn
-              ? new Date(store.createdOn).toLocaleDateString("ar-EG")
+              ? formatDate(new Date(store.createdOn))
               : "—"
           }
         />

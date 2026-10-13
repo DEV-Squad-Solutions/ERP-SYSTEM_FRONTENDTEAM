@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 
 const fmt = (value) =>
   Number(value || 0).toLocaleString("ar-EG", {
@@ -15,7 +16,7 @@ const formatDate = (value) => {
     return value;
   }
 
-  return date.toLocaleDateString("ar-EG");
+  return sharedFormatDate(date);
 };
 
 export default function DriverStatementPrintTemplate({
@@ -33,7 +34,7 @@ export default function DriverStatementPrintTemplate({
   const driverName =
     driver?.name || driver?.driverName || data?.driverName || "—";
 
-  const today = new Date().toLocaleDateString("ar-EG");
+  const today = formatDate(new Date());
 
   return (
     <div
@@ -177,9 +178,9 @@ export default function DriverStatementPrintTemplate({
             flexWrap: "wrap",
           }}
         >
-          {filters.fromDate && <span>من: {filters.fromDate}</span>}
+          {filters.fromDate && <span>من: {formatDate(filters.fromDate)}</span>}
 
-          {filters.toDate && <span>إلى: {filters.toDate}</span>}
+          {filters.toDate && <span>إلى: {formatDate(filters.toDate)}</span>}
 
           {filters.direction && (
             <span>

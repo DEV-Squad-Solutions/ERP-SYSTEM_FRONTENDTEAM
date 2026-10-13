@@ -3,6 +3,7 @@ import { resetRangeIfOutside } from "../../../lib/fiscalYearDateRange";
 import { useState } from "react";
 import { Scale, RefreshCw } from "lucide-react";
 import { useGetOperationalTrialBalanceQuery } from "../../statements/statementsApi";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const CATEGORY_LABELS = {
   Cashbox: "خزينة",
@@ -100,7 +101,7 @@ export default function AfterAdjustmentTrialBalancePage() {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">من تاريخ</label>
 
-          <input
+          <DateInput
             type="date"
             value={draft.fromDate}
             onChange={(e) =>
@@ -116,7 +117,7 @@ export default function AfterAdjustmentTrialBalancePage() {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-ink-400">إلى تاريخ</label>
 
-          <input
+          <DateInput
             type="date"
             value={draft.toDate}
             onChange={(e) =>

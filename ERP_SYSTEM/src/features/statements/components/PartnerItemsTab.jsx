@@ -17,6 +17,8 @@ import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 import { useGetPartnerItemMovementsQuery } from "../statementsApi";
 import { useNavigate } from "react-router-dom";
 import PartnerItemMovementsPrintTemplate from "../../../shared/components/print/PartnerItemMovementsPrintTemplate";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 const emptyItemFilters = {
   fromDate: "",
   toDate: "",
@@ -93,7 +95,7 @@ export default function PartnerItemsTab({ partnerId }) {
   const formatDate = (value) => {
     if (!value) return "-";
 
-    return new Date(value).toLocaleDateString("ar-EG");
+    return sharedFormatDate(new Date(value));
   };
 
   const getMovementLabel = (type) => {
@@ -154,7 +156,7 @@ export default function PartnerItemsTab({ partnerId }) {
               من تاريخ
             </label>
 
-            <input
+            <DateInput
               type="date"
               value={draft.fromDate}
               onChange={(e) => setField("fromDate", e.target.value)}
@@ -168,7 +170,7 @@ export default function PartnerItemsTab({ partnerId }) {
               إلى تاريخ
             </label>
 
-            <input
+            <DateInput
               type="date"
               value={draft.toDate}
               onChange={(e) => setField("toDate", e.target.value)}

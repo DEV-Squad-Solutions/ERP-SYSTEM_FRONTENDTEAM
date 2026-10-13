@@ -23,6 +23,7 @@ import {
 } from "../payroll.constants";
 import Button from "../../../shared/components/ui/Button";
 import EmployeeFormModal from "../components/EmployeeFormModal";
+import { formatDate } from "../../../lib/date.js";
 
 const TABS = [
   { key: "basic", label: "البيانات الأساسية" },
@@ -228,7 +229,7 @@ function AttendanceTab({ employeeId }) {
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-ink-400/5 last:border-0">
               <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                {r.workDate}
+                {formatDate(r.workDate)}
               </td>
               <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
                 {r.checkIn || "—"}
@@ -289,7 +290,7 @@ function MovementsTab({ employeeId }) {
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-ink-400/5 last:border-0">
               <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                {r.movementDate}
+                {formatDate(r.movementDate)}
               </td>
               <td className="p-2.5 border-l border-ink-400/5">
                 <span
@@ -361,7 +362,7 @@ function PayrollHistoryTab({ employeeId }) {
           {rows.map((r) => (
             <tr key={r.id} className="border-b border-ink-400/5 last:border-0">
               <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                {r.startDate} - {r.endDate}
+                {formatDate(r.startDate)} - {formatDate(r.endDate)}
               </td>
               <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">
                 {fmtMoney(r.bonus)}

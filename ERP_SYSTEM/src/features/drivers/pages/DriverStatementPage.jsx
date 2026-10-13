@@ -36,6 +36,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 const directionOptions = [
   { value: "Receipt", label: "وارد" },
@@ -356,7 +357,7 @@ export default function DriverStatementPage() {
             </h2>
 
             <p className="text-xs text-ink-400">
-              {applied.fromDate || "—"} إلى {applied.toDate || "—"}
+              {applied.fromDate ? formatDate(applied.fromDate) : "—"} إلى {applied.toDate ? formatDate(applied.toDate) : "—"}
             </p>
           </div>
 
@@ -820,7 +821,7 @@ export default function DriverStatementPage() {
                         </td>
                         {/* التاريخ */}
                         <td className="px-2 py-2 num text-ink-600 text-[12px] whitespace-nowrap">
-                          {row.date || "—"}
+                          {row.date ? formatDate(row.date) : "—"}
                         </td>
                       </tr>
                     ))}

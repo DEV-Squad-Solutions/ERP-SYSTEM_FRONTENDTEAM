@@ -22,6 +22,8 @@ import {
   useImportExchangeRatesMutation,
 } from "../exchangeRatesApi";
 import { useGetCurrenciesSelectQuery } from "../../currencies/currenciesApi";
+import { formatDate } from "../../../lib/date.js";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const STATUS_STYLES = {
   Imported: { label: "تم الاستيراد", cls: "bg-positive/10 text-positive" },
@@ -134,7 +136,7 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
             <label className="mb-1.5 block text-sm font-medium text-ink-900">
               تاريخ السعر
             </label>
-            <input
+            <DateInput
               type="date"
                             min={selectedFiscalYear?.startDate}
               max={selectedFiscalYear?.endDate}
@@ -225,7 +227,7 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
                 المصدر: <strong>{previewData.provider}</strong>
               </span>
               <span>
-                التاريخ المطلوب: <strong>{previewData.requestedDate}</strong>
+                التاريخ المطلوب: <strong>{formatDate(previewData.requestedDate)}</strong>
               </span>
               <span>
                 العملة الأساسية: <strong>{previewData.baseCurrency}</strong>
@@ -264,7 +266,7 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
                       )}
                     </td>
                     <td className="px-3 py-2 text-ink-600">
-                      {item.rateDate || "—"}
+                      {item.rateDate ? formatDate(item.rateDate) : "—"}
                     </td>
                     <td className="px-3 py-2 text-xs text-negative">
                       {item.error || ""}
@@ -314,7 +316,7 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
             </div>
             <div className="rounded-xl bg-primary-500/10 p-3 text-center">
               <div className="text-lg font-bold text-primary-600">
-                {importResult.updatedCount}
+                {formatDate(importResult.updatedCount)}
               </div>
               <div className="text-[11px] text-ink-500">تم تحديثه</div>
             </div>

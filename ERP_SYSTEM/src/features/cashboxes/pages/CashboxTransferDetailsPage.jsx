@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowRight, ArrowLeftRight, Receipt } from "lucide-react";
 
 import { useGetCashboxTransferByIdQuery } from "../cashboxTransfersApi";
+import { formatDate } from "../../../lib/date.js";
 
 function fmtAmount(n, currency) {
   return `${new Intl.NumberFormat("ar-EG", { maximumFractionDigits: 2 }).format(n ?? 0)} ${currency ?? ""}`;
@@ -9,11 +10,7 @@ function fmtAmount(n, currency) {
 
 function fmtDate(d) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatDate(new Date(d));
 }
 
 function Row({ label, value }) {

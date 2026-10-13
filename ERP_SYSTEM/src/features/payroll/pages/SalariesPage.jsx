@@ -43,6 +43,7 @@ import MoveSalaryModal from "../components/MoveSalaryModal";
 import BulkMoveSalaryModal from "../components/BulkMoveSalaryModal";
 import { usePayrollListPrint } from "../../../shared/hooks/usePayrollListPrint";
 import PayrollListPrintTemplate from "../../../shared/components/print/PayrollListPrintTemplate";
+import { formatDate } from "../../../lib/date.js";
 
 const currentYear = new Date().getFullYear();
 
@@ -531,8 +532,8 @@ export default function SalariesPage() {
                       </td>
 
                       <td className="p-2.5 num text-[12px] border-l border-ink-400/5">
-                        <div>{row.startDate}</div>
-                        <div className="text-ink-400">{row.endDate}</div>
+                        <div>{formatDate(row.startDate)}</div>
+                        <div className="text-ink-400">{formatDate(row.endDate)}</div>
                       </td>
 
                       <td className="p-2.5 num text-positive text-[13px] border-l border-ink-400/5">

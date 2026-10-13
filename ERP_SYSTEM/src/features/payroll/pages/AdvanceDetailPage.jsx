@@ -9,6 +9,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowRight, AlertTriangle } from "lucide-react";
 import { useGetEmployeeTransactionsQuery } from "../payrollApi";
 import { parseCategory, fmtMoney } from "../payroll.constants";
+import { formatDate } from "../../../lib/date.js";
 
 const MOCK_INSTALLMENT_MONTHS = 3;
 
@@ -138,7 +139,7 @@ export default function AdvanceDetailPage() {
                     {fmtMoney(i.amount)}
                   </td>
                   <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                    {i.dueDate}
+                    {formatDate(i.dueDate)}
                   </td>
                   <td className="p-2.5">
                     <span

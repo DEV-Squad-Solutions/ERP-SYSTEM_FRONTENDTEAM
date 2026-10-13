@@ -1,4 +1,6 @@
 import { useSelector } from "react-redux";
+import { formatDateTime } from "../../../lib/date.js";
+import { formatDate } from "../../../lib/date.js";
 
 const currencySymbols = {
   EGP: "ج.م",
@@ -24,7 +26,7 @@ const fmtMoney = (value, currency) =>
 export default function DashboardPrintTemplate({ data }) {
   if (!data) return null;
 
-  const printedAt = new Date().toLocaleString("ar-EG");
+  const printedAt = formatDateTime(new Date());
 
   const sales = data.sales || {};
   const purchases = data.purchases || {};
@@ -72,7 +74,7 @@ export default function DashboardPrintTemplate({ data }) {
 
           <p className="mt-1">
             <span className="font-semibold text-slate-800">الفترة:</span>{" "}
-            {data.fromDate || "—"} إلى {data.toDate || "—"}
+            {data.fromDate ? formatDate(data.fromDate) : "—"} إلى {data.toDate ? formatDate(data.toDate) : "—"}
           </p>
 
           <p className="mt-1">

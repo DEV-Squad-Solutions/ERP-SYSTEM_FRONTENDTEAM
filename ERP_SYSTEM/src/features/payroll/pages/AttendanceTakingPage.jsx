@@ -30,6 +30,7 @@ import CompactSelect from "../../../shared/components/ui/CompactSelect";
 import Button from "../../../shared/components/ui/Button";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const DEFAULT_CHECK_IN = "09:00";
 const DEFAULT_CHECK_OUT = "17:00";
@@ -686,7 +687,7 @@ const AttendanceTakingPage = () => {
                 className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-400"
               />
 
-              <input
+              <DateInput
                 type="date"
                 value={workDate}
                 onChange={(event) => setWorkDate(event.target.value)}

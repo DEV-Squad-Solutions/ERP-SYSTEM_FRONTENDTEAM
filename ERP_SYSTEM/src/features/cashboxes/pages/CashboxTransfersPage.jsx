@@ -29,6 +29,7 @@ import {
 
 import CashboxTransferFormModal from "../components/CashboxTransferFormModal";
 import { useCashboxScope } from "../hooks/useCashboxScope";
+import { formatDate } from "../../../lib/date.js";
 
 const emptyFilters = {
   Search: "",
@@ -51,11 +52,7 @@ function fmtAmount(value, currency) {
 function fmtDate(date) {
   if (!date) return "—";
 
-  return new Date(date).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatDate(new Date(date));
 }
 
 export default function CashboxTransfersPage() {

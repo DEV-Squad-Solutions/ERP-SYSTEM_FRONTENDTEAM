@@ -1,5 +1,6 @@
 import { useSelector } from "react-redux";
 import { EMPLOYEE_TYPE } from "../../../features/payroll/payroll.constants";
+import { formatDate } from "../../../lib/date.js";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -33,7 +34,7 @@ export default function PayrollListPrintTemplate({ rows, filters }) {
 
   if (!rows) return null;
 
-  const today = new Date().toLocaleDateString("ar-EG");
+  const today = formatDate(new Date());
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -97,8 +98,8 @@ export default function PayrollListPrintTemplate({ rows, filters }) {
             flexWrap: "wrap",
           }}
         >
-          {filters.startDate && <span>من: {filters.startDate}</span>}
-          {filters.endDate && <span>إلى: {filters.endDate}</span>}
+          {filters.startDate && <span>من: {formatDate(filters.startDate)}</span>}
+          {filters.endDate && <span>إلى: {formatDate(filters.endDate)}</span>}
           {filters.employeeType && (
             <span>
               النوع:{" "}
@@ -153,7 +154,7 @@ export default function PayrollListPrintTemplate({ rows, filters }) {
                     : "داخل الشركة"}
                 </td>
                 <td style={cellCenter}>
-                  {row.startDate} → {row.endDate}
+                  {formatDate(row.startDate)} → {formatDate(row.endDate)}
                 </td>
                 <td style={{ ...cellCenter, color: "#059669" }}>
                   {fmt(row.bonus)}

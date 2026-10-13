@@ -14,6 +14,7 @@ import Button from "../../../shared/components/ui/Button";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 const hasCostOptions = [
   { value: "", label: "الكل" },
@@ -313,7 +314,7 @@ export default function DriverTripCostEntryPage() {
                       {/* التاريخ */}
                       <td className="p-2.5 border-l border-ink-400/5 whitespace-nowrap">
                         <span className="num text-[12px] text-ink-600">
-                          {row.tripDate || "—"}
+                          {row.tripDate ? formatDate(row.tripDate) : "—"}
                         </span>
                       </td>
 

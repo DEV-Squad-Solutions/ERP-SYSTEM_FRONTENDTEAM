@@ -8,6 +8,7 @@ import {
   attendanceStatusBadge,
   DAY_RATIO_BY_VALUE,
 } from "../payroll.constants";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 
 export default function AttendanceDetailsModal({
   isOpen,
@@ -237,9 +238,5 @@ function formatDate(value) {
     return value;
   }
 
-  return date.toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  return sharedFormatDate(date);
 }

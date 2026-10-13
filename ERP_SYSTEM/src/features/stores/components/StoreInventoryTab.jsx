@@ -22,6 +22,7 @@ import Pagination from "../../../shared/components/ui/Pagination";
 import QuickAddItemModal from "../../inventory/components/QuickAddItemModal";
 import Modal from "../../../shared/components/ui/Modal";
 import { useLazyGetItemBalanceQuery } from "../../invoices/invoicesApi";
+import { formatDate } from "../../../lib/date.js";
 
 const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
@@ -833,5 +834,5 @@ function formatDisplayDate(value) {
     return value;
   }
 
-  return date.toLocaleDateString("ar-EG");
+  return formatDate(date);
 }

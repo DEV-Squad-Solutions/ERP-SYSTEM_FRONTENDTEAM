@@ -42,6 +42,7 @@ import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 /* =========================================================
    Constants
@@ -92,11 +93,7 @@ const fmt = (value) =>
 
 const fmtDate = (value) =>
   value
-    ? new Date(value).toLocaleDateString("ar-EG", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      })
+    ? formatDate(new Date(value))
     : "—";
 
 /*

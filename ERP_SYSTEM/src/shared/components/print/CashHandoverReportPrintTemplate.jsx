@@ -1,3 +1,5 @@
+import { formatDateTime } from "../../../lib/date.js";
+import { formatDate } from "../../../lib/date.js";
 const currencySymbols = {
   EGP: "ج.م",
   USD: "$",
@@ -21,7 +23,7 @@ export default function CashHandoverReportPrintTemplate({
   fromDate,
   toDate,
 }) {
-  const printedAt = new Date().toLocaleString("ar-EG");
+  const printedAt = formatDateTime(new Date());
 
   return (
     <div
@@ -46,7 +48,7 @@ export default function CashHandoverReportPrintTemplate({
         <div className="mb-6 rounded-lg border border-ink-200 p-3 text-sm">
           <span className="text-ink-500">الفترة: </span>
           <span className="font-medium">
-            {fromDate || "—"} إلى {toDate || "—"}
+            {fromDate ? formatDate(fromDate) : "—"} إلى {toDate ? formatDate(toDate) : "—"}
           </span>
         </div>
       )}
@@ -143,7 +145,7 @@ export default function CashHandoverReportPrintTemplate({
               <tr key={item.id} className="border-b border-ink-100">
                 <td className="px-3 py-2">{item.voucherNumber}</td>
 
-                <td className="px-3 py-2 text-ink-500">{item.voucherDate}</td>
+                <td className="px-3 py-2 text-ink-500">{formatDate(item.voucherDate)}</td>
 
                 <td className="px-3 py-2">
                   {item.direction === "Receipt" ? "وارد" : "صادر"}

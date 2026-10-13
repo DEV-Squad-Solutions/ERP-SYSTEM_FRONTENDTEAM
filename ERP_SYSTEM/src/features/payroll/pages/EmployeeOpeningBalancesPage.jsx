@@ -36,6 +36,7 @@ import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import { formatDate } from "../../../lib/date.js";
 
 const emptyFilters = {
   employeeId: "",
@@ -525,7 +526,7 @@ export default function EmployeeOpeningBalancesPage() {
                     {/* Date */}
 
                     <td className="p-2.5 num text-[13px] border-l border-ink-400/5">
-                      {row.documentDate}
+                      {formatDate(row.documentDate)}
                     </td>
 
                     {/* Balance Type */}

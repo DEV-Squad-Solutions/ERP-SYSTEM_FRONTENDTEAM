@@ -1,5 +1,6 @@
 import { Pencil } from "lucide-react";
 import Modal from "../../../shared/components/ui/Modal";
+import { formatDate } from "../../../lib/date.js";
 
 function fmtAmount(n, currency) {
   if (n == null) return "—";
@@ -10,11 +11,7 @@ function fmtAmount(n, currency) {
 
 function fmtDate(d) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("ar-EG", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatDate(new Date(d));
 }
 
 function partyLabel(v) {

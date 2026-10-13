@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import { formatDate } from "../../../lib/date.js";
 
 function lineTotal(line) {
   return Number(line.total ?? line.quantity * line.price ?? 0);
@@ -39,7 +40,7 @@ function StockOpeningBalanceRow({ item, onEdit, onDelete, deletingId }) {
           {item.documentNumber}
         </td>
         <td className="num px-4 py-3 text-center text-sm text-ink-600">
-          {item.documentDate}
+          {formatDate(item.documentDate)}
         </td>
         <td className="px-4 py-3 text-sm text-ink-900">
           {item.storeName || "—"}

@@ -33,6 +33,7 @@ import Pagination from "../../../shared/components/ui/Pagination";
 import { useGetStoresSelectQuery } from "../../stores/storesApi";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import { formatDate } from "../../../lib/date.js";
 
 const emptyFilters = {
   search: "",
@@ -405,7 +406,7 @@ export default function StockTransfersPage() {
                     </td>
 
                     <td className="p-2.5 text-[13px] num border-l border-ink-400/5">
-                      {row.transferDate}
+                      {formatDate(row.transferDate)}
                     </td>
 
                     <td className="p-2.5 text-sm text-ink-900 border-l border-ink-400/5">

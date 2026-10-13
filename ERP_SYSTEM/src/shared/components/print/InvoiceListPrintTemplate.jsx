@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { useSelector } from "react-redux";
+import { formatDate } from "../../../lib/date.js";
 
 const typeLabels = {
   Sales: "بيع",
@@ -40,7 +41,7 @@ export default function InvoiceListPrintTemplate({
 
   if (!invoices) return null;
 
-  const today = new Date().toLocaleDateString("ar-EG");
+  const today = formatDate(new Date());
 
   return (
     <div
@@ -112,9 +113,9 @@ export default function InvoiceListPrintTemplate({
             flexWrap: "wrap",
           }}
         >
-          {filters.fromDate && <span>من: {filters.fromDate}</span>}
+          {filters.fromDate && <span>من: {formatDate(filters.fromDate)}</span>}
 
-          {filters.toDate && <span>إلى: {filters.toDate}</span>}
+          {filters.toDate && <span>إلى: {formatDate(filters.toDate)}</span>}
 
           {filters.movementType && (
             <span>
@@ -187,7 +188,7 @@ export default function InvoiceListPrintTemplate({
                       {typeLabels[inv.invoiceType] || inv.invoiceType || "—"}
                     </span>
                     <span style={{ fontWeight: 400, color: "#55635C" }}>
-                      {inv.invoiceDate || "—"}
+                      {inv.invoiceDate ? formatDate(inv.invoiceDate) : "—"}
                       {" · "}
                       {inv.businessPartnerName || "—"}
                       {" · "}

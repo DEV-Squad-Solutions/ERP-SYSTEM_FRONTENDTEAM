@@ -1,6 +1,7 @@
+import { formatDateTime } from "../../../lib/date.js";
 // src/shared/components/print/PartyListPrintTemplate.jsx
 export default function PartyListPrintTemplate({ parties = [], filters = {} }) {
-  const printedAt = new Date().toLocaleString("ar-EG");
+  const printedAt = formatDateTime(new Date());
 
   const hasActiveFilters = Object.values(filters || {}).some((v) => v);
 

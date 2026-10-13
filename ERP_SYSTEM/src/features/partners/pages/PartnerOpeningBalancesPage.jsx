@@ -16,6 +16,7 @@ import {
 
 import PartnerOpeningBalancesTable from "../components/Partneropeningbalancestable";
 import PartnerOpeningBalanceModal from "../components/PartnerOpeningBalanceModal";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const currencyOptions = [
   { value: "EGP", label: "جنيه مصري" },
@@ -199,7 +200,7 @@ export default function PartnerOpeningBalancesPage() {
             <label className="mb-1 block text-xs font-medium text-ink-400">
               من تاريخ
             </label>
-            <input
+            <DateInput
               type="date"
               value={draft.fromDate}
               onChange={(e) => setField("fromDate", e.target.value)}
@@ -211,7 +212,7 @@ export default function PartnerOpeningBalancesPage() {
             <label className="mb-1 block text-xs font-medium text-ink-400">
               إلى تاريخ
             </label>
-            <input
+            <DateInput
               type="date"
               value={draft.toDate}
               onChange={(e) => setField("toDate", e.target.value)}

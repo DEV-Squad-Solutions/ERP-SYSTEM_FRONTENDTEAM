@@ -2,6 +2,7 @@
 import { Wallet, RefreshCw, AlertCircle, PackageSearch } from "lucide-react";
 
 import Pagination from "../../../shared/components/ui/Pagination";
+import { formatDate } from "../../../lib/date.js";
 
 const INVOICE_TYPE_LABELS = {
   Sales: "مبيعات",
@@ -150,7 +151,7 @@ export default function InvoiceItemPricingTable({
                     {item.invoiceNumber}
                   </p>
                   <p className="text-[10px] text-ink-400 num mt-0.5">
-                    {item.invoiceDate}
+                    {formatDate(item.invoiceDate)}
                   </p>
                 </td>
 

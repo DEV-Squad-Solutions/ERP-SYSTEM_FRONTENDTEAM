@@ -42,6 +42,7 @@ import Button from "../../../shared/components/ui/Button";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
+import { formatDate } from "../../../lib/date.js";
 
 const emptyFilters = {
   employeeId: "",
@@ -615,7 +616,7 @@ export default function AttendancePage() {
                       </td>
 
                       <td className="num border-l border-ink-400/5 p-2.5 text-[13px]">
-                        {row.workDate || "—"}
+                        {row.workDate ? formatDate(row.workDate) : "—"}
                       </td>
 
                       <td className="border-l border-ink-400/5 p-2.5">

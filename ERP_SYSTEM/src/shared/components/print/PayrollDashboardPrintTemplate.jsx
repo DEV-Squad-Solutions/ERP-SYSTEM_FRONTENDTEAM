@@ -1,15 +1,10 @@
 import { fmtMoney } from "../../../features/payroll/payroll.constants";
+import { formatDate as formatDateDisplay } from "../../../lib/date";
 
 function formatDate(date) {
   if (!date) return "—";
 
-  try {
-    return new Intl.DateTimeFormat("ar-EG").format(
-      new Date(`${date}T00:00:00`),
-    );
-  } catch {
-    return date;
-  }
+  return formatDateDisplay(date) || date;
 }
 
 function StatBox({ title, value }) {
@@ -93,7 +88,7 @@ export default function PayrollDashboardPrintTemplate({
         <div style={styles.reportDate}>
           <div>تاريخ الطباعة</div>
 
-          <strong>{new Intl.DateTimeFormat("ar-EG").format(new Date())}</strong>
+          <strong>{formatDate(new Date())}</strong>
         </div>
       </div>
 

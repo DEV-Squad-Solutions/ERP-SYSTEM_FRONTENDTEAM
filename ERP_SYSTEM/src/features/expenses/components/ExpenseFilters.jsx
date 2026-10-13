@@ -1,4 +1,5 @@
 import { RotateCcw, Search } from "lucide-react";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const fieldCls =
   "w-full rounded-lg border border-ink-400/20 bg-white px-3 py-1.5 text-sm text-ink-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500";
@@ -109,7 +110,7 @@ export default function ExpenseFilters({
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink-400">من تاريخ</span>
-          <input
+          <DateInput
             type="date"
             className={fieldCls}
             value={draft.fromDate}
@@ -119,7 +120,7 @@ export default function ExpenseFilters({
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink-400">إلى تاريخ</span>
-          <input
+          <DateInput
             type="date"
             className={fieldCls}
             value={draft.toDate}

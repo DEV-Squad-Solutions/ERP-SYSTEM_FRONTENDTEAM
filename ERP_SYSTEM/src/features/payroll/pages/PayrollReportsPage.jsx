@@ -5,6 +5,7 @@ import {
   getDefaultRangeForFiscalYear,
 } from "../../../lib/fiscalYearDateRange";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
+import { formatDate as formatDateDisplay } from "../../../lib/date";
 import { useNavigate } from "react-router-dom";
 import {
   RefreshCw,
@@ -31,6 +32,7 @@ import { fmtMoney } from "../payroll.constants";
 import Button from "../../../shared/components/ui/Button";
 import { usePayrollReportPrint } from "../../../shared/hooks/usePayrollReportPrint";
 import PayrollReportPrintTemplate from "../../../shared/components/print/PayrollReportPrintTemplate";
+import DateInput from "../../../shared/components/ui/DateInput.jsx";
 
 const getToday = () => {
   const date = new Date();
@@ -54,13 +56,7 @@ const getFirstDayOfMonth = () => {
 function formatDate(date) {
   if (!date) return "—";
 
-  try {
-    return new Intl.DateTimeFormat("ar-EG").format(
-      new Date(`${date}T00:00:00`),
-    );
-  } catch {
-    return date;
-  }
+  return formatDateDisplay(date) || date;
 }
 
 function StatCard({
@@ -296,7 +292,7 @@ export default function PayrollReportsPage() {
               من تاريخ
             </label>
 
-            <input
+            <DateInput
               type="date"
               min={fiscalYear?.startDate}
               max={fiscalYear?.endDate}
@@ -311,7 +307,7 @@ export default function PayrollReportsPage() {
               إلى تاريخ
             </label>
 
-            <input
+            <DateInput
               type="date"
               min={fiscalYear?.startDate}
               max={fiscalYear?.endDate}

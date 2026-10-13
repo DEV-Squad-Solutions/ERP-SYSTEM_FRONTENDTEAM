@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 
 // ============================================================
 // Helpers
@@ -50,7 +51,7 @@ const formatDate = (value) => {
     return value;
   }
 
-  return date.toLocaleDateString("ar-EG");
+  return sharedFormatDate(date);
 };
 
 const getFilterValue = (filters, ...keys) => {
