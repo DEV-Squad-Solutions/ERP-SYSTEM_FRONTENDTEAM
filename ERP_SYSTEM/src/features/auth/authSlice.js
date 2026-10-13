@@ -199,6 +199,16 @@ export const selectPermissions = (state) => state.auth.permissions || [];
 export const selectIsAdmin = (state) =>
   selectRoles(state).some((role) => String(role).toLowerCase() === "admin");
 
+export const selectIsAccountant = (state) =>
+  selectRoles(state).some(
+    (role) => String(role).toLowerCase() === "accountant",
+  );
+
+// الأدمن أو المحاسب — أصحاب صلاحية تعديل حركات الخزنة بعد ما تتوصّف
+// (يتحدد لها حساب/طرف). أي دور تاني بيبقى للعرض بس بمجرد التوصيف.
+export const selectIsAdminOrAccountant = (state) =>
+  selectIsAdmin(state) || selectIsAccountant(state);
+
 export const {
   setCredentials,
   setCompanySelection,

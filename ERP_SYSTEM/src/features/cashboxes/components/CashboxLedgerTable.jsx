@@ -21,7 +21,7 @@ import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
 import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
-import { selectIsAdmin } from "../../auth/authSlice";
+import { selectIsAdmin, selectIsAdminOrAccountant } from "../../auth/authSlice";
 import {
   buildDescriptionGroups,
   getCurrentDescriptionValue,
@@ -236,6 +236,8 @@ export default function CashboxLedgerTable({
   onUpdateVoucher,
   onUpdateDraftVoucher,
   onDeleteVoucher,
+  // حذف الرصيد الافتتاحي اليدوي للخزنة (تصفير الرصيد الافتتاحي).
+  onDeleteOpeningBalance,
   // صلاحية التنفيذ (عرض/إضافة/تعديل/حذف حركات) على الخزنة دي.
   // true افتراضيًا لحد ما يتحدد النطاق من useCashboxScope. السيرفر
   // برضه بيتحقق وقت التنفيذ.
@@ -247,6 +249,7 @@ export default function CashboxLedgerTable({
   onPageSizeChange,
 }) {
   const isAdmin = useSelector(selectIsAdmin);
+  const isAdminOrAccountant = useSelector(selectIsAdminOrAccountant);
   const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const [isAdding, setIsAdding] = useState(false);
@@ -311,6 +314,13 @@ export default function CashboxLedgerTable({
   const handleDescriptionChange = useCallback(
     async (row, selectedValue) => {
       if (!selectedValue || !onUpdateVoucher || isNonDescribableRow(row)) {
+        return;
+      }
+
+      // بمجرد ما الحركة تتوصّف (يتحدد لها حساب/طرف)، تعديل التوصيف
+      // مقصور على الأدمن أو المحاسب. أي دور تاني للعرض بس.
+      if (hasPostingTarget(row) && !isAdminOrAccountant) {
+        toast.error("التوصيف مقفول — التعديل متاح للأدمن أو المحاسب فقط");
         return;
       }
 
@@ -380,7 +390,7 @@ export default function CashboxLedgerTable({
         setDescriptionUpdatingId(null);
       }
     },
-    [cashboxId, getDescriptionGroups, isForeign, onUpdateVoucher],
+    [cashboxId, getDescriptionGroups, isAdminOrAccountant, isForeign, onUpdateVoucher],
   );
 
   const openAddRow = useCallback(() => {
@@ -650,6 +660,75 @@ export default function CashboxLedgerTable({
       });
     },
     [executeDeleteVoucher, isAdmin, onDeleteVoucher],
+  );
+
+  // حذف الرصيد الافتتاحي اليدوي للخزنة. الرصيد الافتتاحي مملوك للخزنة
+  // نفسها (مش سند)، فالحذف بيتعمل بتصفير الرصيد الافتتاحي على الخزنة.
+  // الباك بيرفض لو فيه سندات مسجلة على الخزنة.
+  const executeDeleteOpeningBalance = useCallback(
+    async (row) => {
+      if (!row || deletingRowId || !onDeleteOpeningBalance) {
+        return;
+      }
+
+      setDeletingRowId(row.id);
+
+      try {
+        await onDeleteOpeningBalance();
+
+        toast.success("تم حذف الرصيد الافتتاحي بنجاح");
+
+        refetch?.();
+      } catch (error) {
+        const code = error?.data?.errorCode ?? error?.data?.code;
+
+        if (code === "Cashboxes.OpeningOrCurrencyChangeNotAllowed") {
+          toast.error(
+            "لا يمكن حذف الرصيد الافتتاحي بعد إنشاء سندات على الخزنة.",
+          );
+        } else {
+          toast.error(
+            error?.data?.detail ||
+              error?.data?.title ||
+              error?.data?.message ||
+              error?.error ||
+              "تعذر حذف الرصيد الافتتاحي",
+          );
+        }
+      } finally {
+        setDeletingRowId(null);
+      }
+    },
+    [deletingRowId, onDeleteOpeningBalance, refetch],
+  );
+
+  const handleDeleteOpeningBalance = useCallback(
+    (row) => {
+      if (!isAdmin) {
+        toast.error("ليس لديك صلاحية حذف الرصيد الافتتاحي");
+        return;
+      }
+
+      if (!onDeleteOpeningBalance) {
+        toast.error("خدمة حذف الرصيد الافتتاحي غير متاحة");
+        return;
+      }
+
+      toast.warning(
+        "هل أنت متأكد من حذف الرصيد الافتتاحي اليدوي للخزنة؟ لا يمكن التراجع.",
+        {
+          duration: 8000,
+          action: {
+            label: "حذف",
+            onClick: () => executeDeleteOpeningBalance(row),
+          },
+          cancel: {
+            label: "إلغاء",
+          },
+        },
+      );
+    },
+    [executeDeleteOpeningBalance, isAdmin, onDeleteOpeningBalance],
   );
 
   // الرصيد بقى بييجي جاهز من الباك (cashboxBalance) — سواء كان الترتيب
@@ -1028,11 +1107,17 @@ export default function CashboxLedgerTable({
 
                 const isDescriptionLocked = isNonDescribableRow(row);
 
+                // بمجرد ما الحركة تتوصّف (يتحدد لها حساب/طرف)، تعديل
+                // بياناتها مقصور على الأدمن أو المحاسب. أي دور تاني للعرض.
+                const isDescribeLocked =
+                  hasPostingTarget(row) && !isAdminOrAccountant;
+
                 const isRowEditable =
                   canExecute &&
                   !isFiscalYearReadOnly &&
                   !isInvoiceGenerated &&
-                  !isNonEditableRow(row);
+                  !isNonEditableRow(row) &&
+                  !isDescribeLocked;
 
                 const isRowDeletable =
                   canExecute &&
@@ -1040,6 +1125,16 @@ export default function CashboxLedgerTable({
                   isAdmin &&
                   !isInvoiceGenerated &&
                   !isNonEditableRow(row);
+
+                // الرصيد الافتتاحي اليدوي (اللي مش مرحّل من سنة سابقة)
+                // بيظهر في كشف الخزنة كصف مملوك للخزنة — بنسمح للأدمن
+                // بحذفه (بيتصفّر الرصيد الافتتاحي).
+                const isOpeningBalanceDeletable =
+                  isOpeningBalanceRow &&
+                  canExecute &&
+                  !isFiscalYearReadOnly &&
+                  isAdmin &&
+                  Boolean(onDeleteOpeningBalance);
 
                 const descriptionGroups = getDescriptionGroups(row.direction);
 
@@ -1135,7 +1230,9 @@ export default function CashboxLedgerTable({
                               loadingPartySelect || isDescriptionUpdating
                             }
                             isDisabled={
-                              isDescriptionUpdating || isInvoiceGenerated
+                              isDescriptionUpdating ||
+                              isInvoiceGenerated ||
+                              isDescribeLocked
                             }
                             placeholder={
                               row.isDescribed
@@ -1143,6 +1240,12 @@ export default function CashboxLedgerTable({
                                 : "اختر الحساب أو التوصيف"
                             }
                           />
+                        )}
+
+                        {isDescribeLocked && (
+                          <div className="mt-1 text-right text-[9px] text-ink-300">
+                            التوصيف مقفول — التعديل للأدمن أو المحاسب فقط
+                          </div>
                         )}
 
                         {row.description && (
@@ -1197,14 +1300,23 @@ export default function CashboxLedgerTable({
                           </span>
                         </div>
 
-                        {isRowDeletable && (
+                        {(isRowDeletable || isOpeningBalanceDeletable) && (
                           <button
                             type="button"
-                            title="حذف السند"
+                            title={
+                              isOpeningBalanceRow
+                                ? "حذف الرصيد الافتتاحي اليدوي"
+                                : "حذف السند"
+                            }
                             disabled={isDeleting || isUpdating}
                             onClick={(event) => {
                               event.stopPropagation();
-                              handleDeleteVoucher(row);
+
+                              if (isOpeningBalanceRow) {
+                                handleDeleteOpeningBalance(row);
+                              } else {
+                                handleDeleteVoucher(row);
+                              }
                             }}
                             className="shrink-0 rounded-md p-1 text-ink-300 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
                           >

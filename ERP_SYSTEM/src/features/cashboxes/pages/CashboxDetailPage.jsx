@@ -19,7 +19,10 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useSelector } from "react-redux";
 
-import { useGetCashboxByIdQuery } from "../cashboxesApi";
+import {
+  useGetCashboxByIdQuery,
+  useUpdateCashboxMutation,
+} from "../cashboxesApi";
 import { useCashboxScope } from "../hooks/useCashboxScope";
 
 import {
@@ -221,6 +224,7 @@ export default function CashboxDetailPage() {
   const [updateVoucher] = useUpdateCashVoucherMutation();
   const [updateDraftVoucher] = useUpdateDraftCashVoucherMutation();
   const [deleteVoucher] = useDeleteCashVoucherMutation();
+  const [updateCashbox] = useUpdateCashboxMutation();
 
   const queryParams = useMemo(
     () => ({
@@ -359,6 +363,31 @@ export default function CashboxDetailPage() {
       id,
       rowVersion,
       cashboxId,
+    }).unwrap();
+  }
+
+  // حذف الرصيد الافتتاحي اليدوي للخزنة = تصفير الرصيد الافتتاحي.
+  // الرصيد الافتتاحي مملوك للخزنة نفسها وليس سندًا، فبيتحذف من هنا.
+  // الباك بيرفض لو فيه سندات على الخزنة (OpeningOrCurrencyChangeNotAllowed).
+  async function handleDeleteOpeningBalance() {
+    if (!isAdmin) {
+      throw new Error("ليس لديك صلاحية حذف الرصيد الافتتاحي");
+    }
+
+    if (!cashbox) {
+      throw new Error("بيانات الخزنة غير متاحة");
+    }
+
+    await updateCashbox({
+      id: cashbox.id,
+      rowVersion: cashbox.rowVersion,
+      name: cashbox.name,
+      currency: cashbox.currency,
+      openingBalance: 0,
+      openingBalanceDate: cashbox.openingBalanceDate,
+      openingExchangeRate: cashbox.openingExchangeRate,
+      isActive: cashbox.isActive,
+      notes: cashbox.notes ?? "",
     }).unwrap();
   }
 
@@ -772,6 +801,9 @@ export default function CashboxDetailPage() {
           onUpdateVoucher={handleUpdateVoucher}
           onUpdateDraftVoucher={handleUpdateDraftVoucher}
           onDeleteVoucher={isAdmin ? handleDeleteVoucher : undefined}
+          onDeleteOpeningBalance={
+            isAdmin ? handleDeleteOpeningBalance : undefined
+          }
           canExecute={canExecute}
           page={page}
           pageSize={pageSize}
