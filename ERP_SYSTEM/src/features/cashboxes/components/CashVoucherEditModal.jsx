@@ -84,6 +84,9 @@ export default function CashVoucherEditModal({
   isForeign,
   currency,
   baseCurrency,
+  // التوصيف مقصور على الأدمن أو المحاسب. لما canDescribe=false (مستخدم
+  // عادي) بنقفل خانة التوصيف وبنسمح بتعديل بيانات الحركة فقط.
+  canDescribe = true,
 }) {
   const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [saving, setSaving] = useState(false);
@@ -239,9 +242,13 @@ export default function CashVoucherEditModal({
       return;
     }
 
-    const selectedOption = groups
-      .flatMap((group) => group.options)
-      .find((option) => option.value === values.descriptionValue);
+    // المستخدم العادي ممنوع يوصّف — بنتجاهل أي توصيف مختار وبنستخدم
+    // التوصيف المحفوظ على السند (لو موجود)؛ المسودة تفضل مسودة.
+    const selectedOption = canDescribe
+      ? groups
+          .flatMap((group) => group.options)
+          .find((option) => option.value === values.descriptionValue)
+      : null;
 
     // التوصيف مش إلزامي في الفرونت: لو المستخدم مختارش، بنستخدم التوصيف
     // المحفوظ على السند (لو موجود) عشان تعديل المبلغ/سعر الصرف ميفرضش
@@ -390,6 +397,7 @@ export default function CashVoucherEditModal({
                   value={field.value}
                   onChange={field.onChange}
                   isLoading={isLoadingPartySelect}
+                  isDisabled={!canDescribe}
                   placeholder="اختر الحساب أو التوصيف"
                 />
               )}
@@ -402,9 +410,11 @@ export default function CashVoucherEditModal({
             )}
 
             <p className="mt-1 text-[11px] leading-5 text-ink-400">
-              {voucher?.isDraft
-                ? "مسودة: لو سيبت التوصيف فاضي هيتحفظ كمسودة من غير ترحيل. اختَر توصيف لإكماله وترحيله."
-                : "لازم توصيف واحد لإكمال تعديل السند."}
+              {!canDescribe
+                ? "التوصيف متاح للأدمن أو المحاسب فقط — يمكنك تعديل بيانات الحركة فقط."
+                : voucher?.isDraft
+                  ? "مسودة: لو سيبت التوصيف فاضي هيتحفظ كمسودة من غير ترحيل. اختَر توصيف لإكماله وترحيله."
+                  : "لازم توصيف واحد لإكمال تعديل السند."}
             </p>
           </div>
 

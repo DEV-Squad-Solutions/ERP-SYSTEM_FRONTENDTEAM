@@ -317,10 +317,10 @@ export default function CashboxLedgerTable({
         return;
       }
 
-      // بمجرد ما الحركة تتوصّف (يتحدد لها حساب/طرف)، تعديل التوصيف
-      // مقصور على الأدمن أو المحاسب. أي دور تاني للعرض بس.
-      if (hasPostingTarget(row) && !isAdminOrAccountant) {
-        toast.error("التوصيف مقفول — التعديل متاح للأدمن أو المحاسب فقط");
+      // التوصيف نفسه مقصور على الأدمن أو المحاسب. المستخدم العادي
+      // يقدر يعدّل بيانات الحركة (قبل التوصيف) بس مش يوصّفها.
+      if (!isAdminOrAccountant) {
+        toast.error("التوصيف متاح للأدمن أو المحاسب فقط");
         return;
       }
 
@@ -1232,7 +1232,7 @@ export default function CashboxLedgerTable({
                             isDisabled={
                               isDescriptionUpdating ||
                               isInvoiceGenerated ||
-                              isDescribeLocked
+                              !isAdminOrAccountant
                             }
                             placeholder={
                               row.isDescribed
@@ -1242,9 +1242,11 @@ export default function CashboxLedgerTable({
                           />
                         )}
 
-                        {isDescribeLocked && (
+                        {!isAdminOrAccountant && (
                           <div className="mt-1 text-right text-[9px] text-ink-300">
-                            التوصيف مقفول — التعديل للأدمن أو المحاسب فقط
+                            {isDescribeLocked
+                              ? "الحركة موصّفة — التعديل للأدمن أو المحاسب فقط"
+                              : "التوصيف متاح للأدمن أو المحاسب فقط"}
                           </div>
                         )}
 
@@ -1355,6 +1357,7 @@ export default function CashboxLedgerTable({
           isForeign={isForeign}
           currency={currency}
           baseCurrency={baseCurrency}
+          canDescribe={isAdminOrAccountant}
           partyOptions={partyOptions}
           driverOptions={driverOptions}
           employeeOptions={employeeOptions}
