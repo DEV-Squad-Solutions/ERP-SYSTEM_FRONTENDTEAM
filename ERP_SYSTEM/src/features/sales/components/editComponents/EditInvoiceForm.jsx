@@ -1,7 +1,10 @@
-import { useEffect, useMemo, memo, useCallback } from "react";
+import { useEffect, useMemo, memo, useCallback, useRef } from "react";
 import { Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useGetItemsSelectQuery } from "../../../inventory/inventoryApi";
+import {
+  useGetItemsSelectQuery,
+  useGetItemByIdQuery,
+} from "../../../inventory/inventoryApi";
 import { useGetItemUnitsSelectQuery } from "../../../units/itemUnitsApi";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
 
@@ -57,6 +60,10 @@ function InvoiceLineRow({ line, updateLine, removeLine, index }) {
 
   const onRemove = useCallback(() => removeLine(index), [removeLine, index]);
 
+  // بنسيب الوحدة المحفوظة زي ما هي عند أول تحميل، وبنطبّق الوحدة الافتراضية
+  // للصنف بس لما المستخدم يغيّر الصنف بنفسه.
+  const autoUnitItemRef = useRef(line.itemId ?? null);
+
   const {
     data: items,
     isLoading: isLoadingItems,
@@ -69,6 +76,12 @@ function InvoiceLineRow({ line, updateLine, removeLine, index }) {
     useGetItemUnitsSelectQuery(line.itemId, {
       skip: !line.itemId,
     });
+
+  // تفاصيل الصنف (عشان نعرف وحدة القياس الافتراضية) — قائمة Items/select
+  // ما بترجّع الوحدة، فبنجيبها من Items/{id}.
+  const { data: itemDetail } = useGetItemByIdQuery(line.itemId, {
+    skip: !line.itemId,
+  });
 
   const set = useCallback(
     (key, value) => {
@@ -127,6 +140,39 @@ function InvoiceLineRow({ line, updateLine, removeLine, index }) {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemUnitId, itemUnits]);
+
+  /**
+   * اختيار وحدة القياس تلقائيًا عند تغيير الصنف
+   *
+   * في شاشة التعديل السطور بتيجي بوحدة محفوظة، فبنطبّق الوحدة الافتراضية
+   * للصنف بس لما المستخدم يغيّر الصنف بنفسه (autoUnitItemRef بتبدأ بالصنف
+   * الحالي)، وبعدها لو غيّر الوحدة يدويًا ما بنلغيه.
+   */
+  useEffect(() => {
+    if (!itemDetail) return;
+
+    // نتأكد إن البيانات تخص نفس الصنف المختار (RTK ممكن يرجّع بيانات الصنف السابق لحظيًا)
+    if (String(itemDetail.id) !== String(line.itemId)) return;
+
+    const unitId = itemDetail.itemUnitId ?? null;
+
+    if (!unitId) return;
+
+    // طبقناها بالفعل على هذا الصنف؟
+    if (String(autoUnitItemRef.current) === String(line.itemId)) return;
+
+    autoUnitItemRef.current = line.itemId;
+
+    if (String(line.itemUnitId) === String(unitId)) return;
+
+    onChange({
+      ...line,
+      itemUnitId: unitId,
+      itemUnitName: itemDetail.itemUnitName ?? "",
+    });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemDetail, line.itemId]);
 
   /**
    * تغيير العدد

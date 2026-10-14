@@ -16,6 +16,8 @@ import QuickAddItemModal from "../../../inventory/components/QuickAddItemModal";
 
 import { useGetItemBalanceQuery } from "../../../invoices/invoicesApi";
 
+import { useGetItemByIdQuery } from "../../../inventory/inventoryApi";
+
 /* =========================================================
    Helpers
 ========================================================= */
@@ -102,6 +104,7 @@ function InvoiceLineRow({
   itemOptions: itemOptionsProp,
   isLoadingItems,
   isItemsError,
+  errors,
 
   onChange,
   onRemove,
@@ -110,6 +113,8 @@ function InvoiceLineRow({
 
   const isReturnLine = Boolean(line.isReturnLine);
 
+  const hasLineError = Boolean(errors && Object.keys(errors).length > 0);
+
   /* =========================================================
      Refs
   ========================================================= */
@@ -117,6 +122,9 @@ function InvoiceLineRow({
   const isFirstItemRender = useRef(true);
 
   const prevItemIdRef = useRef(line.itemId);
+
+  // آخر صنف عيّنّا له وحدة القياس تلقائيًا (عشان ما نلغي اختيار المستخدم اليدوي)
+  const autoUnitItemRef = useRef(null);
 
   /* =========================================================
      رصيد الصنف
@@ -149,6 +157,15 @@ function InvoiceLineRow({
     useGetItemUnitsSelectQuery(line.itemId, {
       skip: !line.itemId || line.isTemporaryItem || isReturnLine,
     });
+
+  /* =========================================================
+     تفاصيل الصنف (عشان نعرف وحدة القياس الافتراضية)
+     قائمة Items/select ما بترجّع الوحدة، فبنجيبها من Items/{id}
+  ========================================================= */
+
+  const { data: itemDetail } = useGetItemByIdQuery(line.itemId, {
+    skip: !line.itemId || line.isTemporaryItem || isReturnLine,
+  });
 
   /* =========================================================
      خيارات الأصناف
@@ -289,6 +306,49 @@ function InvoiceLineRow({
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line.itemUnitId, itemUnits]);
+
+  /* =========================================================
+     اختيار وحدة القياس تلقائيًا عند اختيار الصنف
+
+     بنستخدم الوحدة الافتراضية للصنف (ItemUnitId) مرة واحدة لكل صنف،
+     وبعدها لو غيّر المستخدم الوحدة يدويًا ما بنلغيه.
+  ========================================================= */
+
+  useEffect(() => {
+    if (!itemDetail || isReturnLine) {
+      return;
+    }
+
+    // نتأكد إن البيانات تخص نفس الصنف المختار (ممكن تكون بيانات الصنف السابق لسه موجودة)
+    if (String(itemDetail.id) !== String(line.itemId)) {
+      return;
+    }
+
+    const unitId = itemDetail.itemUnitId ?? null;
+
+    if (!unitId) {
+      return;
+    }
+
+    // طبقناها بالفعل على هذا الصنف؟
+    if (String(autoUnitItemRef.current) === String(line.itemId)) {
+      return;
+    }
+
+    autoUnitItemRef.current = line.itemId;
+
+    if (String(line.itemUnitId) === String(unitId)) {
+      return;
+    }
+
+    onChange({
+      ...line,
+      itemUnitId: unitId,
+      itemUnitName: itemDetail.itemUnitName ?? "",
+    });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemDetail, line.itemId]);
 
   /* =========================================================
      العدد
@@ -779,8 +839,14 @@ function InvoiceLineRow({
 
   return (
     <tr
+      data-line-index={index}
+      data-invalid={hasLineError}
       className={`animate-in fade-in slide-in-from-top-1 duration-200 border-b border-ink-400/5 last:border-0 transition-colors group ${
-        isReturnLine ? "bg-primary-500/[0.025]" : "hover:bg-ink-900/[0.015]"
+        hasLineError
+          ? "bg-negative/[0.04]"
+          : isReturnLine
+            ? "bg-primary-500/[0.025]"
+            : "hover:bg-ink-900/[0.015]"
       }`}
     >
       {/* =====================================================
@@ -795,7 +861,7 @@ function InvoiceLineRow({
           الصنف
       ===================================================== */}
 
-      <td className="p-2 min-w-[180px]">
+      <td className="p-2 min-w-[200px]">
         {isReturnLine ? (
           <div className="flex items-center gap-1.5 rounded-lg border border-primary-200 bg-primary-50/60 px-2.5 py-2 text-sm text-ink-900">
             <Undo2 size={13} className="shrink-0 text-primary-500" />
@@ -858,13 +924,26 @@ function InvoiceLineRow({
             </button>
           </div>
         )}
+
+        {hasLineError && (
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 text-[11px] font-medium text-negative">
+            {Object.values(errors)
+              .filter(Boolean)
+              .map((msg, i) => (
+                <span key={i} className="inline-flex items-center gap-1">
+                  <AlertCircle size={11} />
+                  {msg}
+                </span>
+              ))}
+          </p>
+        )}
       </td>
 
       {/* =====================================================
           الرصيد
       ===================================================== */}
 
-      <td className="p-2 w-[130px]">
+      <td className="p-2 min-w-[130px]">
         <div className="rounded-lg border border-ink-400/10 bg-ink-400/5 px-2.5 py-1.5 text-right transition-colors">
           {isReturnLine ? (
             <span className="text-sm font-medium text-ink-700">
@@ -896,7 +975,7 @@ function InvoiceLineRow({
           الوحدة
       ===================================================== */}
 
-      <td className="p-2 min-w-[120px]">
+      <td className="p-2 min-w-[130px]">
         {isReturnLine ? (
           <div className={readonlyCls}>{line.itemUnitName || "-"}</div>
         ) : (
@@ -921,7 +1000,7 @@ function InvoiceLineRow({
           العدد
       ===================================================== */}
 
-      <td className="p-2 w-[90px]">
+      <td className="p-2 min-w-[110px]">
         {isReturnLine ? (
           <div className={readonlyCls}>—</div>
         ) : (
@@ -939,7 +1018,7 @@ function InvoiceLineRow({
           وزن الوحدة
       ===================================================== */}
 
-      <td className="p-2 w-[100px]">
+      <td className="p-2 min-w-[120px]">
         {isReturnLine ? (
           <div className={readonlyCls}>—</div>
         ) : (
@@ -957,7 +1036,7 @@ function InvoiceLineRow({
           الكمية
       ===================================================== */}
 
-      <td className="p-2 w-[110px]">
+      <td className="p-2 min-w-[120px]">
         <NumericInput
           value={line.quantity ?? ""}
           decimals
@@ -976,7 +1055,7 @@ function InvoiceLineRow({
           الأصلي.
       ===================================================== */}
 
-      <td className="p-2 w-[140px]">
+      <td className="p-2 min-w-[150px]">
         <NumericInput
           value={line.price ?? ""}
           decimals
@@ -1019,8 +1098,8 @@ function InvoiceLineRow({
           القيمة
       ===================================================== */}
 
-      <td className="p-2 w-[130px] text-center">
-        <span className="num inline-block rounded-lg bg-ink-900/[0.03] px-2.5 py-1 text-sm font-semibold text-ink-900 transition-colors">
+      <td className="p-2 min-w-[140px] text-center">
+        <span className="num inline-block w-full rounded-lg bg-ink-900/[0.03] px-2.5 py-1.5 text-center text-sm font-semibold text-ink-900 transition-colors">
           {total.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
         </span>
       </td>
@@ -1029,7 +1108,7 @@ function InvoiceLineRow({
           ملاحظات
       ===================================================== */}
 
-      <td className="p-2 min-w-[150px]">
+      <td className="p-2 min-w-[160px]">
         <Input
           value={line.notes ?? ""}
           onChange={(e) => set("notes", e.target.value)}

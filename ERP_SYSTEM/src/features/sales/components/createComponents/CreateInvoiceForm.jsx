@@ -13,6 +13,10 @@ import {
   MapPin,
   Wallet,
   StoreIcon,
+  AlertTriangle,
+  CheckCircle2,
+  CircleDot,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -34,6 +38,7 @@ import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
 import Button from "../../../../shared/components/ui/Button";
+import Modal from "../../../../shared/components/ui/Modal";
 import InvoiceLineRow from "./NewInvoiceLineRow";
 import ReturnSourcePicker from "./ReturnSourcePicker";
 import CompactSelect from "../../../../shared/components/ui/CompactSelect";
@@ -68,6 +73,15 @@ const emptyLine = () => ({
 });
 
 const RETURN_TYPES = new Set(["salesReturn", "purchaseReturn"]);
+
+// السطر له صنف صالح (من الكتالوج أو اسم يدوي)
+const lineHasItem = (l) =>
+  l.isTemporaryItem ? Boolean(l.itemName?.trim()) : Boolean(l.itemId);
+
+// السطر له كمية صالحة: كمية مباشرة، أو عدد × وزن
+const lineHasQuantity = (l) =>
+  (Number(l.quantity) || 0) > 0 ||
+  ((Number(l.count) || 0) > 0 && (Number(l.weight) || 0) > 0);
 
 const movementOptions = [
   { value: "sale", label: "بيع" },
@@ -296,6 +310,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const [itemsLocked, setItemsLocked] = useState(true);
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
   const [fullReturnState, setFullReturnState] = useState(null);
+  const [showErrors, setShowErrors] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const [header, setHeader] = useState(getDefaultHeader);
 
@@ -677,28 +693,187 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   const { printInvoice, printRef, invoiceToPrint } = useInvoicePrint();
 
+  // يروح لأول حقل فيه خطأ ويركّز عليه
+  const focusFirstError = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector('[data-invalid="true"]');
+
+      if (!el) return;
+
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      const focusable = el.querySelector(
+        "input:not([type=hidden]), select, textarea, button, [tabindex]",
+      );
+
+      focusable?.focus?.({ preventScroll: true });
+    });
+  }, []);
+
+  // ==== تحقق العميل قبل الحفظ ====
+  // الباك إند لسه هو مصدر الحقيقة النهائي، لكن هنا بنمنع المستخدم من
+  // إرسال بيانات ناقصة معروفة، وبنوضّح مكان الخطأ بالظبط بدل ما ياخد
+  // رسالة عامة من السيرفر بعد الإرسال.
+  const validation = useMemo(() => {
+    const headerErrors = {};
+    const lineErrors = {};
+    const messages = [];
+
+    const addMessage = (field, text) => messages.push({ field, text });
+
+    if (!header.movementType) {
+      headerErrors.movementType = "اختر نوع الفاتورة";
+      addMessage("movementType", "اختر نوع الفاتورة (بيع / شراء / مرتجع)");
+    }
+
+    if (!header.partyId) {
+      headerErrors.partyId = "اختر العميل أو المورد";
+      addMessage("partyId", "اختر العميل أو المورد");
+    }
+
+    if (!header.storeId) {
+      headerErrors.storeId = "اختر المخزن";
+      addMessage("storeId", "اختر المخزن");
+    }
+
+    if (invoiceDateWarning) {
+      headerErrors.date = invoiceDateWarning;
+      addMessage("date", invoiceDateWarning);
+    }
+
+    if (header.dueDate && header.date && header.dueDate < header.date) {
+      headerErrors.dueDate = "تاريخ الاستحقاق لا يسبق تاريخ الفاتورة";
+      addMessage("dueDate", headerErrors.dueDate);
+    }
+
+    const foreignCurrency = Boolean(
+      header.currency && header.currency !== "EGP",
+    );
+
+    if (foreignCurrency && !((parseFloat(header.exchangeRate) || 0) > 0)) {
+      headerErrors.exchangeRate = "أدخل سعر صرف أكبر من صفر";
+      addMessage("exchangeRate", "أدخل سعر صرف صحيح للعملة الأجنبية");
+    }
+
+    if (isCashPayment && (parseFloat(header.paid) || 0) > 0 && !header.cashboxId) {
+      headerErrors.cashboxId = "اختر الخزنة";
+      addMessage("cashboxId", "اختر الخزنة المستلمة للدفعة النقدية");
+    }
+
+    if (isReturnInvoice && returnLines.length === 0) {
+      headerErrors.lines = "أضف أصناف المرتجع";
+      addMessage("lines", "اختر أصناف المرتجع من الفاتورة الأصلية");
+    }
+
+    const seenItemIds = new Map();
+
+    lines.forEach((line, index) => {
+      const touched =
+        lineHasItem(line) ||
+        (Number(line.quantity) || 0) > 0 ||
+        (Number(line.count) || 0) > 0 ||
+        (Number(line.weight) || 0) > 0 ||
+        (Number(line.price) || 0) > 0;
+
+      if (!touched) return;
+
+      const errs = {};
+
+      if (!lineHasItem(line)) {
+        errs.item = "اختر الصنف";
+      }
+
+      if (lineHasItem(line) && !lineHasQuantity(line)) {
+        errs.quantity = "أدخل الكمية أو (العدد والوزن)";
+      }
+
+      if (!line.isTemporaryItem && line.itemId) {
+        const key = String(line.itemId);
+
+        if (seenItemIds.has(key)) {
+          errs.duplicate = "صنف مكرر في الفاتورة";
+        } else {
+          seenItemIds.set(key, index);
+        }
+      }
+
+      if (
+        line.isReturnLine &&
+        line.originalPrice !== undefined &&
+        line.originalPrice !== null &&
+        Number(line.price) !== Number(line.originalPrice) &&
+        !line.returnPriceDifferenceReason?.trim()
+      ) {
+        errs.reason = "اكتب سبب اختلاف السعر";
+      }
+
+      if (Object.keys(errs).length > 0) {
+        lineErrors[index] = errs;
+      }
+    });
+
+    const validLineCount = lines.filter(
+      (line) => lineHasItem(line) && lineHasQuantity(line),
+    ).length;
+
+    if (!isReturnInvoice && validLineCount === 0) {
+      headerErrors.lines = "أضف صنف واحد على الأقل";
+      addMessage("lines", "أضف صنف واحد على الأقل بكمية صحيحة");
+    }
+
+    Object.keys(lineErrors)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .forEach((index) => {
+        const errs = lineErrors[index];
+        const text =
+          errs.item ||
+          errs.duplicate ||
+          errs.quantity ||
+          errs.reason ||
+          "بيانات غير مكتملة";
+        addMessage(`line-${index}`, `سطر ${index + 1}: ${text}`);
+      });
+
+    return {
+      headerErrors,
+      lineErrors,
+      messages,
+      validLineCount,
+      isValid:
+        Object.keys(headerErrors).length === 0 &&
+        Object.keys(lineErrors).length === 0,
+    };
+  }, [
+    header,
+    lines,
+    isCashPayment,
+    isReturnInvoice,
+    returnLines,
+    invoiceDateWarning,
+  ]);
+
   const submitInvoice = useCallback(
     async (shouldPrint = false) => {
       if (isLoading) return;
 
-      // لازم سبب لكل سطر مرتجع اتغيّر سعره عن السعر الأصلي في
-      // الفاتورة المصدر، قبل ما نبعت أي حاجة للباك.
-      const missingReason = priceModifiedReturnLines.some(
-        (l) => !l.returnPriceDifferenceReason?.trim(),
-      );
+      // تحقق العميل: نمنع الإرسال ونوضّح مكان الخطأ بالظبط فورًا
+      // بدل ما نستنى رد السيرفر.
+      if (!validation.isValid) {
+        setShowErrors(true);
 
-      if (missingReason) {
-        toast.error("لازم تكتب سبب لكل صنف اتغيّر سعر مرتجعه");
+        toast.error("راجع البيانات قبل الحفظ", {
+          description: `${validation.messages.length} ملاحظة محتاجة تصحيح`,
+        });
+
+        focusFirstError();
         return;
       }
 
-      if (invoiceDateWarning) {
-        toast.error(invoiceDateWarning);
-        return;
-      }
+      setShowErrors(false);
 
-      // التحقق من صحة الفاتورة (عميل، مخزن، أصناف، خزنة نقدي...) بقى
-      // مسؤولية الباك بالكامل، وأي رفض بيوصل هنا في الـ catch تحت.
+      // بعد كده الباك إند يبقى مصدر الحقيقة النهائي، وأي رفض إضافي
+      // (رصيد/سعر/سنة مالية...) بيوصل في الـ catch تحت.
       const payload = buildCreateInvoiceRequest({
         movementType: header.movementType,
         header: { ...header, wbTotal },
@@ -728,8 +903,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
       wbTotal,
       containersMovement,
       isTemporaryDriver,
-      priceModifiedReturnLines,
-      invoiceDateWarning,
+      validation,
+      focusFirstError,
       createInvoice,
       onSuccess,
       printInvoice,
@@ -767,7 +942,27 @@ export default function CreateInvoiceForm({ onSuccess }) {
     setContainersMovement({ containerStoreId: null, items: [] });
     setIsTemporaryDriver(false);
     setFullReturnState(null);
+    setShowErrors(false);
+    setShowResetConfirm(false);
     toast.success("تم مسح بيانات الفاتورة");
+  }, []);
+
+  // انتقال سريع لحقل معيّن من قائمة الملاحظات
+  const jumpToField = useCallback((field) => {
+    if (!field) return;
+
+    const selector = field.startsWith("line-")
+      ? `[data-line-index="${field.split("-")[1]}"]`
+      : `[data-field="${field}"]`;
+
+    const el = document.querySelector(selector);
+
+    if (!el) return;
+
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.querySelector("input, select, textarea, button")?.focus?.({
+      preventScroll: true,
+    });
   }, []);
 
   const fmt = useCallback(
@@ -780,6 +975,9 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   return (
     <div className="space-y-6 pb-4 animate-[fadeIn_0.15s_ease-out]">
+      <div className="space-y-6">
+        {/* ===== العمود الرئيسي ===== */}
+        <div className="min-w-0 space-y-6">
       {/* ============ القسم 1: بيانات الفاتورة الأساسية ============ */}
       <LedgerPanel
         title={
@@ -795,12 +993,22 @@ export default function CreateInvoiceForm({ onSuccess }) {
             value={header.invoiceNumber}
             onChange={(e) => setHeaderField("invoiceNumber", e.target.value)}
           />
-          <LedgerSelect
-            label="نوع الفاتورة"
-            options={movementOptions}
-            value={header.movementType}
-            onChange={(e) => setHeaderField("movementType", e.target.value)}
-          />
+          <div
+            data-field="movementType"
+            data-invalid={
+              showErrors && Boolean(validation.headerErrors.movementType)
+            }
+          >
+            <LedgerSelect
+              label="نوع الفاتورة"
+              options={movementOptions}
+              value={header.movementType}
+              onChange={(e) => setHeaderField("movementType", e.target.value)}
+              error={
+                showErrors ? validation.headerErrors.movementType : undefined
+              }
+            />
+          </div>
           <LedgerField
             label="التاريخ"
             type="date"
@@ -810,12 +1018,20 @@ export default function CreateInvoiceForm({ onSuccess }) {
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3">
-          <LedgerField
-            label="تاريخ الاستحقاق"
-            type="date"
-            value={header.dueDate}
-            onChange={(e) => setHeaderField("dueDate", e.target.value)}
-          />
+          <div
+            data-field="dueDate"
+            data-invalid={
+              showErrors && Boolean(validation.headerErrors.dueDate)
+            }
+          >
+            <LedgerField
+              label="تاريخ الاستحقاق"
+              type="date"
+              value={header.dueDate}
+              onChange={(e) => setHeaderField("dueDate", e.target.value)}
+              error={showErrors ? validation.headerErrors.dueDate : undefined}
+            />
+          </div>
           <LedgerField
             label="كود فاتورة التصدير"
             value={header.exportInvoiceCode}
@@ -830,14 +1046,24 @@ export default function CreateInvoiceForm({ onSuccess }) {
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3">
-          <LedgerField
-            label="سعر الصرف"
-            type="number"
-            value={header.exchangeRate}
-            onChange={(e) => setHeaderField("exchangeRate", e.target.value)}
-            disabled={!isForeignCurrency}
-            hint={!isForeignCurrency ? "متاح فقط للعملات الأجنبية" : undefined}
-          />
+          <div
+            data-field="exchangeRate"
+            data-invalid={
+              showErrors && Boolean(validation.headerErrors.exchangeRate)
+            }
+          >
+            <LedgerField
+              label="سعر الصرف"
+              type="number"
+              value={header.exchangeRate}
+              onChange={(e) => setHeaderField("exchangeRate", e.target.value)}
+              disabled={!isForeignCurrency}
+              hint={!isForeignCurrency ? "متاح فقط للعملات الأجنبية" : undefined}
+              error={
+                showErrors ? validation.headerErrors.exchangeRate : undefined
+              }
+            />
+          </div>
           <LedgerSelect
             label="محتوى الفاتورة"
             options={invoiceContentTypeOptions}
@@ -858,6 +1084,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </span>
         }
       >
+        <div
+          data-field="partyId"
+          data-invalid={showErrors && Boolean(validation.headerErrors.partyId)}
+        >
         <div className="flex items-stretch">
           <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
             عميل / مورد
@@ -902,6 +1132,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             )}
           </button>
         </div>
+        {showErrors && validation.headerErrors.partyId && (
+          <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
+            {validation.headerErrors.partyId}
+          </p>
+        )}
+        </div>
 
         {isPartiesError && (
           <InlineErrorRetry
@@ -931,6 +1167,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
             </div>
           </div>
 
+          <div
+            data-field="storeId"
+            data-invalid={showErrors && Boolean(validation.headerErrors.storeId)}
+          >
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               المخزن
@@ -953,6 +1193,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
             >
               <Plus size={17} />
             </button>
+          </div>
+          {showErrors && validation.headerErrors.storeId && (
+            <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
+              {validation.headerErrors.storeId}
+            </p>
+          )}
           </div>
         </div>
 
@@ -1104,6 +1350,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
         {hasPayment && (
           <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-2 animate-[fadeIn_0.15s_ease-out]">
+            <div
+              data-field="cashboxId"
+              data-invalid={
+                showErrors && Boolean(validation.headerErrors.cashboxId)
+              }
+            >
             <div className="flex items-stretch">
               <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
                 الخزنة
@@ -1115,6 +1367,12 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 onChange={handleCashboxChange}
                 placeholder="اختر الخزنة"
               />
+            </div>
+            {showErrors && validation.headerErrors.cashboxId && (
+              <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
+                {validation.headerErrors.cashboxId}
+              </p>
+            )}
             </div>
             <LedgerField
               label="سعر صرف الخزنة"
@@ -1195,8 +1453,19 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         }
       >
-        <div className="grid grid-cols-1 items-start gap-4">
+        <div
+          className="grid grid-cols-1 items-start gap-4"
+          data-field="lines"
+          data-invalid={showErrors && Boolean(validation.headerErrors.lines)}
+        >
           <div>
+            {showErrors && validation.headerErrors.lines && (
+              <div className="mb-3 flex items-center gap-2 rounded-2xl border border-negative/20 bg-negative/5 px-4 py-2.5 text-xs text-negative">
+                <AlertTriangle size={14} />
+                {validation.headerErrors.lines}
+              </div>
+            )}
+
             {itemsLocked && (
               <div className="mb-3 rounded-2xl border border-dashed border-gold-200 bg-gold-50/40 py-6 text-center">
                 <p className="text-sm text-gold-700">
@@ -1229,7 +1498,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   itemsLocked ? "pointer-events-none opacity-50" : ""
                 }`}
               >
-                <table className="w-full min-w-[950px] border-collapse text-right">
+                <table className="w-full min-w-[1350px] border-collapse text-right">
                   <thead>
                     <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
                       <th className="p-2.5 font-medium">#</th>
@@ -1257,6 +1526,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
                         itemOptions={itemOptions}
                         isLoadingItems={isLoadingItems}
                         isItemsError={isItemsError}
+                        errors={showErrors ? validation.lineErrors[index] : undefined}
                         onChange={(newLine) => updateLine(index, newLine)}
                         onRemove={() => removeLine(index)}
                       />
@@ -1279,6 +1549,71 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
       </LedgerPanel>
+
+        </div>
+
+        {/* ===== الملاحظات + الملخص + الأزرار ===== */}
+        <aside className="space-y-4">
+          {showErrors && !validation.isValid && (
+            <div className="rounded-2xl border border-negative/20 bg-negative/5 p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-negative">
+                <AlertTriangle size={15} />
+                راجع {validation.messages.length} ملاحظة
+              </div>
+              <ul className="mt-2 space-y-1">
+                {validation.messages.slice(0, 6).map((msg, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => jumpToField(msg.field)}
+                      className="text-right text-xs leading-5 text-negative/90 hover:underline"
+                    >
+                      • {msg.text}
+                    </button>
+                  </li>
+                ))}
+                {validation.messages.length > 6 && (
+                  <li className="text-xs text-negative/70">
+                    و {validation.messages.length - 6} ملاحظات أخرى…
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* قائمة جاهزية الفاتورة */}
+          <div className="rounded-2xl border border-ink-400/15 bg-white p-3 shadow-sm">
+            <p className="mb-2 text-xs font-semibold text-ink-600">
+              خطوات إنشاء الفاتورة
+            </p>
+            <ul className="space-y-1.5">
+              {[
+                { label: "نوع الفاتورة", done: Boolean(header.movementType) },
+                { label: "العميل / المورد", done: Boolean(header.partyId) },
+                { label: "المخزن", done: Boolean(header.storeId) },
+                { label: "أصناف بكميات", done: validation.validLineCount > 0 },
+                ...(isCashPayment
+                  ? [{ label: "الخزنة", done: Boolean(header.cashboxId) }]
+                  : []),
+              ].map((step) => (
+                <li key={step.label} className="flex items-center gap-2 text-xs">
+                  {step.done ? (
+                    <CheckCircle2
+                      size={14}
+                      className="shrink-0 text-primary-500"
+                    />
+                  ) : (
+                    <CircleDot size={14} className="shrink-0 text-ink-400/50" />
+                  )}
+                  <span
+                    className={step.done ? "text-ink-700" : "text-ink-400"}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
       {/* ============ القسم 6: ملخص الفاتورة ============ */}
       <LedgerPanel
@@ -1421,28 +1756,67 @@ export default function CreateInvoiceForm({ onSuccess }) {
           حفظ وطباعة
         </Button>
 
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={handleResetForm}
-          disabled={isLoading}
-          className="h-10 w-full"
-          title="امسح كل البيانات المكتوبة وابدأ فاتورة فاضية من غير ما تسيب الصفحة"
-        >
-          مسح البيانات والبدء من جديد
-        </Button>
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            disabled={isLoading}
+            className="h-10 w-full"
+            title="امسح كل البيانات المكتوبة وابدأ فاتورة فاضية"
+          >
+            <RotateCcw size={15} />
+            مسح
+          </Button>
 
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={handleCancel}
-          disabled={isLoading}
-          className="h-10 w-full"
-        >
-          <X size={16} />
-          إلغاء
-        </Button>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={handleCancel}
+            disabled={isLoading}
+            className="h-10 w-full"
+          >
+            <X size={15} />
+            إلغاء
+          </Button>
+        </div>
       </div>
+        </aside>
+      </div>
+
+      {/* ===== تأكيد مسح البيانات ===== */}
+      <Modal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        title="مسح بيانات الفاتورة"
+      >
+        <div className="space-y-5">
+          <div className="flex flex-col items-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gold-50 text-gold-600">
+              <AlertTriangle size={28} />
+            </div>
+            <h4 className="mt-4 text-base font-bold text-ink-900">
+              هل تريد مسح كل البيانات والبدء من جديد؟
+            </h4>
+            <p className="mt-2 text-sm text-ink-600">
+              سيتم مسح كل ما كتبته في هذه الفاتورة والبدء بفاتورة فاضية.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowResetConfirm(false)}
+            >
+              رجوع
+            </Button>
+            <Button className="flex-1" onClick={handleResetForm}>
+              <RotateCcw size={15} />
+              مسح البيانات
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <QuickAddCustomerModal
         isOpen={showAddCustomer}
