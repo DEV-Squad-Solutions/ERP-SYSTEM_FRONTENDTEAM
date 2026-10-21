@@ -28,6 +28,7 @@ import {
 
 import { useDeleteInvoiceMutation } from "../../invoices/invoicesApi";
 import Pagination from "../../../shared/components/ui/Pagination";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { useInvoicePrint } from "../../../shared/hooks/useInvoicePrint";
 import InvoicePrintTemplate from "../../../shared/components/print/InvoicePrintTemplate";
 
@@ -194,9 +195,12 @@ export default function SalesInvoicesTable({
         header: "رقم الفاتورة",
 
         cell: (info) => (
-          <span className="num text-[13px] font-medium text-ink-900">
-            {info.getValue()}
-          </span>
+          <InvoiceNumberLink
+            invoiceId={info.row.original.id}
+            invoiceType={info.row.original.invoiceType}
+            number={info.getValue()}
+            className="num text-[13px] font-medium"
+          />
         ),
       }),
 

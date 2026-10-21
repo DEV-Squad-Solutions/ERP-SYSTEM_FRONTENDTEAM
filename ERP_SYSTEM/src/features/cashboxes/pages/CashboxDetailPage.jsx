@@ -2,7 +2,7 @@ import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
 import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
 import { useMemo, useState } from "react";
 
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   RefreshCw,
@@ -155,6 +155,12 @@ export default function CashboxDetailPage() {
   const navigate = useNavigate();
   const isAdmin = useSelector(selectIsAdmin);
   const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
+
+  // deep-link لسند معيّن: /dashboard/treasury/:cashboxId?voucherId=123
+  // بيستخدمه رقم السند في شاشة المصاريف وباقي الشاشات اللي بتحيل لحركة.
+  // بنفلتر بالـvoucherId عشان السند يبان في أول صفحة ولو مكنش في الصفحة الحالية.
+  const [searchParams] = useSearchParams();
+  const highlightVoucherId = searchParams.get("voucherId") || "";
 
   const [filters, setFilters] = useState({
     draft: {
@@ -822,6 +828,7 @@ export default function CashboxDetailPage() {
           totalCount={data?.totalCount || 0}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
+          highlightVoucherId={highlightVoucherId}
         />
       </div>
       {showHandover && (

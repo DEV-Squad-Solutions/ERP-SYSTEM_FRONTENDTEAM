@@ -1,5 +1,6 @@
 import { Pencil } from "lucide-react";
 import Modal from "../../../shared/components/ui/Modal";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { formatDate } from "../../../lib/date.js";
 
 function fmtAmount(n, currency) {
@@ -93,7 +94,17 @@ export default function ExpenseDetailsModal({ voucher, onClose, onEdit }) {
             <Row label="ملاحظات" value={v.notes} />
             {v.invoiceNumber && (
               <>
-                <Row label="فاتورة مرتبطة" value={v.invoiceNumber} />
+                <Row
+                  label="فاتورة مرتبطة"
+                  value={
+                    <InvoiceNumberLink
+                      invoiceId={v.invoiceId}
+                      invoiceType={v.invoiceType}
+                      invoiceNumber={v.invoiceNumber}
+                      className="font-medium"
+                    />
+                  }
+                />
                 <Row
                   label="المبلغ المُطبّق على الفاتورة"
                   value={fmtAmount(

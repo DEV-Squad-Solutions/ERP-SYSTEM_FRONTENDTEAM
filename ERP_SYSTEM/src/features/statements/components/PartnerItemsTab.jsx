@@ -17,6 +17,7 @@ import { useGetItemsSelectQuery } from "../../inventory/inventoryApi";
 import { useGetPartnerItemMovementsQuery } from "../statementsApi";
 import { useNavigate } from "react-router-dom";
 import PartnerItemMovementsPrintTemplate from "../../../shared/components/print/PartnerItemMovementsPrintTemplate";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { formatDate as sharedFormatDate } from "../../../lib/date.js";
 import DateInput from "../../../shared/components/ui/DateInput.jsx";
 const emptyItemFilters = {
@@ -377,15 +378,11 @@ export default function PartnerItemsTab({ partnerId }) {
                       className="border-b border-ink-400/5 transition-colors last:border-0 hover:bg-ink-900/[0.012]"
                     >
                       <td className="p-2.5 text-sm font-medium num">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(`/dashboard/sales/${row.invoiceId}`)
-                          }
-                          className="text-primary-600 hover:text-primary-700 hover:underline transition-colors"
-                        >
-                          {row.invoiceNumber || "-"}
-                        </button>
+                        <InvoiceNumberLink
+                          invoiceId={row.invoiceId}
+                          invoiceType={row.invoiceType}
+                          invoiceNumber={row.invoiceNumber}
+                        />
                       </td>
                       {/* Date */}
                       <td className="p-2.5 text-sm num">

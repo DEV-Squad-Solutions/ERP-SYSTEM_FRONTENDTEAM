@@ -12,6 +12,7 @@ import { useGetExpenseAccountsSelectQuery } from "../../accounts/accountsApi";
 import ExpenseFilters from "../components/ExpenseFilters";
 import ExpenseDetailsModal from "../components/ExpenseDetailsModal";
 import Pagination from "../../../shared/components/ui/Pagination";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { formatDate } from "../../../lib/date.js";
 
 const emptyFilters = {
@@ -285,10 +286,16 @@ export default function ExpensesPage() {
 
                         {v.invoiceNumber && (
                           <div
-                            className="mt-0.5 truncate text-[11px] text-ink-400"
+                            className="mt-0.5 truncate text-[11px]"
                             title={`فاتورة: ${v.invoiceNumber}`}
                           >
-                            فاتورة: {v.invoiceNumber}
+                            <span className="text-ink-400">فاتورة: </span>
+                            <InvoiceNumberLink
+                              invoiceId={v.invoiceId}
+                              invoiceType={v.invoiceType}
+                              invoiceNumber={v.invoiceNumber}
+                              className="text-[11px] font-medium"
+                            />
                           </div>
                         )}
                       </td>

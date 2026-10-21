@@ -2,6 +2,7 @@
 import { Wallet, RefreshCw, AlertCircle, PackageSearch } from "lucide-react";
 
 import Pagination from "../../../shared/components/ui/Pagination";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { formatDate } from "../../../lib/date.js";
 
 const INVOICE_TYPE_LABELS = {
@@ -147,9 +148,12 @@ export default function InvoiceItemPricingTable({
                 style={{ animationDelay: `${Math.min(index, 12) * 25}ms` }}
               >
                 <td className="p-2.5 border-l border-ink-400/5">
-                  <p className="text-sm font-medium text-ink-900">
-                    {item.invoiceNumber}
-                  </p>
+                  <InvoiceNumberLink
+                    invoiceId={item.invoiceId}
+                    invoiceType={item.invoiceType}
+                    invoiceNumber={item.invoiceNumber}
+                    className="text-sm font-medium"
+                  />
                   <p className="text-[10px] text-ink-400 num mt-0.5">
                     {formatDate(item.invoiceDate)}
                   </p>

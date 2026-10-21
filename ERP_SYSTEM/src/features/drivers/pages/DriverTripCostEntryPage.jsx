@@ -14,6 +14,7 @@ import Button from "../../../shared/components/ui/Button";
 import { useFiscalYearGuard } from "../../../lib/useFiscalYearGuard";
 import ReadOnlyFiscalYearBanner from "../../../shared/components/ui/ReadOnlyFiscalYearBanner";
 import Pagination from "../../../shared/components/ui/Pagination";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { formatDate } from "../../../lib/date.js";
 
 const hasCostOptions = [
@@ -357,9 +358,18 @@ export default function DriverTripCostEntryPage() {
 
                       {/* الفاتورة */}
                       <td className="p-2.5 border-l border-ink-400/5 whitespace-nowrap">
-                        <span className="num text-[12px] text-ink-600">
-                          {row.invoiceNumber || "—"}
-                        </span>
+                        {row.invoiceNumber ? (
+                          <InvoiceNumberLink
+                            invoiceId={row.invoiceId}
+                            invoiceType={row.invoiceType}
+                            invoiceNumber={row.invoiceNumber}
+                            className="num text-[12px] font-medium"
+                          />
+                        ) : (
+                          <span className="num text-[12px] text-ink-600">
+                            —
+                          </span>
+                        )}
                       </td>
 
                       {/* التكلفة */}

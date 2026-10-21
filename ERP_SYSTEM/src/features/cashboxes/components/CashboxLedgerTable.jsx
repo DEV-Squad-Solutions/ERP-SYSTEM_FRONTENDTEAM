@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FileSearch,
   AlertCircle,
@@ -21,7 +22,7 @@ import { round2 } from "../../../lib/number";
 import CashVoucherEditModal from "./CashVoucherEditModal";
 import DescriptionCascadeSelect from "./DescriptionCascadeSelect";
 import Pagination from "../../../shared/components/ui/Pagination";
-import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
+import { useGetCashVoucherPartySelectQuery, useGetCashVoucherByIdQuery } from "../cashVouchersApi";
 import { useLazyResolveExchangeRateQuery } from "../../exchange-rates/exchangeRatesApi";
 import { selectIsAdmin, selectIsAdminOrAccountant } from "../../auth/authSlice";
 import {
@@ -250,9 +251,13 @@ export default function CashboxLedgerTable({
   totalCount = 0,
   onPageChange,
   onPageSizeChange,
+  // معرّف سند مطلوب إبرازه (بييجي من deep-link ?voucherId=...).
+  // بنعلّم عليه بلون وننزّل عليه عشان المستخدم يشوفه فورًا.
+  highlightVoucherId = "",
 }) {
   const isAdmin = useSelector(selectIsAdmin);
   const isAdminOrAccountant = useSelector(selectIsAdminOrAccountant);
+  const navigate = useNavigate();
   const { isReadOnly: isFiscalYearReadOnly, fiscalYear } = useFiscalYearGuard();
 
   const [isAdding, setIsAdding] = useState(false);
@@ -811,6 +816,100 @@ export default function CashboxLedgerTable({
 
   const showEmptyState = !isFetching && rows.length === 0 && !isAdding;
 
+  // =========================================================
+  // deep-link لسند معيّن (?voucherId=...)
+  // لو السند موجود في الصفحة المعروضة بنعلّم عليه وننزّل عليه.
+  // لو مش موجود (صفحة تانية أو فلتر مختلف) بنجيبه بالـid ونضيفه
+  // في أول الجدول مؤقتًا عشان المستخدم يشوفه فورًا مهما كانت الصفحة.
+  // =========================================================
+  const [highlightedVoucher, setHighlightedVoucher] = useState(null);
+  const rowRefs = useRef({});
+
+  // السند المطلوب إبرازه موجود في الصفحة الحالية؟
+  const highlightInPage = useMemo(
+    () =>
+      Boolean(highlightVoucherId) &&
+      rows.some((row) => String(row.id) === String(highlightVoucherId)),
+    [highlightVoucherId, rows],
+  );
+
+  // لو مش في الصفحة الحالية بنجيبه بالـid مباشرة (من غير ما نلمس الباك-إند).
+  const { data: fetchedVoucher } = useGetCashVoucherByIdQuery(
+    highlightVoucherId,
+    { skip: !highlightVoucherId || highlightInPage },
+  );
+
+  useEffect(() => {
+    setHighlightedVoucher(fetchedVoucher || null);
+  }, [fetchedVoucher]);
+
+  // السندات المعروضة في الجدول = سند الـdeep-link (لو مش في الصفحة) + صفوف الصفحة
+  const displayRows = useMemo(() => {
+    if (
+      !highlightedVoucher ||
+      String(highlightedVoucher.cashboxId) !== String(cashboxId)
+    ) {
+      return rows;
+    }
+
+    const alreadyThere = rows.some(
+      (row) => String(row.id) === String(highlightedVoucher.id),
+    );
+
+    if (alreadyThere) {
+      return rows;
+    }
+
+    const amount = toNumber(highlightedVoucher.amount);
+    const exchangeRate =
+      toNumber(highlightedVoucher.exchangeRate ?? highlightedVoucher.rate ?? 1) ||
+      1;
+    const baseAmount = toNumber(
+      highlightedVoucher.baseAmount ?? amount * exchangeRate,
+    );
+    const isDescribed = Boolean(
+      highlightedVoucher.cashMovementTypeId ||
+        highlightedVoucher.accountId ||
+        highlightedVoucher.employeeId ||
+        highlightedVoucher.businessPartnerId ||
+        highlightedVoucher.driverId ||
+        highlightedVoucher.externalPartyName,
+    );
+
+    const pinned = {
+      ...highlightedVoucher,
+      amount,
+      exchangeRate,
+      baseAmount,
+      debit: highlightedVoucher.direction === "Receipt" ? amount : 0,
+      credit: highlightedVoucher.direction === "Payment" ? amount : 0,
+      baseDebit: highlightedVoucher.direction === "Receipt" ? baseAmount : 0,
+      baseCredit: highlightedVoucher.direction === "Payment" ? baseAmount : 0,
+      balance: toNumber(highlightedVoucher.cashboxBalance),
+      isDescribed,
+      isDraft:
+        typeof highlightedVoucher.isDraft === "boolean"
+          ? highlightedVoucher.isDraft
+          : !isDescribed,
+      __isPinned: true,
+    };
+
+    return [pinned, ...rows];
+  }, [rows, highlightedVoucher, cashboxId]);
+
+  // ننزّل على السند المعلّم عليه بعد ما الجدول يترسم.
+  useEffect(() => {
+    if (!highlightVoucherId) {
+      return;
+    }
+
+    const node = rowRefs.current[highlightVoucherId];
+
+    if (node) {
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightVoucherId, displayRows]);
+
   if (isLoading) {
     return (
       <div className="space-y-1.5">
@@ -916,7 +1015,7 @@ export default function CashboxLedgerTable({
               <col className="w-[21%]" />
               <col className="w-[21%]" />
               <col className="w-[9%]" />
-              <col className="w-[8%]" />
+              <col className="w-[10%]" />
             </colgroup>
 
             <thead>
@@ -1110,7 +1209,7 @@ export default function CashboxLedgerTable({
                 </tr>
               )}
 
-              {rows.map((row) => {
+              {displayRows.map((row) => {
                 const isUpdating = updatingRowId === row.id;
 
                 const isDeleting = deletingRowId === row.id;
@@ -1118,6 +1217,10 @@ export default function CashboxLedgerTable({
                 const isDescriptionUpdating = descriptionUpdatingId === row.id;
 
                 const isInvoiceGenerated = Boolean(row.invoiceId);
+
+                const isHighlighted =
+                  Boolean(highlightVoucherId) &&
+                  String(row.id) === String(highlightVoucherId);
 
                 const isOpeningBalanceRow = Boolean(row.isOpeningBalance);
 
@@ -1161,10 +1264,17 @@ export default function CashboxLedgerTable({
                 return (
                   <tr
                     key={row.id}
+                    ref={(node) => {
+                      if (node) {
+                        rowRefs.current[row.id] = node;
+                      }
+                    }}
                     className={`group border-b border-ink-400/5 align-middle transition-all duration-200 last:border-0 hover:bg-ink-900/[0.015] ${
-                      isUpdating || isDescriptionUpdating
-                        ? "bg-primary-50/20"
-                        : ""
+                      isHighlighted
+                        ? "bg-primary-50 ring-2 ring-inset ring-primary-300"
+                        : isUpdating || isDescriptionUpdating
+                          ? "bg-primary-50/20"
+                          : ""
                     }`}
                   >
                     <td
@@ -1320,9 +1430,20 @@ export default function CashboxLedgerTable({
                     <td className="px-2 py-2">
                       <div className="flex min-w-0 items-start justify-between gap-1">
                         <div className="min-w-0">
-                          <div className="num truncate text-xs font-medium text-ink-900">
+                          <button
+                            type="button"
+                            title="إبراز الحركة في الكشف"
+                            onClick={() => {
+                              const url = new URL(window.location.href);
+                              url.searchParams.set("voucherId", row.id);
+                              navigate(
+                                `${url.pathname}?${url.searchParams.toString()}`,
+                              );
+                            }}
+                            className="num block max-w-full cursor-pointer truncate text-[11px] font-medium text-primary-600 underline-offset-2 transition-colors hover:text-primary-700 hover:underline"
+                          >
                             {row.voucherNumber}
-                          </div>
+                          </button>
 
                           <span
                             className={`mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
@@ -1335,45 +1456,52 @@ export default function CashboxLedgerTable({
                           </span>
                         </div>
 
-                        {(isRowDeletable || isOpeningBalanceDeletable) && (
-                          <button
-                            type="button"
-                            title={
-                              isOpeningBalanceRow
-                                ? "حذف الرصيد الافتتاحي اليدوي"
-                                : "حذف السند"
-                            }
-                            disabled={isDeleting || isUpdating}
-                            onClick={(event) => {
-                              event.stopPropagation();
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          {isRowEditable && (
+                            <button
+                              type="button"
+                              title="تعديل كامل"
+                              disabled={isUpdating || isDeleting}
+                              onClick={() => setEditingRow(row)}
+                              className="rounded-md p-1 text-ink-300 transition-all duration-150 hover:bg-primary-50 hover:text-primary-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {isUpdating ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <PenLine size={12} />
+                              )}
+                            </button>
+                          )}
 
-                              if (isOpeningBalanceRow) {
-                                handleDeleteOpeningBalance(row);
-                              } else {
-                                handleDeleteVoucher(row);
+                          {(isRowDeletable || isOpeningBalanceDeletable) && (
+                            <button
+                              type="button"
+                              title={
+                                isOpeningBalanceRow
+                                  ? "حذف الرصيد الافتتاحي اليدوي"
+                                  : "حذف السند"
                               }
-                            }}
-                            className="shrink-0 rounded-md p-1 text-ink-300 opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {isDeleting ? (
-                              <Loader2 size={12} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={12} />
-                            )}
-                          </button>
-                        )}
-                      </div>
+                              disabled={isDeleting || isUpdating}
+                              onClick={(event) => {
+                                event.stopPropagation();
 
-                      {isRowEditable && (
-                        <button
-                          type="button"
-                          disabled={isUpdating || isDeleting}
-                          onClick={() => setEditingRow(row)}
-                          className="mt-1 text-[11px] text-primary-500 transition-colors hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          تعديل كامل
-                        </button>
-                      )}
+                                if (isOpeningBalanceRow) {
+                                  handleDeleteOpeningBalance(row);
+                                } else {
+                                  handleDeleteVoucher(row);
+                                }
+                              }}
+                              className="rounded-md p-1 text-ink-300 transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {isDeleting ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={12} />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );

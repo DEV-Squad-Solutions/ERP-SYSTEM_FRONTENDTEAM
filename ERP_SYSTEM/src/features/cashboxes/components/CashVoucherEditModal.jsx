@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
 import { useGetPartyByIdQuery } from "../../partners/partiesApi";
@@ -318,9 +319,13 @@ export default function CashVoucherEditModal({
         <div className="space-y-4">
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-700">
             هذا السند مولد من فاتورة رقم{" "}
-            <span className="font-semibold">
-              {voucher.invoiceNumber || voucher.invoiceId}
-            </span>
+            <InvoiceNumberLink
+              invoiceId={voucher.invoiceId}
+              invoiceType={voucher.invoiceType}
+              invoiceNumber={voucher.invoiceNumber}
+              number={voucher.invoiceNumber || voucher.invoiceId}
+              className="font-semibold"
+            />
             ، ولا يمكن تعديله من هنا.
             <br />
             يمكن تعديله من خلال الفاتورة نفسها.
