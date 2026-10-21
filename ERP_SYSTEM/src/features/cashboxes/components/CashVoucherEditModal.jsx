@@ -84,8 +84,9 @@ export default function CashVoucherEditModal({
   isForeign,
   currency,
   baseCurrency,
-  // التوصيف مقصور على الأدمن أو المحاسب. لما canDescribe=false (مستخدم
-  // عادي) بنقفل خانة التوصيف وبنسمح بتعديل بيانات الحركة فقط.
+  // المستخدم العادي يوصّف الحركة مرة واحدة بس. لما canDescribe=false
+  // (السند موصّف بالفعل ومش أدمن/محاسب) بنقفل خانة التوصيف وبنسمح
+  // بتعديل بيانات الحركة فقط.
   canDescribe = true,
 }) {
   const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
@@ -242,8 +243,9 @@ export default function CashVoucherEditModal({
       return;
     }
 
-    // المستخدم العادي ممنوع يوصّف — بنتجاهل أي توصيف مختار وبنستخدم
-    // التوصيف المحفوظ على السند (لو موجود)؛ المسودة تفضل مسودة.
+    // التوصيف مقفول على المستخدم (سند موصّف ومش أدمن/محاسب): بنتجاهل
+    // أي توصيف مختار وبنستخدم التوصيف المحفوظ على السند (لو موجود)؛
+    // المسودة تفضل مسودة.
     const selectedOption = canDescribe
       ? groups
           .flatMap((group) => group.options)
@@ -411,7 +413,7 @@ export default function CashVoucherEditModal({
 
             <p className="mt-1 text-[11px] leading-5 text-ink-400">
               {!canDescribe
-                ? "التوصيف متاح للأدمن أو المحاسب فقط — يمكنك تعديل بيانات الحركة فقط."
+                ? "السند موصّف بالفعل — التوصيف والتعديل للأدمن أو المحاسب فقط. يمكنك تعديل بيانات الحركة."
                 : voucher?.isDraft
                   ? "مسودة: لو سيبت التوصيف فاضي هيتحفظ كمسودة من غير ترحيل. اختَر توصيف لإكماله وترحيله."
                   : "لازم توصيف واحد لإكمال تعديل السند."}

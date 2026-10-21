@@ -14,6 +14,8 @@ import {
   ChevronDown,
   HandCoins,
   Plus,
+  Wallet,
+  ArrowLeftRight,
 } from "lucide-react";
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -432,57 +434,67 @@ export default function CashboxDetailPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             {cashbox && (
-              <div className="text-left">
-                <p className="text-xs text-ink-400">الرصيد الحالي</p>
+              <div className="rounded-xl border border-ink-400/10 bg-ink-900/[0.02] px-3.5 py-2">
+                <p className="flex items-center gap-1 text-[11px] text-ink-400">
+                  <Wallet size={12} className="shrink-0" />
+                  الرصيد الحالي
+                </p>
 
-                <p className="num text-lg font-bold text-ink-900">
-                  {fmt(cashbox.currentBalance)} {cashboxCurrency}
+                <p className="num mt-0.5 text-xl font-bold leading-6 text-ink-900">
+                  {fmt(cashbox.currentBalance)}{" "}
+                  <span className="text-sm font-semibold text-ink-400">
+                    {cashboxCurrency}
+                  </span>
                 </p>
 
                 {isForeignCashbox && (
-                  <>
-                    <p className="num text-xs text-ink-400">
-                      ≈
-                      {fmt(
-                        cashbox.currentBalance *
-                          (cashbox.currentExchangeRate ??
-                            cashbox.openingExchangeRate ??
-                            1),
-                      )}
-                      {cashboxBaseCurrency}
-                    </p>
-
-                    <p className="mt-1 text-[11px] text-ink-400">
-                      سعر الصرف:
+                  <p className="num mt-0.5 flex items-center gap-1 text-[11px] text-ink-400">
+                    <ArrowLeftRight size={11} className="shrink-0" />≈
+                    {fmt(
+                      cashbox.currentBalance *
+                        (cashbox.currentExchangeRate ??
+                          cashbox.openingExchangeRate ??
+                          1),
+                    )}
+                    {cashboxBaseCurrency}
+                    <span className="mx-0.5 text-ink-300">•</span>
+                    <span title="سعر الصرف">
                       {fmt(
                         cashbox.currentExchangeRate ??
                           cashbox.openingExchangeRate ??
                           1,
                       )}
-                    </p>
-                  </>
+                    </span>
+                  </p>
                 )}
               </div>
             )}
-            <Button variant="outline" onClick={() => setShowHandover(true)}>
-              <HandCoins size={16} />
-            </Button>
-            <div className="flex flex-wrap gap-2">
+
+            <div className="flex flex-wrap items-center gap-2">
               {canExecute && (
-                <Button onClick={() => setShowCreateVoucher(true)}>
+                <Button onClick={() => setShowCreateVoucher(true)} title="سند جديد">
                   <Plus size={16} />
                   سند جديد
                 </Button>
               )}
 
-              <Button variant="outline" onClick={printList}>
+              <Button
+                variant="outline"
+                onClick={() => setShowHandover(true)}
+                title="تسليم وردية"
+              >
+                <HandCoins size={16} />
+                تسليم وردية
+              </Button>
+
+              <Button variant="outline" onClick={printList} title="طباعة الكشف">
                 <Printer size={16} />
                 طباعة
               </Button>
 
-              <Button variant="outline" onClick={refetch}>
+              <Button variant="outline" onClick={refetch} title="تحديث البيانات">
                 <RefreshCw
                   size={16}
                   className={

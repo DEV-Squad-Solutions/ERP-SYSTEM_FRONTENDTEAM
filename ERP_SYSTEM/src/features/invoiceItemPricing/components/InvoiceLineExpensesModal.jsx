@@ -8,6 +8,7 @@ import { useUpdateInvoiceLineExpensesMutation } from "../invoiceItemPricingApi";
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
+import randomId from "../../../lib/randomId";
 
 function fmt(n) {
   return new Intl.NumberFormat("ar-EG", {
@@ -17,7 +18,7 @@ function fmt(n) {
 }
 
 function emptyRow() {
-  return { _key: crypto.randomUUID(), name: "", amount: "", notes: "" };
+  return { _key: randomId(), name: "", amount: "", notes: "" };
 }
 
 export default function InvoiceLineExpensesModal({
@@ -36,7 +37,7 @@ export default function InvoiceLineExpensesModal({
 
     const existing = line?.expenses?.length
       ? line.expenses.map((expense) => ({
-          _key: crypto.randomUUID(),
+          _key: randomId(),
           name: expense.name || "",
           amount: expense.amount ?? "",
           notes: expense.notes || "",

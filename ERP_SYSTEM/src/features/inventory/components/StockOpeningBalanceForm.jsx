@@ -20,6 +20,7 @@ import {
   buildCreateStockOpeningBalanceRequest,
   buildStockOpeningBalanceUpdateBody,
 } from "./buildStockOpeningBalancePayload";
+import randomId from "../../../lib/randomId";
 
 import LedgerPanel from "../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../shared/components/ui/LedgerField";
@@ -27,7 +28,7 @@ import Button from "../../../shared/components/ui/Button";
 import CompactSelect from "../../../shared/components/ui/CompactSelect";
 
 const emptyLine = () => ({
-  _key: crypto.randomUUID(),
+  _key: randomId(),
   itemId: null,
   itemName: "",
   itemUnitName: "",
@@ -78,7 +79,7 @@ export default function StockOpeningBalanceForm({
       });
       setLines(
         (editingItem.lines || []).map((l) => ({
-          _key: crypto.randomUUID(),
+          _key: randomId(),
           itemId: l.itemId,
           itemName: l.itemName,
           itemUnitName: l.itemUnitName,

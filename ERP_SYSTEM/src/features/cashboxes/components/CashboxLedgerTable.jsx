@@ -10,6 +10,8 @@ import {
   Trash2,
   Landmark,
   ArrowLeftRight,
+  UserRound,
+  PenLine,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { toast } from "sonner";
@@ -318,10 +320,11 @@ export default function CashboxLedgerTable({
         return;
       }
 
-      // التوصيف نفسه مقصور على الأدمن أو المحاسب. المستخدم العادي
-      // يقدر يعدّل بيانات الحركة (قبل التوصيف) بس مش يوصّفها.
-      if (!isAdminOrAccountant) {
-        toast.error("التوصيف متاح للأدمن أو المحاسب فقط");
+      // المستخدم العادي (مش أدمن/محاسب) يوصّف الحركة مرة واحدة بس:
+      // أول ما تتوصّف (يتحدد لها حساب/طرف) يتقفل التوصيف والتعديل عليه،
+      // ويسيبها للأدمن أو المحاسب. كمان ممنوع يغيّر توصيف موصوف أصلًا.
+      if (!isAdminOrAccountant && row.isDescribed) {
+        toast.error("الحركة موصّفة بالفعل — التعديل للأدمن أو المحاسب فقط");
         return;
       }
 
@@ -850,7 +853,7 @@ export default function CashboxLedgerTable({
     <div>
       {isForeign && (
         <div className="mb-2 rounded-xl border border-primary-100 bg-primary-50/50 px-3 py-2">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-medium text-primary-600">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-primary-600">
             <span>
               خزنة <strong>{currency}</strong>
             </span>
@@ -869,7 +872,7 @@ export default function CashboxLedgerTable({
           <button
             type="button"
             onClick={openAddRow}
-            className="group flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink-400/15 py-2 text-[11px] text-ink-400 transition-all duration-200 hover:border-primary-300/40 hover:bg-primary-50/40 hover:text-primary-500 active:scale-[0.99]"
+            className="group flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-ink-400/15 py-2 text-xs text-ink-400 transition-all duration-200 hover:border-primary-300/40 hover:bg-primary-50/40 hover:text-primary-500 active:scale-[0.99]"
           >
             <Plus
               size={13}
@@ -881,14 +884,14 @@ export default function CashboxLedgerTable({
       )}
 
       {isFiscalYearReadOnly && (
-        <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
+        <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
           السنة المالية "{fiscalYear?.name}" مغلقة أو ليست السنة الحالية — الشاشة للعرض فقط ولا
           يمكن إضافة أو تعديل حركات عليها.
         </div>
       )}
 
       {!isFiscalYearReadOnly && !canExecute && (
-        <div className="mb-2 rounded-xl border border-ink-400/15 bg-ink-400/[0.04] px-3 py-2 text-[11px] font-medium text-ink-500">
+        <div className="mb-2 rounded-xl border border-ink-400/15 bg-ink-400/[0.04] px-3 py-2 text-xs font-medium text-ink-500">
           عندك صلاحية عرض بس على الخزنة دي — إضافة وتعديل وحذف الحركات غير متاحة.
         </div>
       )}
@@ -900,23 +903,24 @@ export default function CashboxLedgerTable({
       >
         <div className="overflow-x-auto">
           <table
-            className="w-full min-w-[900px] border-collapse text-right"
+            className="w-full min-w-[1180px] border-collapse text-right"
             dir="rtl"
           >
             <colgroup>
-              <col className="w-[13%]" />
+              <col className="w-[12%]" />
               <col className="w-[11%]" />
               <col className="w-[11%]" />
 
-              {isForeign && <col className="w-[8%]" />}
+              {isForeign && <col className="w-[7%]" />}
 
-              <col className="w-[27%]" />
-              <col className="w-[10%]" />
-              <col className="w-[10%]" />
+              <col className="w-[21%]" />
+              <col className="w-[21%]" />
+              <col className="w-[9%]" />
+              <col className="w-[8%]" />
             </colgroup>
 
             <thead>
-              <tr className="bg-ink-900/[0.03] text-[10px] text-ink-400">
+              <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
                 <th className="border-l border-ink-400/5 px-2 py-2 font-medium">
                   الرصيد
                 </th>
@@ -942,6 +946,10 @@ export default function CashboxLedgerTable({
                 </th>
 
                 <th className="border-l border-ink-400/5 px-2 py-2 font-medium">
+                  البيان
+                </th>
+
+                <th className="border-l border-ink-400/5 px-2 py-2 font-medium">
                   التاريخ
                 </th>
 
@@ -952,7 +960,7 @@ export default function CashboxLedgerTable({
             <tbody>
               {showEmptyState && (
                 <tr>
-                  <td colSpan={isForeign ? 7 : 6} className="py-12">
+                  <td colSpan={isForeign ? 8 : 7} className="py-12">
                     <div className="text-center">
                       <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-ink-400/5">
                         <FileSearch size={23} className="text-ink-400/50" />
@@ -962,7 +970,7 @@ export default function CashboxLedgerTable({
                         لا توجد حركات
                       </p>
 
-                      <p className="text-[11px] text-ink-400">
+                      <p className="text-xs text-ink-400">
                         ابدأ بتسجيل أول حركة
                       </p>
                     </div>
@@ -999,7 +1007,7 @@ export default function CashboxLedgerTable({
                       </button>
                     </div>
 
-                    <div className="mt-1 text-[8px] text-ink-300">
+                    <div className="mt-1 text-[10px] text-ink-300">
                       Enter حفظ
                     </div>
                   </td>
@@ -1015,7 +1023,7 @@ export default function CashboxLedgerTable({
                       onKeyDown={handleAddKeyDown}
                       disabled={saving}
                       autoComplete="off"
-                      className="num w-full rounded-md border border-positive/20 bg-white px-2 py-1.5 text-[11px] text-positive outline-none transition-all placeholder:text-ink-300 focus:border-positive/50 focus:ring-2 focus:ring-positive/10 disabled:cursor-not-allowed disabled:bg-ink-50"
+                      className="num w-full rounded-md border border-positive/20 bg-white px-2 py-1.5 text-xs text-positive outline-none transition-all placeholder:text-ink-300 focus:border-positive/50 focus:ring-2 focus:ring-positive/10 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
                   </td>
 
@@ -1030,7 +1038,7 @@ export default function CashboxLedgerTable({
                       onKeyDown={handleAddKeyDown}
                       disabled={saving}
                       autoComplete="off"
-                      className="num w-full rounded-md border border-negative/20 bg-white px-2 py-1.5 text-[11px] text-negative outline-none transition-all placeholder:text-ink-300 focus:border-negative/50 focus:ring-2 focus:ring-negative/10 disabled:cursor-not-allowed disabled:bg-ink-50"
+                      className="num w-full rounded-md border border-negative/20 bg-white px-2 py-1.5 text-xs text-negative outline-none transition-all placeholder:text-ink-300 focus:border-negative/50 focus:ring-2 focus:ring-negative/10 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
                   </td>
 
@@ -1053,10 +1061,17 @@ export default function CashboxLedgerTable({
                             ? "جاري جلب السعر من أسعار الصرف..."
                             : "يُحمَّل تلقائيًا من أسعار الصرف حسب تاريخ السند"
                         }
-                        className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px] outline-none transition-all placeholder:text-ink-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
+                        className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-xs outline-none transition-all placeholder:text-ink-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
                       />
                     </td>
                   )}
+
+                  <td className="border-l border-ink-400/5 p-1.5">
+                    <span className="flex items-center justify-center gap-1 text-xs text-ink-300">
+                      <PenLine size={12} className="shrink-0" />
+                      بيتكتب من عمود البيان
+                    </span>
+                  </td>
 
                   <td className="border-l border-ink-400/5 p-1.5">
                     <input
@@ -1067,10 +1082,12 @@ export default function CashboxLedgerTable({
                       onKeyDown={handleAddKeyDown}
                       disabled={saving}
                       autoComplete="off"
-                      className="w-full truncate rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px] outline-none transition-all placeholder:text-ink-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
+                      className="w-full truncate rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-sm outline-none transition-all placeholder:text-ink-300 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
 
-                    <div className="mt-1 text-[8px] text-ink-300">Enter للحفظ</div>
+                    <div className="mt-1 text-[10px] text-ink-300">
+                      Enter للحفظ
+                    </div>
                   </td>
 
                   <td className="border-l border-ink-400/5 p-1.5">
@@ -1080,12 +1097,12 @@ export default function CashboxLedgerTable({
                       onChange={handleDraftDateChange}
                       onKeyDown={handleAddKeyDown}
                       disabled={saving}
-                      className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-[11px] outline-none transition-all focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
+                      className="num w-full rounded-md border border-ink-400/15 bg-white px-2 py-1.5 text-xs outline-none transition-all focus:border-primary-400 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-ink-50"
                     />
                   </td>
 
                   <td className="p-1.5 text-center">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-gold-50 px-2 py-1 text-[9px] font-medium text-gold-700">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold-50 px-2 py-1 text-[11px] font-medium text-gold-700">
                       {saving && <Loader2 size={9} className="animate-spin" />}
                       مسودة جديدة
                     </span>
@@ -1108,10 +1125,10 @@ export default function CashboxLedgerTable({
 
                 const isDescriptionLocked = isNonDescribableRow(row);
 
-                // بمجرد ما الحركة تتوصّف (يتحدد لها حساب/طرف)، تعديل
-                // بياناتها مقصور على الأدمن أو المحاسب. أي دور تاني للعرض.
-                const isDescribeLocked =
-                  hasPostingTarget(row) && !isAdminOrAccountant;
+                // بمجرد ما الحركة تتوصّف (يتحدد لها حساب/طرف أو نوع حركة)،
+                // تعديل بياناتها مقصور على الأدمن أو المحاسب. المستخدم
+                // العادي يوصّف مرة واحدة بس وبعدها يتقفل عليه.
+                const isDescribeLocked = row.isDescribed && !isAdminOrAccountant;
 
                 const isRowEditable =
                   canExecute &&
@@ -1151,20 +1168,20 @@ export default function CashboxLedgerTable({
                     }`}
                   >
                     <td
-                      className={`num border-l border-ink-400/5 px-2 py-2 text-sm font-semibold ${
+                      className={`num border-l border-ink-400/5 px-2 py-2 text-base font-semibold ${
                         row.balance >= 0 ? "text-ink-900" : "text-negative"
                       }`}
                     >
                       {fmt(row.balance)}
                     </td>
 
-                    <td className="num border-l border-ink-400/5 px-2 py-2 text-sm text-positive">
+                    <td className="num border-l border-ink-400/5 px-2 py-2 text-base text-positive">
                       {row.credit > 0 ? (
                         <>
                           <div className="font-medium">{fmt(row.credit)}</div>
 
                           {isForeign && (
-                            <div className="mt-0.5 truncate text-[9px] text-ink-400">
+                            <div className="mt-0.5 truncate text-[11px] text-ink-400">
                               {fmt(row.baseCredit)} {baseCurrency}
                             </div>
                           )}
@@ -1174,13 +1191,13 @@ export default function CashboxLedgerTable({
                       )}
                     </td>
 
-                    <td className="num border-l border-ink-400/5 px-2 py-2 text-sm text-negative">
+                    <td className="num border-l border-ink-400/5 px-2 py-2 text-base text-negative">
                       {row.debit > 0 ? (
                         <>
                           <div className="font-medium">{fmt(row.debit)}</div>
 
                           {isForeign && (
-                            <div className="mt-0.5 truncate text-[9px] text-ink-400">
+                            <div className="mt-0.5 truncate text-[11px] text-ink-400">
                               {fmt(row.baseDebit)} {baseCurrency}
                             </div>
                           )}
@@ -1191,7 +1208,7 @@ export default function CashboxLedgerTable({
                     </td>
 
                     {isForeign && (
-                      <td className="num border-l border-ink-400/5 px-2 py-2 text-[10px] text-ink-600">
+                      <td className="num border-l border-ink-400/5 px-2 py-2 text-xs text-ink-600">
                         {row.debit > 0 || row.credit > 0
                           ? fmt(row.exchangeRate)
                           : "—"}
@@ -1201,7 +1218,7 @@ export default function CashboxLedgerTable({
                     <td className="min-w-0 border-l border-ink-400/5 px-2 py-2">
                       <div className="min-w-[240px]">
                         {isDescriptionLocked ? (
-                          <div className="flex items-center gap-1.5 rounded-lg border border-ink-400/10 bg-ink-400/5 px-2.5 py-2 text-[11px] text-ink-500">
+                          <div className="flex items-center gap-1.5 rounded-lg border border-ink-400/10 bg-ink-400/5 px-2.5 py-2 text-xs text-ink-500">
                             {isOpeningBalanceRow ? (
                               <Landmark
                                 size={13}
@@ -1233,7 +1250,7 @@ export default function CashboxLedgerTable({
                             isDisabled={
                               isDescriptionUpdating ||
                               isInvoiceGenerated ||
-                              !isAdminOrAccountant
+                              isDescribeLocked
                             }
                             placeholder={
                               row.isDescribed
@@ -1244,42 +1261,57 @@ export default function CashboxLedgerTable({
                         )}
 
                         {!isAdminOrAccountant && (
-                          <div className="mt-1 text-right text-[9px] text-ink-300">
+                          <div className="mt-1 text-right text-[11px] text-ink-300">
                             {isDescribeLocked
                               ? "الحركة موصّفة — التعديل للأدمن أو المحاسب فقط"
-                              : "التوصيف متاح للأدمن أو المحاسب فقط"}
+                              : "توصّف الحركة مرة واحدة، وبعدها يتقفل التعديل"}
                           </div>
                         )}
 
-                        {row.description && (
-                          <div
-                            className="mt-1 truncate text-right text-[9px] text-ink-400"
-                            title={row.description}
-                          >
-                            {row.description}
-                          </div>
-                        )}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          {row.externalPartyName && (
+                            <span
+                              className="inline-flex max-w-full items-center gap-1 rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700"
+                              title={row.externalPartyName}
+                            >
+                              <UserRound size={11} className="shrink-0" />
+                              <span className="truncate">
+                                {row.externalPartyName}
+                              </span>
+                            </span>
+                          )}
 
-                        {row.externalPartyName && (
-                          <div
-                            className="mt-0.5 truncate text-right text-[9px] text-amber-600"
-                            title={row.externalPartyName}
-                          >
-                            المستفيد: {row.externalPartyName}
-                          </div>
-                        )}
-
-                        {row.accountName && (
-                          <div className="mt-0.5 truncate text-right text-[9px] text-primary-500">
-                            الحساب:{" "}
-                            {row.accountCode ? `${row.accountCode} - ` : ""}
-                            {row.accountName}
-                          </div>
-                        )}
+                          {row.accountName && (
+                            <span
+                              className="inline-flex max-w-full items-center gap-1 rounded-md bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-600"
+                              title={`${row.accountCode ? `${row.accountCode} - ` : ""}${row.accountName}`}
+                            >
+                              <Landmark size={11} className="shrink-0" />
+                              <span className="truncate">
+                                {row.accountCode ? `${row.accountCode} - ` : ""}
+                                {row.accountName}
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
 
-                    <td className="num border-l border-ink-400/5 px-2 py-2 text-[10px] text-ink-600">
+                    {/* البيان: عمود مستقل بخط أوضح وحجم أكبر عشان يتقرا */}
+                    <td className="min-w-0 border-l border-ink-400/5 px-2 py-2">
+                      {row.description ? (
+                        <p
+                          className="line-clamp-2 text-sm font-medium leading-6 text-ink-900"
+                          title={row.description}
+                        >
+                          {row.description}
+                        </p>
+                      ) : (
+                        <span className="text-xs text-ink-300">—</span>
+                      )}
+                    </td>
+
+                    <td className="num border-l border-ink-400/5 px-2 py-2 text-xs text-ink-600">
                       <span className="whitespace-nowrap">
                         {formatDate(row.voucherDate)}
                       </span>
@@ -1288,12 +1320,12 @@ export default function CashboxLedgerTable({
                     <td className="px-2 py-2">
                       <div className="flex min-w-0 items-start justify-between gap-1">
                         <div className="min-w-0">
-                          <div className="num truncate text-[10px] font-medium text-ink-900">
+                          <div className="num truncate text-xs font-medium text-ink-900">
                             {row.voucherNumber}
                           </div>
 
                           <span
-                            className={`mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                            className={`mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
                               row.isDraft
                                 ? "bg-gold-50 text-gold-700"
                                 : "bg-positive/10 text-positive"
@@ -1337,7 +1369,7 @@ export default function CashboxLedgerTable({
                           type="button"
                           disabled={isUpdating || isDeleting}
                           onClick={() => setEditingRow(row)}
-                          className="mt-1 text-[9px] text-primary-500 transition-colors hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="mt-1 text-[11px] text-primary-500 transition-colors hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           تعديل كامل
                         </button>
@@ -1358,7 +1390,7 @@ export default function CashboxLedgerTable({
           isForeign={isForeign}
           currency={currency}
           baseCurrency={baseCurrency}
-          canDescribe={isAdminOrAccountant}
+          canDescribe={isAdminOrAccountant || !editingRow?.isDescribed}
           partyOptions={partyOptions}
           driverOptions={driverOptions}
           employeeOptions={employeeOptions}
