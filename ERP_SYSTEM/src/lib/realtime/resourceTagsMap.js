@@ -34,7 +34,12 @@ export const resourceTagsMap = {
     "DriverTripCost",
     "CashVoucherPartySelect",
   ],
-  DriverTrip: ["DriverStatement", "DriverTripCost", "Driver"],
+  DriverTrip: ["DriverTrip", "DriverStatement", "DriverTripCost", "Driver"],
+  DriverOpeningBalance: [
+    "DriverOpeningBalance",
+    "DriverStatement",
+    "Statement",
+  ],
 
   // ==================== Employees / Payroll ====================
   Employee: ["Employee", "EmployeeStatement", "CashVoucherPartySelect"],

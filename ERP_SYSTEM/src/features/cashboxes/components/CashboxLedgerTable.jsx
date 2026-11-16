@@ -125,23 +125,6 @@ function pickPostingTarget(source) {
   return null;
 }
 
-// هل جسم السند ده فيه هدف ترحيل فعلي (حساب/شريك/موظف/سائق/طرف خارجي)؟
-function hasPostingTarget(source) {
-  if (!source) {
-    return false;
-  }
-
-  return POSTING_TARGET_KEYS.some((key) => {
-    const value = source[key];
-
-    if (key === "externalPartyName") {
-      return typeof value === "string" && value.trim().length > 0;
-    }
-
-    return value !== undefined && value !== null && value !== "";
-  });
-}
-
 function buildUpdateVoucherPayload({
   row,
   cashboxId,
@@ -239,7 +222,6 @@ export default function CashboxLedgerTable({
   onAddVoucher,
   onUpdateVoucher,
   onUpdateDraftVoucher,
-  onDeleteVoucher,
   // حذف الرصيد الافتتاحي اليدوي للخزنة (تصفير الرصيد الافتتاحي).
   onDeleteOpeningBalance,
   // صلاحية التنفيذ (عرض/إضافة/تعديل/حذف حركات) على الخزنة دي.
@@ -530,8 +512,25 @@ export default function CashboxLedgerTable({
   );
 
   const handleFullEdit = useCallback(
-    async (payload) => {
-      if (!editingRow || (!onUpdateVoucher && !onUpdateDraftVoucher)) {
+    async (payload, mode = "post") => {
+      if (!editingRow) {
+        return;
+      }
+
+      // السندات المستقلة بعد الترحيل للقراءة فقط. التعديل مسموح للمسودات
+      // فقط، والترحيل/التوصيف إجراء منفصل عن حفظ المسودة.
+      if (!editingRow.isDraft) {
+        toast.error("السند مرحّل بالفعل وبياناته للقراءة فقط.");
+        return;
+      }
+
+      if (mode === "draft" && !onUpdateDraftVoucher) {
+        toast.error("خدمة حفظ المسودة غير متاحة");
+        return;
+      }
+
+      if (mode !== "draft" && !onUpdateVoucher) {
+        toast.error("خدمة ترحيل السند غير متاحة");
         return;
       }
 
@@ -545,16 +544,9 @@ export default function CashboxLedgerTable({
           payload,
         });
 
-        // تعديل مسودة بدون توصيف = تحديث بيانات المسودة فقط (تاريخ/مبلغ/سعر
-        // صرف/بيان) من غير ترحيل، فبنستخدم PUT /CashVouchers/{id}/draft.
-        // لو المستخدم اختار توصيف (لإكمال وترحيل المسودة) أو السند مرحّل،
-        // بنستخدم PUT العادي.
-        const isDraftOnlyEdit =
-          Boolean(editingRow.isDraft) &&
-          !hasPostingTarget(updatePayload) &&
-          Boolean(onUpdateDraftVoucher);
-
-        if (isDraftOnlyEdit) {
+        if (mode === "draft") {
+          // حفظ المسودة بيعدّل البيانات التشغيلية فقط (تاريخ/اتجاه/مبلغ/
+          // سعر صرف/بيان) من غير أي هدف ترحيل أو أثر على الأرصدة.
           await onUpdateDraftVoucher({
             id: editingRow.id,
             voucherDate: updatePayload.voucherDate,
@@ -567,28 +559,42 @@ export default function CashboxLedgerTable({
             referenceNumber: updatePayload.referenceNumber,
             exchangeRate: updatePayload.exchangeRate ?? undefined,
           });
+
+          toast.success("تم تحديث المسودة بنجاح");
         } else {
+          // التوصيف والترحيل — لمرة واحدة فقط، وبعدها السند يتقفل.
           await onUpdateVoucher({
             id: editingRow.id,
             ...updatePayload,
           });
+
+          toast.success("تم توصيف السند وترحيله بنجاح");
         }
 
-        toast.success("تم تحديث السند بنجاح");
         setEditingRow(null);
       } catch (error) {
-        const code = error?.data?.errorCode;
+        const code = error?.data?.errorCode ?? error?.data?.code;
 
         if (code === "CashVouchers.Concurrency") {
           toast.error(
             "السند تم تعديله من مستخدم آخر. أعد تحميل البيانات ثم حاول مرة أخرى.",
           );
+          setEditingRow(null);
+          refetch?.();
         } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
           toast.error("هذا السند مولد من فاتورة ولا يمكن تعديله من هنا.");
+        } else if (code === "CashVouchers.PostedReadOnly") {
+          toast.error(
+            error?.data?.detail ||
+              "السند مرحّل وبياناته للقراءة فقط. أعد تحميل الكشف للاطلاع على أحدث نسخة.",
+          );
+          setEditingRow(null);
+          refetch?.();
         } else {
           toast.error(
             error?.data?.detail ||
               error?.data?.title ||
+              error?.data?.message ||
               error?.error ||
               "تعذر تحديث السند",
           );
@@ -597,78 +603,14 @@ export default function CashboxLedgerTable({
         setUpdatingRowId(null);
       }
     },
-    [cashboxId, editingRow, isForeign, onUpdateVoucher, onUpdateDraftVoucher],
-  );
-
-  const executeDeleteVoucher = useCallback(
-    async (row) => {
-      if (!row || deletingRowId || !onDeleteVoucher) {
-        return;
-      }
-
-      setDeletingRowId(row.id);
-
-      try {
-        await onDeleteVoucher({
-          id: row.id,
-          rowVersion: row.rowVersion,
-        });
-
-        toast.success("تم حذف السند بنجاح");
-
-        if (editingRow && String(editingRow.id) === String(row.id)) {
-          setEditingRow(null);
-        }
-
-        refetch?.();
-      } catch (error) {
-        toast.error(
-          error?.data?.detail ||
-            error?.data?.title ||
-            error?.error ||
-            "تعذر حذف السند",
-        );
-      } finally {
-        setDeletingRowId(null);
-      }
-    },
-    [deletingRowId, editingRow, onDeleteVoucher, refetch],
-  );
-
-  const handleDeleteVoucher = useCallback(
-    (row) => {
-      if (!isAdmin) {
-        toast.error("ليس لديك صلاحية حذف السند");
-        return;
-      }
-
-      if (!onDeleteVoucher) {
-        toast.error("خدمة حذف السند غير متاحة");
-        return;
-      }
-
-      if (row.invoiceId) {
-        toast.error("السند المولد من فاتورة لا يمكن حذفه من هنا.");
-        return;
-      }
-
-      if (isNonEditableRow(row)) {
-        toast.error("الرصيد الافتتاحي لا يمكن حذفه من هنا.");
-        return;
-      }
-
-      toast.warning(`هل أنت متأكد من حذف السند رقم ${row.voucherNumber}؟`, {
-        duration: 8000,
-        action: {
-          label: "حذف",
-          onClick: () => executeDeleteVoucher(row),
-        },
-        cancel: {
-          label: "إلغاء",
-        },
-      });
-    },
-    [executeDeleteVoucher, isAdmin, onDeleteVoucher],
+    [
+      cashboxId,
+      editingRow,
+      isForeign,
+      onUpdateVoucher,
+      onUpdateDraftVoucher,
+      refetch,
+    ],
   );
 
   // حذف الرصيد الافتتاحي اليدوي للخزنة. الرصيد الافتتاحي مملوك للخزنة
@@ -1238,18 +1180,11 @@ export default function CashboxLedgerTable({
                   !isFiscalYearReadOnly &&
                   !isInvoiceGenerated &&
                   !isNonEditableRow(row) &&
-                  !isDescribeLocked;
+                  !isDescribeLocked &&
+                  Boolean(row.isDraft);
 
-                const isRowDeletable =
-                  canExecute &&
-                  !isFiscalYearReadOnly &&
-                  isAdmin &&
-                  !isInvoiceGenerated &&
-                  !isNonEditableRow(row);
-
-                // الرصيد الافتتاحي اليدوي (اللي مش مرحّل من سنة سابقة)
-                // بيظهر في كشف الخزنة كصف مملوك للخزنة — بنسمح للأدمن
-                // بحذفه (بيتصفّر الرصيد الافتتاحي).
+                // السندات المستقلة لا تُحذف من الكشف — لا مسودة ولا مرحّلة.
+                // الحذف المتاح هنا للرصيد الافتتاحي اليدوي فقط.
                 const isOpeningBalanceDeletable =
                   isOpeningBalanceRow &&
                   canExecute &&
@@ -1473,23 +1408,14 @@ export default function CashboxLedgerTable({
                             </button>
                           )}
 
-                          {(isRowDeletable || isOpeningBalanceDeletable) && (
+                          {isOpeningBalanceDeletable && (
                             <button
                               type="button"
-                              title={
-                                isOpeningBalanceRow
-                                  ? "حذف الرصيد الافتتاحي اليدوي"
-                                  : "حذف السند"
-                              }
+                              title="حذف الرصيد الافتتاحي اليدوي"
                               disabled={isDeleting || isUpdating}
                               onClick={(event) => {
                                 event.stopPropagation();
-
-                                if (isOpeningBalanceRow) {
-                                  handleDeleteOpeningBalance(row);
-                                } else {
-                                  handleDeleteVoucher(row);
-                                }
+                                handleDeleteOpeningBalance(row);
                               }}
                               className="rounded-md p-1 text-ink-300 transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
                             >

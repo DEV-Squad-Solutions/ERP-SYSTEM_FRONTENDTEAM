@@ -94,7 +94,28 @@ export default function CashboxesListPage() {
       toast.success("تم حذف الخزنة بنجاح");
       setCashboxToDelete(null);
     } catch (err) {
-      console.error("Delete cashbox error:", err);
+      const code = err?.data?.code ?? err?.data?.errorCode;
+
+      if (code === "Cashboxes.HasVouchers") {
+        toast.error(
+          err?.data?.detail ||
+            "لا يمكن حذف الخزنة لوجود سندات غير محذوفة عليها (حتى المسودات) في سنة مالية. احذف السندات أو رحّلها أولًا.",
+        );
+        return;
+      }
+
+      if (code === "Cashboxes.HasMovements") {
+        toast.error(
+          err?.data?.detail ||
+            "لا يمكن حذف الخزنة لوجود تحويل نشط أو قيد يومية خزنة قائم. أنهِ الحركات المرتبطة أولًا.",
+        );
+        return;
+      }
+
+      if (code === "Cashboxes.Concurrency") {
+        toast.error("تم تعديل الخزنة من مكان آخر، حدّث الصفحة وحاول تاني");
+        return;
+      }
 
       toast.error(
         err?.data?.message ||
@@ -392,7 +413,7 @@ export default function CashboxesListPage() {
         onConfirm={confirmDelete}
         itemName={cashboxToDelete?.name}
         title="حذف الخزنة"
-        description="سيتم حذف الخزنة نهائيًا. هذا الإجراء لا يمكن التراجع عنه."
+        description="الحذف بيشيل الخزنة من القوائم والاختيارات، لكن السجلات التاريخية بتفضل محفوظة. لازم تكون كل السندات والحركات المرتبطة اتحذفت الأول — لو لسه فيه سندات أو حركات، السيرفر هيرفض الحذف ويوضح السبب."
         isDeleting={isDeleting}
       />
 

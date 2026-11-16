@@ -37,6 +37,9 @@ const CashboxTransfersPage = lazy(
 const DriverTripCostEntryPage = lazy(
   () => import("../features/drivers/pages/DriverTripCostEntryPage"),
 );
+const DriverOpeningBalancesPage = lazy(
+  () => import("../features/drivers/pages/DriverOpeningBalancesPage"),
+);
 const DriverStatementPage = lazy(
   () => import("../features/drivers/pages/DriverStatementPage"),
 );
@@ -457,6 +460,16 @@ export const router = createBrowserRouter([
           <LazyPage>
             <Role roles={FULL_ACCESS_ROLES}>
               <DriverStatementPage />
+            </Role>
+          </LazyPage>
+        ),
+      },
+      {
+        path: "drivers/opening-balances",
+        element: (
+          <LazyPage>
+            <Role roles={FULL_ACCESS_ROLES}>
+              <DriverOpeningBalancesPage />
             </Role>
           </LazyPage>
         ),

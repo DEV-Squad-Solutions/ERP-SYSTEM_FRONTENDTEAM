@@ -20,6 +20,7 @@ export const routeTitles = {
   "/dashboard/drivers": "قائمة السائقين",
   "/dashboard/drivers/trip-costs": "مصاريف الرحلات",
   "/dashboard/drivers/statement": "كشف حساب سائق",
+  "/dashboard/drivers/opening-balances": "الأرصدة الافتتاحية للسائقين",
   "/dashboard/drivers/:driverId": "تفاصيل السائق",
 
   "/dashboard/treasury": "الخزائن والبنوك",

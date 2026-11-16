@@ -416,7 +416,12 @@ export default function InvoiceEditPage() {
       setForm((prev) => ({
         ...prev,
         containerStoreId: store.id,
+        // في فاتورة العبوات، مخزن الفاتورة لازم يطابق مخزن العبوات.
+        ...(prev.contentType === "Containers" ? { storeId: store.id } : {}),
       }));
+
+      // الحركات القديمة كانت على مخزن تاني — بنمسحها.
+      setContainerLines([]);
 
       setContainerStoreName(store.name || "");
 
@@ -426,6 +431,8 @@ export default function InvoiceEditPage() {
         ...prev,
         containerStoreId: null,
       }));
+
+      setContainerLines([]);
 
       setContainerStoreName("");
 
@@ -555,6 +562,47 @@ export default function InvoiceEditPage() {
     form?.invoiceType === "SalesReturn" ||
     form?.invoiceType === "PurchaseReturn";
 
+  // فاتورة عبوات فقط: بدون أصناف وبدون قيمة مالية (خصم/مدفوع/خزنة).
+  const isContainersInvoice = form?.contentType === "Containers";
+
+  // التبديل بين أصناف/عبوات في التعديل. عند اختيار العبوات بنشيل سطور
+  // الأصناف والخصم والمدفوع والخزنة، وعند الرجوع للأصناف بنفضّي العبوات.
+  const handleContentTypeChange = (value) => {
+    if (!form || value === form.contentType) {
+      return;
+    }
+
+    if (value === "Containers") {
+      const containerStoreId =
+        form.containerStoreId ||
+        partyContainerStoreData?.containerStore?.id ||
+        null;
+
+      setLines([]);
+      setForm((prev) => ({
+        ...prev,
+        contentType: value,
+        // الباك إند بيشترط إن مخزن الفاتورة يكون هو نفسه مخزن العبوات.
+        storeId: containerStoreId ?? prev.storeId,
+        containerStoreId,
+        discountAmount: 0,
+        paidAmount: 0,
+        cashboxId: "",
+        cashboxName: "",
+        cashMovementTypeId: "",
+        cashMovementTypeName: "",
+        cashboxExchangeRate: "",
+      }));
+      return;
+    }
+
+    // رجوع للأصناف: المخزن كان متجبّر على مخزن العبوات، فلازم يختار
+    // المستخدم مخزنًا عاديًا من جديد (الباك إند بيرفض مخزن العبوات
+    // مع فاتورة أصناف).
+    setContainerLines([]);
+    setForm((prev) => ({ ...prev, contentType: value, storeId: "" }));
+  };
+
   // =========================================================
   // حفظ التعديل
   // =========================================================
@@ -581,26 +629,52 @@ export default function InvoiceEditPage() {
     // قبل ما نقرأ lines وننادي buildInvoiceUpdateBody
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const hasInvalidLine = lines.some((line) => {
-      const hasAnyData =
-        line.itemId ||
-        String(line.itemName || "").trim() ||
-        Number(line.count) > 0 ||
-        Number(line.weight) > 0 ||
-        Number(line.quantity) > 0;
-
-      if (!hasAnyData) {
-        return false;
+    if (isContainersInvoice) {
+      if (!form.containerStoreId) {
+        toast.error(
+          "العميل/المورد مالوش مخزن عبوات مرتبط — اختر طرفًا له مخزن عبوات أولًا",
+        );
+        return;
       }
 
-      return Number(line.count) <= 0 || Number(line.weight) <= 0;
-    });
-
-    if (hasInvalidLine) {
-      toast.error(
-        "في سطر ناقص بيانات (العدد أو الوزن لازم يكونوا أكبر من صفر)",
+      const validContainerLines = containerLines.filter(
+        (line) =>
+          Number(line.containerId) > 0 &&
+          ((Number(line.outgoingUnits) || 0) > 0 ||
+            (Number(line.incomingUnits) || 0) > 0),
       );
-      return;
+
+      if (validContainerLines.length === 0) {
+        toast.error("أضف حركة عبوة واحدة على الأقل (صادر أو وارد)");
+        return;
+      }
+    } else {
+      if (!form.storeId || !Number(form.storeId)) {
+        toast.error("اختر المخزن قبل الحفظ");
+        return;
+      }
+
+      const hasInvalidLine = lines.some((line) => {
+        const hasAnyData =
+          line.itemId ||
+          String(line.itemName || "").trim() ||
+          Number(line.count) > 0 ||
+          Number(line.weight) > 0 ||
+          Number(line.quantity) > 0;
+
+        if (!hasAnyData) {
+          return false;
+        }
+
+        return Number(line.count) <= 0 || Number(line.weight) <= 0;
+      });
+
+      if (hasInvalidLine) {
+        toast.error(
+          "في سطر ناقص بيانات (العدد أو الوزن لازم يكونوا أكبر من صفر)",
+        );
+        return;
+      }
     }
 
     try {
@@ -781,18 +855,29 @@ export default function InvoiceEditPage() {
           {/* المخزن */}
           <div>
             <label className="block mb-1.5 text-sm font-medium text-ink-900">
-              المخزن
+              {isContainersInvoice ? "مخزن العبوات" : "المخزن"}
             </label>
 
-            <CompactSelect
-              options={storeOptions}
-              value={form.storeId}
-              onChange={(v) => setField("storeId", v)}
-              isLoading={isLoadingStores}
-            />
+            {isContainersInvoice ? (
+              <div className="w-full rounded-lg border border-ink-400/10 px-3 py-2 text-sm bg-ink-400/5 text-ink-700 min-h-[38px] flex items-center">
+                {isLoadingPartyContainerStore ? (
+                  <span className="h-3.5 w-24 rounded bg-ink-400/10 animate-pulse" />
+                ) : (
+                  containerStoreName || "—"
+                )}
+              </div>
+            ) : (
+              <CompactSelect
+                options={storeOptions}
+                value={form.storeId}
+                onChange={(v) => setField("storeId", v)}
+                isLoading={isLoadingStores}
+              />
+            )}
           </div>
 
           {/* مخزن العبوات */}
+          {!isContainersInvoice && (
           <div>
             <label className="block mb-1.5 text-sm font-medium text-ink-900">
               مخزن العبوات
@@ -810,6 +895,7 @@ export default function InvoiceEditPage() {
               بيتحدد تلقائيًا حسب العميل المختار
             </p>
           </div>
+          )}
 
           {/* البلد */}
           <div>
@@ -892,7 +978,7 @@ export default function InvoiceEditPage() {
             <CompactSelect
               options={invoiceContentTypeOptions}
               value={form.contentType}
-              onChange={(v) => setField("contentType", v)}
+              onChange={handleContentTypeChange}
             />
           </div>
 
@@ -993,6 +1079,7 @@ export default function InvoiceEditPage() {
           أصناف الفاتورة
       ====================================================== */}
 
+      {!isContainersInvoice && (
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -1079,6 +1166,7 @@ export default function InvoiceEditPage() {
           </p>
         )}
       </div>
+      )}
 
       {/* =====================================================
           العبوات
@@ -1086,7 +1174,9 @@ export default function InvoiceEditPage() {
 
       <div className="bg-white rounded-2xl border border-ink-400/10 shadow-card p-4 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-display font-bold text-ink-900">العبوات</h3>
+          <h3 className="font-display font-bold text-ink-900">
+            {isContainersInvoice ? "حركات العبوات" : "العبوات"}
+          </h3>
 
           <Button
             variant="outline"
@@ -1097,6 +1187,13 @@ export default function InvoiceEditPage() {
             إضافة عبوة
           </Button>
         </div>
+
+        {isContainersInvoice && (
+          <p className="text-xs text-primary-700 bg-primary-50/60 rounded-lg px-3 py-2 mb-3">
+            فاتورة عبوات فقط: مطلوب حركة عبوة واحدة على الأقل (صادر أو وارد)،
+            ومفيش أصناف ولا قيمة مالية.
+          </p>
+        )}
 
         {containerLines.length > 0 && (
           <div className="overflow-x-auto custom-scroll">
@@ -1144,26 +1241,36 @@ export default function InvoiceEditPage() {
           الملخص المالي
         </h3>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* الخصم */}
-          <Input
-            type="number"
-            label="الخصم"
-            value={form.discountAmount}
-            onChange={(e) =>
-              setField("discountAmount", Number(e.target.value) || 0)
-            }
-          />
+        {isContainersInvoice && (
+          <p className="text-xs text-primary-700 bg-primary-50/60 rounded-lg px-3 py-2 mb-3">
+            فاتورة عبوات فقط — بدون قيمة مالية، عشان كده مفيش خصم أو مدفوع.
+          </p>
+        )}
 
-          {/* المدفوع */}
-          <Input
-            type="number"
-            label="المدفوع"
-            value={form.paidAmount}
-            onChange={(e) =>
-              setField("paidAmount", Number(e.target.value) || 0)
-            }
-          />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {!isContainersInvoice && (
+            <>
+              {/* الخصم */}
+              <Input
+                type="number"
+                label="الخصم"
+                value={form.discountAmount}
+                onChange={(e) =>
+                  setField("discountAmount", Number(e.target.value) || 0)
+                }
+              />
+
+              {/* المدفوع */}
+              <Input
+                type="number"
+                label="المدفوع"
+                value={form.paidAmount}
+                onChange={(e) =>
+                  setField("paidAmount", Number(e.target.value) || 0)
+                }
+              />
+            </>
+          )}
 
           {/* الإجمالي */}
           <div>

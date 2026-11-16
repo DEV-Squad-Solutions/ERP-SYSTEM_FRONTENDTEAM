@@ -54,6 +54,44 @@ export const driversApi = baseApi.injectEndpoints({
       providesTags: ["DriverTripCost"],
     }),
 
+    getDriverTripById: builder.query({
+      query: ({ id, fiscalYearId }) => ({
+        url: `/DriverTrips/${id}`,
+        params: { FiscalYearId: fiscalYearId || undefined },
+      }),
+      providesTags: (result, error, { id }) => [{ type: "DriverTrip", id }],
+    }),
+
+    createDriverTrip: builder.mutation({
+      query: (body) => ({
+        url: "/DriverTrips",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: tagsFor("DriverTrip"),
+    }),
+
+    updateDriverTrip: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `/DriverTrips/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: tagsFor("DriverTrip"),
+    }),
+
+    deleteDriverTrip: builder.mutation({
+      // rowVersion بييجي Base64 من السيرفر، فلازم يتشفّر قبل ما يتحط في
+      // الـquery string (فيه + و / و =).
+      query: ({ id, rowVersion }) => ({
+        url: `/DriverTrips/${id}?rowVersion=${encodeURIComponent(
+          rowVersion || "",
+        )}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: tagsFor("DriverTrip"),
+    }),
+
     bulkUpdateDriverTripCosts: builder.mutation({
       query: (body) => ({
         url: "/DriverTrips/bulk-costs",
@@ -74,5 +112,9 @@ export const {
   useDeleteDriverMutation,
   useGetDriverStatementQuery,
   useGetDriverTripsCostEntryQuery,
+  useGetDriverTripByIdQuery,
+  useCreateDriverTripMutation,
+  useUpdateDriverTripMutation,
+  useDeleteDriverTripMutation,
   useBulkUpdateDriverTripCostsMutation,
 } = driversApi;

@@ -189,13 +189,27 @@ export function buildCreateInvoiceRequest({
 
   const resolvedContentType = contentTypeMap[header.invoiceContentType];
 
-  const builtLines = buildLinesForCreate({
-    lines,
-    isReturnInvoice,
-  });
+  // فاتورة عبوات فقط: سطور الأصناف فاضية والقيمة المالية صفر
+  // (مفيش خصم/مدفوع/خزنة) حتى لو فيه قيم قديمة في الفورم.
+  const isContainersInvoice = resolvedContentType === "Containers";
 
-  const paidAmount = Number(header.paid) || 0;
-  const discountAmount = Number(header.discount) || 0;
+  const builtLines = isContainersInvoice
+    ? []
+    : buildLinesForCreate({
+        lines,
+        isReturnInvoice,
+      });
+
+  const paidAmount = isContainersInvoice ? 0 : Number(header.paid) || 0;
+  const discountAmount = isContainersInvoice
+    ? 0
+    : Number(header.discount) || 0;
+
+  // في فاتورة العبوات فقط، الباك إند بيشترط إن storeId يكون هو مخزن
+  // العبوات نفسه، مش المخزن العادي المختار في الفورم.
+  const storeId = isContainersInvoice
+    ? containersMovement?.containerStoreId ?? header.storeId
+    : header.storeId;
 
   const payload = {
     invoiceNumber: header.invoiceNumber,
@@ -210,7 +224,7 @@ export function buildCreateInvoiceRequest({
 
     dueDate: header.dueDate || header.date,
 
-    storeId: Number(header.storeId),
+    storeId: Number(storeId),
 
     businessPartnerId: Number(header.partyId),
 
@@ -287,14 +301,27 @@ export function buildInvoiceUpdateBody({
   const isReturnInvoice =
     form.invoiceType === "SalesReturn" || form.invoiceType === "PurchaseReturn";
 
-  const validLines = buildLinesForCreate({
-    lines,
-    isReturnInvoice,
-  });
+  // فاتورة عبوات فقط: مفيش سطور أصناف ولا قيمة مالية.
+  const isContainersInvoice = form.contentType === "Containers";
 
-  const paidAmount = Number(form.paidAmount) || 0;
+  const validLines = isContainersInvoice
+    ? []
+    : buildLinesForCreate({
+        lines,
+        isReturnInvoice,
+      });
 
-  const discountAmount = Number(form.discountAmount) || 0;
+  const paidAmount = isContainersInvoice ? 0 : Number(form.paidAmount) || 0;
+
+  const discountAmount = isContainersInvoice
+    ? 0
+    : Number(form.discountAmount) || 0;
+
+  // في فاتورة العبوات فقط، الباك إند بيشترط إن storeId يكون هو مخزن
+  // العبوات نفسه، مش المخزن العادي.
+  const storeId = isContainersInvoice
+    ? form.containerStoreId ?? form.storeId
+    : form.storeId;
 
   const body = {
     invoiceType: form.invoiceType,
@@ -309,7 +336,7 @@ export function buildInvoiceUpdateBody({
 
     businessPartnerId: Number(form.businessPartnerId),
 
-    storeId: Number(form.storeId),
+    storeId: Number(storeId),
 
     vehicleNumber: form.vehicleNumber || "",
 

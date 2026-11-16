@@ -123,6 +123,14 @@ export default function CashboxFormModal({
     } catch (err) {
       const code = err?.data?.code ?? err?.data?.errorCode;
 
+      if (code === "Cashboxes.NonZeroBalance") {
+        toast.error(
+          err?.data?.detail ||
+            "لا يمكن تعطيل الخزنة لأن رصيدها الحالي غير صفري. سوّي الرصيد للصفر الأول.",
+        );
+        return;
+      }
+
       if (code === "Cashboxes.Concurrency") {
         toast.error("تم تعديل الخزنة من مكان آخر، حدّث الصفحة وحاول تاني");
         return;
@@ -236,16 +244,34 @@ export default function CashboxFormModal({
           control={control}
           name="isActive"
           render={({ field }) => (
-            <label className="flex items-center justify-between rounded-lg border p-3">
-              <span className="font-medium">تفعيل الخزنة</span>
+            <div>
+              <label className="flex items-center justify-between rounded-lg border p-3">
+                <span className="font-medium">تفعيل الخزنة</span>
 
-              <input
-                type="checkbox"
-                checked={field.value}
-                onChange={(e) => field.onChange(e.target.checked)}
-                className="h-5 w-5"
-              />
-            </label>
+                <input
+                  type="checkbox"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  className="h-5 w-5"
+                />
+              </label>
+
+              {isEdit && (
+                <p
+                  className={`mt-1.5 text-xs leading-5 ${
+                    cashbox?.currentBalance &&
+                    Number(cashbox.currentBalance) !== 0
+                      ? "text-negative"
+                      : "text-ink-400"
+                  }`}
+                >
+                  {cashbox?.currentBalance &&
+                  Number(cashbox.currentBalance) !== 0
+                    ? "الخزنة عليها رصيد حالي غير صفري. السيرفر هيرفض تعطيلها — لازم الرصيد يوصل صفر الأول."
+                    : "التعطيل متاح فقط لو الرصيد الحالي للخزنة صفر. إعادة التفعيل متاحة في أي وقت."}
+                </p>
+              )}
+            </div>
           )}
         />
 

@@ -1,12 +1,11 @@
 import { useOnFiscalYearChange } from "../../../lib/useOnFiscalYearChange";
 import { clampFilterDates } from "../../../lib/fiscalYearDateRange";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import {
   RefreshCw,
-  ArrowRight,
   Printer,
   Search,
   RotateCcw,
@@ -32,7 +31,6 @@ import {
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
   useUpdateDraftCashVoucherMutation,
-  useDeleteCashVoucherMutation,
 } from "../cashVouchersApi";
 
 import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
@@ -152,15 +150,49 @@ const draftOptions = [
 
 export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
-  const navigate = useNavigate();
   const isAdmin = useSelector(selectIsAdmin);
   const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
 
   // deep-link لسند معيّن: /dashboard/treasury/:cashboxId?voucherId=123
-  // بيستخدمه رقم السند في شاشة المصاريف وباقي الشاشات اللي بتحيل لحركة.
+  // بيستخدمه رقم السند في شاشة المصاريف وكشف حساب العميل وباقي الشاشات
+  // اللي بتحيل لحركة. ممكن ييجي معاه fiscalYearId لفتح سنة السند
+  // التاريخية من غير ما يغيّر السنة المختارة في الشريط العلوي.
   // بنفلتر بالـvoucherId عشان السند يبان في أول صفحة ولو مكنش في الصفحة الحالية.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const highlightVoucherId = searchParams.get("voucherId") || "";
+  const linkedFiscalYearId = searchParams.get("fiscalYearId") || "";
+
+  const ledgerFiscalYearId = linkedFiscalYearId
+    ? Number(linkedFiscalYearId)
+    : selectedFiscalYearId;
+
+  // لو المستخدم غيّر السنة من الشريط العلوي بنفسه، منسيبش اللينك
+  // التاريخي مسيطر على الكشف — بنشيل بارامترات الـdeep-link ونرجع
+  // للسنة المختارة.
+  const previousFiscalYearRef = useRef(selectedFiscalYearId);
+
+  useEffect(() => {
+    if (previousFiscalYearRef.current === selectedFiscalYearId) {
+      return;
+    }
+
+    previousFiscalYearRef.current = selectedFiscalYearId;
+
+    // أي تغيير للسنة من الشريط العلوي بيلغي الـdeep-link (سند/سنة
+    // تاريخية) عشان الكشف يرجع لسياق السنة المختارة.
+    setSearchParams(
+      (current) => {
+        if (!current.has("fiscalYearId") && !current.has("voucherId")) {
+          return current;
+        }
+
+        current.delete("fiscalYearId");
+        current.delete("voucherId");
+        return current;
+      },
+      { replace: true },
+    );
+  }, [selectedFiscalYearId, setSearchParams]);
 
   const [filters, setFilters] = useState({
     draft: {
@@ -231,7 +263,6 @@ export default function CashboxDetailPage() {
   const [createVoucher] = useCreateCashVoucherMutation();
   const [updateVoucher] = useUpdateCashVoucherMutation();
   const [updateDraftVoucher] = useUpdateDraftCashVoucherMutation();
-  const [deleteVoucher] = useDeleteCashVoucherMutation();
   const [updateCashbox] = useUpdateCashboxMutation();
 
   const queryParams = useMemo(
@@ -261,9 +292,9 @@ export default function CashboxDetailPage() {
       accountId: filters.applied.accountId || undefined,
       includeSubAccounts:
         filters.applied.includeSubAccounts === "true" ? "true" : undefined,
-      fiscalYearId: selectedFiscalYearId || undefined,
+      fiscalYearId: ledgerFiscalYearId || undefined,
     }),
-    [cashboxId, page, pageSize, filters.applied, selectedFiscalYearId],
+    [cashboxId, page, pageSize, filters.applied, ledgerFiscalYearId],
   );
 
   const { data, isLoading, isFetching, isError, refetch } =
@@ -358,18 +389,6 @@ export default function CashboxDetailPage() {
   async function handleUpdateDraftVoucher(payload) {
     await updateDraftVoucher({
       ...payload,
-      cashboxId,
-    }).unwrap();
-  }
-
-  async function handleDeleteVoucher({ id, rowVersion }) {
-    if (!isAdmin) {
-      throw new Error("ليس لديك صلاحية حذف السند");
-    }
-
-    await deleteVoucher({
-      id,
-      rowVersion,
       cashboxId,
     }).unwrap();
   }
@@ -818,7 +837,6 @@ export default function CashboxDetailPage() {
           onAddVoucher={handleAddVoucher}
           onUpdateVoucher={handleUpdateVoucher}
           onUpdateDraftVoucher={handleUpdateDraftVoucher}
-          onDeleteVoucher={isAdmin ? handleDeleteVoucher : undefined}
           onDeleteOpeningBalance={
             isAdmin ? handleDeleteOpeningBalance : undefined
           }

@@ -37,6 +37,7 @@ import { buildCreateInvoiceRequest } from "../../../invoices/components/buildInv
 import LedgerPanel from "../../../../shared/components/ui/LedgerPanel";
 import LedgerField from "../../../../shared/components/ui/LedgerField";
 import LedgerSelect from "../../../../shared/components/ui/LedgerSelect";
+import DateInput from "../../../../shared/components/ui/DateInput";
 import Button from "../../../../shared/components/ui/Button";
 import Modal from "../../../../shared/components/ui/Modal";
 import InvoiceLineRow from "./NewInvoiceLineRow";
@@ -344,6 +345,13 @@ export default function CreateInvoiceForm({ onSuccess }) {
   const isReturnInvoice = RETURN_TYPES.has(header.movementType);
   const isCashPayment = header.paymentMethod === "cash";
 
+  // فاتورة عبوات فقط: بتسجل حركات العبوات بدون أصناف ولا قيمة مالية
+  // (خصم/مدفوع/خزنة). الباك إند بيطلب containerLines واحدة على الأقل
+  // وبيرفض وجود سطور أصناف مع النوع ده.
+  const isContainersInvoice = header.invoiceContentType === "containers";
+
+  const containerMovementCount = containersMovement.items.length;
+
   const returnLines = useMemo(
     () => lines.filter((l) => l.isReturnLine),
     [lines],
@@ -448,6 +456,53 @@ export default function CreateInvoiceForm({ onSuccess }) {
     [cashboxes, setHeaderField],
   );
 
+  // أسماء العبوات لعرض ملخص الحركات في فاتورة العبوات.
+  const containerNameById = useMemo(() => {
+    const map = new Map();
+
+    (partyContainerStoreData?.containers || []).forEach((container) => {
+      map.set(String(container.id), container.name);
+    });
+
+    return map;
+  }, [partyContainerStoreData]);
+
+  // التحويل بين "أصناف" و"عبوات فقط".
+  // العبوات مسموحة مع كل أنواع الفواتير، لكن فاتورة "عبوات فقط" مالها
+  // أصناف ولا قيمة مالية: بنشيل سطور الأصناف والخصم والمدفوع والخزنة عند
+  // التحويل، وبالرجوع للأصناف بنفضّي حركات العبوات عشان ما تتبعتش بالغلط.
+  const handleInvoiceContentTypeChange = useCallback(
+    (value) => {
+      setShowErrors(false);
+
+      if (value === "containers") {
+        setLines(Array.from({ length: 10 }, emptyLine));
+        setFullReturnState(null);
+        setHeader((current) => ({
+          ...current,
+          invoiceContentType: value,
+          discount: "",
+          paid: "",
+          cashboxId: "",
+          cashboxName: "",
+          cashboxExchangeRate: "",
+        }));
+        return;
+      }
+
+      // رجوع للأصناف: المخزن كان متجبّر على مخزن العبوات، فلازم يختار
+      // المستخدم مخزنًا عاديًا من جديد (الباك إند بيرفض مخزن العبوات
+      // مع فاتورة أصناف).
+      setContainersMovement((current) => ({ ...current, items: [] }));
+      setHeader((current) => ({
+        ...current,
+        invoiceContentType: value,
+        storeId: "",
+      }));
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!hasPayment && header.cashboxId) {
       setHeader((h) => ({
@@ -462,12 +517,26 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
   useEffect(() => {
     const store = partyContainerStoreData?.containerStore;
+    const nextStoreId = store?.id || null;
+
+    // لو مخزن العبوات اتغيّر (تغيير العميل) بنمسح الحركات القديمة عشان
+    // ما تتبعتش على مخزن تاني.
     setContainersMovement((prev) =>
-      prev.containerStoreId === (store?.id || null)
+      prev.containerStoreId === nextStoreId
         ? prev
-        : { ...prev, containerStoreId: store?.id || null },
+        : { containerStoreId: nextStoreId, items: [] },
     );
-  }, [partyContainerStoreData]);
+
+    // في فاتورة العبوات فقط، المخزن المختار لازم يكون هو مخزن العبوات
+    // نفسه (الباك إند بيرفض أي مخزن عادي).
+    if (isContainersInvoice && nextStoreId) {
+      setHeader((prev) =>
+        String(prev.storeId) === String(nextStoreId)
+          ? prev
+          : { ...prev, storeId: nextStoreId },
+      );
+    }
+  }, [partyContainerStoreData, isContainersInvoice]);
 
   const handlePartyChange = useCallback(
     (id) => {
@@ -731,7 +800,15 @@ export default function CreateInvoiceForm({ onSuccess }) {
       addMessage("partyId", "اختر العميل أو المورد");
     }
 
-    if (!header.storeId) {
+    if (isContainersInvoice) {
+      if (!containersMovement.containerStoreId) {
+        headerErrors.storeId = "العميل/المورد مالوش مخزن عبوات مرتبط";
+        addMessage(
+          "storeId",
+          "اختر عميلًا أو موردًا له مخزن عبوات مرتبط لفاتورة العبوات",
+        );
+      }
+    } else if (!header.storeId) {
       headerErrors.storeId = "اختر المخزن";
       addMessage("storeId", "اختر المخزن");
     }
@@ -755,9 +832,42 @@ export default function CreateInvoiceForm({ onSuccess }) {
       addMessage("exchangeRate", "أدخل سعر صرف صحيح للعملة الأجنبية");
     }
 
-    if (isCashPayment && (parseFloat(header.paid) || 0) > 0 && !header.cashboxId) {
+    if (
+      !isContainersInvoice &&
+      isCashPayment &&
+      (parseFloat(header.paid) || 0) > 0 &&
+      !header.cashboxId
+    ) {
       headerErrors.cashboxId = "اختر الخزنة";
       addMessage("cashboxId", "اختر الخزنة المستلمة للدفعة النقدية");
+    }
+
+    // فاتورة عبوات فقط: مطلوب حركة عبوة واحدة على الأقل، ومفيش أصناف.
+    if (isContainersInvoice) {
+      const validContainerLines = containersMovement.items.filter(
+        (item) =>
+          Number(item.containerId) > 0 &&
+          ((Number(item.issuedQuantity) || 0) > 0 ||
+            (Number(item.receivedQuantity) || 0) > 0),
+      );
+
+      if (validContainerLines.length === 0) {
+        headerErrors.containerLines = "أضف حركة عبوة واحدة على الأقل";
+        addMessage(
+          "containerLines",
+          "افتح مخزن العبوات وأضف كمية صادرة أو واردة لعبوة واحدة على الأقل",
+        );
+      }
+
+      return {
+        headerErrors,
+        lineErrors,
+        messages,
+        validLineCount: 0,
+        isValid:
+          Object.keys(headerErrors).length === 0 &&
+          Object.keys(lineErrors).length === 0,
+      };
     }
 
     if (isReturnInvoice && returnLines.length === 0) {
@@ -848,6 +958,8 @@ export default function CreateInvoiceForm({ onSuccess }) {
     header,
     lines,
     isCashPayment,
+    isContainersInvoice,
+    containersMovement,
     isReturnInvoice,
     returnLines,
     invoiceDateWarning,
@@ -1009,13 +1121,23 @@ export default function CreateInvoiceForm({ onSuccess }) {
               }
             />
           </div>
-          <LedgerField
-            label="التاريخ"
-            type="date"
-            value={header.date}
-            onChange={(e) => setHeaderField("date", e.target.value)}
-            error={invoiceDateWarning}
-          />
+          <div>
+            <div className="flex items-stretch overflow-hidden rounded-lg border border-ink-400/10">
+              <div className="flex w-36 shrink-0 items-center border-l border-ink-400/10 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900">
+                التاريخ
+              </div>
+              <DateInput
+                value={header.date}
+                onChange={(e) => setHeaderField("date", e.target.value)}
+                className="min-h-0 flex-1 rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:ring-0"
+              />
+            </div>
+            {invoiceDateWarning && (
+              <p className="mt-1 text-xs font-medium text-negative">
+                {invoiceDateWarning}
+              </p>
+            )}
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3">
           <div
@@ -1024,13 +1146,23 @@ export default function CreateInvoiceForm({ onSuccess }) {
               showErrors && Boolean(validation.headerErrors.dueDate)
             }
           >
-            <LedgerField
-              label="تاريخ الاستحقاق"
-              type="date"
-              value={header.dueDate}
-              onChange={(e) => setHeaderField("dueDate", e.target.value)}
-              error={showErrors ? validation.headerErrors.dueDate : undefined}
-            />
+            <div>
+              <div className="flex items-stretch overflow-hidden rounded-lg border border-ink-400/10">
+                <div className="flex w-36 shrink-0 items-center border-l border-ink-400/10 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900">
+                  تاريخ الاستحقاق
+                </div>
+                <DateInput
+                  value={header.dueDate}
+                  onChange={(e) => setHeaderField("dueDate", e.target.value)}
+                  className="min-h-0 flex-1 rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:ring-0"
+                />
+              </div>
+              {showErrors && validation.headerErrors.dueDate && (
+                <p className="mt-1 text-xs font-medium text-negative">
+                  {validation.headerErrors.dueDate}
+                </p>
+              )}
+            </div>
           </div>
           <LedgerField
             label="كود فاتورة التصدير"
@@ -1069,7 +1201,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
             options={invoiceContentTypeOptions}
             value={header.invoiceContentType}
             onChange={(e) =>
-              setHeaderField("invoiceContentType", e.target.value)
+              handleInvoiceContentTypeChange(e.target.value)
             }
           />
         </div>
@@ -1171,6 +1303,22 @@ export default function CreateInvoiceForm({ onSuccess }) {
             data-field="storeId"
             data-invalid={showErrors && Boolean(validation.headerErrors.storeId)}
           >
+          {isContainersInvoice ? (
+            <div className="flex items-stretch">
+              <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                مخزن العبوات
+              </div>
+              <div className="flex flex-1 items-center gap-2 bg-ink-400/5 px-3 py-2.5 text-sm text-ink-600">
+                {partyContainerStoreData?.containerStore?.name || (
+                  <span className="text-ink-400">
+                    {header.partyId
+                      ? "لا يوجد مخزن عبوات مرتبط بالعميل"
+                      : "اختر العميل أو المورد الأول"}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
           <div className="flex items-stretch">
             <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
               المخزن
@@ -1194,6 +1342,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
               <Plus size={17} />
             </button>
           </div>
+          )}
           {showErrors && validation.headerErrors.storeId && (
             <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
               {validation.headerErrors.storeId}
@@ -1339,16 +1488,23 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </span>
         }
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <LedgerSelect
-            label="طريقة الدفع"
-            options={paymentOptions}
-            value={header.paymentMethod}
-            onChange={(e) => handlePaymentMethodChange(e.target.value)}
-          />
-        </div>
+        {isContainersInvoice ? (
+          <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-xs leading-6 text-primary-700">
+            فاتورة عبوات فقط: بتسجل كميات العبوات بدون قيمة مالية، فمفيش خصم
+            أو مدفوع أو خزنة مرتبطة بالفاتورة.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2">
+            <LedgerSelect
+              label="طريقة الدفع"
+              options={paymentOptions}
+              value={header.paymentMethod}
+              onChange={(e) => handlePaymentMethodChange(e.target.value)}
+            />
+          </div>
+        )}
 
-        {hasPayment && (
+        {!isContainersInvoice && hasPayment && (
           <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-2 animate-[fadeIn_0.15s_ease-out]">
             <div
               data-field="cashboxId"
@@ -1437,8 +1593,114 @@ export default function CreateInvoiceForm({ onSuccess }) {
         />
       )}
 
-      {/* ============ القسم 5: الأصناف ============ */}
-      <LedgerPanel
+      {isContainersInvoice ? (
+        <LedgerPanel
+          title={
+            <span className="flex items-center gap-2 pr-3">
+              <Boxes size={15} />
+              حركات العبوات
+            </span>
+          }
+        >
+          <div
+            className="space-y-3"
+            data-field="containerLines"
+            data-invalid={
+              showErrors && Boolean(validation.headerErrors.containerLines)
+            }
+          >
+            <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-xs leading-6 text-primary-700">
+              فاتورة عبوات فقط بتسجل الكميات الصادرة والواردة على عبوات
+              العميل من غير أصناف ومن غير قيمة مالية. لازم تضيف حركة عبوة
+              واحدة على الأقل.
+            </div>
+
+            {showErrors && validation.headerErrors.containerLines && (
+              <div className="flex items-center gap-2 rounded-2xl border border-negative/20 bg-negative/5 px-4 py-2.5 text-xs text-negative">
+                <AlertTriangle size={14} />
+                {validation.headerErrors.containerLines}
+              </div>
+            )}
+
+            {!header.partyId && (
+              <div className="rounded-2xl border border-dashed border-gold-200 bg-gold-50/40 py-6 text-center">
+                <p className="text-sm text-gold-700">
+                  اختر العميل أو المورد الأول عشان تحدد مخزن العبوات
+                </p>
+              </div>
+            )}
+
+            {header.partyId && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-400/10 bg-white px-4 py-3">
+                <div className="text-sm">
+                  <p className="font-medium text-ink-900">
+                    {partyContainerStoreData?.containerStore?.name ||
+                      "لا يوجد مخزن عبوات مرتبط بالعميل"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-ink-400">
+                    {containerMovementCount > 0
+                      ? `${containerMovementCount} عبوة متحركة في الفاتورة`
+                      : "لسه مفيش حركات عبوات"}
+                  </p>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPackaging(true)}
+                  disabled={
+                    isLoading || !partyContainerStoreData?.containerStore
+                  }
+                >
+                  <Boxes size={15} />
+                  {containerMovementCount > 0
+                    ? "تعديل حركات العبوات"
+                    : "إضافة حركات العبوات"}
+                </Button>
+              </div>
+            )}
+
+            {containerMovementCount > 0 && (
+              <div className="overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card">
+                <table className="w-full min-w-[520px] border-collapse text-right">
+                  <thead>
+                    <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
+                      <th className="p-2.5 font-medium">#</th>
+                      <th className="p-2.5 font-medium">العبوة</th>
+                      <th className="p-2.5 font-medium">صادر</th>
+                      <th className="p-2.5 font-medium">وارد</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {containersMovement.items.map((item, index) => (
+                      <tr
+                        key={item.containerId ?? index}
+                        className="border-t border-ink-400/10"
+                      >
+                        <td className="p-2.5 text-xs num text-ink-400">
+                          {index + 1}
+                        </td>
+                        <td className="p-2.5 text-sm text-ink-900">
+                          {containerNameById.get(String(item.containerId)) ||
+                            `عبوة #${item.containerId}`}
+                        </td>
+                        <td className="p-2.5 text-sm num">
+                          {Number(item.issuedQuantity) || 0}
+                        </td>
+                        <td className="p-2.5 text-sm num">
+                          {Number(item.receivedQuantity) || 0}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </LedgerPanel>
+      ) : (
+        // القسم 5: الأصناف
+        <LedgerPanel
         title={
           <div className="mb-2 flex items-center justify-between px-1">
             <span className="flex items-center gap-2 pr-3">
@@ -1549,6 +1811,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
           </div>
         </div>
       </LedgerPanel>
+      )}
 
         </div>
 
@@ -1591,8 +1854,16 @@ export default function CreateInvoiceForm({ onSuccess }) {
                 { label: "نوع الفاتورة", done: Boolean(header.movementType) },
                 { label: "العميل / المورد", done: Boolean(header.partyId) },
                 { label: "المخزن", done: Boolean(header.storeId) },
-                { label: "أصناف بكميات", done: validation.validLineCount > 0 },
-                ...(isCashPayment
+                isContainersInvoice
+                  ? {
+                      label: "حركات عبوات",
+                      done: containerMovementCount > 0,
+                    }
+                  : {
+                      label: "أصناف بكميات",
+                      done: validation.validLineCount > 0,
+                    },
+                ...(!isContainersInvoice && isCashPayment
                   ? [{ label: "الخزنة", done: Boolean(header.cashboxId) }]
                   : []),
               ].map((step) => (
@@ -1655,67 +1926,77 @@ export default function CreateInvoiceForm({ onSuccess }) {
               </span>
             </div>
 
-            <div className="flex items-stretch border-b border-ink-400/10">
-              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                الخصم
+            {isContainersInvoice ? (
+              <div className="border-y border-ink-400/10 bg-primary-500/[0.03] px-3 py-3 text-xs leading-6 text-primary-700">
+                فاتورة عبوات فقط: القيمة المالية صفر — بيتسجل حركة العبوات بس.
               </div>
-              <div className="flex-1 p-2">
-                <NumericInput
-                  value={header.discount ?? ""}
-                  decimals
-                  disabled={isReturnInvoice}
-                  onChange={(value) => {
-                    if (isReturnInvoice) return;
-                    setHeaderField("discount", value === "" ? "" : value);
-                  }}
-                />
-                {isReturnInvoice && (
-                  <p className="mt-1 text-[11px] text-ink-400">
-                    {fullReturnState
-                      ? "خصم الفاتورة الأصلية بيتطبق تلقائيًا لأنه مرتجع كامل"
-                      : "مفيش خصم على المرتجع الجزئي"}
-                  </p>
-                )}
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-stretch border-b border-ink-400/10">
+                  <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                    الخصم
+                  </div>
+                  <div className="flex-1 p-2">
+                    <NumericInput
+                      value={header.discount ?? ""}
+                      decimals
+                      disabled={isReturnInvoice}
+                      onChange={(value) => {
+                        if (isReturnInvoice) return;
+                        setHeaderField("discount", value === "" ? "" : value);
+                      }}
+                    />
+                    {isReturnInvoice && (
+                      <p className="mt-1 text-[11px] text-ink-400">
+                        {fullReturnState
+                          ? "خصم الفاتورة الأصلية بيتطبق تلقائيًا لأنه مرتجع كامل"
+                          : "مفيش خصم على المرتجع الجزئي"}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-between border-y border-ink-400/10 bg-ink-900/[0.02] px-3 py-2.5">
-              <span className="text-sm font-semibold text-ink-900">الصافي</span>
-              <span className="num text-sm font-bold text-ink-900">
-                {fmt(netTotal)} {currencySymbol}
-              </span>
-            </div>
+                <div className="flex items-center justify-between border-y border-ink-400/10 bg-ink-900/[0.02] px-3 py-2.5">
+                  <span className="text-sm font-semibold text-ink-900">
+                    الصافي
+                  </span>
+                  <span className="num text-sm font-bold text-ink-900">
+                    {fmt(netTotal)} {currencySymbol}
+                  </span>
+                </div>
 
-            <div className="flex items-stretch border-b border-ink-400/10">
-              <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                المدفوع
-              </div>
-              <div className="flex-1 p-2">
-                <NumericInput
-                  value={header.paid ?? ""}
-                  decimals
-                  disabled={isCashPayment}
-                  onChange={(value) => {
-                    if (isCashPayment) return;
-                    setHeaderField("paid", value === "" ? "" : value);
-                  }}
-                />
-                {isCashPayment && (
-                  <p className="mt-1 text-[11px] text-ink-400">
-                    نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
-                  </p>
-                )}
-              </div>
-            </div>
+                <div className="flex items-stretch border-b border-ink-400/10">
+                  <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                    المدفوع
+                  </div>
+                  <div className="flex-1 p-2">
+                    <NumericInput
+                      value={header.paid ?? ""}
+                      decimals
+                      disabled={isCashPayment}
+                      onChange={(value) => {
+                        if (isCashPayment) return;
+                        setHeaderField("paid", value === "" ? "" : value);
+                      }}
+                    />
+                    {isCashPayment && (
+                      <p className="mt-1 text-[11px] text-ink-400">
+                        نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-            <div className="flex items-center justify-between bg-ink-900/[0.02] px-3 py-2.5">
-              <span className="text-sm font-semibold text-ink-900">
-                المتبقي
-              </span>
-              <span className="num text-sm font-bold text-ink-900">
-                {fmt(remaining)} {currencySymbol}
-              </span>
-            </div>
+                <div className="flex items-center justify-between bg-ink-900/[0.02] px-3 py-2.5">
+                  <span className="text-sm font-semibold text-ink-900">
+                    المتبقي
+                  </span>
+                  <span className="num text-sm font-bold text-ink-900">
+                    {fmt(remaining)} {currencySymbol}
+                  </span>
+                </div>
+              </>
+            )}
 
             {isForeignCurrency && (
               <div className="flex items-center justify-between border-t border-ink-400/10 px-3 py-2 text-xs text-ink-400">

@@ -14,6 +14,7 @@ import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
 import Button from "../../../shared/components/ui/Button";
 import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
+import { formatDate } from "../../../lib/date.js";
 
 import { useGetCashVoucherPartySelectQuery } from "../cashVouchersApi";
 import { useGetPartyByIdQuery } from "../../partners/partiesApi";
@@ -92,6 +93,8 @@ export default function CashVoucherEditModal({
 }) {
   const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [saving, setSaving] = useState(false);
+  // جسم الترحيل الجاهز (بيتحدد بعد ما الفورم يتحقق) قبل تأكيد المستخدم.
+  const [pendingPost, setPendingPost] = useState(null);
 
   const { data: partySelect, isFetching: isLoadingPartySelect } =
     useGetCashVoucherPartySelectQuery(undefined, {
@@ -108,7 +111,6 @@ export default function CashVoucherEditModal({
     reset,
     watch,
     setValue,
-    getValues,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
@@ -167,6 +169,8 @@ export default function CashVoucherEditModal({
    */
   useEffect(() => {
     if (!isOpen || !voucher) return;
+
+    setPendingPost(null);
 
     reset({
       voucherDate: voucher.voucherDate?.slice(0, 10) || "",
@@ -233,30 +237,67 @@ export default function CashVoucherEditModal({
   }
 
   const isInvoiceGenerated = Boolean(voucher.invoiceId);
+  const isDraft = Boolean(voucher.isDraft);
 
-  async function onSubmit(values) {
+  function validateDate(values) {
     const fiscalYearWarning = [values.voucherDate]
       .map((value) => getFiscalYearDateWarning(value, selectedFiscalYear))
       .find(Boolean);
 
     if (fiscalYearWarning) {
       toast.error(fiscalYearWarning);
+      return false;
+    }
+
+    return true;
+  }
+
+  // حفظ المسودة: بيانات تشغيلية فقط بدون أي هدف ترحيل أو أثر محاسبي.
+  async function submitDraft(values) {
+    if (!validateDate(values)) {
+      return;
+    }
+
+    const payload = {
+      voucherDate: values.voucherDate,
+      direction: values.direction,
+      amount: Number(values.amount),
+      referenceNumber: values.referenceNumber || undefined,
+      description: values.description || undefined,
+      notes: values.notes || undefined,
+    };
+
+    if (isForeign) {
+      payload.exchangeRate = values.exchangeRate
+        ? Number(values.exchangeRate)
+        : undefined;
+    }
+
+    setSaving(true);
+
+    try {
+      await onSave(payload, "draft");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // تجهيز جسم التوصيف والترحيل، ثم عرض تأكيد صريح قبل التنفيذ.
+  function submitPost(values) {
+    if (!validateDate(values)) {
       return;
     }
 
     // التوصيف مقفول على المستخدم (سند موصّف ومش أدمن/محاسب): بنتجاهل
-    // أي توصيف مختار وبنستخدم التوصيف المحفوظ على السند (لو موجود)؛
-    // المسودة تفضل مسودة.
+    // أي توصيف مختار وبنستخدم التوصيف المحفوظ على السند (لو موجود).
     const selectedOption = canDescribe
       ? groups
           .flatMap((group) => group.options)
           .find((option) => option.value === values.descriptionValue)
       : null;
 
-    // التوصيف مش إلزامي في الفرونت: لو المستخدم مختارش، بنستخدم التوصيف
-    // المحفوظ على السند (لو موجود) عشان تعديل المبلغ/سعر الصرف ميفرضش
-    // إعادة اختيار التوصيف. لو السند مسودة من غير توصيف، الباك هو اللي
-    // هيقرر (بيطلب توصيف واحد على PUT).
+    // لو المستخدم مختارش توصيف، بنستخدم التوصيف المحفوظ على السند (لو
+    // موجود) عشان تعديل المبلغ/سعر الصرف ميفرضش إعادة اختيار التوصيف.
     const target = selectedOption
       ? buildPostingTargetPayload(selectedOption.meta, {
           driverTripId: voucher.driverTripId,
@@ -300,10 +341,18 @@ export default function CashVoucherEditModal({
         : undefined;
     }
 
+    setPendingPost(payload);
+  }
+
+  async function confirmPost() {
+    if (!pendingPost) {
+      return;
+    }
+
     setSaving(true);
 
     try {
-      await onSave(payload);
+      await onSave(pendingPost, "post");
     } finally {
       setSaving(false);
     }
@@ -313,7 +362,11 @@ export default function CashVoucherEditModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`تعديل السند ${voucher.voucherNumber || ""}`}
+      title={
+        isDraft
+          ? `تعديل المسودة ${voucher.voucherNumber || ""}`
+          : `السند ${voucher.voucherNumber || ""}`
+      }
     >
       {isInvoiceGenerated ? (
         <div className="space-y-4">
@@ -337,8 +390,57 @@ export default function CashVoucherEditModal({
             </Button>
           </div>
         </div>
+      ) : !isDraft ? (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-positive/20 bg-positive/5 px-4 py-3 text-sm leading-6 text-ink-700">
+            هذا السند مرحّل بالفعل. بياناته وقيده المحاسبي للقراءة فقط، ولا
+            يمكن تعديله أو حذفه.
+          </div>
+
+          <div className="rounded-xl border border-ink-400/15 bg-ink-400/5 p-3 text-sm leading-6 text-ink-700">
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <span>
+                التاريخ:{" "}
+                <strong className="num">
+                  {formatDate(voucher.voucherDate)}
+                </strong>
+              </span>
+              <span>
+                الاتجاه:{" "}
+                <strong>
+                  {voucher.direction === "Receipt" ? "وارد" : "صادر"}
+                </strong>
+              </span>
+              <span>
+                المبلغ:{" "}
+                <strong className="num">
+                  {Number(voucher.amount ?? 0).toLocaleString("ar-EG", {
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  {currency}
+                </strong>
+              </span>
+            </div>
+
+            {voucher.description && (
+              <div className="mt-2">
+                البيان: <strong>{voucher.description}</strong>
+              </div>
+            )}
+
+            {voucher.notes && (
+              <div className="mt-1 text-ink-500">ملاحظات: {voucher.notes}</div>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
+              إغلاق
+            </Button>
+          </div>
+        </div>
       ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(submitPost)} className="space-y-4">
           {/* التاريخ + الاتجاه */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
@@ -420,7 +522,7 @@ export default function CashVoucherEditModal({
               {!canDescribe
                 ? "السند موصّف بالفعل — التوصيف والتعديل للأدمن أو المحاسب فقط. يمكنك تعديل بيانات الحركة."
                 : voucher?.isDraft
-                  ? "مسودة: لو سيبت التوصيف فاضي هيتحفظ كمسودة من غير ترحيل. اختَر توصيف لإكماله وترحيله."
+                  ? "اختر التوصيف ثم استخدم «توصيف وترحيل» لاعتماده، أو «حفظ كمسودة» لتعديل البيانات بدون ترحيل."
                   : "لازم توصيف واحد لإكمال تعديل السند."}
             </p>
           </div>
@@ -545,30 +647,79 @@ export default function CashVoucherEditModal({
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-2 border-t border-ink-400/10 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={saving}
-            >
-              إلغاء
-            </Button>
+          {pendingPost ? (
+            <div className="space-y-3 border-t border-ink-400/10 pt-4">
+              <div className="rounded-xl border border-gold-200 bg-gold-50 px-4 py-3 text-sm leading-6 text-ink-700">
+                <p className="mb-1 font-semibold text-ink-900">
+                  تأكيد التوصيف والترحيل
+                </p>
+                <p>
+                  الترحيل هيأثر على رصيد الخزنة والقيود المحاسبية. بعد الترحيل
+                  السند يبقى للقراءة فقط، ولا يمكن تعديله أو حذفه.
+                </p>
+              </div>
 
-            <Button type="submit" disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  جاري الحفظ...
-                </>
-              ) : (
-                <>
-                  <Save size={16} />
-                  حفظ التعديلات
-                </>
-              )}
-            </Button>
-          </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPendingPost(null)}
+                  disabled={saving}
+                >
+                  رجوع
+                </Button>
+
+                <Button type="button" onClick={confirmPost} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      جاري الترحيل...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      تأكيد الترحيل
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap justify-end gap-2 border-t border-ink-400/10 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={saving}
+              >
+                إلغاء
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSubmit(submitDraft)}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    جاري الحفظ...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    حفظ كمسودة
+                  </>
+                )}
+              </Button>
+
+              <Button type="submit" disabled={saving}>
+                <Save size={16} />
+                توصيف وترحيل
+              </Button>
+            </div>
+          )}
         </form>
       )}
     </Modal>

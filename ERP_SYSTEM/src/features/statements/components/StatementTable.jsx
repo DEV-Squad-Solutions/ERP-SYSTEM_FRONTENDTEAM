@@ -2,6 +2,7 @@ import { FileSearch, AlertCircle, RefreshCw } from "lucide-react";
 import BalanceBadge from "./BalanceBadge";
 import Pagination from "../../../shared/components/ui/Pagination";
 import AccessDeniedState from "../../../shared/components/ui/AccessDeniedState";
+import CashVoucherNumberLink from "../../../shared/components/CashVoucherNumberLink";
 import { formatDate } from "../../../lib/date.js";
 
 /**
@@ -127,6 +128,8 @@ export default function StatementTable({
 
               <th className="w-36 px-4 py-3 text-center">التاريخ</th>
 
+              <th className="w-44 px-4 py-3 text-right">رقم المستند</th>
+
               <th className="min-w-[220px] px-4 py-3 text-right">الملاحظات</th>
             </tr>
           </thead>
@@ -193,6 +196,19 @@ export default function StatementTable({
                 {/* التاريخ */}
                 <td className="num whitespace-nowrap px-4 py-3 text-center text-ink-600">
                   {formatDate(item.date)}
+                </td>
+
+                {/* رقم المستند + لينك سند الخزنة (لو مسموح) */}
+                <td className="px-4 py-3 text-right">
+                  <CashVoucherNumberLink
+                    cashVoucherId={item.cashVoucherId}
+                    cashboxId={item.cashboxId}
+                    cashboxName={item.cashboxName}
+                    cashDirection={item.cashDirection}
+                    fiscalYearId={item.fiscalYearId}
+                    documentNumber={item.documentNumber}
+                    className="text-sm"
+                  />
                 </td>
 
                 {/* الملاحظات */}

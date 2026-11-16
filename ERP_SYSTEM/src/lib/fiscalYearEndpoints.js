@@ -22,7 +22,7 @@ const INCLUDED_PATTERNS = [
   /^cashvouchers/i,
 
   // رحلات السائقين
-  /^drivertrips\/cost-entry/i,
+  /^drivertrips($|\/)/i,
 
   // الموظفون والرواتب (معزولة حسب السنة المالية)
   /^payrollentries/i,
@@ -52,6 +52,9 @@ const INCLUDED_PATTERNS = [
 
   // الأرصدة الافتتاحية للشركاء
   /^partneropeningbalances/i,
+
+  // الأرصدة الافتتاحية للسائقين
+  /^driveropeningbalances/i,
 
   // التقارير وكشوف الحساب (الاستثناءات الفرعية مغطاة في EXCLUDED_PATTERNS)
   /^statements\//i,

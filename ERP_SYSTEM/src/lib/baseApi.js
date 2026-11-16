@@ -21,7 +21,9 @@ export const baseApi = createApi({
     // ==================== Drivers ====================
     "Driver",
     "DriverStatement",
+    "DriverTrip",
     "DriverTripCost",
+    "DriverOpeningBalance",
 
     // ==================== Employees / Payroll (كانت ناقصة بالكامل) ====================
     "Employee",

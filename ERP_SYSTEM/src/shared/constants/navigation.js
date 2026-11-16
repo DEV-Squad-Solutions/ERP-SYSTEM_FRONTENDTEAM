@@ -180,6 +180,13 @@ export const navigationItems = [
         end: true,
         roles: FULL_ACCESS_ROLES,
       },
+      {
+        label: "الأرصدة الافتتاحية",
+        path: "/dashboard/drivers/opening-balances",
+        icon: Coins,
+        end: true,
+        roles: FULL_ACCESS_ROLES,
+      },
     ],
   },
 

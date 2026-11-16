@@ -25,6 +25,8 @@ const FISCAL_YEAR_SENSITIVE_TAGS = [
   "CashVoucher",
   "CashboxTransfer",
   "DriverTripCost",
+  "DriverTrip",
+  "DriverOpeningBalance",
   "DriverStatement",
   "Attendance",
   "EmployeeMovement",
