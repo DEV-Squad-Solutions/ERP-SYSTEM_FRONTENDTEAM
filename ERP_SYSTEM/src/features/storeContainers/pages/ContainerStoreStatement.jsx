@@ -34,9 +34,11 @@ import {
 import {
   useGetStoreContainersQuery,
   useUpsertStoreContainersMutation,
+  useDeleteContainerMovementMutation,
 } from "../../storeContainers/storeContainersApi";
 
 import ContainerStoreFilters from "../components/ContainerStoreFilters";
+import ManualMovementModal from "../components/ManualMovementModal";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Input from "../../../shared/components/ui/Input";
@@ -596,6 +598,11 @@ export default function ContainerStoreStatementPage() {
   const [store, setStore] = useState(null);
   const [storeModal, setStoreModal] = useState(false);
   const [containersModal, setContainersModal] = useState(false);
+  const [movementModal, setMovementModal] = useState(false);
+  const [editingMovement, setEditingMovement] = useState(null);
+
+  const [deleteMovement, { isLoading: deletingMovement }] =
+    useDeleteContainerMovementMutation();
 
   /* =========================================================
      Partner
@@ -767,6 +774,52 @@ export default function ContainerStoreStatementPage() {
   };
 
   /* =========================================================
+     Manual Movements
+  ========================================================= */
+
+  const openCreateMovement = () => {
+    setEditingMovement(null);
+    setMovementModal(true);
+  };
+
+  const openEditMovement = (item) => {
+    setEditingMovement(item);
+    setMovementModal(true);
+  };
+
+  const closeMovementModal = () => {
+    setMovementModal(false);
+    setEditingMovement(null);
+  };
+
+  const handleDeleteMovement = async (item) => {
+    if (
+      !window.confirm(
+        `متأكد من حذف الحركة اليدوية للعبوة "${
+          item.containerName ?? ""
+        }" بتاريخ ${fmtDate(item.movementDate)}؟`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await deleteMovement({
+        id: item.movementId,
+        rowVersion: item.rowVersion,
+      }).unwrap();
+
+      toast.success("تم حذف الحركة اليدوية بنجاح");
+    } catch (error) {
+      toast.error(
+        error?.data?.message ||
+          error?.data?.title ||
+          "تعذر حذف الحركة اليدوية",
+      );
+    }
+  };
+
+  /* =========================================================
      Render
   ========================================================= */
 
@@ -809,6 +862,11 @@ export default function ContainerStoreStatementPage() {
             >
               <Settings2 size={15} />
               إدارة الحاويات
+            </Button>
+
+            <Button onClick={openCreateMovement}>
+              <Plus size={15} />
+              إضافة حركة يدوية
             </Button>
           </div>
         )}
@@ -1228,13 +1286,14 @@ export default function ContainerStoreStatementPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1200px] text-sm">
+              <table className="w-full min-w-[1250px] text-sm">
                 <thead>
                   <tr className="bg-ink-400/5 text-ink-400">
                     {[
                       "التاريخ",
                       "الفاتورة",
                       "نوع الفاتورة",
+                      "المصدر",
                       "الحركة",
                       "العبوة",
                       "صادر",
@@ -1242,6 +1301,7 @@ export default function ContainerStoreStatementPage() {
                       "صافي الحركة",
                       "الرصيد الجاري",
                       "الوصف",
+                      "الإجراء",
                     ].map((label) => (
                       <th
                         key={label}
@@ -1257,7 +1317,7 @@ export default function ContainerStoreStatementPage() {
                   {data.items?.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={12}
                         className="p-10 text-center text-ink-400"
                       >
                         لا توجد حركات مطابقة للفلاتر
@@ -1304,7 +1364,10 @@ export default function ContainerStoreStatementPage() {
                               </button>
                             ) : (
                               <span className="font-bold text-ink-500">
-                                {item.invoiceNumber || "بدون رقم"}
+                                {item.invoiceNumber ||
+                                  (item.sourceType === "Manual"
+                                    ? "بدون فاتورة"
+                                    : "بدون رقم")}
                               </span>
                             )}
 
@@ -1318,16 +1381,33 @@ export default function ContainerStoreStatementPage() {
                           {/* Invoice Type */}
 
                           <td className="px-3 py-3">
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                badges[item.invoiceType] ??
-                                "bg-ink-400/10 text-ink-500"
-                              }`}
-                            >
-                              {labels[item.invoiceType] ??
-                                item.invoiceType ??
-                                "—"}
-                            </span>
+                            {item.invoiceType ? (
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                  badges[item.invoiceType] ??
+                                  "bg-ink-400/10 text-ink-500"
+                                }`}
+                              >
+                                {labels[item.invoiceType] ??
+                                  item.invoiceType}
+                              </span>
+                            ) : (
+                              <span className="text-ink-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Source */}
+
+                          <td className="px-3 py-3">
+                            {item.sourceType === "Manual" ? (
+                              <span className="inline-flex items-center rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700">
+                                يدوي
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full border border-ink-400/15 bg-ink-400/5 px-2.5 py-1 text-xs font-semibold text-ink-500">
+                                فاتورة
+                              </span>
+                            )}
                           </td>
 
                           {/* Direction */}
@@ -1409,6 +1489,39 @@ export default function ContainerStoreStatementPage() {
                           <td className="px-3 py-3 text-ink-400">
                             {item.movementDescription || "—"}
                           </td>
+
+                          {/* Actions */}
+
+                          <td className="px-3 py-3">
+                            {item.sourceType === "Manual" ? (
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditMovement(item)}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-ink-400/15 bg-white text-ink-500 transition hover:border-primary-400/40 hover:bg-primary-50 hover:text-primary-700"
+                                  title="تعديل الحركة اليدوية"
+                                  aria-label="تعديل الحركة اليدوية"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteMovement(item)}
+                                  disabled={deletingMovement}
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/20 bg-white text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  title="حذف الحركة اليدوية"
+                                  aria-label="حذف الحركة اليدوية"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-ink-300">
+                                للقراءة فقط
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })
@@ -1465,6 +1578,20 @@ export default function ContainerStoreStatementPage() {
           open={containersModal}
           onClose={() => setContainersModal(false)}
           storeId={currentStore.id}
+        />
+      )}
+
+      {/* =====================================================
+          Manual Movement Modal
+      ===================================================== */}
+
+      {currentStore && (
+        <ManualMovementModal
+          open={movementModal}
+          onClose={closeMovementModal}
+          storeId={currentStore.id}
+          containers={data?.containers ?? []}
+          movement={editingMovement}
         />
       )}
     </div>

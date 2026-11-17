@@ -56,8 +56,18 @@ export const resourceTagsMap = {
   // ==================== Items / Inventory ====================
   Item: ["Item", "Inventory", "InventoryCostReport", "ItemBalance"],
   Store: ["Store", "Inventory", "StoreStockReport"],
-  StoreContainer: ["StoreContainer", "ContainerStore", "Inventory"],
-  Container: ["Container", "Inventory"],
+  StoreContainer: [
+    "StoreContainer",
+    "ContainerStore",
+    "ContainerStoreStatement",
+    "Inventory",
+  ],
+  Container: ["Container", "ContainerStoreStatement", "Inventory"],
+  ContainerMovement: [
+    "ContainerMovement",
+    "ContainerStoreStatement",
+    "Inventory",
+  ],
   StockOpeningBalance: [
     "StockOpeningBalance",
     "Inventory",
@@ -104,6 +114,7 @@ export const resourceTagsMap = {
     "Driver",
     "DriverStatement",
     "DriverTripCost",
+    "ContainerStoreStatement",
   ],
 
   // ==================== Cashboxes ====================

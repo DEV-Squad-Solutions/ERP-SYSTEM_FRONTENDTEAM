@@ -30,8 +30,42 @@ export const storeContainersApi = baseApi.injectEndpoints({
       invalidatesTags: (result, error, { storeId }) =>
         tagsFor("StoreContainer", [{ type: "StoreContainer", id: storeId }]),
     }),
+    // إضافة حركة عبوة يدوية بدون فاتورة
+    createContainerMovement: builder.mutation({
+      query: (body) => ({
+        url: "ContainerMovements",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: tagsFor("ContainerMovement"),
+    }),
+
+    // تعديل حركة يدوية (حركات الفواتير غير قابلة للتعديل)
+    updateContainerMovement: builder.mutation({
+      query: ({ id, body }) => ({
+        url: `ContainerMovements/${id}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: tagsFor("ContainerMovement"),
+    }),
+
+    // حذف حركة يدوية (يتطلب بصمة السجل لمنع التعارض)
+    deleteContainerMovement: builder.mutation({
+      query: ({ id, rowVersion }) => ({
+        url: `ContainerMovements/${id}`,
+        method: "DELETE",
+        params: { rowVersion },
+      }),
+      invalidatesTags: tagsFor("ContainerMovement"),
+    }),
   }),
 });
 
-export const { useGetStoreContainersQuery, useUpsertStoreContainersMutation } =
-  storeContainersApi;
+export const {
+  useGetStoreContainersQuery,
+  useUpsertStoreContainersMutation,
+  useCreateContainerMovementMutation,
+  useUpdateContainerMovementMutation,
+  useDeleteContainerMovementMutation,
+} = storeContainersApi;

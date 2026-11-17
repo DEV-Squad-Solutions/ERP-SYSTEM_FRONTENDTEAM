@@ -45,6 +45,8 @@ export const baseApi = createApi({
     "Store",
     "StoreContainer",
     "ContainerStore",
+    "ContainerStoreStatement",
+    "ContainerMovement",
     "StoreStockReport",
     "InventoryCostReport",
     "StockTransfer",
