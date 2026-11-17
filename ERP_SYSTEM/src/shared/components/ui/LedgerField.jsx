@@ -43,6 +43,8 @@ const formatDateForValue = (value) => {
  */
 export default function LedgerField({
   label,
+  // عنصر اختياري صغير جنب الليبل (مثل أيقونة قفل رقم الفاتورة)
+  labelAddon = null,
   error,
   className = "",
   type = "text",
@@ -196,11 +198,15 @@ export default function LedgerField({
             text-ink-900
             flex
             items-center
+            gap-1
             border-l
             border-ink-400/10
           "
         >
           {label}
+          {labelAddon && (
+            <span className="ms-auto shrink-0">{labelAddon}</span>
+          )}
         </div>
 
         {/* DATE FIELD */}

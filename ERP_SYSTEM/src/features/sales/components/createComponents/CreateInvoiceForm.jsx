@@ -1123,9 +1123,38 @@ export default function CreateInvoiceForm({ onSuccess }) {
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-3">
-          <div data-field="invoiceNumber" className="space-y-1">
+          <div data-field="invoiceNumber">
             <LedgerField
               label="رقم الفاتورة"
+              labelAddon={
+                <button
+                  type="button"
+                  onClick={() => setInvoiceNumberLocked((value) => !value)}
+                  className="
+                    inline-flex h-5 w-5 items-center justify-center rounded
+                    border border-ink-400/20 bg-white text-primary-700
+                    transition hover:border-primary-400/50 hover:bg-primary-50
+                    active:scale-95
+                  "
+                  aria-pressed={!invoiceNumberLocked}
+                  aria-label={
+                    invoiceNumberLocked
+                      ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
+                      : "قفل الحقل والرجوع للتوليد التلقائي"
+                  }
+                  title={
+                    invoiceNumberLocked
+                      ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
+                      : "قفل الحقل والرجوع للتوليد التلقائي"
+                  }
+                >
+                  {invoiceNumberLocked ? (
+                    <Unlock size={11} />
+                  ) : (
+                    <Lock size={11} />
+                  )}
+                </button>
+              }
               value={header.invoiceNumber}
               onChange={(e) => setHeaderField("invoiceNumber", e.target.value)}
               readOnly={invoiceNumberLocked}
@@ -1141,41 +1170,6 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   : ""
               }
             />
-            <div className="flex items-center justify-between gap-2 px-1 text-[11px] leading-5">
-              <span className="text-ink-500">
-                {invoiceNumberLocked
-                  ? "الرقم مقفول وهيتم توليده تلقائيًا مع الحفظ"
-                  : "الرقم مفتوح للكتابة اليدوية"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setInvoiceNumberLocked((value) => !value)}
-                className="
-                  inline-flex shrink-0 items-center gap-1 rounded-md
-                  border border-ink-400/15 bg-white px-2 py-0.5
-                  font-medium text-primary-700 transition
-                  hover:border-primary-400/40 hover:bg-primary-50
-                "
-                aria-pressed={!invoiceNumberLocked}
-                title={
-                  invoiceNumberLocked
-                    ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
-                    : "قفل الحقل والرجوع للتوليد التلقائي"
-                }
-              >
-                {invoiceNumberLocked ? (
-                  <>
-                    <Unlock size={12} />
-                    تعديل يدوي
-                  </>
-                ) : (
-                  <>
-                    <Lock size={12} />
-                    قفل الحقل
-                  </>
-                )}
-              </button>
-            </div>
           </div>
           <div
             data-field="movementType"
