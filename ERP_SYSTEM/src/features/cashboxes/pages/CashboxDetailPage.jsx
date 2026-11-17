@@ -31,6 +31,7 @@ import {
   useCreateCashVoucherMutation,
   useUpdateCashVoucherMutation,
   useUpdateDraftCashVoucherMutation,
+  useDeleteCashVoucherMutation,
 } from "../cashVouchersApi";
 
 import { useGetCashMovementTypeOptionsQuery } from "../cashMovementTypesApi";
@@ -50,7 +51,7 @@ import { useCashboxLedgerPrint } from "../../../shared/hooks/useCashboxLedgerPri
 
 import CashboxLedgerPrintTemplate from "../../../shared/components/print/CashboxLedgerPrintTemplate";
 
-import { selectIsAdmin } from "../../auth/authSlice";
+import { selectIsAdmin, selectIsAdminOrAccountant } from "../../auth/authSlice";
 import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
 import CashHandoverReportModal from "../components/CashHandoverReportModal";
 
@@ -151,6 +152,7 @@ const draftOptions = [
 export default function CashboxDetailPage() {
   const { cashboxId } = useParams();
   const isAdmin = useSelector(selectIsAdmin);
+  const isAdminOrAccountant = useSelector(selectIsAdminOrAccountant);
   const selectedFiscalYearId = useSelector(selectSelectedFiscalYearId);
 
   // deep-link لسند معيّن: /dashboard/treasury/:cashboxId?voucherId=123
@@ -263,6 +265,7 @@ export default function CashboxDetailPage() {
   const [createVoucher] = useCreateCashVoucherMutation();
   const [updateVoucher] = useUpdateCashVoucherMutation();
   const [updateDraftVoucher] = useUpdateDraftCashVoucherMutation();
+  const [deleteVoucher] = useDeleteCashVoucherMutation();
   const [updateCashbox] = useUpdateCashboxMutation();
 
   const queryParams = useMemo(
@@ -391,6 +394,12 @@ export default function CashboxDetailPage() {
       ...payload,
       cashboxId,
     }).unwrap();
+  }
+
+  // حذف حركة/سند مستقل — للأدمن أو المحاسب، حتى بعد التوصيف/الترحيل.
+  // DELETE /CashVouchers/{id}?rowVersion=...
+  async function handleDeleteVoucher({ id, rowVersion }) {
+    await deleteVoucher({ id, rowVersion }).unwrap();
   }
 
   // حذف الرصيد الافتتاحي اليدوي للخزنة = تصفير الرصيد الافتتاحي.
@@ -837,6 +846,9 @@ export default function CashboxDetailPage() {
           onAddVoucher={handleAddVoucher}
           onUpdateVoucher={handleUpdateVoucher}
           onUpdateDraftVoucher={handleUpdateDraftVoucher}
+          onDeleteVoucher={
+            isAdminOrAccountant ? handleDeleteVoucher : undefined
+          }
           onDeleteOpeningBalance={
             isAdmin ? handleDeleteOpeningBalance : undefined
           }

@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   CircleDot,
   RotateCcw,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -121,7 +123,9 @@ const generateInvoiceNumber = () => {
   return `INV-${year}-${Math.floor(Math.random() * 10000)}`;
 };
 const getDefaultHeader = () => ({
-  invoiceNumber: generateInvoiceNumber(),
+  // رقم الفاتورة بيبدأ فاضي ومقفول: الباك إند هو اللي بيتحكم في
+  // الترقيم، ولو المستخدم حب يكتبه بنفسه بيفتح القفل من الزرار جنبه.
+  invoiceNumber: "",
 
   movementType: "",
 
@@ -309,6 +313,9 @@ export default function CreateInvoiceForm({ onSuccess }) {
     items: [],
   });
   const [itemsLocked, setItemsLocked] = useState(true);
+  // قفل رقم الفاتورة: مقفول افتراضيًا وفاضي لحد ما المستخدم يفتحه
+  // ويكتب رقم يدوي (أو نسيبه فاضي فيتولّد تلقائيًا وقت الحفظ).
+  const [invoiceNumberLocked, setInvoiceNumberLocked] = useState(true);
   const [isTemporaryDriver, setIsTemporaryDriver] = useState(false);
   const [fullReturnState, setFullReturnState] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
@@ -984,11 +991,24 @@ export default function CreateInvoiceForm({ onSuccess }) {
 
       setShowErrors(false);
 
+      // لو المستخدم ساب رقم الفاتورة فاضي (الحالة الافتراضية المقفولة)
+      // بنولّد رقم بديل قبل الإرسال، لأن الـ API حاليًا بيرفض الرقم
+      // الفاضي. الرقم الظاهر بعد الحفظ هو اللي راجع من السيرفر.
+      const effectiveInvoiceNumber =
+        header.invoiceNumber?.trim() || generateInvoiceNumber();
+
+      if (!header.invoiceNumber?.trim()) {
+        setHeader((current) => ({
+          ...current,
+          invoiceNumber: effectiveInvoiceNumber,
+        }));
+      }
+
       // بعد كده الباك إند يبقى مصدر الحقيقة النهائي، وأي رفض إضافي
       // (رصيد/سعر/سنة مالية...) بيوصل في الـ catch تحت.
       const payload = buildCreateInvoiceRequest({
         movementType: header.movementType,
-        header: { ...header, wbTotal },
+        header: { ...header, invoiceNumber: effectiveInvoiceNumber, wbTotal },
         lines,
         containersMovement,
         isTemporaryDriver,
@@ -998,7 +1018,9 @@ export default function CreateInvoiceForm({ onSuccess }) {
         const invoice = await createInvoice(payload).unwrap();
 
         toast.success("تم حفظ الفاتورة بنجاح", {
-          description: `رقم الفاتورة: ${header.invoiceNumber}`,
+          description: `رقم الفاتورة: ${
+            invoice?.invoiceNumber || effectiveInvoiceNumber
+          }`,
         });
 
         onSuccess?.();
@@ -1053,6 +1075,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
     setLines(Array.from({ length: 10 }, () => emptyLine()));
     setContainersMovement({ containerStoreId: null, items: [] });
     setIsTemporaryDriver(false);
+    setInvoiceNumberLocked(true);
     setFullReturnState(null);
     setShowErrors(false);
     setShowResetConfirm(false);
@@ -1100,11 +1123,60 @@ export default function CreateInvoiceForm({ onSuccess }) {
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-3">
-          <LedgerField
-            label="رقم الفاتورة"
-            value={header.invoiceNumber}
-            onChange={(e) => setHeaderField("invoiceNumber", e.target.value)}
-          />
+          <div data-field="invoiceNumber" className="space-y-1">
+            <LedgerField
+              label="رقم الفاتورة"
+              value={header.invoiceNumber}
+              onChange={(e) => setHeaderField("invoiceNumber", e.target.value)}
+              readOnly={invoiceNumberLocked}
+              disabled={invoiceNumberLocked}
+              placeholder={
+                invoiceNumberLocked
+                  ? "يُولَّد تلقائيًا عند الحفظ"
+                  : "اكتب رقم الفاتورة يدويًا"
+              }
+              className={
+                invoiceNumberLocked
+                  ? "cursor-not-allowed bg-ink-900/[0.03] text-ink-500"
+                  : ""
+              }
+            />
+            <div className="flex items-center justify-between gap-2 px-1 text-[11px] leading-5">
+              <span className="text-ink-500">
+                {invoiceNumberLocked
+                  ? "الرقم مقفول وهيتم توليده تلقائيًا مع الحفظ"
+                  : "الرقم مفتوح للكتابة اليدوية"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setInvoiceNumberLocked((value) => !value)}
+                className="
+                  inline-flex shrink-0 items-center gap-1 rounded-md
+                  border border-ink-400/15 bg-white px-2 py-0.5
+                  font-medium text-primary-700 transition
+                  hover:border-primary-400/40 hover:bg-primary-50
+                "
+                aria-pressed={!invoiceNumberLocked}
+                title={
+                  invoiceNumberLocked
+                    ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
+                    : "قفل الحقل والرجوع للتوليد التلقائي"
+                }
+              >
+                {invoiceNumberLocked ? (
+                  <>
+                    <Unlock size={12} />
+                    تعديل يدوي
+                  </>
+                ) : (
+                  <>
+                    <Lock size={12} />
+                    قفل الحقل
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           <div
             data-field="movementType"
             data-invalid={

@@ -222,6 +222,8 @@ export default function CashboxLedgerTable({
   onAddVoucher,
   onUpdateVoucher,
   onUpdateDraftVoucher,
+  // حذف حركة/سند مستقل (مسودة أو مرحّل) — للأدمن أو المحاسب.
+  onDeleteVoucher,
   // حذف الرصيد الافتتاحي اليدوي للخزنة (تصفير الرصيد الافتتاحي).
   onDeleteOpeningBalance,
   // صلاحية التنفيذ (عرض/إضافة/تعديل/حذف حركات) على الخزنة دي.
@@ -517,10 +519,17 @@ export default function CashboxLedgerTable({
         return;
       }
 
-      // السندات المستقلة بعد الترحيل للقراءة فقط. التعديل مسموح للمسودات
-      // فقط، والترحيل/التوصيف إجراء منفصل عن حفظ المسودة.
-      if (!editingRow.isDraft) {
-        toast.error("السند مرحّل بالفعل وبياناته للقراءة فقط.");
+      // السندات المستقلة بعد الترحيل مسموحة للأدمن والمحاسب (تعديل/حذف
+      // مع مزامنة القيد المحاسبي)، ومقفولة على المستخدم العادي بعد التوصيف.
+      if (!editingRow.isDraft && !isAdminOrAccountant) {
+        toast.error("السند مرحّل بالفعل — التعديل للأدمن أو المحاسب فقط.");
+        return;
+      }
+
+      // المسودة بتتحفظ من مسار /draft؛ أي تعديل لسند مرحّل لازم يمر على
+      // مسار التوصيف/الترحيل عشان يعيد مزامنة القيد والحركات المرتبطة.
+      if (mode === "draft" && !editingRow.isDraft) {
+        toast.error("السند مرحّل — استخدم \"حفظ التعديلات\" بدل حفظ كمسودة.");
         return;
       }
 
@@ -562,13 +571,18 @@ export default function CashboxLedgerTable({
 
           toast.success("تم تحديث المسودة بنجاح");
         } else {
-          // التوصيف والترحيل — لمرة واحدة فقط، وبعدها السند يتقفل.
+          // التوصيف والترحيل أو تعديل سند مرحّل — الباك بيعيد مزامنة
+          // القيد المحاسبي والحركات المرتبطة.
           await onUpdateVoucher({
             id: editingRow.id,
             ...updatePayload,
           });
 
-          toast.success("تم توصيف السند وترحيله بنجاح");
+          toast.success(
+            editingRow.isDraft
+              ? "تم توصيف السند وترحيله بنجاح"
+              : "تم حفظ تعديلات السند بنجاح",
+          );
         }
 
         setEditingRow(null);
@@ -606,6 +620,7 @@ export default function CashboxLedgerTable({
     [
       cashboxId,
       editingRow,
+      isAdminOrAccountant,
       isForeign,
       onUpdateVoucher,
       onUpdateDraftVoucher,
@@ -680,6 +695,81 @@ export default function CashboxLedgerTable({
       );
     },
     [executeDeleteOpeningBalance, isAdmin, onDeleteOpeningBalance],
+  );
+
+  // حذف حركة/سند مستقل (مسودة أو مرحّل) — للأدمن أو المحاسب.
+  // الباك بيعكس القيد المحاسبي وحركات الطرف/الموظف المرتبطة تلقائيًا.
+  const executeDeleteVoucher = useCallback(
+    async (row) => {
+      if (!row || deletingRowId || !onDeleteVoucher) {
+        return;
+      }
+
+      setDeletingRowId(row.id);
+
+      try {
+        await onDeleteVoucher({
+          id: row.id,
+          rowVersion: row.rowVersion,
+        });
+
+        toast.success("تم حذف الحركة بنجاح");
+        refetch?.();
+      } catch (error) {
+        const code = error?.data?.errorCode ?? error?.data?.code;
+
+        if (code === "CashVouchers.Concurrency") {
+          toast.error(
+            "السند تم تعديله من مستخدم آخر. أعد تحميل الكشف ثم حاول مرة أخرى.",
+          );
+          refetch?.();
+        } else if (code === "CashVouchers.InvoiceGeneratedReadOnly") {
+          toast.error("هذا السند مولد من فاتورة ولا يمكن حذفه من هنا.");
+        } else if (code === "CashVouchers.TransferGeneratedReadOnly") {
+          toast.error("هذا السند مولد من تحويل بين الخزائن ولا يمكن حذفه من هنا.");
+        } else {
+          toast.error(
+            error?.data?.detail ||
+              error?.data?.title ||
+              error?.data?.message ||
+              error?.error ||
+              "تعذر حذف الحركة",
+          );
+        }
+      } finally {
+        setDeletingRowId(null);
+      }
+    },
+    [deletingRowId, onDeleteVoucher, refetch],
+  );
+
+  const handleDeleteVoucher = useCallback(
+    (row) => {
+      if (!isAdminOrAccountant) {
+        toast.error("ليس لديك صلاحية حذف الحركة");
+        return;
+      }
+
+      if (!onDeleteVoucher) {
+        toast.error("خدمة حذف الحركة غير متاحة");
+        return;
+      }
+
+      toast.warning(
+        "هل أنت متأكد من حذف الحركة؟ سيتم عكس القيد المحاسبي المرتبط بها ولا يمكن التراجع.",
+        {
+          duration: 8000,
+          action: {
+            label: "حذف",
+            onClick: () => executeDeleteVoucher(row),
+          },
+          cancel: {
+            label: "إلغاء",
+          },
+        },
+      );
+    },
+    [executeDeleteVoucher, isAdminOrAccountant, onDeleteVoucher],
   );
 
   // الرصيد بقى بييجي جاهز من الباك (cashboxBalance) — سواء كان الترتيب
@@ -1181,7 +1271,20 @@ export default function CashboxLedgerTable({
                   !isInvoiceGenerated &&
                   !isNonEditableRow(row) &&
                   !isDescribeLocked &&
-                  Boolean(row.isDraft);
+                  (Boolean(row.isDraft) || isAdminOrAccountant);
+
+                // حذف الحركة/السند المستقل: للأدمن أو المحاسب فقط،
+                // سواء كانت مسودة أو موصّفة/مرحّلة. السندات المولدة من
+                // فاتورة أو تحويل بتتحذف من مصدرها.
+                const isVoucherDeletable =
+                  canExecute &&
+                  !isFiscalYearReadOnly &&
+                  !isInvoiceGenerated &&
+                  !isOpeningBalanceRow &&
+                  !isCashboxTransferRow &&
+                  !isNonEditableRow(row) &&
+                  isAdminOrAccountant &&
+                  Boolean(onDeleteVoucher);
 
                 // السندات المستقلة لا تُحذف من الكشف — لا مسودة ولا مرحّلة.
                 // الحذف المتاح هنا للرصيد الافتتاحي اليدوي فقط.
@@ -1408,6 +1511,25 @@ export default function CashboxLedgerTable({
                             </button>
                           )}
 
+                          {isVoucherDeletable && (
+                            <button
+                              type="button"
+                              title="حذف الحركة"
+                              disabled={isDeleting || isUpdating}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteVoucher(row);
+                              }}
+                              className="rounded-md p-1 text-ink-300 transition-all duration-150 hover:bg-red-50 hover:text-red-600 active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {isDeleting ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={12} />
+                              )}
+                            </button>
+                          )}
+
                           {isOpeningBalanceDeletable && (
                             <button
                               type="button"
@@ -1445,6 +1567,7 @@ export default function CashboxLedgerTable({
           currency={currency}
           baseCurrency={baseCurrency}
           canDescribe={isAdminOrAccountant || !editingRow?.isDescribed}
+          canEditPosted={isAdminOrAccountant}
           partyOptions={partyOptions}
           driverOptions={driverOptions}
           employeeOptions={employeeOptions}

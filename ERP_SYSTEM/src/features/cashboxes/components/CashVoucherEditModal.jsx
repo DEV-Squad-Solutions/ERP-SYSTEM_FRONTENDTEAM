@@ -90,6 +90,9 @@ export default function CashVoucherEditModal({
   // (السند موصّف بالفعل ومش أدمن/محاسب) بنقفل خانة التوصيف وبنسمح
   // بتعديل بيانات الحركة فقط.
   canDescribe = true,
+  // الأدمن/المحاسب يقدر يعدّل سندًا مرحّلًا (بعد التوصيف) عادي،
+  // والتعديل بيعيد مزامنة القيد المحاسبي المرتبط.
+  canEditPosted = false,
 }) {
   const selectedFiscalYear = useSelector(selectSelectedFiscalYear);
   const [saving, setSaving] = useState(false);
@@ -238,6 +241,7 @@ export default function CashVoucherEditModal({
 
   const isInvoiceGenerated = Boolean(voucher.invoiceId);
   const isDraft = Boolean(voucher.isDraft);
+  const isPostedEditable = !isDraft && canEditPosted;
 
   function validateDate(values) {
     const fiscalYearWarning = [values.voucherDate]
@@ -365,7 +369,9 @@ export default function CashVoucherEditModal({
       title={
         isDraft
           ? `تعديل المسودة ${voucher.voucherNumber || ""}`
-          : `السند ${voucher.voucherNumber || ""}`
+          : isPostedEditable
+            ? `تعديل السند ${voucher.voucherNumber || ""}`
+            : `السند ${voucher.voucherNumber || ""}`
       }
     >
       {isInvoiceGenerated ? (
@@ -390,7 +396,7 @@ export default function CashVoucherEditModal({
             </Button>
           </div>
         </div>
-      ) : !isDraft ? (
+      ) : !isDraft && !canEditPosted ? (
         <div className="space-y-4">
           <div className="rounded-xl border border-positive/20 bg-positive/5 px-4 py-3 text-sm leading-6 text-ink-700">
             هذا السند مرحّل بالفعل. بياناته وقيده المحاسبي للقراءة فقط، ولا
@@ -441,6 +447,13 @@ export default function CashVoucherEditModal({
         </div>
       ) : (
         <form onSubmit={handleSubmit(submitPost)} className="space-y-4">
+          {isPostedEditable && (
+            <div className="rounded-xl border border-gold-200 bg-gold-50 px-4 py-3 text-sm leading-6 text-ink-700">
+              هذا السند مرحّل بالفعل. التعديل متاح للأدمن أو المحاسب، وأي حفظ
+              هيتم مزامنته مع القيد المحاسبي ورصيد الخزنة والحركات المرتبطة.
+            </div>
+          )}
+
           {/* التاريخ + الاتجاه */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input
@@ -523,7 +536,7 @@ export default function CashVoucherEditModal({
                 ? "السند موصّف بالفعل — التوصيف والتعديل للأدمن أو المحاسب فقط. يمكنك تعديل بيانات الحركة."
                 : voucher?.isDraft
                   ? "اختر التوصيف ثم استخدم «توصيف وترحيل» لاعتماده، أو «حفظ كمسودة» لتعديل البيانات بدون ترحيل."
-                  : "لازم توصيف واحد لإكمال تعديل السند."}
+                  : "السند مرحّل — أي تعديل هيتم مزامنته مع القيد المحاسبي ورصيد الخزنة."}
             </p>
           </div>
 
@@ -654,8 +667,9 @@ export default function CashVoucherEditModal({
                   تأكيد التوصيف والترحيل
                 </p>
                 <p>
-                  الترحيل هيأثر على رصيد الخزنة والقيود المحاسبية. بعد الترحيل
-                  السند يبقى للقراءة فقط، ولا يمكن تعديله أو حذفه.
+                  {isDraft
+                    ? "الترحيل هيأثر على رصيد الخزنة والقيود المحاسبية. بعد الترحيل السند يبقى قابلًا للتعديل أو الحذف من الأدمن والمحاسب."
+                    : "هيتم تحديث القيد المحاسبي ورصيد الخزنة والحركات المرتبطة بالسند فورًا."}
                 </p>
               </div>
 
@@ -695,28 +709,30 @@ export default function CashVoucherEditModal({
                 إلغاء
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSubmit(submitDraft)}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    جاري الحفظ...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} />
-                    حفظ كمسودة
-                  </>
-                )}
-              </Button>
+              {isDraft && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSubmit(submitDraft)}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} />
+                      حفظ كمسودة
+                    </>
+                  )}
+                </Button>
+              )}
 
               <Button type="submit" disabled={saving}>
                 <Save size={16} />
-                توصيف وترحيل
+                {isDraft ? "توصيف وترحيل" : "حفظ التعديلات"}
               </Button>
             </div>
           )}
