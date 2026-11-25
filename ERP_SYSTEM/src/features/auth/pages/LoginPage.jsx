@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import CompanySelect from "../components/CompanySelect";
 import LoginForm from "../components/LoginForm";
-import logo from "../assets/logos/logo.png";
 
 const features = [
   { icon: Building2, text: "إدارة عدد غير محدود من الشركات من حساب واحد" },

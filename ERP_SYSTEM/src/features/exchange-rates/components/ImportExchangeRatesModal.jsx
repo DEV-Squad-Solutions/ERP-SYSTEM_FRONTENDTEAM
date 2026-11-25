@@ -5,14 +5,7 @@ import { getFiscalYearDateWarning } from "../../../lib/fiscalYearDateRange";
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  Download,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  MinusCircle,
-} from "lucide-react";
+import { Download, Loader2, XCircle, MinusCircle } from "lucide-react";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Button from "../../../shared/components/ui/Button";
@@ -138,7 +131,7 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
             </label>
             <DateInput
               type="date"
-                            min={selectedFiscalYear?.startDate}
+              min={selectedFiscalYear?.startDate}
               max={selectedFiscalYear?.endDate}
               value={rateDate}
               onChange={(e) => setRateDate(e.target.value)}
@@ -227,7 +220,8 @@ export default function ImportExchangeRatesModal({ isOpen, onClose, onDone }) {
                 المصدر: <strong>{previewData.provider}</strong>
               </span>
               <span>
-                التاريخ المطلوب: <strong>{formatDate(previewData.requestedDate)}</strong>
+                التاريخ المطلوب:{" "}
+                <strong>{formatDate(previewData.requestedDate)}</strong>
               </span>
               <span>
                 العملة الأساسية: <strong>{previewData.baseCurrency}</strong>

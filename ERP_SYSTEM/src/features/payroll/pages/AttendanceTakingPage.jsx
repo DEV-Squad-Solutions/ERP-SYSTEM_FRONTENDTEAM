@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import {
   CalendarDays,
   Check,
-  CheckCircle2,
   ChevronDown,
   Clock3,
   FileCheck2,

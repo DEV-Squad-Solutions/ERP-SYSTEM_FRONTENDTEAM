@@ -18,6 +18,7 @@ import { matchRouteTitle } from "../../constants/routeTitles";
 import Modal from "../../components/ui/Modal";
 import FiscalYearSwitcher from "./FiscalYearSwitcher";
 import CompanySwitcher from "./CompanySwitcher";
+import ThemePicker from "./ThemePicker";
 
 /* =========================================================
    BREADCRUMB
@@ -358,6 +359,7 @@ export default function Navbar({ onMenuClick }) {
           <div className="flex shrink-0 items-center gap-2">
             <CompanySwitcher />
             <FiscalYearSwitcher />
+            <ThemePicker />
 
             <button
               type="button"

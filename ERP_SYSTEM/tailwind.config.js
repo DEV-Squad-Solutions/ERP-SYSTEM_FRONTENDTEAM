@@ -14,18 +14,18 @@ export default {
            500 #0C4A3E · 600 #093A31 · 700 #072D26
         ===================================================== */
         primary: {
-          DEFAULT: "#0C4A3E",
-          50: "#E8F3F0",
-          100: "#C5E1D9",
-          200: "#A6CFC2",
-          300: "#7FB5A4",
-          400: "#1A7A5E",
-          500: "#0C4A3E",
-          600: "#093A31",
-          700: "#072D26",
-          800: "#052019",
-          900: "#041613",
-          950: "#020C0A",
+          DEFAULT: "rgb(var(--c-primary-500) / <alpha-value>)",
+          50: "rgb(var(--c-primary-50) / <alpha-value>)",
+          100: "rgb(var(--c-primary-100) / <alpha-value>)",
+          200: "rgb(var(--c-primary-200) / <alpha-value>)",
+          300: "rgb(var(--c-primary-300) / <alpha-value>)",
+          400: "rgb(var(--c-primary-400) / <alpha-value>)",
+          500: "rgb(var(--c-primary-500) / <alpha-value>)",
+          600: "rgb(var(--c-primary-600) / <alpha-value>)",
+          700: "rgb(var(--c-primary-700) / <alpha-value>)",
+          800: "rgb(var(--c-primary-800) / <alpha-value>)",
+          900: "rgb(var(--c-primary-900) / <alpha-value>)",
+          950: "rgb(var(--c-primary-950) / <alpha-value>)",
         },
 
         /* =====================================================
@@ -53,18 +53,18 @@ export default {
            500 #C9962C · 600 #A87A1E
         ===================================================== */
         gold: {
-          DEFAULT: "#C9962C",
-          50: "#FBF3E1",
-          100: "#F6E7C2",
-          200: "#EED397",
-          300: "#E3BC62",
-          400: "#D9AA4E",
-          500: "#C9962C",
-          600: "#A87A1E",
-          700: "#8A6114",
-          800: "#6B4A0F",
-          900: "#4C340B",
-          950: "#332209",
+          DEFAULT: "rgb(var(--c-gold-500) / <alpha-value>)",
+          50: "rgb(var(--c-gold-50) / <alpha-value>)",
+          100: "rgb(var(--c-gold-100) / <alpha-value>)",
+          200: "rgb(var(--c-gold-200) / <alpha-value>)",
+          300: "rgb(var(--c-gold-300) / <alpha-value>)",
+          400: "rgb(var(--c-gold-400) / <alpha-value>)",
+          500: "rgb(var(--c-gold-500) / <alpha-value>)",
+          600: "rgb(var(--c-gold-600) / <alpha-value>)",
+          700: "rgb(var(--c-gold-700) / <alpha-value>)",
+          800: "rgb(var(--c-gold-800) / <alpha-value>)",
+          900: "rgb(var(--c-gold-900) / <alpha-value>)",
+          950: "rgb(var(--c-gold-950) / <alpha-value>)",
         },
 
         /* Warm paper surface — the light-mode canvas */

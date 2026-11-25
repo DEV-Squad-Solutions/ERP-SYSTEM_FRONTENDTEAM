@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectSelectedFiscalYearId } from "../../fiscalYears/fiscalYearSlice";
-import { FileText, Receipt, StoreIcon, Printer } from "lucide-react";
+import { FileText, Receipt, StoreIcon } from "lucide-react";
 
 import { useGetPartnerStatementQuery } from "../statementsApi";
 import { useGetPartyByIdQuery } from "../../partners/partiesApi";
@@ -115,7 +115,13 @@ export default function PartnerAccountPage() {
       FiscalYearId: selectedFiscalYearId || undefined,
       ...filters.statement.applied,
     }),
-    [partnerId, page, pageSize, filters.statement.applied, selectedFiscalYearId],
+    [
+      partnerId,
+      page,
+      pageSize,
+      filters.statement.applied,
+      selectedFiscalYearId,
+    ],
   );
 
   const { data, isLoading, isFetching, isError, error, refetch } =

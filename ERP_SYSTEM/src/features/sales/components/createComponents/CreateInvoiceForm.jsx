@@ -23,7 +23,6 @@ import {
 import { toast } from "sonner";
 import {
   useGetPartiesSelectQuery,
-  useGetPartyByIdQuery,
   useGetPartyContainerStoreQuery,
 } from "../../../partners/partiesApi";
 import { useGetDriversSelectQuery } from "../../../drivers/driversApi";
@@ -478,37 +477,34 @@ export default function CreateInvoiceForm({ onSuccess }) {
   // العبوات مسموحة مع كل أنواع الفواتير، لكن فاتورة "عبوات فقط" مالها
   // أصناف ولا قيمة مالية: بنشيل سطور الأصناف والخصم والمدفوع والخزنة عند
   // التحويل، وبالرجوع للأصناف بنفضّي حركات العبوات عشان ما تتبعتش بالغلط.
-  const handleInvoiceContentTypeChange = useCallback(
-    (value) => {
-      setShowErrors(false);
+  const handleInvoiceContentTypeChange = useCallback((value) => {
+    setShowErrors(false);
 
-      if (value === "containers") {
-        setLines(Array.from({ length: 10 }, emptyLine));
-        setFullReturnState(null);
-        setHeader((current) => ({
-          ...current,
-          invoiceContentType: value,
-          discount: "",
-          paid: "",
-          cashboxId: "",
-          cashboxName: "",
-          cashboxExchangeRate: "",
-        }));
-        return;
-      }
-
-      // رجوع للأصناف: المخزن كان متجبّر على مخزن العبوات، فلازم يختار
-      // المستخدم مخزنًا عاديًا من جديد (الباك إند بيرفض مخزن العبوات
-      // مع فاتورة أصناف).
-      setContainersMovement((current) => ({ ...current, items: [] }));
+    if (value === "containers") {
+      setLines(Array.from({ length: 10 }, emptyLine));
+      setFullReturnState(null);
       setHeader((current) => ({
         ...current,
         invoiceContentType: value,
-        storeId: "",
+        discount: "",
+        paid: "",
+        cashboxId: "",
+        cashboxName: "",
+        cashboxExchangeRate: "",
       }));
-    },
-    [],
-  );
+      return;
+    }
+
+    // رجوع للأصناف: المخزن كان متجبّر على مخزن العبوات، فلازم يختار
+    // المستخدم مخزنًا عاديًا من جديد (الباك إند بيرفض مخزن العبوات
+    // مع فاتورة أصناف).
+    setContainersMovement((current) => ({ ...current, items: [] }));
+    setHeader((current) => ({
+      ...current,
+      invoiceContentType: value,
+      storeId: "",
+    }));
+  }, []);
 
   useEffect(() => {
     if (!hasPayment && header.cashboxId) {
@@ -1028,7 +1024,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
         if (shouldPrint) {
           printInvoice(invoice);
         }
-      } catch (err) {}
+      } catch {}
     },
     [
       isLoading,
@@ -1101,7 +1097,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
   }, []);
 
   const fmt = useCallback(
-    (v) => (Number.isFinite(v) ? v : 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 }),
+    (v) =>
+      (Number.isFinite(v) ? v : 0).toLocaleString("ar-EG", {
+        maximumFractionDigits: 2,
+      }),
     [],
   );
   const currencySymbol = header.currency === "USD" ? "$" : "ج.م";
@@ -1113,772 +1112,804 @@ export default function CreateInvoiceForm({ onSuccess }) {
       <div className="space-y-6">
         {/* ===== العمود الرئيسي ===== */}
         <div className="min-w-0 space-y-6">
-      {/* ============ القسم 1: بيانات الفاتورة الأساسية ============ */}
-      <LedgerPanel
-        title={
-          <span className="flex items-center gap-2 pr-3">
-            <FileText size={15} />
-            بيانات الفاتورة
-          </span>
-        }
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-3">
-          <div data-field="invoiceNumber">
-            <LedgerField
-              label="رقم الفاتورة"
-              labelAddon={
-                <button
-                  type="button"
-                  onClick={() => setInvoiceNumberLocked((value) => !value)}
-                  className="
+          {/* ============ القسم 1: بيانات الفاتورة الأساسية ============ */}
+          <LedgerPanel
+            title={
+              <span className="flex items-center gap-2 pr-3">
+                <FileText size={15} />
+                بيانات الفاتورة
+              </span>
+            }
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <div data-field="invoiceNumber">
+                <LedgerField
+                  label="رقم الفاتورة"
+                  labelAddon={
+                    <button
+                      type="button"
+                      onClick={() => setInvoiceNumberLocked((value) => !value)}
+                      className="
                     inline-flex h-5 w-5 items-center justify-center rounded
                     border border-ink-400/20 bg-white text-primary-700
                     transition hover:border-primary-400/50 hover:bg-primary-50
                     active:scale-95
                   "
-                  aria-pressed={!invoiceNumberLocked}
-                  aria-label={
-                    invoiceNumberLocked
-                      ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
-                      : "قفل الحقل والرجوع للتوليد التلقائي"
+                      aria-pressed={!invoiceNumberLocked}
+                      aria-label={
+                        invoiceNumberLocked
+                          ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
+                          : "قفل الحقل والرجوع للتوليد التلقائي"
+                      }
+                      title={
+                        invoiceNumberLocked
+                          ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
+                          : "قفل الحقل والرجوع للتوليد التلقائي"
+                      }
+                    >
+                      {invoiceNumberLocked ? (
+                        <Unlock size={11} />
+                      ) : (
+                        <Lock size={11} />
+                      )}
+                    </button>
                   }
-                  title={
-                    invoiceNumberLocked
-                      ? "فتح الحقل لكتابة رقم الفاتورة يدويًا"
-                      : "قفل الحقل والرجوع للتوليد التلقائي"
+                  value={header.invoiceNumber}
+                  onChange={(e) =>
+                    setHeaderField("invoiceNumber", e.target.value)
                   }
-                >
-                  {invoiceNumberLocked ? (
-                    <Unlock size={11} />
-                  ) : (
-                    <Lock size={11} />
-                  )}
-                </button>
-              }
-              value={header.invoiceNumber}
-              onChange={(e) => setHeaderField("invoiceNumber", e.target.value)}
-              readOnly={invoiceNumberLocked}
-              disabled={invoiceNumberLocked}
-              placeholder={
-                invoiceNumberLocked
-                  ? "يُولَّد تلقائيًا عند الحفظ"
-                  : "اكتب رقم الفاتورة يدويًا"
-              }
-              className={
-                invoiceNumberLocked
-                  ? "cursor-not-allowed bg-ink-900/[0.03] text-ink-500"
-                  : ""
-              }
-            />
-          </div>
-          <div
-            data-field="movementType"
-            data-invalid={
-              showErrors && Boolean(validation.headerErrors.movementType)
-            }
-          >
-            <LedgerSelect
-              label="نوع الفاتورة"
-              options={movementOptions}
-              value={header.movementType}
-              onChange={(e) => setHeaderField("movementType", e.target.value)}
-              error={
-                showErrors ? validation.headerErrors.movementType : undefined
-              }
-            />
-          </div>
-          <div>
-            <div className="flex items-stretch overflow-hidden rounded-lg border border-ink-400/10">
-              <div className="flex w-36 shrink-0 items-center border-l border-ink-400/10 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900">
-                التاريخ
-              </div>
-              <DateInput
-                value={header.date}
-                onChange={(e) => setHeaderField("date", e.target.value)}
-                className="min-h-0 flex-1 rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:ring-0"
-              />
-            </div>
-            {invoiceDateWarning && (
-              <p className="mt-1 text-xs font-medium text-negative">
-                {invoiceDateWarning}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3">
-          <div
-            data-field="dueDate"
-            data-invalid={
-              showErrors && Boolean(validation.headerErrors.dueDate)
-            }
-          >
-            <div>
-              <div className="flex items-stretch overflow-hidden rounded-lg border border-ink-400/10">
-                <div className="flex w-36 shrink-0 items-center border-l border-ink-400/10 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900">
-                  تاريخ الاستحقاق
-                </div>
-                <DateInput
-                  value={header.dueDate}
-                  onChange={(e) => setHeaderField("dueDate", e.target.value)}
-                  className="min-h-0 flex-1 rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:ring-0"
+                  readOnly={invoiceNumberLocked}
+                  disabled={invoiceNumberLocked}
+                  placeholder={
+                    invoiceNumberLocked
+                      ? "يُولَّد تلقائيًا عند الحفظ"
+                      : "اكتب رقم الفاتورة يدويًا"
+                  }
+                  className={
+                    invoiceNumberLocked
+                      ? "cursor-not-allowed bg-ink-900/[0.03] text-ink-500"
+                      : ""
+                  }
                 />
               </div>
-              {showErrors && validation.headerErrors.dueDate && (
-                <p className="mt-1 text-xs font-medium text-negative">
-                  {validation.headerErrors.dueDate}
-                </p>
-              )}
-            </div>
-          </div>
-          <LedgerField
-            label="كود فاتورة التصدير"
-            value={header.exportInvoiceCode}
-            onChange={(e) =>
-              setHeaderField("exportInvoiceCode", e.target.value)
-            }
-          />
-          <LedgerField
-            label="رقم فاتورة الشريك"
-            value={header.partnerInvoiceNo}
-            onChange={(e) => setHeaderField("partnerInvoiceNo", e.target.value)}
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3">
-          <div
-            data-field="exchangeRate"
-            data-invalid={
-              showErrors && Boolean(validation.headerErrors.exchangeRate)
-            }
-          >
-            <LedgerField
-              label="سعر الصرف"
-              type="number"
-              value={header.exchangeRate}
-              onChange={(e) => setHeaderField("exchangeRate", e.target.value)}
-              disabled={!isForeignCurrency}
-              hint={!isForeignCurrency ? "متاح فقط للعملات الأجنبية" : undefined}
-              error={
-                showErrors ? validation.headerErrors.exchangeRate : undefined
-              }
-            />
-          </div>
-          <LedgerSelect
-            label="محتوى الفاتورة"
-            options={invoiceContentTypeOptions}
-            value={header.invoiceContentType}
-            onChange={(e) =>
-              handleInvoiceContentTypeChange(e.target.value)
-            }
-          />
-        </div>
-      </LedgerPanel>
-
-      {/* ============ القسم 2: العميل والمخزن والنقل ============ */}
-      <LedgerPanel
-        title={
-          <span className="flex items-center gap-2 pr-3">
-            <MapPin size={15} />
-            العميل والنقل
-          </span>
-        }
-      >
-        <div
-          data-field="partyId"
-          data-invalid={showErrors && Boolean(validation.headerErrors.partyId)}
-        >
-        <div className="flex items-stretch">
-          <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-            عميل / مورد
-          </div>
-          <CompactSelect
-            ref={partySelectRef}
-            label="عميل / مورد"
-            options={partyOptions}
-            value={header.partyId}
-            onChange={handlePartyChange}
-            placeholder="اختر العميل أو المورد"
-            disabled={isLoading}
-          />
-          <button
-            type="button"
-            onClick={() => setShowAddCustomer(true)}
-            disabled={isLoading}
-            className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
-            title="إضافة عميل/مورد جديد"
-            aria-label="إضافة عميل أو مورد جديد"
-          >
-            <UserPlus size={17} />
-          </button>
-          <button
-            type="button"
-            onClick={() => header.partyName && setShowPackaging(true)}
-            disabled={!header.partyName}
-            className={`relative px-3 border-r border-ink-400/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-              !header.partyName
-                ? "text-ink-400/40 pointer-events-none"
-                : "text-primary-500 hover:bg-primary-50"
-            }`}
-            title="مخزن العبوات"
-            aria-label="فتح مخزن العبوات"
-          >
-            <Boxes size={17} />
-            {containersMovement.items.length > 0 && (
-              <Repeat2Icon
-                className="absolute top-1 left-1 text-primary-600"
-                size={12}
-              />
-            )}
-          </button>
-        </div>
-        {showErrors && validation.headerErrors.partyId && (
-          <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
-            {validation.headerErrors.partyId}
-          </p>
-        )}
-        </div>
-
-        {isPartiesError && (
-          <InlineErrorRetry
-            message="تعذر تحميل قائمة العملاء والموردين"
-            onRetry={refetchParties}
-          />
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <div className="flex items-stretch">
-            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              العملة
-            </div>
-            <div className="flex flex-1 items-center gap-2 overflow-hidden px-3 py-2.5 text-sm">
-              <CurrencyChip
-                currency={header.partyName ? header.currency : null}
-              />
-              {header.partyName ? (
-                <span className="whitespace-nowrap text-xs text-ink-400">
-                  (تلقائي حسب العميل)
-                </span>
-              ) : (
-                <span className="whitespace-nowrap text-xs text-ink-400/50">
-                  هتظهر بعد اختيار العميل
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div
-            data-field="storeId"
-            data-invalid={showErrors && Boolean(validation.headerErrors.storeId)}
-          >
-          {isContainersInvoice ? (
-            <div className="flex items-stretch">
-              <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                مخزن العبوات
+              <div
+                data-field="movementType"
+                data-invalid={
+                  showErrors && Boolean(validation.headerErrors.movementType)
+                }
+              >
+                <LedgerSelect
+                  label="نوع الفاتورة"
+                  options={movementOptions}
+                  value={header.movementType}
+                  onChange={(e) =>
+                    setHeaderField("movementType", e.target.value)
+                  }
+                  error={
+                    showErrors
+                      ? validation.headerErrors.movementType
+                      : undefined
+                  }
+                />
               </div>
-              <div className="flex flex-1 items-center gap-2 bg-ink-400/5 px-3 py-2.5 text-sm text-ink-600">
-                {partyContainerStoreData?.containerStore?.name || (
-                  <span className="text-ink-400">
-                    {header.partyId
-                      ? "لا يوجد مخزن عبوات مرتبط بالعميل"
-                      : "اختر العميل أو المورد الأول"}
-                  </span>
+              <div>
+                <div className="flex items-stretch overflow-hidden rounded-lg border border-ink-400/10">
+                  <div className="flex w-36 shrink-0 items-center border-l border-ink-400/10 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900">
+                    التاريخ
+                  </div>
+                  <DateInput
+                    value={header.date}
+                    onChange={(e) => setHeaderField("date", e.target.value)}
+                    className="min-h-0 flex-1 rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:ring-0"
+                  />
+                </div>
+                {invoiceDateWarning && (
+                  <p className="mt-1 text-xs font-medium text-negative">
+                    {invoiceDateWarning}
+                  </p>
                 )}
               </div>
             </div>
-          ) : (
-          <div className="flex items-stretch">
-            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              المخزن
-            </div>
-            <CompactSelect
-              label="المخزن"
-              options={storeOptions}
-              value={header.storeId}
-              onChange={(val) => setHeaderField("storeId", val)}
-              placeholder="اختر المخزن"
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowAddStore(true)}
-              disabled={isLoading}
-              className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
-              title="إضافة مخزن جديد"
-              aria-label="إضافة مخزن جديد"
-            >
-              <Plus size={17} />
-            </button>
-          </div>
-          )}
-          {showErrors && validation.headerErrors.storeId && (
-            <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
-              {validation.headerErrors.storeId}
-            </p>
-          )}
-          </div>
-        </div>
-
-        {isStoresError && (
-          <InlineErrorRetry
-            message="تعذر تحميل قائمة المخازن"
-            onRetry={refetchStores}
-          />
-        )}
-
-        <div className="grid grid-cols-1">
-          <div className="flex items-stretch">
-            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              السائق
-            </div>
-            {isTemporaryDriver ? (
-              <input
-                type="text"
-                value={header.driverName}
-                onChange={(e) => setHeaderField("driverName", e.target.value)}
-                placeholder="اكتب اسم السائق"
-                className="flex-1 px-3 py-2 text-sm outline-none focus-visible:bg-ink-900/[0.02]"
-                aria-label="اسم السائق الوقتي"
-              />
-            ) : (
-              <CompactSelect
-                label="السائق"
-                options={driverOptions}
-                value={header.driverId}
-                onChange={handleDriverChange}
-                placeholder="اختر السائق"
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => setShowAddDriver(true)}
-              className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
-              title="إضافة سائق جديد"
-              aria-label="إضافة سائق جديد"
-            >
-              <UserPlus size={17} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsTemporaryDriver((prev) => !prev);
-                setHeader((h) => ({
-                  ...h,
-                  driverId: "",
-                  driverName: "",
-                }));
-              }}
-              className={`px-3 border-r border-ink-400/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
-                isTemporaryDriver
-                  ? "bg-primary-100 text-primary-600"
-                  : "text-primary-500 hover:bg-primary-50"
-              }`}
-              title={isTemporaryDriver ? "إلغاء السائق الوقتي" : "سائق وقتي"}
-              aria-pressed={isTemporaryDriver}
-              aria-label="تبديل السائق الوقتي"
-            >
-              <Truck size={17} />
-            </button>
-          </div>
-        </div>
-
-        {isDriversError && (
-          <InlineErrorRetry
-            message="تعذر تحميل قائمة السائقين"
-            onRetry={refetchDrivers}
-          />
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <div className="flex items-stretch">
-            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              السائق الفعلي
-            </div>
-            <input
-              type="text"
-              value={header.actualDriverName}
-              onChange={(e) =>
-                setHeaderField("actualDriverName", e.target.value)
-              }
-              placeholder="اكتب اسم السائق الفعلي (اختياري)"
-              className="flex-1 px-3 py-2 text-sm outline-none focus-visible:bg-ink-900/[0.02]"
-              aria-label="اسم السائق الفعلي"
-            />
-          </div>
-
-          <LedgerField
-            label="رقم السيارة"
-            value={header.carNumber}
-            onChange={(e) => setHeaderField("carNumber", e.target.value)}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <div className="flex items-stretch">
-            <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              البلد
-            </div>
-            <CompactSelect
-              label="البلد"
-              options={countryOptions}
-              value={header.countryId}
-              onChange={(val) => setHeaderField("countryId", val)}
-              placeholder="اختر البلد"
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowAddCountry(true)}
-              disabled={isLoading}
-              className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
-              title="إضافة دولة جديدة"
-              aria-label="إضافة دولة جديدة"
-            >
-              <Plus size={17} />
-            </button>
-          </div>
-        </div>
-
-        {isCountriesError && (
-          <InlineErrorRetry
-            message="تعذر تحميل قائمة الدول"
-            onRetry={refetchCountries}
-          />
-        )}
-      </LedgerPanel>
-
-      {/* ============ القسم 3: الدفع والملاحظات ============ */}
-      <LedgerPanel
-        title={
-          <span className="flex items-center gap-2 pr-3">
-            <Wallet size={15} />
-            الدفع والملاحظات
-          </span>
-        }
-      >
-        {isContainersInvoice ? (
-          <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-xs leading-6 text-primary-700">
-            فاتورة عبوات فقط: بتسجل كميات العبوات بدون قيمة مالية، فمفيش خصم
-            أو مدفوع أو خزنة مرتبطة بالفاتورة.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2">
-            <LedgerSelect
-              label="طريقة الدفع"
-              options={paymentOptions}
-              value={header.paymentMethod}
-              onChange={(e) => handlePaymentMethodChange(e.target.value)}
-            />
-          </div>
-        )}
-
-        {!isContainersInvoice && hasPayment && (
-          <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-2 animate-[fadeIn_0.15s_ease-out]">
-            <div
-              data-field="cashboxId"
-              data-invalid={
-                showErrors && Boolean(validation.headerErrors.cashboxId)
-              }
-            >
-            <div className="flex items-stretch">
-              <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                الخزنة
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <div
+                data-field="dueDate"
+                data-invalid={
+                  showErrors && Boolean(validation.headerErrors.dueDate)
+                }
+              >
+                <div>
+                  <div className="flex items-stretch overflow-hidden rounded-lg border border-ink-400/10">
+                    <div className="flex w-36 shrink-0 items-center border-l border-ink-400/10 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900">
+                      تاريخ الاستحقاق
+                    </div>
+                    <DateInput
+                      value={header.dueDate}
+                      onChange={(e) =>
+                        setHeaderField("dueDate", e.target.value)
+                      }
+                      className="min-h-0 flex-1 rounded-none border-0 px-3 py-2.5 text-sm shadow-none focus:ring-0"
+                    />
+                  </div>
+                  {showErrors && validation.headerErrors.dueDate && (
+                    <p className="mt-1 text-xs font-medium text-negative">
+                      {validation.headerErrors.dueDate}
+                    </p>
+                  )}
+                </div>
               </div>
-              <CompactSelect
-                label="الخزنة"
-                options={cashboxOptions}
-                value={header.cashboxId}
-                onChange={handleCashboxChange}
-                placeholder="اختر الخزنة"
+              <LedgerField
+                label="كود فاتورة التصدير"
+                value={header.exportInvoiceCode}
+                onChange={(e) =>
+                  setHeaderField("exportInvoiceCode", e.target.value)
+                }
+              />
+              <LedgerField
+                label="رقم فاتورة الشريك"
+                value={header.partnerInvoiceNo}
+                onChange={(e) =>
+                  setHeaderField("partnerInvoiceNo", e.target.value)
+                }
               />
             </div>
-            {showErrors && validation.headerErrors.cashboxId && (
-              <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
-                {validation.headerErrors.cashboxId}
-              </p>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3">
+              <div
+                data-field="exchangeRate"
+                data-invalid={
+                  showErrors && Boolean(validation.headerErrors.exchangeRate)
+                }
+              >
+                <LedgerField
+                  label="سعر الصرف"
+                  type="number"
+                  value={header.exchangeRate}
+                  onChange={(e) =>
+                    setHeaderField("exchangeRate", e.target.value)
+                  }
+                  disabled={!isForeignCurrency}
+                  hint={
+                    !isForeignCurrency ? "متاح فقط للعملات الأجنبية" : undefined
+                  }
+                  error={
+                    showErrors
+                      ? validation.headerErrors.exchangeRate
+                      : undefined
+                  }
+                />
+              </div>
+              <LedgerSelect
+                label="محتوى الفاتورة"
+                options={invoiceContentTypeOptions}
+                value={header.invoiceContentType}
+                onChange={(e) => handleInvoiceContentTypeChange(e.target.value)}
+              />
             </div>
-            <LedgerField
-              label="سعر صرف الخزنة"
-              type="number"
-              value={header.cashboxExchangeRate}
-              onChange={(e) =>
-                setHeaderField("cashboxExchangeRate", e.target.value)
-              }
-            />
-          </div>
-        )}
+          </LedgerPanel>
 
-        <div className="grid grid-cols-1">
-          <LedgerField
-            label="ملاحظات عامة"
-            value={header.generalNotes}
-            onChange={(e) => setHeaderField("generalNotes", e.target.value)}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <LedgerField
-            label="وزن البسكال"
-            value={header.WBWeight}
-            onChange={(e) => setHeaderField("WBWeight", e.target.value)}
-          />
-          <LedgerField
-            label="فرق الميزان"
-            value={header.WBScaleDifference}
-            onChange={(e) =>
-              setHeaderField("WBScaleDifference", e.target.value)
-            }
-          />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2">
-          <LedgerField
-            label="الخصم"
-            value={header.WBDiscount}
-            onChange={(e) => setHeaderField("WBDiscount", e.target.value)}
-          />
-          <div className="flex items-stretch">
-            <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-              الإجمالي
-            </div>
-            <div className="flex flex-1 items-center gap-1.5 bg-ink-400/5 px-3 py-2.5 text-sm num text-ink-600">
-              {wbTotal.toLocaleString("ar-EG", { maximumFractionDigits: 2 })}
-              <span className="text-[11px] text-ink-400">(يتحسب تلقائيًا)</span>
-            </div>
-          </div>
-        </div>
-      </LedgerPanel>
-
-      {/* ============ القسم 4: فواتير المصدر (للمرتجع فقط) ============ */}
-      {isReturnInvoice && (
-        <ReturnSourcePicker
-          movementType={header.movementType}
-          partyId={header.partyId}
-          storeId={header.storeId}
-          asOfDate={header.date}
-          activeSourceInvoiceId={activeSourceInvoiceId}
-          onAddLines={handleAddReturnLines}
-        />
-      )}
-
-      {isContainersInvoice ? (
-        <LedgerPanel
-          title={
-            <span className="flex items-center gap-2 pr-3">
-              <Boxes size={15} />
-              حركات العبوات
-            </span>
-          }
-        >
-          <div
-            className="space-y-3"
-            data-field="containerLines"
-            data-invalid={
-              showErrors && Boolean(validation.headerErrors.containerLines)
+          {/* ============ القسم 2: العميل والمخزن والنقل ============ */}
+          <LedgerPanel
+            title={
+              <span className="flex items-center gap-2 pr-3">
+                <MapPin size={15} />
+                العميل والنقل
+              </span>
             }
           >
-            <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-xs leading-6 text-primary-700">
-              فاتورة عبوات فقط بتسجل الكميات الصادرة والواردة على عبوات
-              العميل من غير أصناف ومن غير قيمة مالية. لازم تضيف حركة عبوة
-              واحدة على الأقل.
+            <div
+              data-field="partyId"
+              data-invalid={
+                showErrors && Boolean(validation.headerErrors.partyId)
+              }
+            >
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  عميل / مورد
+                </div>
+                <CompactSelect
+                  ref={partySelectRef}
+                  label="عميل / مورد"
+                  options={partyOptions}
+                  value={header.partyId}
+                  onChange={handlePartyChange}
+                  placeholder="اختر العميل أو المورد"
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAddCustomer(true)}
+                  disabled={isLoading}
+                  className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="إضافة عميل/مورد جديد"
+                  aria-label="إضافة عميل أو مورد جديد"
+                >
+                  <UserPlus size={17} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => header.partyName && setShowPackaging(true)}
+                  disabled={!header.partyName}
+                  className={`relative px-3 border-r border-ink-400/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
+                    !header.partyName
+                      ? "text-ink-400/40 pointer-events-none"
+                      : "text-primary-500 hover:bg-primary-50"
+                  }`}
+                  title="مخزن العبوات"
+                  aria-label="فتح مخزن العبوات"
+                >
+                  <Boxes size={17} />
+                  {containersMovement.items.length > 0 && (
+                    <Repeat2Icon
+                      className="absolute top-1 left-1 text-primary-600"
+                      size={12}
+                    />
+                  )}
+                </button>
+              </div>
+              {showErrors && validation.headerErrors.partyId && (
+                <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
+                  {validation.headerErrors.partyId}
+                </p>
+              )}
             </div>
 
-            {showErrors && validation.headerErrors.containerLines && (
-              <div className="flex items-center gap-2 rounded-2xl border border-negative/20 bg-negative/5 px-4 py-2.5 text-xs text-negative">
-                <AlertTriangle size={14} />
-                {validation.headerErrors.containerLines}
-              </div>
+            {isPartiesError && (
+              <InlineErrorRetry
+                message="تعذر تحميل قائمة العملاء والموردين"
+                onRetry={refetchParties}
+              />
             )}
 
-            {!header.partyId && (
-              <div className="rounded-2xl border border-dashed border-gold-200 bg-gold-50/40 py-6 text-center">
-                <p className="text-sm text-gold-700">
-                  اختر العميل أو المورد الأول عشان تحدد مخزن العبوات
-                </p>
-              </div>
-            )}
-
-            {header.partyId && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-400/10 bg-white px-4 py-3">
-                <div className="text-sm">
-                  <p className="font-medium text-ink-900">
-                    {partyContainerStoreData?.containerStore?.name ||
-                      "لا يوجد مخزن عبوات مرتبط بالعميل"}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-ink-400">
-                    {containerMovementCount > 0
-                      ? `${containerMovementCount} عبوة متحركة في الفاتورة`
-                      : "لسه مفيش حركات عبوات"}
-                  </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  العملة
                 </div>
+                <div className="flex flex-1 items-center gap-2 overflow-hidden px-3 py-2.5 text-sm">
+                  <CurrencyChip
+                    currency={header.partyName ? header.currency : null}
+                  />
+                  {header.partyName ? (
+                    <span className="whitespace-nowrap text-xs text-ink-400">
+                      (تلقائي حسب العميل)
+                    </span>
+                  ) : (
+                    <span className="whitespace-nowrap text-xs text-ink-400/50">
+                      هتظهر بعد اختيار العميل
+                    </span>
+                  )}
+                </div>
+              </div>
 
-                <Button
+              <div
+                data-field="storeId"
+                data-invalid={
+                  showErrors && Boolean(validation.headerErrors.storeId)
+                }
+              >
+                {isContainersInvoice ? (
+                  <div className="flex items-stretch">
+                    <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                      مخزن العبوات
+                    </div>
+                    <div className="flex flex-1 items-center gap-2 bg-ink-400/5 px-3 py-2.5 text-sm text-ink-600">
+                      {partyContainerStoreData?.containerStore?.name || (
+                        <span className="text-ink-400">
+                          {header.partyId
+                            ? "لا يوجد مخزن عبوات مرتبط بالعميل"
+                            : "اختر العميل أو المورد الأول"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-stretch">
+                    <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                      المخزن
+                    </div>
+                    <CompactSelect
+                      label="المخزن"
+                      options={storeOptions}
+                      value={header.storeId}
+                      onChange={(val) => setHeaderField("storeId", val)}
+                      placeholder="اختر المخزن"
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAddStore(true)}
+                      disabled={isLoading}
+                      className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+                      title="إضافة مخزن جديد"
+                      aria-label="إضافة مخزن جديد"
+                    >
+                      <Plus size={17} />
+                    </button>
+                  </div>
+                )}
+                {showErrors && validation.headerErrors.storeId && (
+                  <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
+                    {validation.headerErrors.storeId}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {isStoresError && (
+              <InlineErrorRetry
+                message="تعذر تحميل قائمة المخازن"
+                onRetry={refetchStores}
+              />
+            )}
+
+            <div className="grid grid-cols-1">
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  السائق
+                </div>
+                {isTemporaryDriver ? (
+                  <input
+                    type="text"
+                    value={header.driverName}
+                    onChange={(e) =>
+                      setHeaderField("driverName", e.target.value)
+                    }
+                    placeholder="اكتب اسم السائق"
+                    className="flex-1 px-3 py-2 text-sm outline-none focus-visible:bg-ink-900/[0.02]"
+                    aria-label="اسم السائق الوقتي"
+                  />
+                ) : (
+                  <CompactSelect
+                    label="السائق"
+                    options={driverOptions}
+                    value={header.driverId}
+                    onChange={handleDriverChange}
+                    placeholder="اختر السائق"
+                  />
+                )}
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => setShowPackaging(true)}
-                  disabled={
-                    isLoading || !partyContainerStoreData?.containerStore
+                  onClick={() => setShowAddDriver(true)}
+                  className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+                  title="إضافة سائق جديد"
+                  aria-label="إضافة سائق جديد"
+                >
+                  <UserPlus size={17} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTemporaryDriver((prev) => !prev);
+                    setHeader((h) => ({
+                      ...h,
+                      driverId: "",
+                      driverName: "",
+                    }));
+                  }}
+                  className={`px-3 border-r border-ink-400/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${
+                    isTemporaryDriver
+                      ? "bg-primary-100 text-primary-600"
+                      : "text-primary-500 hover:bg-primary-50"
+                  }`}
+                  title={
+                    isTemporaryDriver ? "إلغاء السائق الوقتي" : "سائق وقتي"
+                  }
+                  aria-pressed={isTemporaryDriver}
+                  aria-label="تبديل السائق الوقتي"
+                >
+                  <Truck size={17} />
+                </button>
+              </div>
+            </div>
+
+            {isDriversError && (
+              <InlineErrorRetry
+                message="تعذر تحميل قائمة السائقين"
+                onRetry={refetchDrivers}
+              />
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  السائق الفعلي
+                </div>
+                <input
+                  type="text"
+                  value={header.actualDriverName}
+                  onChange={(e) =>
+                    setHeaderField("actualDriverName", e.target.value)
+                  }
+                  placeholder="اكتب اسم السائق الفعلي (اختياري)"
+                  className="flex-1 px-3 py-2 text-sm outline-none focus-visible:bg-ink-900/[0.02]"
+                  aria-label="اسم السائق الفعلي"
+                />
+              </div>
+
+              <LedgerField
+                label="رقم السيارة"
+                value={header.carNumber}
+                onChange={(e) => setHeaderField("carNumber", e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <div className="flex items-stretch">
+                <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  البلد
+                </div>
+                <CompactSelect
+                  label="البلد"
+                  options={countryOptions}
+                  value={header.countryId}
+                  onChange={(val) => setHeaderField("countryId", val)}
+                  placeholder="اختر البلد"
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAddCountry(true)}
+                  disabled={isLoading}
+                  className="px-3 text-primary-500 border-r border-ink-400/10 transition-colors hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  title="إضافة دولة جديدة"
+                  aria-label="إضافة دولة جديدة"
+                >
+                  <Plus size={17} />
+                </button>
+              </div>
+            </div>
+
+            {isCountriesError && (
+              <InlineErrorRetry
+                message="تعذر تحميل قائمة الدول"
+                onRetry={refetchCountries}
+              />
+            )}
+          </LedgerPanel>
+
+          {/* ============ القسم 3: الدفع والملاحظات ============ */}
+          <LedgerPanel
+            title={
+              <span className="flex items-center gap-2 pr-3">
+                <Wallet size={15} />
+                الدفع والملاحظات
+              </span>
+            }
+          >
+            {isContainersInvoice ? (
+              <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-xs leading-6 text-primary-700">
+                فاتورة عبوات فقط: بتسجل كميات العبوات بدون قيمة مالية، فمفيش خصم
+                أو مدفوع أو خزنة مرتبطة بالفاتورة.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2">
+                <LedgerSelect
+                  label="طريقة الدفع"
+                  options={paymentOptions}
+                  value={header.paymentMethod}
+                  onChange={(e) => handlePaymentMethodChange(e.target.value)}
+                />
+              </div>
+            )}
+
+            {!isContainersInvoice && hasPayment && (
+              <div className="grid grid-cols-1 gap-y-0 sm:grid-cols-2 animate-[fadeIn_0.15s_ease-out]">
+                <div
+                  data-field="cashboxId"
+                  data-invalid={
+                    showErrors && Boolean(validation.headerErrors.cashboxId)
                   }
                 >
+                  <div className="flex items-stretch">
+                    <div className="w-36 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                      الخزنة
+                    </div>
+                    <CompactSelect
+                      label="الخزنة"
+                      options={cashboxOptions}
+                      value={header.cashboxId}
+                      onChange={handleCashboxChange}
+                      placeholder="اختر الخزنة"
+                    />
+                  </div>
+                  {showErrors && validation.headerErrors.cashboxId && (
+                    <p className="bg-negative/5 px-3 py-1 text-xs text-negative">
+                      {validation.headerErrors.cashboxId}
+                    </p>
+                  )}
+                </div>
+                <LedgerField
+                  label="سعر صرف الخزنة"
+                  type="number"
+                  value={header.cashboxExchangeRate}
+                  onChange={(e) =>
+                    setHeaderField("cashboxExchangeRate", e.target.value)
+                  }
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1">
+              <LedgerField
+                label="ملاحظات عامة"
+                value={header.generalNotes}
+                onChange={(e) => setHeaderField("generalNotes", e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <LedgerField
+                label="وزن البسكال"
+                value={header.WBWeight}
+                onChange={(e) => setHeaderField("WBWeight", e.target.value)}
+              />
+              <LedgerField
+                label="فرق الميزان"
+                value={header.WBScaleDifference}
+                onChange={(e) =>
+                  setHeaderField("WBScaleDifference", e.target.value)
+                }
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2">
+              <LedgerField
+                label="الخصم"
+                value={header.WBDiscount}
+                onChange={(e) => setHeaderField("WBDiscount", e.target.value)}
+              />
+              <div className="flex items-stretch">
+                <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                  الإجمالي
+                </div>
+                <div className="flex flex-1 items-center gap-1.5 bg-ink-400/5 px-3 py-2.5 text-sm num text-ink-600">
+                  {wbTotal.toLocaleString("ar-EG", {
+                    maximumFractionDigits: 2,
+                  })}
+                  <span className="text-[11px] text-ink-400">
+                    (يتحسب تلقائيًا)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </LedgerPanel>
+
+          {/* ============ القسم 4: فواتير المصدر (للمرتجع فقط) ============ */}
+          {isReturnInvoice && (
+            <ReturnSourcePicker
+              movementType={header.movementType}
+              partyId={header.partyId}
+              storeId={header.storeId}
+              asOfDate={header.date}
+              activeSourceInvoiceId={activeSourceInvoiceId}
+              onAddLines={handleAddReturnLines}
+            />
+          )}
+
+          {isContainersInvoice ? (
+            <LedgerPanel
+              title={
+                <span className="flex items-center gap-2 pr-3">
                   <Boxes size={15} />
-                  {containerMovementCount > 0
-                    ? "تعديل حركات العبوات"
-                    : "إضافة حركات العبوات"}
-                </Button>
-              </div>
-            )}
-
-            {containerMovementCount > 0 && (
-              <div className="overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card">
-                <table className="w-full min-w-[520px] border-collapse text-right">
-                  <thead>
-                    <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
-                      <th className="p-2.5 font-medium">#</th>
-                      <th className="p-2.5 font-medium">العبوة</th>
-                      <th className="p-2.5 font-medium">صادر</th>
-                      <th className="p-2.5 font-medium">وارد</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {containersMovement.items.map((item, index) => (
-                      <tr
-                        key={item.containerId ?? index}
-                        className="border-t border-ink-400/10"
-                      >
-                        <td className="p-2.5 text-xs num text-ink-400">
-                          {index + 1}
-                        </td>
-                        <td className="p-2.5 text-sm text-ink-900">
-                          {containerNameById.get(String(item.containerId)) ||
-                            `عبوة #${item.containerId}`}
-                        </td>
-                        <td className="p-2.5 text-sm num">
-                          {Number(item.issuedQuantity) || 0}
-                        </td>
-                        <td className="p-2.5 text-sm num">
-                          {Number(item.receivedQuantity) || 0}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </LedgerPanel>
-      ) : (
-        // القسم 5: الأصناف
-        <LedgerPanel
-        title={
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span className="flex items-center gap-2 pr-3">
-              <StoreIcon size={15} />
-              {isReturnInvoice ? "أصناف المرتجع" : "الأصناف"}
-            </span>
-            {unpricedCount > 0 && (
-              <span className="rounded-full bg-gold-50 px-2 py-0.5 text-xs font-medium text-gold-600">
-                {unpricedCount} بدون سعر
-              </span>
-            )}
-          </div>
-        }
-      >
-        <div
-          className="grid grid-cols-1 items-start gap-4"
-          data-field="lines"
-          data-invalid={showErrors && Boolean(validation.headerErrors.lines)}
-        >
-          <div>
-            {showErrors && validation.headerErrors.lines && (
-              <div className="mb-3 flex items-center gap-2 rounded-2xl border border-negative/20 bg-negative/5 px-4 py-2.5 text-xs text-negative">
-                <AlertTriangle size={14} />
-                {validation.headerErrors.lines}
-              </div>
-            )}
-
-            {itemsLocked && (
-              <div className="mb-3 rounded-2xl border border-dashed border-gold-200 bg-gold-50/40 py-6 text-center">
-                <p className="text-sm text-gold-700">
-                  اختر المخزن أولاً قبل إضافة الأصناف
-                </p>
-              </div>
-            )}
-
-            {!itemsLocked && isReturnInvoice && lines.length === 0 && (
-              <div className="mb-3 rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 py-6 text-center">
-                <p className="text-sm text-primary-700">
-                  اختر أصناف المرتجع من الفاتورة الأصلية فوق
-                </p>
-              </div>
-            )}
-
-            {isReturnInvoice && priceModifiedReturnLines.length > 0 && (
-              <div className="mb-3 flex items-center gap-2 rounded-2xl border border-gold-200 bg-gold-50/40 px-4 py-2.5 text-xs text-gold-700">
-                <span>
-                  في {priceModifiedReturnLines.length} صنف سعره مختلف عن
-                  الفاتورة الأصلية — اكتب سبب الاختلاف جنب السعر في الجدول تحت
-                  قبل الحفظ
+                  حركات العبوات
                 </span>
-              </div>
-            )}
-
-            {lines.length > 0 && (
+              }
+            >
               <div
-                className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-150 ${
-                  itemsLocked ? "pointer-events-none opacity-50" : ""
-                }`}
+                className="space-y-3"
+                data-field="containerLines"
+                data-invalid={
+                  showErrors && Boolean(validation.headerErrors.containerLines)
+                }
               >
-                <table className="w-full min-w-[1350px] border-collapse text-right">
-                  <thead>
-                    <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
-                      <th className="p-2.5 font-medium">#</th>
-                      <th className="p-2.5 font-medium">الصنف</th>
-                      <th className="p-2.5 font-medium">العدد بالمخزن</th>
-                      <th className="p-2.5 font-medium">الوحدة</th>
-                      <th className="p-2.5 font-medium">العدد</th>
-                      <th className="p-2.5 font-medium">وزن الوحدة</th>
-                      <th className="p-2.5 font-medium">الكمية</th>
-                      <th className="p-2.5 font-medium">سعر الكيلو</th>
-                      <th className="p-2.5 font-medium">القيمة</th>
-                      <th className="p-2.5 font-medium">ملاحظات</th>
-                      <th className="p-2.5"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line, index) => (
-                      <InvoiceLineRow
-                        key={line.sourceInvoiceLineId ?? line.id ?? index}
-                        index={index}
-                        line={line}
-                        storeId={header.storeId}
-                        invoiceDate={header.date}
-                        items={items}
-                        itemOptions={itemOptions}
-                        isLoadingItems={isLoadingItems}
-                        isItemsError={isItemsError}
-                        errors={showErrors ? validation.lineErrors[index] : undefined}
-                        onChange={(newLine) => updateLine(index, newLine)}
-                        onRemove={() => removeLine(index)}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-                {!isReturnInvoice && (
-                  <button
-                    type="button"
-                    onClick={addLine}
-                    disabled={itemsLocked}
-                    className="flex w-full items-center justify-center gap-2 border-t border-ink-400/10 py-3 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 disabled:cursor-not-allowed"
-                  >
-                    <Plus size={16} />
-                    إضافة صنف آخر
-                  </button>
+                <div className="rounded-xl border border-primary-200 bg-primary-50/40 px-4 py-3 text-xs leading-6 text-primary-700">
+                  فاتورة عبوات فقط بتسجل الكميات الصادرة والواردة على عبوات
+                  العميل من غير أصناف ومن غير قيمة مالية. لازم تضيف حركة عبوة
+                  واحدة على الأقل.
+                </div>
+
+                {showErrors && validation.headerErrors.containerLines && (
+                  <div className="flex items-center gap-2 rounded-2xl border border-negative/20 bg-negative/5 px-4 py-2.5 text-xs text-negative">
+                    <AlertTriangle size={14} />
+                    {validation.headerErrors.containerLines}
+                  </div>
+                )}
+
+                {!header.partyId && (
+                  <div className="rounded-2xl border border-dashed border-gold-200 bg-gold-50/40 py-6 text-center">
+                    <p className="text-sm text-gold-700">
+                      اختر العميل أو المورد الأول عشان تحدد مخزن العبوات
+                    </p>
+                  </div>
+                )}
+
+                {header.partyId && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-400/10 bg-white px-4 py-3">
+                    <div className="text-sm">
+                      <p className="font-medium text-ink-900">
+                        {partyContainerStoreData?.containerStore?.name ||
+                          "لا يوجد مخزن عبوات مرتبط بالعميل"}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-ink-400">
+                        {containerMovementCount > 0
+                          ? `${containerMovementCount} عبوة متحركة في الفاتورة`
+                          : "لسه مفيش حركات عبوات"}
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowPackaging(true)}
+                      disabled={
+                        isLoading || !partyContainerStoreData?.containerStore
+                      }
+                    >
+                      <Boxes size={15} />
+                      {containerMovementCount > 0
+                        ? "تعديل حركات العبوات"
+                        : "إضافة حركات العبوات"}
+                    </Button>
+                  </div>
+                )}
+
+                {containerMovementCount > 0 && (
+                  <div className="overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card">
+                    <table className="w-full min-w-[520px] border-collapse text-right">
+                      <thead>
+                        <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
+                          <th className="p-2.5 font-medium">#</th>
+                          <th className="p-2.5 font-medium">العبوة</th>
+                          <th className="p-2.5 font-medium">صادر</th>
+                          <th className="p-2.5 font-medium">وارد</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {containersMovement.items.map((item, index) => (
+                          <tr
+                            key={item.containerId ?? index}
+                            className="border-t border-ink-400/10"
+                          >
+                            <td className="p-2.5 text-xs num text-ink-400">
+                              {index + 1}
+                            </td>
+                            <td className="p-2.5 text-sm text-ink-900">
+                              {containerNameById.get(
+                                String(item.containerId),
+                              ) || `عبوة #${item.containerId}`}
+                            </td>
+                            <td className="p-2.5 text-sm num">
+                              {Number(item.issuedQuantity) || 0}
+                            </td>
+                            <td className="p-2.5 text-sm num">
+                              {Number(item.receivedQuantity) || 0}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        </div>
-      </LedgerPanel>
-      )}
+            </LedgerPanel>
+          ) : (
+            // القسم 5: الأصناف
+            <LedgerPanel
+              title={
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="flex items-center gap-2 pr-3">
+                    <StoreIcon size={15} />
+                    {isReturnInvoice ? "أصناف المرتجع" : "الأصناف"}
+                  </span>
+                  {unpricedCount > 0 && (
+                    <span className="rounded-full bg-gold-50 px-2 py-0.5 text-xs font-medium text-gold-600">
+                      {unpricedCount} بدون سعر
+                    </span>
+                  )}
+                </div>
+              }
+            >
+              <div
+                className="grid grid-cols-1 items-start gap-4"
+                data-field="lines"
+                data-invalid={
+                  showErrors && Boolean(validation.headerErrors.lines)
+                }
+              >
+                <div>
+                  {showErrors && validation.headerErrors.lines && (
+                    <div className="mb-3 flex items-center gap-2 rounded-2xl border border-negative/20 bg-negative/5 px-4 py-2.5 text-xs text-negative">
+                      <AlertTriangle size={14} />
+                      {validation.headerErrors.lines}
+                    </div>
+                  )}
 
+                  {itemsLocked && (
+                    <div className="mb-3 rounded-2xl border border-dashed border-gold-200 bg-gold-50/40 py-6 text-center">
+                      <p className="text-sm text-gold-700">
+                        اختر المخزن أولاً قبل إضافة الأصناف
+                      </p>
+                    </div>
+                  )}
+
+                  {!itemsLocked && isReturnInvoice && lines.length === 0 && (
+                    <div className="mb-3 rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 py-6 text-center">
+                      <p className="text-sm text-primary-700">
+                        اختر أصناف المرتجع من الفاتورة الأصلية فوق
+                      </p>
+                    </div>
+                  )}
+
+                  {isReturnInvoice && priceModifiedReturnLines.length > 0 && (
+                    <div className="mb-3 flex items-center gap-2 rounded-2xl border border-gold-200 bg-gold-50/40 px-4 py-2.5 text-xs text-gold-700">
+                      <span>
+                        في {priceModifiedReturnLines.length} صنف سعره مختلف عن
+                        الفاتورة الأصلية — اكتب سبب الاختلاف جنب السعر في الجدول
+                        تحت قبل الحفظ
+                      </span>
+                    </div>
+                  )}
+
+                  {lines.length > 0 && (
+                    <div
+                      className={`overflow-x-auto custom-scroll rounded-2xl border border-ink-400/10 bg-white shadow-card transition-opacity duration-150 ${
+                        itemsLocked ? "pointer-events-none opacity-50" : ""
+                      }`}
+                    >
+                      <table className="w-full min-w-[1350px] border-collapse text-right">
+                        <thead>
+                          <tr className="bg-ink-900/[0.03] text-xs text-ink-400">
+                            <th className="p-2.5 font-medium">#</th>
+                            <th className="p-2.5 font-medium">الصنف</th>
+                            <th className="p-2.5 font-medium">العدد بالمخزن</th>
+                            <th className="p-2.5 font-medium">الوحدة</th>
+                            <th className="p-2.5 font-medium">العدد</th>
+                            <th className="p-2.5 font-medium">وزن الوحدة</th>
+                            <th className="p-2.5 font-medium">الكمية</th>
+                            <th className="p-2.5 font-medium">سعر الكيلو</th>
+                            <th className="p-2.5 font-medium">القيمة</th>
+                            <th className="p-2.5 font-medium">ملاحظات</th>
+                            <th className="p-2.5"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lines.map((line, index) => (
+                            <InvoiceLineRow
+                              key={line.sourceInvoiceLineId ?? line.id ?? index}
+                              index={index}
+                              line={line}
+                              storeId={header.storeId}
+                              invoiceDate={header.date}
+                              items={items}
+                              itemOptions={itemOptions}
+                              isLoadingItems={isLoadingItems}
+                              isItemsError={isItemsError}
+                              errors={
+                                showErrors
+                                  ? validation.lineErrors[index]
+                                  : undefined
+                              }
+                              onChange={(newLine) => updateLine(index, newLine)}
+                              onRemove={() => removeLine(index)}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                      {!isReturnInvoice && (
+                        <button
+                          type="button"
+                          onClick={addLine}
+                          disabled={itemsLocked}
+                          className="flex w-full items-center justify-center gap-2 border-t border-ink-400/10 py-3 text-sm font-medium text-primary-500 transition-colors hover:bg-primary-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={16} />
+                          إضافة صنف آخر
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </LedgerPanel>
+          )}
         </div>
 
         {/* ===== الملاحظات + الملخص + الأزرار ===== */}
@@ -1933,7 +1964,10 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   ? [{ label: "الخزنة", done: Boolean(header.cashboxId) }]
                   : []),
               ].map((step) => (
-                <li key={step.label} className="flex items-center gap-2 text-xs">
+                <li
+                  key={step.label}
+                  className="flex items-center gap-2 text-xs"
+                >
                   {step.done ? (
                     <CheckCircle2
                       size={14}
@@ -1942,9 +1976,7 @@ export default function CreateInvoiceForm({ onSuccess }) {
                   ) : (
                     <CircleDot size={14} className="shrink-0 text-ink-400/50" />
                   )}
-                  <span
-                    className={step.done ? "text-ink-700" : "text-ink-400"}
-                  >
+                  <span className={step.done ? "text-ink-700" : "text-ink-400"}>
                     {step.label}
                   </span>
                 </li>
@@ -1952,182 +1984,186 @@ export default function CreateInvoiceForm({ onSuccess }) {
             </ul>
           </div>
 
-      {/* ============ القسم 6: ملخص الفاتورة ============ */}
-      <LedgerPanel
-        title={
-          <div className="mb-2 flex items-center justify-between px-1">
-            <span className="flex items-center gap-2 pr-3 text-sm font-semibold">
-              <StoreIcon size={15} />
-              ملخص الفاتورة
-            </span>
-          </div>
-        }
-      >
-        <div className="space-y-3 lg:sticky lg:top-4">
-          <div className="overflow-hidden rounded-xl border border-ink-400/10 bg-white">
-            <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
-              <span className="text-sm text-ink-600">عدد العبوات</span>
-              <span className="num text-sm font-semibold text-ink-900">
-                {packagingBreakdown.length > 0
-                  ? packagingBreakdown
-                      .map((p) => `${fmt(p.count)} ${p.unitName}`)
-                      .join("، ")
-                  : "—"}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
-              <span className="text-sm text-ink-600">إجمالي الكمية</span>
-              <span className="num text-sm font-semibold text-ink-900">
-                {fmt(totalQuantity)}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between border-b border-ink-400/10 bg-primary-500/[0.03] px-3 py-2.5">
-              <span className="text-sm font-semibold text-ink-900">
-                إجمالي الفاتورة
-              </span>
-              <span className="num text-sm font-bold text-ink-900">
-                {fmt(invoiceTotal)} {currencySymbol}
-              </span>
-            </div>
-
-            {isContainersInvoice ? (
-              <div className="border-y border-ink-400/10 bg-primary-500/[0.03] px-3 py-3 text-xs leading-6 text-primary-700">
-                فاتورة عبوات فقط: القيمة المالية صفر — بيتسجل حركة العبوات بس.
-              </div>
-            ) : (
-              <>
-                <div className="flex items-stretch border-b border-ink-400/10">
-                  <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                    الخصم
-                  </div>
-                  <div className="flex-1 p-2">
-                    <NumericInput
-                      value={header.discount ?? ""}
-                      decimals
-                      disabled={isReturnInvoice}
-                      onChange={(value) => {
-                        if (isReturnInvoice) return;
-                        setHeaderField("discount", value === "" ? "" : value);
-                      }}
-                    />
-                    {isReturnInvoice && (
-                      <p className="mt-1 text-[11px] text-ink-400">
-                        {fullReturnState
-                          ? "خصم الفاتورة الأصلية بيتطبق تلقائيًا لأنه مرتجع كامل"
-                          : "مفيش خصم على المرتجع الجزئي"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between border-y border-ink-400/10 bg-ink-900/[0.02] px-3 py-2.5">
-                  <span className="text-sm font-semibold text-ink-900">
-                    الصافي
-                  </span>
-                  <span className="num text-sm font-bold text-ink-900">
-                    {fmt(netTotal)} {currencySymbol}
-                  </span>
-                </div>
-
-                <div className="flex items-stretch border-b border-ink-400/10">
-                  <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
-                    المدفوع
-                  </div>
-                  <div className="flex-1 p-2">
-                    <NumericInput
-                      value={header.paid ?? ""}
-                      decimals
-                      disabled={isCashPayment}
-                      onChange={(value) => {
-                        if (isCashPayment) return;
-                        setHeaderField("paid", value === "" ? "" : value);
-                      }}
-                    />
-                    {isCashPayment && (
-                      <p className="mt-1 text-[11px] text-ink-400">
-                        نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between bg-ink-900/[0.02] px-3 py-2.5">
-                  <span className="text-sm font-semibold text-ink-900">
-                    المتبقي
-                  </span>
-                  <span className="num text-sm font-bold text-ink-900">
-                    {fmt(remaining)} {currencySymbol}
-                  </span>
-                </div>
-              </>
-            )}
-
-            {isForeignCurrency && (
-              <div className="flex items-center justify-between border-t border-ink-400/10 px-3 py-2 text-xs text-ink-400">
-                <span>ما يقابل الصافي بالمصري</span>
-                <span className="num">
-                  {fmt(netTotal * exchangeRateValue)} ج.م
+          {/* ============ القسم 6: ملخص الفاتورة ============ */}
+          <LedgerPanel
+            title={
+              <div className="mb-2 flex items-center justify-between px-1">
+                <span className="flex items-center gap-2 pr-3 text-sm font-semibold">
+                  <StoreIcon size={15} />
+                  ملخص الفاتورة
                 </span>
               </div>
-            )}
+            }
+          >
+            <div className="space-y-3 lg:sticky lg:top-4">
+              <div className="overflow-hidden rounded-xl border border-ink-400/10 bg-white">
+                <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
+                  <span className="text-sm text-ink-600">عدد العبوات</span>
+                  <span className="num text-sm font-semibold text-ink-900">
+                    {packagingBreakdown.length > 0
+                      ? packagingBreakdown
+                          .map((p) => `${fmt(p.count)} ${p.unitName}`)
+                          .join("، ")
+                      : "—"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-ink-400/10 px-3 py-2.5">
+                  <span className="text-sm text-ink-600">إجمالي الكمية</span>
+                  <span className="num text-sm font-semibold text-ink-900">
+                    {fmt(totalQuantity)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-ink-400/10 bg-primary-500/[0.03] px-3 py-2.5">
+                  <span className="text-sm font-semibold text-ink-900">
+                    إجمالي الفاتورة
+                  </span>
+                  <span className="num text-sm font-bold text-ink-900">
+                    {fmt(invoiceTotal)} {currencySymbol}
+                  </span>
+                </div>
+
+                {isContainersInvoice ? (
+                  <div className="border-y border-ink-400/10 bg-primary-500/[0.03] px-3 py-3 text-xs leading-6 text-primary-700">
+                    فاتورة عبوات فقط: القيمة المالية صفر — بيتسجل حركة العبوات
+                    بس.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-stretch border-b border-ink-400/10">
+                      <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                        الخصم
+                      </div>
+                      <div className="flex-1 p-2">
+                        <NumericInput
+                          value={header.discount ?? ""}
+                          decimals
+                          disabled={isReturnInvoice}
+                          onChange={(value) => {
+                            if (isReturnInvoice) return;
+                            setHeaderField(
+                              "discount",
+                              value === "" ? "" : value,
+                            );
+                          }}
+                        />
+                        {isReturnInvoice && (
+                          <p className="mt-1 text-[11px] text-ink-400">
+                            {fullReturnState
+                              ? "خصم الفاتورة الأصلية بيتطبق تلقائيًا لأنه مرتجع كامل"
+                              : "مفيش خصم على المرتجع الجزئي"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-y border-ink-400/10 bg-ink-900/[0.02] px-3 py-2.5">
+                      <span className="text-sm font-semibold text-ink-900">
+                        الصافي
+                      </span>
+                      <span className="num text-sm font-bold text-ink-900">
+                        {fmt(netTotal)} {currencySymbol}
+                      </span>
+                    </div>
+
+                    <div className="flex items-stretch border-b border-ink-400/10">
+                      <div className="w-32 shrink-0 bg-ink-900/[0.03] px-3 py-2.5 text-sm font-medium text-ink-900 flex items-center border-l border-ink-400/10">
+                        المدفوع
+                      </div>
+                      <div className="flex-1 p-2">
+                        <NumericInput
+                          value={header.paid ?? ""}
+                          decimals
+                          disabled={isCashPayment}
+                          onChange={(value) => {
+                            if (isCashPayment) return;
+                            setHeaderField("paid", value === "" ? "" : value);
+                          }}
+                        />
+                        {isCashPayment && (
+                          <p className="mt-1 text-[11px] text-ink-400">
+                            نقدي - بيتحسب تلقائيًا بقيمة الصافي كامل
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-ink-900/[0.02] px-3 py-2.5">
+                      <span className="text-sm font-semibold text-ink-900">
+                        المتبقي
+                      </span>
+                      <span className="num text-sm font-bold text-ink-900">
+                        {fmt(remaining)} {currencySymbol}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {isForeignCurrency && (
+                  <div className="flex items-center justify-between border-t border-ink-400/10 px-3 py-2 text-xs text-ink-400">
+                    <span>ما يقابل الصافي بالمصري</span>
+                    <span className="num">
+                      {fmt(netTotal * exchangeRateValue)} ج.م
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </LedgerPanel>
+
+          {/* Buttons */}
+          <div className="space-y-2">
+            <Button
+              onClick={() => submitInvoice(false)}
+              disabled={isLoading}
+              title="حفظ (Ctrl+S)"
+              className="h-10 w-full shadow-sm"
+            >
+              {isLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Save size={16} />
+              )}
+              حفظ
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => submitInvoice(true)}
+              disabled={isLoading}
+              title="حفظ وطباعة (Ctrl+Enter)"
+              className="h-10 w-full"
+            >
+              <Printer size={16} />
+              حفظ وطباعة
+            </Button>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => setShowResetConfirm(true)}
+                disabled={isLoading}
+                className="h-10 w-full"
+                title="امسح كل البيانات المكتوبة وابدأ فاتورة فاضية"
+              >
+                <RotateCcw size={15} />
+                مسح
+              </Button>
+
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={handleCancel}
+                disabled={isLoading}
+                className="h-10 w-full"
+              >
+                <X size={15} />
+                إلغاء
+              </Button>
+            </div>
           </div>
-        </div>
-      </LedgerPanel>
-
-      {/* Buttons */}
-      <div className="space-y-2">
-        <Button
-          onClick={() => submitInvoice(false)}
-          disabled={isLoading}
-          title="حفظ (Ctrl+S)"
-          className="h-10 w-full shadow-sm"
-        >
-          {isLoading ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Save size={16} />
-          )}
-          حفظ
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => submitInvoice(true)}
-          disabled={isLoading}
-          title="حفظ وطباعة (Ctrl+Enter)"
-          className="h-10 w-full"
-        >
-          <Printer size={16} />
-          حفظ وطباعة
-        </Button>
-
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={() => setShowResetConfirm(true)}
-            disabled={isLoading}
-            className="h-10 w-full"
-            title="امسح كل البيانات المكتوبة وابدأ فاتورة فاضية"
-          >
-            <RotateCcw size={15} />
-            مسح
-          </Button>
-
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={handleCancel}
-            disabled={isLoading}
-            className="h-10 w-full"
-          >
-            <X size={15} />
-            إلغاء
-          </Button>
-        </div>
-      </div>
         </aside>
       </div>
 

@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import CreateInvoiceForm from "../components/createComponents/CreateInvoiceForm";
 
 export default function InvoiceCreatePage() {

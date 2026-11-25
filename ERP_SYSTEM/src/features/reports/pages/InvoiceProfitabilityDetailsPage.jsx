@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowRight,
   RefreshCw,
@@ -218,7 +218,10 @@ function InvoiceProfitabilityPrint({ invoice }) {
 
         <div className="text-left text-sm text-slate-600">
           <p>
-            التاريخ: <strong>{invoice.invoiceDate ? formatDate(invoice.invoiceDate) : "—"}</strong>
+            التاريخ:{" "}
+            <strong>
+              {invoice.invoiceDate ? formatDate(invoice.invoiceDate) : "—"}
+            </strong>
           </p>
 
           <p className="mt-1">

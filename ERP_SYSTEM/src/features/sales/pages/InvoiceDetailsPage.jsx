@@ -70,7 +70,7 @@ export default function InvoiceDetailsPage() {
       toast.success("تم حذف الفاتورة بنجاح");
       setDeleteOpen(false);
       navigate("/dashboard/sales");
-    } catch (error) {}
+    } catch {}
   };
 
   return (

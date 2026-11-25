@@ -1,3 +1,4 @@
+@import "./styles-themes.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -40,12 +41,12 @@
   }
 
   ::selection {
-    background-color: #c9962c;
+    background-color: rgb(var(--c-accent));
     color: #fff;
   }
 
   *:focus-visible {
-    outline: 2px solid #c9962c;
+    outline: 2px solid rgb(var(--c-accent));
     outline-offset: 2px;
   }
 

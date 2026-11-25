@@ -5,14 +5,10 @@ import { Toaster } from "sonner";
 import { store } from "./app/store";
 import App from "./app/App";
 import "./index.css";
+import { initTheme } from "./shared/theme/theme";
 
+initTheme();
 const savedTheme = localStorage.getItem("theme");
-
-if (savedTheme === "dark") {
-  document.documentElement.classList.add("dark");
-} else {
-  document.documentElement.classList.remove("dark");
-}
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

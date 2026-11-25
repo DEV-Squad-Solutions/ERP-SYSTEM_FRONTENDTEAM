@@ -35,7 +35,7 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(containerSchema),
-    defaultValues: { name: "",  description: "", isActive: true },
+    defaultValues: { name: "", description: "", isActive: true },
   });
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
             description: container.description ?? "",
             isActive: container.isActive,
           }
-        : { name: "",  description: "", isActive: true },
+        : { name: "", description: "", isActive: true },
     );
   }, [isOpen, container, reset]);
 
@@ -61,7 +61,7 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
         toast.success("تم إضافة العبوة بنجاح");
       }
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("حصل خطأ، حاول تاني");
     }
   }
@@ -87,8 +87,6 @@ export default function ContainerFormModal({ isOpen, onClose, container }) {
             <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
           )}
         </div>
-
-        
 
         <div>
           <label className="block text-xs text-ink-400 mb-1.5">

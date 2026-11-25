@@ -73,7 +73,7 @@ export default function PackagingUnitsPage() {
       await deleteContainer(deletingContainer.id).unwrap();
       toast.success("تم حذف العبوة بنجاح");
       setDeletingContainer(null);
-    } catch (err) {
+    } catch {
       toast.error("حصل خطأ أثناء الحذف، حاول تاني");
     }
   };

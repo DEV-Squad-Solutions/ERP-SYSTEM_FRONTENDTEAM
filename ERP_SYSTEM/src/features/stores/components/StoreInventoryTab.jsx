@@ -6,7 +6,6 @@ import {
   PackageX,
   Plus,
   Eye,
-  Calculator,
   X,
   Loader2,
   ReceiptText,
@@ -24,7 +23,8 @@ import Modal from "../../../shared/components/ui/Modal";
 import { useLazyGetItemBalanceQuery } from "../../invoices/invoicesApi";
 import { formatDate } from "../../../lib/date.js";
 
-const fmt = (v) => Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
+const fmt = (v) =>
+  Number(v || 0).toLocaleString("ar-EG", { maximumFractionDigits: 2 });
 
 export default function StoreInventoryTab({
   storeId,

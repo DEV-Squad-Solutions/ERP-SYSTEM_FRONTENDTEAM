@@ -1,12 +1,5 @@
 import { memo, useCallback, useState } from "react";
-import {
-  ChevronDown,
-  ChevronLeft,
-  Plus,
-  Pencil,
-  Trash2,
-  Circle,
-} from "lucide-react";
+import { ChevronDown, Plus, Pencil, Trash2, Circle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const TYPE_STYLES = {

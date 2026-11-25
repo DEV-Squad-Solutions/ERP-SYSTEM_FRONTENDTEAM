@@ -1,4 +1,3 @@
-import { Pencil } from "lucide-react";
 import Modal from "../../../shared/components/ui/Modal";
 import InvoiceNumberLink from "../../../shared/components/InvoiceNumberLink";
 import { formatDate } from "../../../lib/date.js";

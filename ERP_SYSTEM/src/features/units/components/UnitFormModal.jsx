@@ -54,7 +54,7 @@ export default function UnitFormModal({ isOpen, onClose, unit }) {
         toast.success("تم إضافة الوحدة بنجاح");
       }
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("حصل خطأ، حاول تاني");
     }
   }

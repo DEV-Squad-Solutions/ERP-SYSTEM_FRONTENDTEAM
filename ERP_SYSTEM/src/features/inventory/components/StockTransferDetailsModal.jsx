@@ -1,11 +1,5 @@
 import { useEffect } from "react";
-import {
-  ArrowLeftRight,
-  CalendarDays,
-  Package,
-  Warehouse,
-  X,
-} from "lucide-react";
+import { ArrowLeftRight, CalendarDays, Warehouse } from "lucide-react";
 
 import Modal from "../../../shared/components/ui/Modal";
 import Button from "../../../shared/components/ui/Button";

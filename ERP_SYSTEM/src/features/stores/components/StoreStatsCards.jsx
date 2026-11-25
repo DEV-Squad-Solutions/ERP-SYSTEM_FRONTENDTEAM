@@ -1,4 +1,4 @@
-import { Package, Layers, Coins, Clock } from "lucide-react";
+import { Package, Layers, Coins } from "lucide-react";
 
 function StatCard({ icon: Icon, label, value, isPlaceholder }) {
   return (

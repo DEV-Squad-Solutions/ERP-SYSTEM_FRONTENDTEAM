@@ -1,7 +1,6 @@
 import { useGetCompanyByIdQuery } from "../companyApi";
 import Modal from "../../../shared/components/ui/Modal";
 import LedgerPanel from "../../../shared/components/ui/LedgerPanel";
-import { useSelector } from "react-redux";
 const detailRows = [
   { key: "address", label: "العنوان" },
   { key: "commercialRegister", label: "السجل التجاري" },

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useGetInvoicesQuery } from "../../invoices/invoicesApi";
 import SalesInvoicesTable from "../../sales/components/SalesInvoicesTable";
-import Pagination from "../../../shared/components/ui/Pagination";
 import { useInvoiceListPrint } from "../../../shared/hooks/useInvoiceListPrint";
 import Button from "../../../shared/components/ui/Button";
 import { Printer } from "lucide-react";

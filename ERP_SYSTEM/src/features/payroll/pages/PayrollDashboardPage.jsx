@@ -11,7 +11,6 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
-  PiggyBank,
   CreditCard,
   RefreshCw,
   CalendarDays,
@@ -581,7 +580,8 @@ export default function PayrollDashboardPage() {
           <CalendarDays size={14} />
 
           <span>
-            الفترة: {fromDate ? formatDate(fromDate) : "—"} إلى {toDate ? formatDate(toDate) : "—"}
+            الفترة: {fromDate ? formatDate(fromDate) : "—"} إلى{" "}
+            {toDate ? formatDate(toDate) : "—"}
           </span>
         </div>
 

@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { ArrowRight, ArrowLeftRight, Receipt } from "lucide-react";
 
 import { useGetCashboxTransferByIdQuery } from "../cashboxTransfersApi";

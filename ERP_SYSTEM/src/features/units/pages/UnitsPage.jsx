@@ -67,7 +67,7 @@ export default function UnitsPage() {
       await deleteUnit(deletingUnit.id).unwrap();
       toast.success("تم حذف الوحدة بنجاح");
       setDeletingUnit(null);
-    } catch (err) {
+    } catch {
       toast.error("حصل خطأ أثناء الحذف، حاول تاني");
     }
   };

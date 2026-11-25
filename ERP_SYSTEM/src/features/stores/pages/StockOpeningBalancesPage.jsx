@@ -92,7 +92,7 @@ export default function StockOpeningBalancesPage() {
     try {
       await deleteBalance(item.id).unwrap();
       toast.success("تم حذف الرصيد الافتتاحي المخزني");
-    } catch (err) {
+    } catch {
       toast.error("تعذر حذف الرصيد الافتتاحي");
     } finally {
       setDeletingId(null);
@@ -137,7 +137,11 @@ export default function StockOpeningBalancesPage() {
           </p>
         </div>
 
-        <Button onClick={openCreateForm} className="h-9" disabled={isFiscalYearReadOnly}>
+        <Button
+          onClick={openCreateForm}
+          className="h-9"
+          disabled={isFiscalYearReadOnly}
+        >
           <Plus size={14} />
           إضافة رصيد افتتاحي
         </Button>

@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   RefreshCw,
-  FileSearch,
   TrendingUp,
   Wallet,
   Receipt,
@@ -219,16 +218,21 @@ function InvoiceProfitabilityPrint({ data, filters }) {
 
           <div className="text-left text-sm">
             <p>
-              من: <strong>{filters.fromDate ? formatDate(filters.fromDate) : "—"}</strong>
+              من:{" "}
+              <strong>
+                {filters.fromDate ? formatDate(filters.fromDate) : "—"}
+              </strong>
             </p>
 
             <p>
-              إلى: <strong>{filters.toDate ? formatDate(filters.toDate) : "—"}</strong>
+              إلى:{" "}
+              <strong>
+                {filters.toDate ? formatDate(filters.toDate) : "—"}
+              </strong>
             </p>
 
             <p className="mt-1">
-              تاريخ الطباعة:{" "}
-              <strong>{formatDate(new Date())}</strong>
+              تاريخ الطباعة: <strong>{formatDate(new Date())}</strong>
             </p>
           </div>
         </div>
@@ -303,7 +307,9 @@ function InvoiceProfitabilityPrint({ data, filters }) {
                   {invoice.invoiceNumber}
                 </td>
 
-                <td className="border p-2">{formatDate(invoice.invoiceDate)}</td>
+                <td className="border p-2">
+                  {formatDate(invoice.invoiceDate)}
+                </td>
 
                 <td className="border p-2">
                   {invoice.businessPartnerName || "—"}
@@ -727,7 +733,8 @@ export default function InvoiceProfitabilityPage() {
 
                     <div className="mr-auto flex items-center gap-1.5 text-xs text-slate-400">
                       <CalendarDays size={14} />
-                      {formatDate(filters.fromDate)} — {formatDate(filters.toDate)}
+                      {formatDate(filters.fromDate)} —{" "}
+                      {formatDate(filters.toDate)}
                     </div>
                   </div>
                 </div>

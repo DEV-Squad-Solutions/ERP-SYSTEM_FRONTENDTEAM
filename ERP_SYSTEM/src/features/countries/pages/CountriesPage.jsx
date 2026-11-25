@@ -72,7 +72,7 @@ export default function CountriesPage() {
       await deleteCountry(deletingCountry.id).unwrap();
       toast.success("تم حذف الدولة بنجاح");
       setDeletingCountry(null);
-    } catch (err) {
+    } catch {
       toast.error("حصل خطأ أثناء الحذف، حاول تاني");
     }
   };

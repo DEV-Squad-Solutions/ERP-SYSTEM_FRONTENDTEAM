@@ -105,7 +105,7 @@ export default function PartnerOpeningBalancesPage() {
     try {
       await deleteBalance(item.id).unwrap();
       toast.success("تم حذف الرصيد الافتتاحي");
-    } catch (err) {
+    } catch {
     } finally {
       setDeletingId(null);
     }

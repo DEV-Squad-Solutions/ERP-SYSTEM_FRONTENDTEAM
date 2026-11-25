@@ -1,4 +1,4 @@
-import { Pencil, Trash2, ArrowRight, Warehouse, Printer } from "lucide-react";
+import { Trash2, Warehouse } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function StoreHeader({ store, onPrint }) {
