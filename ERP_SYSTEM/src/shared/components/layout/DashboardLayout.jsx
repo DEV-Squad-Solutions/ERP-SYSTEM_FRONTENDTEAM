@@ -1,5 +1,5 @@
 import { Suspense, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
@@ -7,6 +7,7 @@ import PageLoader from "./PageLoader";
 
 export default function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { pathname } = useLocation();
 
   return (
     <div
@@ -114,7 +115,9 @@ export default function DashboardLayout() {
             ].join(" ")}
           >
             <Suspense fallback={<PageLoader />}>
-              <Outlet />
+              <div key={pathname} className="page-enter">
+                <Outlet />
+              </div>
             </Suspense>
           </div>
         </main>

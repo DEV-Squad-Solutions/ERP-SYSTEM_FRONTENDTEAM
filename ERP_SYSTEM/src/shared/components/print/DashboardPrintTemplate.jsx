@@ -24,6 +24,8 @@ const fmtMoney = (value, currency) =>
   `${fmt(value)} ${getCurrencySymbol(currency)}`;
 
 export default function DashboardPrintTemplate({ data }) {
+  const company = useSelector((state) => state.auth.selectedCompany);
+
   if (!data) return null;
 
   const printedAt = formatDateTime(new Date());
@@ -38,7 +40,6 @@ export default function DashboardPrintTemplate({ data }) {
   const cashBalances = data.cashBalances || [];
   const alerts = data.alerts || [];
   const monthlyActivity = data.monthlyActivity || [];
-  const company = useSelector((state) => state.auth.selectedCompany);
 
   return (
     <div

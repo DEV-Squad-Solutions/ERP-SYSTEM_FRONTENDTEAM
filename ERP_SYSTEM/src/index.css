@@ -140,3 +140,74 @@
     background-color: rgba(201, 150, 44, 0.7);
   }
 }
+
+/* Motion: page transitions, button hover/press, list rows.
+   Everything is disabled under prefers-reduced-motion. */
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes row-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.page-enter {
+  animation: page-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button:not(.no-motion),
+  [role="button"]:not(.no-motion),
+  a.btn {
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease,
+      filter 0.2s ease,
+      opacity 0.2s ease;
+  }
+
+  button:not(:disabled):hover,
+  [role="button"]:not([aria-disabled="true"]):hover {
+    filter: brightness(1.05);
+  }
+
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+  }
+
+  tbody tr {
+    animation: row-enter 0.3s ease both;
+  }
+
+  tbody tr:nth-child(n + 2) { animation-delay: 0.02s; }
+  tbody tr:nth-child(n + 3) { animation-delay: 0.04s; }
+  tbody tr:nth-child(n + 4) { animation-delay: 0.06s; }
+  tbody tr:nth-child(n + 5) { animation-delay: 0.08s; }
+  tbody tr:nth-child(n + 6) { animation-delay: 0.1s; }
+  tbody tr:nth-child(n + 8) { animation-delay: 0.12s; }
+  tbody tr:nth-child(n + 12) { animation-delay: 0.14s; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  tbody tr {
+    animation: none;
+  }
+}
